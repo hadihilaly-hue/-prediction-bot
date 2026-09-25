@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     kalshi_api_base: str = KALSHI_DEMO_REST
     kalshi_api_key_id: str | None = None
     kalshi_private_key_path: Path | None = None
+    kalshi_private_key_pem: str | None = None  # inline PEM; alternative to the path
 
     # Sportsbook odds (https://the-odds-api.com)
     odds_api_key: str | None = None
@@ -59,4 +60,6 @@ class Settings(BaseSettings):
 
     @property
     def has_kalshi_credentials(self) -> bool:
-        return bool(self.kalshi_api_key_id and self.kalshi_private_key_path)
+        return bool(
+            self.kalshi_api_key_id and (self.kalshi_private_key_path or self.kalshi_private_key_pem)
+        )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import re
 import time
 from pathlib import Path
 from urllib.parse import urlparse
@@ -13,11 +14,30 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 PrivateKey = RSAPrivateKey | Ed25519PrivateKey
 
 
-def load_private_key(path: Path) -> PrivateKey:
-    key = serialization.load_pem_private_key(path.read_bytes(), password=None)
+_PEM_RE = re.compile(r"(-----BEGIN [A-Z ]+-----)(.*?)(-----END [A-Z ]+-----)", re.S)
+
+
+def normalize_pem(pem: str) -> bytes:
+    """Re-wrap a PEM whose newlines were lost (e.g. pasted into a single-line env var)."""
+    m = _PEM_RE.search(pem.strip())
+    if not m:
+        raise ValueError("Not a PEM private key (missing BEGIN/END markers)")
+    body = re.sub(r"\s+", "", m.group(2))
+    lines = [body[i : i + 64] for i in range(0, len(body), 64)]
+    return ("\n".join([m.group(1), *lines, m.group(3)]) + "\n").encode()
+
+
+def load_private_key_pem(pem: str | bytes) -> PrivateKey:
+    if isinstance(pem, bytes):
+        pem = pem.decode()
+    key = serialization.load_pem_private_key(normalize_pem(pem), password=None)
     if not isinstance(key, RSAPrivateKey | Ed25519PrivateKey):
         raise TypeError(f"Unsupported key type {type(key).__name__}; use RSA or Ed25519")
     return key
+
+
+def load_private_key(path: Path) -> PrivateKey:
+    return load_private_key_pem(path.read_bytes())
 
 
 def sign_message(private_key: PrivateKey, message: bytes) -> str:
@@ -47,6 +67,10 @@ class KalshiSigner:
     @classmethod
     def from_file(cls, api_key_id: str, key_path: Path) -> KalshiSigner:
         return cls(api_key_id, load_private_key(key_path))
+
+    @classmethod
+    def from_pem(cls, api_key_id: str, pem: str) -> KalshiSigner:
+        return cls(api_key_id, load_private_key_pem(pem))
 
     def headers(self, method: str, url: str, now_ms: int | None = None) -> dict[str, str]:
         ts = str(now_ms if now_ms is not None else int(time.time() * 1000))

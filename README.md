@@ -23,7 +23,9 @@ pbot report                              # PnL, fees, Brier score vs market pric
 1. Create an account at <https://demo.kalshi.co> (mock funds).
 2. Account & security → API Keys → create key. Save the private key PEM somewhere
    outside the repo (`*.pem` is git-ignored anyway).
-3. Set `PBOT_KALSHI_API_KEY_ID` and `PBOT_KALSHI_PRIVATE_KEY_PATH` in `.env`.
+3. Set `PBOT_KALSHI_API_KEY_ID` and either `PBOT_KALSHI_PRIVATE_KEY_PATH` or
+   `PBOT_KALSHI_PRIVATE_KEY_PEM` (the PEM contents inline; a single-line paste is fine)
+   in `.env`.
 4. `pbot balance` should print your demo balance.
 
 `pbot order TICKER yes 0.40 1` places a single real limit order on the configured venue.
