@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, cast
+from urllib.parse import urlparse
 
 import httpx
 
@@ -65,6 +66,7 @@ def parse_market(m: JSON) -> Market:
         status=str(m.get("status", "")),
         close_time=_ts(m.get("close_time")),
         quote=quote,
+        expected_expiration=_ts(m.get("expected_expiration_time")),
         volume=_dec(m.get("volume_fp")),
         open_interest=_dec(m.get("open_interest_fp")),
         result=str(m.get("result") or ""),
@@ -115,7 +117,8 @@ class KalshiClient:
 
     @property
     def is_demo(self) -> bool:
-        return "demo" in self.base_url
+        host = urlparse(self.base_url).hostname or ""
+        return host.endswith(".demo.kalshi.co") or host == "demo.kalshi.co"
 
     # ---- transport -------------------------------------------------------
 
@@ -221,6 +224,19 @@ class KalshiClient:
         return cast(
             list[JSON], self._request("GET", "/portfolio/positions").get("market_positions", [])
         )
+
+    def live_exposure(self, ticker: str, side: OutcomeSide) -> Decimal:
+        """Contracts held on `side` plus contracts still resting in open orders for it."""
+        held = Decimal(0)
+        for p in self.get_positions():
+            if p.get("ticker") == ticker:
+                pos = _dec(p.get("position_fp"))
+                if (pos > 0) == (side is OutcomeSide.yes):
+                    held += abs(pos)
+        for o in self.get_orders("resting"):
+            if o.get("ticker") == ticker and o.get("outcome_side") == side.value:
+                held += _dec(o.get("remaining_count_fp"))
+        return held
 
     def get_orders(self, status: str | None = "resting") -> list[JSON]:
         self._require_auth()

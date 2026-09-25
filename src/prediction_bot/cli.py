@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 import typer
 from rich.console import Console
@@ -185,10 +185,34 @@ def order(
     client = _client(s, need_auth=True)
     if not client.is_demo and not yes_i_mean_it:
         raise typer.BadParameter("Non-demo venue: pass --yes-i-mean-it to place a real-money order")
-    px, qty = Decimal(price), Decimal(count)
+    px, qty = _validate_order(price, count, s)
+    held = client.live_exposure(ticker, side)
+    if held + qty > s.max_position_contracts:
+        raise typer.BadParameter(
+            f"position would be {held + qty} contracts; "
+            f"PBOT_MAX_POSITION_CONTRACTS={s.max_position_contracts}"
+        )
+    console.print(client.create_order(ticker, side, qty, px))
+
+
+def _validate_order(price: str, count: str, s: Settings) -> tuple[Decimal, Decimal]:
+    try:
+        px, qty = Decimal(price), Decimal(count)
+    except InvalidOperation as e:
+        raise typer.BadParameter(f"price/count must be decimal numbers: {e}") from None
+    if not (px.is_finite() and qty.is_finite()):
+        raise typer.BadParameter("price/count must be finite")
+    if not Decimal("0.01") <= px <= Decimal("0.99"):
+        raise typer.BadParameter("price must be between 0.01 and 0.99 dollars")
+    if qty <= 0:
+        raise typer.BadParameter("count must be positive")
+    if qty > s.max_position_contracts:
+        raise typer.BadParameter(
+            f"count exceeds PBOT_MAX_POSITION_CONTRACTS={s.max_position_contracts}"
+        )
     if px * qty > s.max_order_notional:
         raise typer.BadParameter(f"notional exceeds PBOT_MAX_ORDER_NOTIONAL={s.max_order_notional}")
-    console.print(client.create_order(ticker, side, qty, px))
+    return px, qty
 
 
 def _fetch(client: KalshiClient, series: list[str]) -> list[Market]:

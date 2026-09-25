@@ -102,3 +102,42 @@ def test_create_order_signs_and_quotes_from_yes_leg(httpx_mock: HTTPXMock) -> No
     assert req.headers["KALSHI-ACCESS-KEY"] == "kid"
     assert req.headers["KALSHI-ACCESS-SIGNATURE"]
     assert req.url.path == "/trade-api/v2/portfolio/events/orders"
+
+
+@pytest.mark.parametrize(
+    ("url", "demo"),
+    [
+        (KALSHI_DEMO_REST, True),
+        ("https://api.elections.kalshi.com/trade-api/v2", False),
+        ("https://api.elections.kalshi.com/trade-api/v2/demo", False),
+        ("https://demo.kalshi.co.evil.example/trade-api/v2", False),
+        ("https://api.kalshi.com/demo-trade-api/v2", False),
+    ],
+)
+def test_is_demo_checks_hostname_not_substring(url: str, demo: bool) -> None:
+    assert KalshiClient(base_url=url).is_demo is demo
+
+
+def test_live_exposure_counts_positions_and_resting_orders(httpx_mock: HTTPXMock) -> None:
+    client = KalshiClient(signer=KalshiSigner("kid", ed25519.Ed25519PrivateKey.generate()))
+    httpx_mock.add_response(
+        url=f"{KALSHI_DEMO_REST}/portfolio/positions",
+        json={"market_positions": [{"ticker": "T", "position_fp": "-4.00"}]},
+    )
+    httpx_mock.add_response(
+        url=f"{KALSHI_DEMO_REST}/portfolio/orders?status=resting",
+        json={
+            "orders": [
+                {"ticker": "T", "outcome_side": "no", "remaining_count_fp": "2.00"},
+                {"ticker": "T", "outcome_side": "yes", "remaining_count_fp": "7.00"},
+                {"ticker": "X", "outcome_side": "no", "remaining_count_fp": "9.00"},
+            ]
+        },
+        is_reusable=True,
+    )
+    httpx_mock.add_response(
+        url=f"{KALSHI_DEMO_REST}/portfolio/positions",
+        json={"market_positions": [{"ticker": "T", "position_fp": "-4.00"}]},
+    )
+    assert client.live_exposure("T", OutcomeSide.no) == Decimal(6)
+    assert client.live_exposure("T", OutcomeSide.yes) == Decimal(7)

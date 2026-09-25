@@ -30,6 +30,8 @@ class Strategy(ABC):
         fair_prob: Decimal,
         rationale: str,
         taker: bool = True,
+        max_size: Decimal | None = None,
+        group: str | None = None,
     ) -> Signal | None:
         """Build a signal to buy `side` at the current ask if edge clears `min_edge`."""
         ask = market.quote.ask_for(side)
@@ -42,6 +44,8 @@ class Strategy(ABC):
         if edge < s.min_edge:
             return None
         size = self._size(ask, market.quote.ask_size_for(side))
+        if max_size is not None:
+            size = min(size, max_size)
         if size <= 0:
             return None
         return Signal(
@@ -53,6 +57,7 @@ class Strategy(ABC):
             edge=edge,
             size=size,
             rationale=rationale,
+            group=group,
         )
 
     def _size(self, price: Decimal, available: Decimal) -> Decimal:
@@ -60,6 +65,5 @@ class Strategy(ABC):
             rounding="ROUND_DOWN"
         )
         cap = min(by_notional, self.settings.max_position_contracts)
-        if available > 0:
-            cap = min(cap, available.to_integral_value(rounding="ROUND_DOWN"))
+        cap = min(cap, available.to_integral_value(rounding="ROUND_DOWN"))
         return max(cap, Decimal(0))
