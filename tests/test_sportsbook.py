@@ -132,6 +132,24 @@ def test_repeated_matchup_picks_game_nearest_expiration(settings) -> None:  # ty
     game = strat._match_game(legs, strat.games_for("americanfootball_ncaaf"))
     assert game is not None and game.event_id == "g2"
 
+    # a leg with only close_time (2 days after kickoff) must not widen the window once
+    # another leg supplies expected_expiration
+    mixed = [
+        make_market(
+            "KXNCAAFGAME-26OCT08USMTROY-USM",
+            "0.45",
+            "0.50",
+            subtitle="Southern Miss",
+            close_time=datetime(2026, 10, 11, 3, tzinfo=timezone.utc),
+        ),
+        legs[0],
+    ]
+    game = strat._match_game(mixed, strat.games_for("americanfootball_ncaaf"))
+    assert game is not None and game.event_id == "g2"
+    close_only = [mixed[0]]
+    game = strat._match_game(close_only, strat.games_for("americanfootball_ncaaf"))
+    assert game is not None and game.event_id == "g2"
+
     # without any date on the market, a duplicated matchup is ambiguous -> no match
     undated = [make_market("KXNCAAFGAME-26OCT08USMTROY-TROY", "0.50", "0.55", subtitle="Troy")]
     assert strat._match_game(undated, strat.games_for("americanfootball_ncaaf")) is None

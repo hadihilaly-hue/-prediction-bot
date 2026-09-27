@@ -9,7 +9,7 @@ from prediction_bot.config import Settings
 from prediction_bot.models import Market, OutcomeSide, Signal, fee_for
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.base import Strategy
-from prediction_bot.venues.kalshi import KalshiClient
+from prediction_bot.venues.kalshi import KalshiClient, KalshiError
 
 log = logging.getLogger(__name__)
 
@@ -58,8 +58,19 @@ class Engine:
                     self.ledger.record_signal(s, acted=False)
                 continue
             for sig in batch:
-                if self._act(sig, res):
+                if self._act(sig, res, grouped=len(batch) > 1):
                     res.acted.append(sig)
+                elif self.live and len(batch) > 1:
+                    done = [s for s in batch if s in res.acted]
+                    if done:
+                        log.error(
+                            "UNHEDGED: leg %s/%s failed after %d filled leg(s) of group %s",
+                            sig.ticker,
+                            sig.side.value,
+                            len(done),
+                            sig.group,
+                        )
+                    break
         return res
 
     @staticmethod
@@ -101,12 +112,27 @@ class Engine:
                 return False
         return True
 
-    def _act(self, sig: Signal, res: CycleResult) -> bool:
+    def _act(self, sig: Signal, res: CycleResult, grouped: bool = False) -> bool:
         if self.live:
-            order = self.kalshi.create_order(sig.ticker, sig.side, sig.size, sig.limit_price)
+            # Grouped legs go fill-or-kill so a leg can never rest half-hedged; a
+            # killed leg is reported as not acted and the rest of the group is skipped.
+            tif = "fill_or_kill" if grouped else "good_till_canceled"
+            try:
+                order = self.kalshi.create_order(
+                    sig.ticker, sig.side, sig.size, sig.limit_price, time_in_force=tif
+                )
+            except KalshiError as e:
+                log.warning("live order rejected %s/%s: %s", sig.ticker, sig.side.value, e)
+                self.ledger.record_signal(sig, acted=False)
+                return False
+            detail = order.get("order", order)
             res.live_orders.append(order)
+            if grouped and isinstance(detail, dict) and detail.get("status") != "executed":
+                log.warning("FOK leg not filled %s/%s: %s", sig.ticker, sig.side.value, detail)
+                self.ledger.record_signal(sig, acted=False)
+                return False
             self.ledger.record_signal(sig, acted=True)
-            log.info("LIVE order %s", order.get("order", order))
+            log.info("LIVE order %s", detail)
             return True
         fee = fee_for(sig.limit_price, sig.size, self.settings.taker_fee_multiplier)
         try:

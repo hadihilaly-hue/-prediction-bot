@@ -120,24 +120,31 @@ def test_is_demo_checks_hostname_not_substring(url: str, demo: bool) -> None:
 
 def test_live_exposure_counts_positions_and_resting_orders(httpx_mock: HTTPXMock) -> None:
     client = KalshiClient(signer=KalshiSigner("kid", ed25519.Ed25519PrivateKey.generate()))
+    pos_url = f"{KALSHI_DEMO_REST}/portfolio/positions?limit=1000&ticker=T"
+    ord_url = f"{KALSHI_DEMO_REST}/portfolio/orders?limit=1000&status=resting&ticker=T"
     httpx_mock.add_response(
-        url=f"{KALSHI_DEMO_REST}/portfolio/positions",
+        url=pos_url,
         json={"market_positions": [{"ticker": "T", "position_fp": "-4.00"}]},
+        is_reusable=True,
     )
+    # resting orders span two pages; the cap must count both
     httpx_mock.add_response(
-        url=f"{KALSHI_DEMO_REST}/portfolio/orders?status=resting",
+        url=ord_url,
         json={
-            "orders": [
-                {"ticker": "T", "outcome_side": "no", "remaining_count_fp": "2.00"},
-                {"ticker": "T", "outcome_side": "yes", "remaining_count_fp": "7.00"},
-                {"ticker": "X", "outcome_side": "no", "remaining_count_fp": "9.00"},
-            ]
+            "orders": [{"ticker": "T", "outcome_side": "no", "remaining_count_fp": "2.00"}],
+            "cursor": "c2",
         },
         is_reusable=True,
     )
     httpx_mock.add_response(
-        url=f"{KALSHI_DEMO_REST}/portfolio/positions",
-        json={"market_positions": [{"ticker": "T", "position_fp": "-4.00"}]},
+        url=ord_url + "&cursor=c2",
+        json={
+            "orders": [
+                {"ticker": "T", "outcome_side": "no", "remaining_count_fp": "5.00"},
+                {"ticker": "T", "outcome_side": "yes", "remaining_count_fp": "7.00"},
+            ]
+        },
+        is_reusable=True,
     )
-    assert client.live_exposure("T", OutcomeSide.no) == Decimal(6)
+    assert client.live_exposure("T", OutcomeSide.no) == Decimal(11)
     assert client.live_exposure("T", OutcomeSide.yes) == Decimal(7)

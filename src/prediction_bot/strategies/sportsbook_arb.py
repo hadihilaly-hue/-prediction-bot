@@ -95,12 +95,10 @@ class SportsbookArbStrategy(Strategy):
         names = [m.subtitle for m in legs if m.subtitle]
         need = min(2, len(names))
         anchor, window = None, cls.EXPIRATION_WINDOW
-        for m in legs:
-            if m.expected_expiration:
-                anchor = m.expected_expiration
-                break
-            if m.close_time and anchor is None:
-                anchor, window = m.close_time, cls.CLOSE_WINDOW
+        if exp := next((m.expected_expiration for m in legs if m.expected_expiration), None):
+            anchor = exp
+        elif close := next((m.close_time for m in legs if m.close_time), None):
+            anchor, window = close, cls.CLOSE_WINDOW
         candidates: list[tuple[timedelta, ConsensusOdds]] = []
         for g in games:
             hits = sum(1 for n in names if best_team(n, [g.home_team, g.away_team]))

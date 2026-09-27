@@ -219,31 +219,39 @@ class KalshiClient:
         self._require_auth()
         return self._request("GET", "/portfolio/balance")
 
-    def get_positions(self) -> list[JSON]:
+    def get_positions(self, ticker: str | None = None, max_pages: int = 50) -> list[JSON]:
         self._require_auth()
-        return cast(
-            list[JSON], self._request("GET", "/portfolio/positions").get("market_positions", [])
-        )
+        params: JSON = {"limit": 1000}
+        if ticker:
+            params["ticker"] = ticker
+        return list(self._paginate("/portfolio/positions", "market_positions", params, max_pages))
 
     def live_exposure(self, ticker: str, side: OutcomeSide) -> Decimal:
         """Contracts held on `side` plus contracts still resting in open orders for it."""
         held = Decimal(0)
-        for p in self.get_positions():
+        for p in self.get_positions(ticker=ticker):
             if p.get("ticker") == ticker:
                 pos = _dec(p.get("position_fp"))
                 if (pos > 0) == (side is OutcomeSide.yes):
                     held += abs(pos)
-        for o in self.get_orders("resting"):
+        for o in self.get_orders("resting", ticker=ticker):
             if o.get("ticker") == ticker and o.get("outcome_side") == side.value:
                 held += _dec(o.get("remaining_count_fp"))
         return held
 
-    def get_orders(self, status: str | None = "resting") -> list[JSON]:
+    def get_orders(
+        self,
+        status: str | None = "resting",
+        ticker: str | None = None,
+        max_pages: int = 50,
+    ) -> list[JSON]:
         self._require_auth()
-        params: JSON = {"status": status} if status else {}
-        return cast(
-            list[JSON], self._request("GET", "/portfolio/orders", params=params).get("orders", [])
-        )
+        params: JSON = {"limit": 1000}
+        if status:
+            params["status"] = status
+        if ticker:
+            params["ticker"] = ticker
+        return list(self._paginate("/portfolio/orders", "orders", params, max_pages))
 
     def get_fills(self, ticker: str | None = None) -> list[JSON]:
         self._require_auth()

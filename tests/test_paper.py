@@ -129,3 +129,26 @@ def test_engine_paper_cycle_never_calls_venue(settings) -> None:  # type: ignore
     settings.max_position_contracts = Decimal(30)
     res2 = eng.run_cycle([make_market("E-A", yes_bid="0.50", yes_ask="0.40")])
     assert res2.acted == []
+
+
+def test_engine_live_grouped_legs_are_fok_and_stop_on_kill(settings) -> None:  # type: ignore[no-untyped-def]
+    class Venue:
+        def __init__(self) -> None:
+            self.orders: list[tuple[object, ...]] = []
+
+        def live_exposure(self, ticker: str, side: OutcomeSide) -> Decimal:
+            return Decimal(0)
+
+        def create_order(
+            self, ticker: str, side: OutcomeSide, count: Decimal, price: Decimal, **kw: object
+        ) -> dict[str, object]:
+            self.orders.append((side, kw.get("time_in_force")))
+            return {"order": {"status": "canceled"}}  # FOK killed
+
+    ledger = Ledger(settings.paper_db_path, settings.paper_starting_cash)
+    venue = Venue()
+    settings.mode = Mode.live
+    eng = Engine(settings, venue, [BookScannerStrategy(settings)], ledger, allow_live=True)  # type: ignore[arg-type]
+    res = eng.run_cycle([make_market("E-A", yes_bid="0.50", yes_ask="0.40")])
+    assert res.acted == []
+    assert venue.orders == [(OutcomeSide.yes, "fill_or_kill")]  # second leg never sent
