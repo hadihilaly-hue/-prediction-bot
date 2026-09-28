@@ -1,1 +1,48 @@
  scanned=3000 signals=0 filled=0 settled=0 cash=970.40
+ scanned=554 signals=7 filled=5 settled=0 cash=958.36
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ sportsboo… │ KXNCAAFGA… │ no   │ 0.0900 │ 0.1101 │ 0.0101 │ 7    │ North     │
+│            │            │      │        │        │        │      │ Dakota    │
+│            │            │      │        │        │        │      │ State     │
+│            │            │      │        │        │        │      │ Bison     │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.890     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (North    │
+│ sportsboo… │ KXNCAAFGA… │ yes  │ 0.0500 │ 0.0702 │ 0.0102 │ 100  │ Vanderbi… │
+│            │            │      │        │        │        │      │ Commodor… │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.070     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Georgia  │
+│ sportsboo… │ KXNCAAFGA… │ no   │ 0.0500 │ 0.0702 │ 0.0102 │ 100  │ Georgia   │
+│            │            │      │        │        │        │      │ Bulldogs  │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.930     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Georgia  │
+│            │            │      │        │        │        │      │ Bulld     │
+│ sportsboo… │ KXNCAAFGA… │ no   │ 0.0900 │ 0.1100 │ 0.0100 │ 5    │ Toledo    │
+│            │            │      │        │        │        │      │ Rockets   │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.890     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Ball     │
+│            │            │      │        │        │        │      │ State     │
+│            │            │      │        │        │        │      │ Card      │
+│ sportsboo… │ KXNCAAFGA… │ yes  │ 0.0900 │ 0.1100 │ 0.0100 │ 2    │ Ball      │
+│            │            │      │        │        │        │      │ State     │
+│            │            │      │        │        │        │      │ Cardinals │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.110     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Ball     │
+│            │            │      │        │        │        │      │ Stat      │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘

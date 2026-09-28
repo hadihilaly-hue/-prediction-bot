@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-09-28 22:38 UTC. Cash **$970.40** (started $1000.00), realized PnL **$0.00**, fees $1.75, settled 0, wins 0, open positions 4.
+Updated 2026-09-28 23:50 UTC. Cash **$958.36** (started $1000.00), realized PnL **$0.00**, fees $2.53, settled 0, wins 0, open positions 8.
 
 Brier (lower is better): strategy - vs market price -.
 
@@ -8,6 +8,13 @@ Brier (lower is better): strategy - vs market price -.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-09-28 23:50 | sportsbook\_arb | Ball St. wins — YES: Kalshi says 9%, we say 11%; bought at 9¢ | yes | 0.0900 | 0.1100 | +0.0100 | 2 | yes | open | Ball State Cardinals consensus 0.110 from 3 books \(Ball State Cardinals vs Toledo Rockets\) | KXNCAAFGAME-26OCT03TOLBALL-BALL |
+| 2026-09-28 23:50 | sportsbook\_arb | Toledo wins — NO: Kalshi says 9%, we say 11%; bought at 9¢ | no | 0.0900 | 0.1100 | +0.0100 | 5 | yes | open | Toledo Rockets consensus 0.890 from 3 books \(Ball State Cardinals vs Toledo Rockets\) | KXNCAAFGAME-26OCT03TOLBALL-TOL |
+| 2026-09-28 23:50 | sportsbook\_arb | Georgia wins — NO: Kalshi says 5%, we say 7%; bought at 5¢ | no | 0.0500 | 0.0702 | +0.0102 | 100 | yes | open | Georgia Bulldogs consensus 0.930 from 3 books \(Georgia Bulldogs vs Vanderbilt Commodores\) | KXNCAAFGAME-26OCT03VANUGA-UGA |
+| 2026-09-28 23:50 | sportsbook\_arb | Vanderbilt wins — YES: Kalshi says 5%, we say 7%; bought at 5¢ | yes | 0.0500 | 0.0702 | +0.0102 | 100 | yes | open | Vanderbilt Commodores consensus 0.070 from 3 books \(Georgia Bulldogs vs Vanderbilt Commodores\) | KXNCAAFGAME-26OCT03VANUGA-VAN |
+| 2026-09-28 23:50 | sportsbook\_arb | North Dakota St. wins — NO: Kalshi says 9%, we say 11%; bought at 9¢ | no | 0.0900 | 0.1101 | +0.0101 | 7 | yes | open | North Dakota State Bison consensus 0.890 from 3 books \(North Dakota State Bison vs Wyoming Cowboys\) | KXNCAAFGAME-26OCT03WYONDSU-NDSU |
+| 2026-09-28 23:50 | sportsbook\_arb | Boise St. wins — NO: Kalshi says 8%, we say 10%; would buy at 8¢ | no | 0.0800 | 0.1024 | +0.0124 | 100 | no | open | Boise State Broncos consensus 0.898 from 3 books \(Boise State Broncos vs Utah State Aggies\) | KXNCAAFGAME-26OCT03USUBSU-BSU |
+| 2026-09-28 23:50 | sportsbook\_arb | Utah St. wins — YES: Kalshi says 8%, we say 10%; would buy at 8¢ | yes | 0.0800 | 0.1024 | +0.0124 | 100 | no | open | Utah State Aggies consensus 0.102 from 3 books \(Boise State Broncos vs Utah State Aggies\) | KXNCAAFGAME-26OCT03USUBSU-USU |
 | 2026-09-28 18:37 | sportsbook\_arb | Ohio St. wins — NO: Kalshi says 16%, we say 18%; bought at 16¢ | no | 0.1600 | 0.1805 | +0.0105 | 69 | yes | open | Ohio State Buckeyes consensus 0.819 from 3 books \(Iowa Hawkeyes vs Ohio State Buckeyes\) | KXNCAAFGAME-26OCT03OSUIOWA-OSU |
 | 2026-09-28 18:37 | sportsbook\_arb | North Dakota St. wins — NO: Kalshi says 9%, we say 11%; bought at 9¢ | no | 0.0900 | 0.1101 | +0.0101 | 9 | yes | open | North Dakota State Bison consensus 0.890 from 3 books \(North Dakota State Bison vs Wyoming Cowboys\) | KXNCAAFGAME-26OCT03WYONDSU-NDSU |
 | 2026-09-28 18:37 | sportsbook\_arb | Boise St. wins — NO: Kalshi says 8%, we say 10%; bought at 8¢ | no | 0.0800 | 0.1015 | +0.0115 | 100 | yes | open | Boise State Broncos consensus 0.898 from 3 books \(Boise State Broncos vs Utah State Aggies\) | KXNCAAFGAME-26OCT03USUBSU-BSU |
