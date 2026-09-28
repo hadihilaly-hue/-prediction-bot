@@ -147,9 +147,9 @@ class Engine:
         return True
 
     def settle_open_positions(self) -> dict[str, Decimal]:
-        """Look up every ticker we hold; settle those Kalshi has resolved."""
+        """Look up every ticker we hold or predicted; settle those Kalshi has resolved."""
         out: dict[str, Decimal] = {}
-        tickers = self.ledger.open_tickers()
+        tickers = self.ledger.unsettled_tickers()
         for i in range(0, len(tickers), 50):
             for m in self.kalshi.get_markets(status=None, tickers=tickers[i : i + 50]):
                 if m.is_settled:

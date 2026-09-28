@@ -49,6 +49,7 @@ jobs:
               | tee -a ledger/last_run.txt
           fi
           pbot report | tee ledger/REPORT.txt
+          pbot predictions --limit 0 --markdown ledger/PREDICTIONS.md >/dev/null
 
       - name: Commit ledger
         run: |
@@ -61,9 +62,9 @@ jobs:
             git worktree add --detach wt HEAD
             (cd wt && git checkout -q --orphan paper-ledger && git rm -rfq .)
           fi
-          cp ledger/paper.sqlite ledger/last_run.txt ledger/REPORT.txt wt/
+          cp ledger/paper.sqlite ledger/last_run.txt ledger/REPORT.txt ledger/PREDICTIONS.md wt/
           cd wt
-          git add paper.sqlite last_run.txt REPORT.txt
+          git add paper.sqlite last_run.txt REPORT.txt PREDICTIONS.md
           if git diff --cached --quiet; then echo "no changes"; exit 0; fi
           git commit -q -m "paper cycle $(date -u +%FT%TZ)"
           git push origin paper-ledger

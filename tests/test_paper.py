@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
 
+from prediction_bot.cli import predictions_markdown
 from prediction_bot.config import Mode
 from prediction_bot.engine import Engine
-from prediction_bot.models import OutcomeSide, fee_for
+from prediction_bot.models import OutcomeSide, Signal, fee_for
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.book_scanner import BookScannerStrategy
 from tests.conftest import make_market
@@ -43,6 +45,42 @@ def test_ledger_fill_settle_and_performance(tmp_path) -> None:  # type: ignore[n
     # brier weighted by contracts: T1 (0.6-1)^2*10 + T2 (0.5-0)^2*5 over 15
     assert p.brier_score == (Decimal("0.16") * 10 + Decimal("0.25") * 5) / 15
     assert p.market_brier_score == (Decimal("0.36") * 10 + Decimal("0.09") * 5) / 15
+
+
+def test_ledger_predictions_join_settlement(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    led = Ledger(tmp_path / "l.sqlite", Decimal("100"))
+    sig = Signal(
+        "s",
+        "T1",
+        OutcomeSide.yes,
+        Decimal("0.6"),
+        Decimal("0.4"),
+        Decimal("0.18"),
+        Decimal(5),
+        rationale="[x](http://evil) | `y`",
+    )
+    led.record_signal(sig, acted=True)
+    led.record_signal(replace(sig, ticker="T2"), acted=False)
+    assert led.unsettled_tickers() == ["T1", "T2"]
+    led.record_fill(
+        "s", "T1", OutcomeSide.yes, Decimal("0.4"), Decimal(5), Decimal("0.1"), Decimal("0.6")
+    )
+    led.settle("T1", OutcomeSide.no)
+
+    preds = led.predictions()
+    assert [p.ticker for p in preds] == ["T2", "T1"]  # newest first
+    assert preds[0].result is None and preds[0].won is None and not preds[0].acted
+    assert preds[1].result is OutcomeSide.no and preds[1].won is False and preds[1].acted
+    assert led.predictions(limit=1)[0].ticker == "T2"
+    assert led.unsettled_tickers() == ["T2"]  # unfilled signals are tracked to resolution
+    led.settle("T2", OutcomeSide.yes)
+    assert led.unsettled_tickers() == []
+    assert led.performance().settled_count == 1  # signal-only ticker adds no fill
+
+    md = predictions_markdown(led, preds)
+    assert "| T1 | yes | 0.4000 | 0.6000 | +0.1800 | 5 | yes | lost (no) |" in md
+    assert "| T2 | yes |" in md and "| no | open |" in md
+    assert "\\[x\\]\\(http://evil\\) \\| \\`y\\`" in md and "[x](" not in md
 
 
 def test_ledger_rejects_overspend(tmp_path) -> None:  # type: ignore[no-untyped-def]

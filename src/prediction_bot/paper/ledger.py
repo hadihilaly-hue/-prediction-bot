@@ -56,6 +56,25 @@ class Position:
 
 
 @dataclass(frozen=True)
+class Prediction:
+    created_at: str
+    strategy: str
+    ticker: str
+    side: OutcomeSide
+    limit_price: Decimal
+    fair_prob: Decimal
+    edge: Decimal
+    size: Decimal
+    rationale: str
+    acted: bool
+    result: OutcomeSide | None  # settled market outcome, None while open
+
+    @property
+    def won(self) -> bool | None:
+        return None if self.result is None else self.result == self.side
+
+
+@dataclass(frozen=True)
 class Performance:
     cash: Decimal
     starting_cash: Decimal
@@ -171,6 +190,15 @@ class Ledger:
     def open_tickers(self) -> list[str]:
         return sorted({p.ticker for p in self.positions()})
 
+    def unsettled_tickers(self) -> list[str]:
+        """Tickers with any fill *or* signal that Kalshi has not yet been seen to resolve."""
+        rows = self.conn.execute(
+            "SELECT DISTINCT t FROM (SELECT ticker AS t FROM fills UNION"
+            " SELECT ticker FROM signals) WHERE t NOT IN (SELECT ticker FROM settlements)"
+            " ORDER BY t"
+        ).fetchall()
+        return [r[0] for r in rows]
+
     # ---- settlement ---------------------------------------------------------
 
     def settle(self, ticker: str, result: OutcomeSide, at: datetime | None = None) -> Decimal:
@@ -197,6 +225,32 @@ class Ledger:
         return pnl
 
     # ---- reporting ----------------------------------------------------------
+
+    def predictions(self, limit: int = 0) -> list[Prediction]:
+        """Every recorded signal (newest first) with the market's result once settled."""
+        sql = (
+            "SELECT g.created_at, g.strategy, g.ticker, g.side, g.limit_price, g.fair_prob,"
+            " g.edge, g.size, g.rationale, g.acted, s.result FROM signals g"
+            " LEFT JOIN settlements s ON s.ticker = g.ticker ORDER BY g.id DESC"
+        )
+        if limit:
+            sql += f" LIMIT {int(limit)}"
+        return [
+            Prediction(
+                created_at=r[0],
+                strategy=r[1],
+                ticker=r[2],
+                side=OutcomeSide(r[3]),
+                limit_price=Decimal(r[4]),
+                fair_prob=Decimal(r[5]),
+                edge=Decimal(r[6]),
+                size=Decimal(r[7]),
+                rationale=r[8],
+                acted=bool(r[9]),
+                result=OutcomeSide(r[10]) if r[10] else None,
+            )
+            for r in self.conn.execute(sql)
+        ]
 
     def performance(self) -> Performance:
         pos = self.positions()
