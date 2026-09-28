@@ -1,12 +1,16 @@
 name: Paper trading
 
-# Paper-trades three times a day against Kalshi's *public production* market data
-# (real prices, no credentials, paper mode never places orders) and persists the
-# SQLite ledger + report on the `paper-ledger` branch. Three runs x 4 sports keeps
-# The Odds API usage (~360 req/month) inside the free 500/month tier.
+# Paper-trades against Kalshi's *public production* market data (real prices, no
+# credentials, paper mode never places orders) and persists the SQLite ledger +
+# report on the `paper-ledger` branch. The book scanner runs every 30 min (free on a
+# public repo); the sportsbook strategy only on the 3 daily slots so The Odds API
+# usage (3 runs x 4 sports x 31 days = 372 req/month) stays inside the free 500 tier.
+# Manual runs always include the sportsbook strategy.
 on:
   schedule:
-    - cron: "17 3,11,19 * * *"
+    - cron: "17 3,11,19 * * *"  # book scanner + sportsbook
+    - cron: "47 * * * *"  # book scanner only
+    - cron: "17 0-2,4-10,12-18,20-23 * * *"  # book scanner only
   workflow_dispatch:
 
 concurrency:
@@ -40,10 +44,13 @@ jobs:
           PBOT_KALSHI_API_BASE: https://api.elections.kalshi.com/trade-api/v2
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
           PBOT_ODDS_API_KEY: ${{ secrets.PBOT_ODDS_API_KEY }}
+          # github.event.schedule is the cron expression that fired, so slot selection is
+          # immune to delayed starts; manual runs always include the sportsbook strategy.
+          SPORTSBOOK_SLOT: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3,11,19 * * *' }}
         run: |
           set -eo pipefail
           pbot paper -s book_scanner --cycles 1 | tee ledger/last_run.txt
-          if [ -n "$PBOT_ODDS_API_KEY" ]; then
+          if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" = true ]; then
             pbot paper -s sportsbook_arb --cycles 1 \
               --series KXNFLGAME --series KXNCAAFGAME --series KXNBAGAME --series KXNHLGAME \
               | tee -a ledger/last_run.txt

@@ -245,28 +245,32 @@ _TEMPLATE = """<!doctype html>
             { base: P.starting_cash, fmt: (v) => '$' + v.toFixed(0) });
   barChart($('activity'), D.runs);
 
+  // column: [header, display, cssClass, isRawHtml, tdClass, sortKey]; sortKey defaults to display
+  const num = (k) => (r) => r[k] == null ? -Infinity : r[k];
   const COLS = {
     predictions: [
-      ['when (UTC)', r => when(r.when)], ['strategy', r => r.strategy], ['market', r => r.ticker],
-      ['side', r => r.side], ['price', r => f4(r.price)], ['fair', r => f4(r.fair)],
-      ['edge', r => (r.edge > 0 ? '+' : '') + f4(r.edge), r => sign(r.edge)], ['size', r => r.size],
+      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['strategy', r => r.strategy], ['market', r => r.ticker],
+      ['side', r => r.side], ['price', r => f4(r.price), null, false, null, num('price')], ['fair', r => f4(r.fair), null, false, null, num('fair')],
+      ['edge', r => (r.edge > 0 ? '+' : '') + f4(r.edge), r => sign(r.edge), false, null, num('edge')], ['size', r => r.size, null, false, null, num('size')],
       ['traded', r => r.traded ? 'yes' : 'no', r => r.traded ? '' : 'muted'],
       ['result', r => r.result == null ? '<span class="pill">open</span>'
-        : '<span class="pill ' + (r.won ? 'won' : 'lost') + '">' + (r.won ? 'WON' : 'lost') + ' (' + esc(r.result) + ')</span>', null, true],
+        : '<span class="pill ' + (r.won ? 'won' : 'lost') + '">' + (r.won ? 'WON' : 'lost') + ' (' + esc(r.result) + ')</span>', null, true, null,
+        r => r.result == null ? 0 : r.won ? 2 : 1],
       ['why', r => r.why, null, false, 'why'],
     ],
     trades: [
-      ['when (UTC)', r => when(r.when)], ['strategy', r => r.strategy], ['market', r => r.ticker],
-      ['side', r => r.side], ['price', r => f4(r.price)], ['contracts', r => r.count],
-      ['fee', r => money(r.fee)], ['cost', r => money(r.cost)], ['fair', r => f4(r.fair)],
+      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['strategy', r => r.strategy], ['market', r => r.ticker],
+      ['side', r => r.side], ['price', r => f4(r.price), null, false, null, num('price')], ['contracts', r => r.count, null, false, null, num('count')],
+      ['fee', r => money(r.fee), null, false, null, num('fee')], ['cost', r => money(r.cost), null, false, null, num('cost')], ['fair', r => f4(r.fair), null, false, null, num('fair')],
       ['result', r => r.result == null ? '<span class="pill">open</span>'
-        : '<span class="pill ' + (r.pnl >= 0 ? 'won' : 'lost') + '">' + esc(r.result) + '</span>', null, true],
-      ['pnl', r => money(r.pnl), r => sign(r.pnl)], ['settled (UTC)', r => when(r.settled_at)],
+        : '<span class="pill ' + (r.pnl >= 0 ? 'won' : 'lost') + '">' + esc(r.result) + '</span>', null, true, null,
+        r => r.result == null ? 0 : r.pnl >= 0 ? 2 : 1],
+      ['pnl', r => money(r.pnl), r => sign(r.pnl), false, null, num('pnl')], ['settled (UTC)', r => when(r.settled_at), null, false, null, r => r.settled_at || ''],
     ],
     runs: [
-      ['when (UTC)', r => when(r.when)], ['strategies', r => r.strategies], ['markets scanned', r => r.scanned],
-      ['signals', r => r.signals], ['fills', r => r.filled], ['settled', r => r.settled],
-      ['cash', r => money(r.cash)], ['equity', r => money(r.equity)],
+      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['strategies', r => r.strategies], ['markets scanned', r => r.scanned, null, false, null, num('scanned')],
+      ['signals', r => r.signals, null, false, null, num('signals')], ['fills', r => r.filled, null, false, null, num('filled')], ['settled', r => r.settled, null, false, null, num('settled')],
+      ['cash', r => money(r.cash), null, false, null, num('cash')], ['equity', r => money(r.equity), null, false, null, num('equity')],
     ],
   };
   let tab = 'predictions', sortKey = null, sortDir = -1;
@@ -285,11 +289,11 @@ _TEMPLATE = """<!doctype html>
     const cols = COLS[tab];
     let rs = rows();
     if (sortKey != null) {
-      const [, get] = cols[sortKey];
+      const get = cols[sortKey][5] || cols[sortKey][1];
       rs = rs.slice().sort((a, b) => { const x = get(a), y = get(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
     }
     let h = '<thead><tr>' + cols.map(([n], i) => '<th data-i="' + i + '">' + esc(n) + (sortKey === i ? (sortDir > 0 ? ' ▲' : ' ▼') : '') + '</th>').join('') + '</tr></thead><tbody>';
-    if (!rs.length) h += '<tr><td colspan="' + cols.length + '" class="empty">nothing here yet — the scheduled run adds rows 3×/day</td></tr>';
+    if (!rs.length) h += '<tr><td colspan="' + cols.length + '" class="empty">nothing here yet — the scheduled run adds rows every 30 min</td></tr>';
     for (const r of rs) h += '<tr>' + cols.map(([, get, cls, raw, td]) =>
       '<td class="' + (td || '') + ' ' + (cls ? cls(r) : '') + '">' + (raw ? get(r) : esc(get(r) ?? '-')) + '</td>').join('') + '</tr>';
     $('table').innerHTML = h + '</tbody>';

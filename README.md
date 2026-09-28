@@ -61,9 +61,11 @@ and sizing are applied consistently) and registering it in `strategies/__init__.
 
 ## Scheduled paper trading (GitHub Actions)
 
-`.github/workflows/paper.yml` runs one paper cycle three times a day against Kalshi's
+`.github/workflows/paper.yml` runs one paper cycle every 30 minutes against Kalshi's
 **public production** prices (paper mode never places orders; no Kalshi credentials
-are used) and commits `paper.sqlite`, `last_run.txt`, `REPORT.txt` and a human-readable
+are used). The book scanner runs every cycle; the sportsbook strategy only on the 03:17,
+11:17 and 19:17 UTC cycles (and manual runs) to stay inside The Odds API free tier
+(500 requests/month). Each cycle commits `paper.sqlite`, `last_run.txt`, `REPORT.txt` and a human-readable
 `PREDICTIONS.md` (every signal with price, fair estimate, edge and outcome once settled) to
 the `paper-ledger` branch — that file is the place to see what the bot is predicting.
 Locally, `pbot predictions` prints the same table.
