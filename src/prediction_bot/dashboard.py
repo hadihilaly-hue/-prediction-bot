@@ -39,6 +39,7 @@ def dashboard_data(ledger: Ledger) -> dict[str, object]:
                 "when": p.created_at,
                 "strategy": p.strategy,
                 "ticker": p.ticker,
+                "summary": p.summary,
                 "side": p.side.value,
                 "price": _num(p.limit_price),
                 "fair": _num(p.fair_prob),
@@ -56,6 +57,7 @@ def dashboard_data(ledger: Ledger) -> dict[str, object]:
                 "when": t.created_at,
                 "strategy": t.strategy,
                 "ticker": t.ticker,
+                "summary": t.summary,
                 "side": t.side.value,
                 "price": _num(t.price),
                 "count": _num(t.count),
@@ -132,6 +134,7 @@ _TEMPLATE = """<!doctype html>
   th { position:sticky; top:0; background:var(--card); color:var(--muted); font-weight:600;
        cursor:pointer; user-select:none; }
   td.why { white-space:normal; min-width:260px; max-width:520px; color:var(--muted); }
+  td.summary { white-space:normal; min-width:280px; max-width:420px; font-weight:600; }
   tr:hover td { background:#1d2129; }
   .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px;
           border:1px solid var(--line); }
@@ -249,23 +252,24 @@ _TEMPLATE = """<!doctype html>
   const num = (k) => (r) => r[k] == null ? -Infinity : r[k];
   const COLS = {
     predictions: [
-      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['strategy', r => r.strategy], ['market', r => r.ticker],
+      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['prediction', r => r.summary, null, false, 'summary'], ['strategy', r => r.strategy],
       ['side', r => r.side], ['price', r => f4(r.price), null, false, null, num('price')], ['fair', r => f4(r.fair), null, false, null, num('fair')],
       ['edge', r => (r.edge > 0 ? '+' : '') + f4(r.edge), r => sign(r.edge), false, null, num('edge')], ['size', r => r.size, null, false, null, num('size')],
       ['traded', r => r.traded ? 'yes' : 'no', r => r.traded ? '' : 'muted'],
       ['result', r => r.result == null ? '<span class="pill">open</span>'
         : '<span class="pill ' + (r.won ? 'won' : 'lost') + '">' + (r.won ? 'WON' : 'lost') + ' (' + esc(r.result) + ')</span>', null, true, null,
         r => r.result == null ? 0 : r.won ? 2 : 1],
-      ['why', r => r.why, null, false, 'why'],
+      ['why', r => r.why, null, false, 'why'], ['ticker', r => r.ticker, () => 'muted'],
     ],
     trades: [
-      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['strategy', r => r.strategy], ['market', r => r.ticker],
+      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['trade', r => r.summary, null, false, 'summary'], ['strategy', r => r.strategy],
       ['side', r => r.side], ['price', r => f4(r.price), null, false, null, num('price')], ['contracts', r => r.count, null, false, null, num('count')],
       ['fee', r => money(r.fee), null, false, null, num('fee')], ['cost', r => money(r.cost), null, false, null, num('cost')], ['fair', r => f4(r.fair), null, false, null, num('fair')],
       ['result', r => r.result == null ? '<span class="pill">open</span>'
         : '<span class="pill ' + (r.pnl >= 0 ? 'won' : 'lost') + '">' + esc(r.result) + '</span>', null, true, null,
         r => r.result == null ? 0 : r.pnl >= 0 ? 2 : 1],
       ['pnl', r => money(r.pnl), r => sign(r.pnl), false, null, num('pnl')], ['settled (UTC)', r => when(r.settled_at), null, false, null, r => r.settled_at || ''],
+      ['ticker', r => r.ticker, () => 'muted'],
     ],
     runs: [
       ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['strategies', r => r.strategies], ['markets scanned', r => r.scanned, null, false, null, num('scanned')],

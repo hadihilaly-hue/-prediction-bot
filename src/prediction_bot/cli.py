@@ -189,26 +189,22 @@ def predictions(
     for col in (
         "when (UTC)",
         "strategy",
-        "ticker",
-        "side",
-        "price",
-        "fair",
+        "prediction",
         "edge",
         "traded",
         "result",
+        "ticker",
     ):
         t.add_column(col)
     for p in preds:
         t.add_row(
             p.created_at[:16].replace("T", " "),
             p.strategy,
-            p.ticker,
-            p.side.value,
-            _fmt(p.limit_price),
-            _fmt(p.fair_prob),
+            p.summary,
             _fmt(p.edge),
             "yes" if p.acted else "no",
             _outcome(p),
+            p.ticker,
         )
     console.print(t)
     if markdown is not None:
@@ -239,18 +235,19 @@ def predictions_markdown(ledger: Ledger, preds: list[Prediction]) -> str:
         " `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or"
         " cash blocked the fill.",
         "",
-        "| when (UTC) | strategy | market | side | price | fair | edge | size | traded"
-        " | result | why |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
+        "| when (UTC) | strategy | prediction | side | price | fair | edge | size | traded"
+        " | result | why | ticker |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     if not preds:
-        lines.append("| _no signals yet_ | | | | | | | | | | |")
+        lines.append("| _no signals yet_ | | | | | | | | | | | |")
     for p in preds:
         when = p.created_at[:16].replace("T", " ")
         lines.append(
-            f"| {when} | {_md(p.strategy)} | {_md(p.ticker)} | {p.side.value}"
+            f"| {when} | {_md(p.strategy)} | {_md(p.summary)} | {p.side.value}"
             f" | {p.limit_price:.4f} | {p.fair_prob:.4f} | {p.edge:+.4f} | {p.size:.0f}"
-            f" | {'yes' if p.acted else 'no'} | {_outcome(p)} | {_md(p.rationale)} |"
+            f" | {'yes' if p.acted else 'no'} | {_outcome(p)} | {_md(p.rationale)}"
+            f" | {_md(p.ticker)} |"
         )
     return "\n".join(lines) + "\n"
 

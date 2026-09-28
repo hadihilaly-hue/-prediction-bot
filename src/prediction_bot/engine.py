@@ -52,6 +52,8 @@ class Engine:
                 res.signals.extend(strat.evaluate(markets))
             except Exception:  # keep other strategies alive
                 log.exception("strategy %s failed", strat.name)
+        hit = {s.ticker for s in res.signals} | set(self.ledger.unsettled_tickers())
+        self.ledger.remember_markets([m for m in markets if m.ticker in hit])
         for batch in self._batches(res.signals):
             if not all(self._admissible(s, batch) for s in batch):
                 for s in batch:

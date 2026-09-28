@@ -78,8 +78,11 @@ def test_ledger_predictions_join_settlement(tmp_path) -> None:  # type: ignore[n
     assert led.performance().settled_count == 1  # signal-only ticker adds no fill
 
     md = predictions_markdown(led, preds)
-    assert "| T1 | yes | 0.4000 | 0.6000 | +0.1800 | 5 | yes | lost (no) |" in md
-    assert "| T2 | yes |" in md and "| no | open |" in md
+    assert (
+        "| T1 — YES: Kalshi says 40%, we say 60%; bought at 40¢ | yes | 0.4000 | 0.6000"
+        " | +0.1800 | 5 | yes | lost (no) |" in md
+    )
+    assert "| T2 — YES:" in md and "| no | open |" in md and "| T1 |\n" in md
     assert "\\[x\\]\\(http://evil\\) \\| \\`y\\`" in md and "[x](" not in md
 
 
@@ -120,6 +123,37 @@ def test_ledger_trades_runs_and_dashboard(tmp_path) -> None:  # type: ignore[no-
     page = render_dashboard(led)
     assert page.count("<script") == 2 and "</script><img" not in page
     assert "<\\/script><img" in page  # data stays inside the JSON block, escaped by the JS
+
+
+def test_predictions_and_trades_read_as_plain_english(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from prediction_bot.dashboard import dashboard_data, render_dashboard
+
+    led = Ledger(tmp_path / "l.sqlite", Decimal("100"))
+    led.remember_markets([make_market("E-A", "0.90", "0.92", title="Boise St. wins.")])
+    led.record_signal(
+        Signal("s", "E-A", OutcomeSide.no, Decimal("0.10"), Decimal("0.08"), Decimal("0.01"), 5),
+        acted=True,
+    )
+    led.record_fill(
+        "s", "E-A", OutcomeSide.no, Decimal("0.08"), Decimal(5), Decimal("0.01"), Decimal("0.10")
+    )
+    led.record_signal(
+        Signal("s", "E-B", OutcomeSide.yes, Decimal("0.60"), Decimal("0.55"), Decimal("0.02"), 1),
+        acted=False,
+    )
+    unknown, old = led.predictions()
+    assert old.summary == "Boise St. wins — NO: Kalshi says 8%, we say 10%; bought at 8¢"
+    assert unknown.summary == "E-B — YES: Kalshi says 55%, we say 60%; would buy at 55¢"
+    (t,) = led.trades()
+    assert t.summary == old.summary
+
+    data = dashboard_data(led)
+    assert data["predictions"][1]["summary"] == old.summary  # type: ignore[index]
+    assert data["trades"][0]["summary"] == old.summary  # type: ignore[index]
+
+    led.remember_markets([make_market("E-B", "0.5", "0.55", title="<b>x</b></script>")])
+    page = render_dashboard(led)
+    assert page.count("<script") == 2 and "<b>x<\\/b><\\/script>" in page
 
 
 def test_ledger_rejects_overspend(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -229,9 +263,10 @@ def test_engine_paper_cycle_never_calls_venue(settings) -> None:  # type: ignore
 
     ledger = Ledger(settings.paper_db_path, settings.paper_starting_cash)
     eng = Engine(settings, NoVenue(), [BookScannerStrategy(settings)], ledger)  # type: ignore[arg-type]
-    res = eng.run_cycle([make_market("E-A", yes_bid="0.50", yes_ask="0.40")])
+    res = eng.run_cycle([make_market("E-A", yes_bid="0.50", yes_ask="0.40", title="Team A wins")])
     assert len(res.acted) == 2
     assert ledger.cash < settings.paper_starting_cash
+    assert all(t.title == "Team A wins" for t in ledger.trades())
     # position cap: a second identical cycle must not exceed max_position_contracts
     settings.max_position_contracts = Decimal(30)
     res2 = eng.run_cycle([make_market("E-A", yes_bid="0.50", yes_ask="0.40")])
