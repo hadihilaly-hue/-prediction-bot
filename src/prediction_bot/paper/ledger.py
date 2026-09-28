@@ -114,6 +114,7 @@ class Prediction:
     acted: bool
     result: OutcomeSide | None  # settled market outcome, None while open
     title: str = ""
+    filled: bool = False  # a paper fill was recorded for this signal
 
     @property
     def won(self) -> bool | None:
@@ -121,7 +122,7 @@ class Prediction:
 
     @property
     def summary(self) -> str:
-        verb = "placed order" if self.acted else "would buy"
+        verb = "bought" if self.filled else "placed order" if self.acted else "would buy"
         return describe(
             self.title,
             self.ticker,
@@ -224,7 +225,7 @@ class Ledger:
         """Keep the human-readable title of every market we signalled on."""
         self.conn.executemany(
             "INSERT OR REPLACE INTO markets (ticker, title, subtitle) VALUES (?,?,?)",
-            [(m.ticker, m.title, m.subtitle) for m in markets],
+            [(m.ticker, m.title, m.subtitle) for m in markets if m.title],
         )
         self.conn.commit()
 
@@ -316,7 +317,8 @@ class Ledger:
         """Tickers with a fill or signal but no remembered market title yet."""
         rows = self.conn.execute(
             "SELECT DISTINCT t FROM (SELECT ticker AS t FROM fills UNION"
-            " SELECT ticker FROM signals) WHERE t NOT IN (SELECT ticker FROM markets) ORDER BY t"
+            " SELECT ticker FROM signals) WHERE t NOT IN"
+            " (SELECT ticker FROM markets WHERE title != '') ORDER BY t"
         ).fetchall()
         return [r[0] for r in rows]
 
@@ -351,7 +353,9 @@ class Ledger:
         """Every recorded signal (newest first) with the market's result once settled."""
         sql = (
             "SELECT g.created_at, g.strategy, g.ticker, g.side, g.limit_price, g.fair_prob,"
-            " g.edge, g.size, g.rationale, g.acted, s.result, m.title FROM signals g"
+            " g.edge, g.size, g.rationale, g.acted, s.result, m.title,"
+            " EXISTS (SELECT 1 FROM fills f WHERE f.ticker = g.ticker AND f.side = g.side"
+            " AND f.strategy = g.strategy AND f.created_at >= g.created_at) FROM signals g"
             " LEFT JOIN settlements s ON s.ticker = g.ticker"
             " LEFT JOIN markets m ON m.ticker = g.ticker ORDER BY g.id DESC"
         )
@@ -371,6 +375,7 @@ class Ledger:
                 acted=bool(r[9]),
                 result=OutcomeSide(r[10]) if r[10] else None,
                 title=r[11] or "",
+                filled=bool(r[12]),
             )
             for r in self.conn.execute(sql)
         ]

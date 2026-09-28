@@ -79,7 +79,7 @@ def test_ledger_predictions_join_settlement(tmp_path) -> None:  # type: ignore[n
 
     md = predictions_markdown(led, preds)
     assert (
-        "| T1 — YES: Kalshi says 40%, we say 60%; placed order at 40¢ | yes | 0.4000 | 0.6000"
+        "| T1 — YES: Kalshi says 40%, we say 60%; bought at 40¢ | yes | 0.4000 | 0.6000"
         " | +0.1800 | 5 | yes | lost (no) |" in md
     )
     assert "| T2 — YES:" in md and "| no | open |" in md and "| T1 |\n" in md
@@ -141,12 +141,18 @@ def test_predictions_and_trades_read_as_plain_english(tmp_path) -> None:  # type
         Signal("s", "E-B", OutcomeSide.yes, Decimal("0.60"), Decimal("0.55"), Decimal("0.02"), 1),
         acted=False,
     )
-    unknown, old = led.predictions()
-    assert old.summary == "Boise St. wins — NO: Kalshi says 8%, we say 10%; placed order at 8¢"
+    led.record_signal(  # live-style: acted but no fill recorded
+        Signal("s", "E-C", OutcomeSide.yes, Decimal("0.60"), Decimal("0.55"), Decimal("0.02"), 1),
+        acted=True,
+    )
+    live, unknown, old = led.predictions()
+    assert old.summary == "Boise St. wins — NO: Kalshi says 8%, we say 10%; bought at 8¢"
     assert unknown.summary == "E-B — YES: Kalshi says 55%, we say 60%; would buy at 55¢"
+    assert live.summary == "E-C — YES: Kalshi says 55%, we say 60%; placed order at 55¢"
     (t,) = led.trades()
-    assert t.summary == "Boise St. wins — NO: Kalshi says 8%, we say 10%; bought at 8¢"
-    assert led.untitled_tickers() == ["E-B"]
+    assert t.summary == old.summary
+    led.remember_markets([make_market("E-C", "0.5", "0.55", title="")])  # no title known yet
+    assert led.untitled_tickers() == ["E-B", "E-C"]
 
     # book_scanner fair values are 1 - other leg's ask, not probabilities
     led.record_fill(
@@ -163,7 +169,7 @@ def test_predictions_and_trades_read_as_plain_english(tmp_path) -> None:  # type
     )
 
     data = dashboard_data(led)
-    assert data["predictions"][1]["summary"] == old.summary  # type: ignore[index]
+    assert data["predictions"][2]["summary"] == old.summary  # type: ignore[index]
     assert data["trades"][1]["summary"] == t.summary  # type: ignore[index]
 
     led.remember_markets([make_market("E-B", "0.5", "0.55", title="<b>x</b></script>")])
