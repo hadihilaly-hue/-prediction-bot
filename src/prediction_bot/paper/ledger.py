@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -43,6 +44,17 @@ CREATE TABLE IF NOT EXISTS cash (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     balance TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS runs (
+    id INTEGER PRIMARY KEY,
+    ran_at TEXT NOT NULL,
+    strategies TEXT NOT NULL,
+    scanned INTEGER NOT NULL,
+    signals INTEGER NOT NULL,
+    filled INTEGER NOT NULL,
+    settled INTEGER NOT NULL,
+    cash TEXT NOT NULL,
+    open_cost TEXT NOT NULL
+);
 """
 
 
@@ -72,6 +84,45 @@ class Prediction:
     @property
     def won(self) -> bool | None:
         return None if self.result is None else self.result == self.side
+
+
+@dataclass(frozen=True)
+class Trade:
+    """A paper fill, joined to the market's settlement once it resolves."""
+
+    created_at: str
+    strategy: str
+    ticker: str
+    side: OutcomeSide
+    price: Decimal
+    count: Decimal
+    fee: Decimal
+    fair_prob: Decimal
+    result: OutcomeSide | None
+    settled_at: str | None
+
+    @property
+    def cost(self) -> Decimal:
+        return self.price * self.count + self.fee
+
+    @property
+    def pnl(self) -> Decimal | None:
+        if self.result is None:
+            return None
+        payout = self.count if self.result == self.side else Decimal(0)
+        return payout - self.cost
+
+
+@dataclass(frozen=True)
+class Run:
+    ran_at: str
+    strategies: str
+    scanned: int
+    signals: int
+    filled: int
+    settled: int
+    cash: Decimal
+    open_cost: Decimal
 
 
 @dataclass(frozen=True)
@@ -251,6 +302,63 @@ class Ledger:
             )
             for r in self.conn.execute(sql)
         ]
+
+    def trades(self) -> list[Trade]:
+        """Every paper fill (newest first) with the settlement result once known."""
+        rows = self.conn.execute(
+            "SELECT f.created_at, f.strategy, f.ticker, f.side, f.price, f.count, f.fee,"
+            " f.fair_prob, s.result, s.settled_at FROM fills f"
+            " LEFT JOIN settlements s ON s.ticker = f.ticker ORDER BY f.id DESC"
+        )
+        return [
+            Trade(
+                created_at=r[0],
+                strategy=r[1],
+                ticker=r[2],
+                side=OutcomeSide(r[3]),
+                price=Decimal(r[4]),
+                count=Decimal(r[5]),
+                fee=Decimal(r[6]),
+                fair_prob=Decimal(r[7]),
+                result=OutcomeSide(r[8]) if r[8] else None,
+                settled_at=r[9],
+            )
+            for r in rows
+        ]
+
+    def record_run(
+        self,
+        strategies: Sequence[str],
+        scanned: int,
+        signals: int,
+        filled: int,
+        settled: int,
+        at: datetime | None = None,
+    ) -> None:
+        """Snapshot one engine cycle so the dashboard can chart activity and equity over time."""
+        open_cost = sum((p.cost for p in self.positions()), Decimal(0))
+        self.conn.execute(
+            "INSERT INTO runs (ran_at, strategies, scanned, signals, filled, settled, cash,"
+            " open_cost) VALUES (?,?,?,?,?,?,?,?)",
+            (
+                (at or datetime.utcnow()).isoformat(),
+                ",".join(strategies),
+                scanned,
+                signals,
+                filled,
+                settled,
+                str(self.cash),
+                str(open_cost),
+            ),
+        )
+        self.conn.commit()
+
+    def runs(self) -> list[Run]:
+        rows = self.conn.execute(
+            "SELECT ran_at, strategies, scanned, signals, filled, settled, cash, open_cost"
+            " FROM runs ORDER BY id"
+        )
+        return [Run(r[0], r[1], r[2], r[3], r[4], r[5], Decimal(r[6]), Decimal(r[7])) for r in rows]
 
     def performance(self) -> Performance:
         pos = self.positions()

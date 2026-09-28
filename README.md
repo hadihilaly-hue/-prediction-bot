@@ -66,7 +66,15 @@ and sizing are applied consistently) and registering it in `strategies/__init__.
 are used) and commits `paper.sqlite`, `last_run.txt`, `REPORT.txt` and a human-readable
 `PREDICTIONS.md` (every signal with price, fair estimate, edge and outcome once settled) to
 the `paper-ledger` branch — that file is the place to see what the bot is predicting.
-Locally, `pbot predictions` prints the same table. Add `PBOT_ODDS_API_KEY` as a repository Actions secret
+Locally, `pbot predictions` prints the same table.
+
+The run also writes `index.html`, a self-contained dashboard (cards, equity curve, per-run
+activity, and sortable/filterable Predictions / Trades / Runs tables). Publish it with
+GitHub Pages: Settings → Pages → Source "Deploy from a branch" → branch `paper-ledger`,
+folder `/ (root)`; it then lives at `https://<owner>.github.io/<repo>/`. Locally,
+`pbot dashboard --out data/index.html` renders the same page from your ledger.
+
+Add `PBOT_ODDS_API_KEY` as a repository Actions secret
 (Settings → Secrets and variables → Actions) to include `sportsbook_arb`; the run
 covers NFL/NCAAF/NBA/NHL to stay within The Odds API free tier. Trigger a run by hand
 from the Actions tab (`workflow_dispatch`).

@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.table import Table
 
 from prediction_bot.config import Settings
+from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
 from prediction_bot.models import Market, OutcomeSide, Signal
 from prediction_bot.paper.ledger import Ledger, Prediction
@@ -126,6 +127,9 @@ def paper(
         n += 1
         settled = engine.settle_open_positions()
         res = engine.run_cycle(_fetch(client, series))
+        ledger.record_run(
+            strategy, res.markets_scanned, len(res.signals), len(res.acted), len(settled)
+        )
         console.print(
             f"[cycle {n}] scanned={res.markets_scanned} signals={len(res.signals)}"
             f" filled={len(res.acted)} settled={len(settled)} cash={ledger.cash:.2f}"
@@ -249,6 +253,18 @@ def predictions_markdown(ledger: Ledger, preds: list[Prediction]) -> str:
             f" | {'yes' if p.acted else 'no'} | {_outcome(p)} | {_md(p.rationale)} |"
         )
     return "\n".join(lines) + "\n"
+
+
+@app.command()
+def dashboard(
+    out: Path = typer.Option(Path("data/index.html"), help="Write the HTML dashboard here"),
+) -> None:
+    """Write a self-contained HTML dashboard of every prediction, trade and the equity curve."""
+    s = _settings()
+    ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render_dashboard(ledger))
+    console.print(f"wrote {out}")
 
 
 _MD_SPECIAL = "\\`*_[]()<>|!#~"

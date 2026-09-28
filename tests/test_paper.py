@@ -83,6 +83,45 @@ def test_ledger_predictions_join_settlement(tmp_path) -> None:  # type: ignore[n
     assert "\\[x\\]\\(http://evil\\) \\| \\`y\\`" in md and "[x](" not in md
 
 
+def test_ledger_trades_runs_and_dashboard(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from prediction_bot.dashboard import dashboard_data, render_dashboard
+
+    led = Ledger(tmp_path / "l.sqlite", Decimal("100"))
+    led.record_fill(
+        "s", "T1", OutcomeSide.yes, Decimal("0.4"), Decimal(5), Decimal("0.1"), Decimal("0.6")
+    )
+    led.record_run(["s"], scanned=10, signals=1, filled=1, settled=0)
+    led.settle("T1", OutcomeSide.yes)
+    led.record_run(["s", "x"], scanned=12, signals=0, filled=0, settled=1)
+
+    (t,) = led.trades()
+    assert t.cost == Decimal("2.1") and t.pnl == Decimal("2.9") and t.result is OutcomeSide.yes
+    r1, r2 = led.runs()
+    assert (r1.cash, r1.open_cost) == (Decimal("97.9"), Decimal("2.1"))
+    assert (r2.cash, r2.open_cost, r2.strategies) == (Decimal("102.9"), Decimal(0), "s,x")
+
+    data = dashboard_data(led)
+    assert data["runs"][1]["equity"] == 102.9  # type: ignore[index]
+    assert data["trades"][0]["pnl"] == 2.9  # type: ignore[index]
+
+    led.record_signal(
+        Signal(
+            "s",
+            "T2",
+            OutcomeSide.no,
+            Decimal("0.5"),
+            Decimal("0.4"),
+            Decimal("0.05"),
+            Decimal(1),
+            rationale="</script><img src=x onerror=alert(1)>",
+        ),
+        acted=False,
+    )
+    page = render_dashboard(led)
+    assert page.count("<script") == 2 and "</script><img" not in page
+    assert "<\\/script><img" in page  # data stays inside the JSON block, escaped by the JS
+
+
 def test_ledger_rejects_overspend(tmp_path) -> None:  # type: ignore[no-untyped-def]
     led = Ledger(tmp_path / "l.sqlite", Decimal("1"))
     with pytest.raises(ValueError):
