@@ -1,12 +1,14 @@
 name: Paper trading
 
-# Paper-trades three times a day against Kalshi's *public production* market data
-# (real prices, no credentials, paper mode never places orders) and persists the
-# SQLite ledger + report on the `paper-ledger` branch. Three runs x 4 sports keeps
-# The Odds API usage (~360 req/month) inside the free 500/month tier.
+# Paper-trades against Kalshi's *public production* market data (real prices, no
+# credentials, paper mode never places orders) and persists the SQLite ledger +
+# report on the `paper-ledger` branch. The book scanner runs every 30 min (free on a
+# public repo); the sportsbook strategy only on the 3 daily slots so The Odds API
+# usage (3 runs x 4 sports x 31 days = 372 req/month) stays inside the free 500 tier.
+# Manual runs always include the sportsbook strategy.
 on:
   schedule:
-    - cron: "17 3,11,19 * * *"
+    - cron: "17,47 * * * *"
   workflow_dispatch:
 
 concurrency:
@@ -43,7 +45,10 @@ jobs:
         run: |
           set -eo pipefail
           pbot paper -s book_scanner --cycles 1 | tee ledger/last_run.txt
-          if [ -n "$PBOT_ODDS_API_KEY" ]; then
+          sportsbook_slot=false
+          case "$(date -u +%-H:%M)" in 3:[0-2]*|11:[0-2]*|19:[0-2]*) sportsbook_slot=true;; esac
+          [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && sportsbook_slot=true
+          if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$sportsbook_slot" = true ]; then
             pbot paper -s sportsbook_arb --cycles 1 \
               --series KXNFLGAME --series KXNCAAFGAME --series KXNBAGAME --series KXNHLGAME \
               | tee -a ledger/last_run.txt

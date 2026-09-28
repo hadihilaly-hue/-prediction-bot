@@ -289,7 +289,7 @@ _TEMPLATE = """<!doctype html>
       rs = rs.slice().sort((a, b) => { const x = get(a), y = get(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
     }
     let h = '<thead><tr>' + cols.map(([n], i) => '<th data-i="' + i + '">' + esc(n) + (sortKey === i ? (sortDir > 0 ? ' ▲' : ' ▼') : '') + '</th>').join('') + '</tr></thead><tbody>';
-    if (!rs.length) h += '<tr><td colspan="' + cols.length + '" class="empty">nothing here yet — the scheduled run adds rows 3×/day</td></tr>';
+    if (!rs.length) h += '<tr><td colspan="' + cols.length + '" class="empty">nothing here yet — the scheduled run adds rows every 30 min</td></tr>';
     for (const r of rs) h += '<tr>' + cols.map(([, get, cls, raw, td]) =>
       '<td class="' + (td || '') + ' ' + (cls ? cls(r) : '') + '">' + (raw ? get(r) : esc(get(r) ?? '-')) + '</td>').join('') + '</tr>';
     $('table').innerHTML = h + '</tbody>';
