@@ -52,6 +52,8 @@ class Engine:
                 res.signals.extend(strat.evaluate(markets))
             except Exception:  # keep other strategies alive
                 log.exception("strategy %s failed", strat.name)
+        hit = {s.ticker for s in res.signals}
+        self.ledger.remember_markets([m for m in markets if m.ticker in hit])
         for batch in self._batches(res.signals):
             if not all(self._admissible(s, batch) for s in batch):
                 for s in batch:
@@ -147,11 +149,17 @@ class Engine:
         return True
 
     def settle_open_positions(self) -> dict[str, Decimal]:
-        """Look up every ticker we hold or predicted; settle those Kalshi has resolved."""
+        """Look up every ticker we hold or predicted; settle those Kalshi has resolved.
+
+        Also stores titles for any ledger rows (including settled ones) still missing one.
+        """
         out: dict[str, Decimal] = {}
-        tickers = self.ledger.unsettled_tickers()
+        unsettled = set(self.ledger.unsettled_tickers())
+        tickers = sorted(unsettled | set(self.ledger.untitled_tickers()))
         for i in range(0, len(tickers), 50):
-            for m in self.kalshi.get_markets(status=None, tickers=tickers[i : i + 50]):
-                if m.is_settled:
+            batch = self.kalshi.get_markets(status=None, tickers=tickers[i : i + 50])
+            self.ledger.remember_markets(batch)
+            for m in batch:
+                if m.is_settled and m.ticker in unsettled:
                     out[m.ticker] = self.ledger.settle(m.ticker, OutcomeSide(m.result))
         return out

@@ -7,7 +7,35 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
-from prediction_bot.models import OutcomeSide, Signal
+from prediction_bot.models import Market, OutcomeSide, Signal
+
+
+def describe(
+    title: str,
+    ticker: str,
+    strategy: str,
+    side: OutcomeSide,
+    price: Decimal,
+    fair: Decimal,
+    verb: str,
+) -> str:
+    """Plain English, e.g. 'Fresno St. wins — NO: Kalshi says 9%, we say 12%; bought at 9¢'.
+
+    `book_scanner` legs are one half of a YES+NO pair whose `fair` is 1 - other leg's ask,
+    not an outcome probability, so they are described as an arbitrage instead.
+    """
+    what = title.rstrip(".?") or ticker
+    s, cents = side.value.upper(), f"{price * 100:.0f}¢"
+    if strategy == "book_scanner":
+        pair = (price + Decimal(1) - fair) * 100
+        return (
+            f"{what} — {s} leg of a YES+NO arbitrage: {verb} at {cents};"
+            f" pair costs {pair:.0f}¢ for a $1 payout"
+        )
+    return (
+        f"{what} — {s}: Kalshi says {price * 100:.0f}%, we say {fair * 100:.0f}%; {verb} at {cents}"
+    )
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS signals (
@@ -43,6 +71,11 @@ CREATE TABLE IF NOT EXISTS settlements (
 CREATE TABLE IF NOT EXISTS cash (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     balance TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS markets (
+    ticker TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    subtitle TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY,
@@ -80,10 +113,25 @@ class Prediction:
     rationale: str
     acted: bool
     result: OutcomeSide | None  # settled market outcome, None while open
+    title: str = ""
+    filled: bool = False  # a paper fill was recorded for this signal
 
     @property
     def won(self) -> bool | None:
         return None if self.result is None else self.result == self.side
+
+    @property
+    def summary(self) -> str:
+        verb = "bought" if self.filled else "placed order" if self.acted else "would buy"
+        return describe(
+            self.title,
+            self.ticker,
+            self.strategy,
+            self.side,
+            self.limit_price,
+            self.fair_prob,
+            verb,
+        )
 
 
 @dataclass(frozen=True)
@@ -100,6 +148,13 @@ class Trade:
     fair_prob: Decimal
     result: OutcomeSide | None
     settled_at: str | None
+    title: str = ""
+
+    @property
+    def summary(self) -> str:
+        return describe(
+            self.title, self.ticker, self.strategy, self.side, self.price, self.fair_prob, "bought"
+        )
 
     @property
     def cost(self) -> Decimal:
@@ -165,6 +220,14 @@ class Ledger:
         self.conn.execute("UPDATE cash SET balance = ? WHERE id = 1", (str(value),))
 
     # ---- signals / fills ----------------------------------------------------
+
+    def remember_markets(self, markets: Sequence[Market]) -> None:
+        """Keep the human-readable title of every market we signalled on."""
+        self.conn.executemany(
+            "INSERT OR REPLACE INTO markets (ticker, title, subtitle) VALUES (?,?,?)",
+            [(m.ticker, m.title, m.subtitle) for m in markets if m.title],
+        )
+        self.conn.commit()
 
     def record_signal(self, sig: Signal, acted: bool) -> int:
         cur = self.conn.execute(
@@ -250,6 +313,15 @@ class Ledger:
         ).fetchall()
         return [r[0] for r in rows]
 
+    def untitled_tickers(self) -> list[str]:
+        """Tickers with a fill or signal but no remembered market title yet."""
+        rows = self.conn.execute(
+            "SELECT DISTINCT t FROM (SELECT ticker AS t FROM fills UNION"
+            " SELECT ticker FROM signals) WHERE t NOT IN"
+            " (SELECT ticker FROM markets WHERE title != '') ORDER BY t"
+        ).fetchall()
+        return [r[0] for r in rows]
+
     # ---- settlement ---------------------------------------------------------
 
     def settle(self, ticker: str, result: OutcomeSide, at: datetime | None = None) -> Decimal:
@@ -281,8 +353,11 @@ class Ledger:
         """Every recorded signal (newest first) with the market's result once settled."""
         sql = (
             "SELECT g.created_at, g.strategy, g.ticker, g.side, g.limit_price, g.fair_prob,"
-            " g.edge, g.size, g.rationale, g.acted, s.result FROM signals g"
-            " LEFT JOIN settlements s ON s.ticker = g.ticker ORDER BY g.id DESC"
+            " g.edge, g.size, g.rationale, g.acted, s.result, m.title,"
+            " EXISTS (SELECT 1 FROM fills f WHERE f.ticker = g.ticker AND f.side = g.side"
+            " AND f.strategy = g.strategy AND f.created_at >= g.created_at) FROM signals g"
+            " LEFT JOIN settlements s ON s.ticker = g.ticker"
+            " LEFT JOIN markets m ON m.ticker = g.ticker ORDER BY g.id DESC"
         )
         if limit:
             sql += f" LIMIT {int(limit)}"
@@ -299,6 +374,8 @@ class Ledger:
                 rationale=r[8],
                 acted=bool(r[9]),
                 result=OutcomeSide(r[10]) if r[10] else None,
+                title=r[11] or "",
+                filled=bool(r[12]),
             )
             for r in self.conn.execute(sql)
         ]
@@ -307,8 +384,9 @@ class Ledger:
         """Every paper fill (newest first) with the settlement result once known."""
         rows = self.conn.execute(
             "SELECT f.created_at, f.strategy, f.ticker, f.side, f.price, f.count, f.fee,"
-            " f.fair_prob, s.result, s.settled_at FROM fills f"
-            " LEFT JOIN settlements s ON s.ticker = f.ticker ORDER BY f.id DESC"
+            " f.fair_prob, s.result, s.settled_at, m.title FROM fills f"
+            " LEFT JOIN settlements s ON s.ticker = f.ticker"
+            " LEFT JOIN markets m ON m.ticker = f.ticker ORDER BY f.id DESC"
         )
         return [
             Trade(
@@ -322,6 +400,7 @@ class Ledger:
                 fair_prob=Decimal(r[7]),
                 result=OutcomeSide(r[8]) if r[8] else None,
                 settled_at=r[9],
+                title=r[10] or "",
             )
             for r in rows
         ]
