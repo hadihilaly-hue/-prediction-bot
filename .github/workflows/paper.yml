@@ -50,6 +50,8 @@ jobs:
           fi
           pbot report | tee ledger/REPORT.txt
           pbot predictions --limit 0 --markdown ledger/PREDICTIONS.md >/dev/null
+          pbot dashboard --out ledger/index.html >/dev/null
+          touch ledger/.nojekyll
 
       - name: Commit ledger
         run: |
@@ -62,9 +64,10 @@ jobs:
             git worktree add --detach wt HEAD
             (cd wt && git checkout -q --orphan paper-ledger && git rm -rfq .)
           fi
-          cp ledger/paper.sqlite ledger/last_run.txt ledger/REPORT.txt ledger/PREDICTIONS.md wt/
+          cp ledger/paper.sqlite ledger/last_run.txt ledger/REPORT.txt ledger/PREDICTIONS.md \
+             ledger/index.html ledger/.nojekyll wt/
           cd wt
-          git add paper.sqlite last_run.txt REPORT.txt PREDICTIONS.md
+          git add paper.sqlite last_run.txt REPORT.txt PREDICTIONS.md index.html .nojekyll
           if git diff --cached --quiet; then echo "no changes"; exit 0; fi
           git commit -q -m "paper cycle $(date -u +%FT%TZ)"
           git push origin paper-ledger
