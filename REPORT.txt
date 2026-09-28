@@ -1,0 +1,15 @@
+        Paper performance         
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┓
+┃ metric               ┃   value ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
+│ starting cash        │ 1000.00 │
+│ cash                 │ 1000.00 │
+│ open positions       │       0 │
+│ open cost            │    0.00 │
+│ settled fills        │       0 │
+│ wins                 │       0 │
+│ realized pnl         │    0.00 │
+│ fees paid            │    0.00 │
+│ brier (strategy)     │       - │
+│ brier (market price) │       - │
+└──────────────────────┴─────────┘
