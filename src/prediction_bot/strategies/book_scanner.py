@@ -34,7 +34,13 @@ class BookScannerStrategy(Strategy):
             size = min(q.ask_size_for(OutcomeSide.yes), q.ask_size_for(OutcomeSide.no))
             legs = [
                 self.make_signal(
-                    m, side, Decimal(1) - other, rationale, max_size=size, group=m.ticker
+                    m,
+                    side,
+                    Decimal(1) - other,
+                    rationale,
+                    max_size=size,
+                    group=m.ticker,
+                    check_edge=False,
                 )
                 for side, other in ((OutcomeSide.yes, no_ask), (OutcomeSide.no, yes_ask))
             ]

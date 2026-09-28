@@ -172,6 +172,17 @@ def test_book_scanner_requires_gap_to_cover_both_fees(settings) -> None:  # type
     assert yes.cost + no.cost < yes.count  # a locked pair costs less than its $1 payout
 
 
+def test_book_scanner_edge_uses_size_aware_fees(settings) -> None:  # type: ignore[no-untyped-def]
+    # YES 0.01 / NO 0.96: per-contract fees (ceil to 1c each) say edge 0.02, but at the
+    # 10-contract common size fees total $0.04 -> 0.026/contract, which clears 0.025.
+    settings.min_edge = Decimal("0.025")
+    sigs = BookScannerStrategy(settings).evaluate(
+        [make_market("E-A", yes_bid="0.04", yes_ask="0.01")]
+    )
+    assert [s.size for s in sigs] == [10, 10]
+    assert all(s.edge == Decimal("0.026") for s in sigs)
+
+
 def test_book_scanner_skips_empty_levels(settings) -> None:  # type: ignore[no-untyped-def]
     strat = BookScannerStrategy(settings)
     m = make_market("E-A", yes_bid="0.50", yes_ask="0.40", yes_bid_size="0")

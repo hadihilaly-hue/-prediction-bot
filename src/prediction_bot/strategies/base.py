@@ -32,8 +32,13 @@ class Strategy(ABC):
         taker: bool = True,
         max_size: Decimal | None = None,
         group: str | None = None,
+        check_edge: bool = True,
     ) -> Signal | None:
-        """Build a signal to buy `side` at the current ask if edge clears `min_edge`."""
+        """Build a signal to buy `side` at the current ask if edge clears `min_edge`.
+
+        `check_edge=False` skips the per-contract threshold so callers that evaluate a
+        multi-leg position as a whole (with size-aware fees) can apply their own.
+        """
         ask = market.quote.ask_for(side)
         if ask is None or ask <= 0 or ask >= 1:
             return None
@@ -41,7 +46,7 @@ class Strategy(ABC):
         mult = s.taker_fee_multiplier if taker else s.maker_fee_multiplier
         fee_per_contract = fee_for(ask, Decimal(1), mult)
         edge = fair_prob - ask - fee_per_contract
-        if edge < s.min_edge:
+        if check_edge and edge < s.min_edge:
             return None
         size = self._size(ask, market.quote.ask_size_for(side))
         if max_size is not None:
