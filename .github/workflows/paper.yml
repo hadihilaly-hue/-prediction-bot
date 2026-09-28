@@ -8,7 +8,9 @@ name: Paper trading
 # Manual runs always include the sportsbook strategy.
 on:
   schedule:
-    - cron: "17,47 * * * *"
+    - cron: "17 3,11,19 * * *"  # book scanner + sportsbook
+    - cron: "47 * * * *"  # book scanner only
+    - cron: "17 0-2,4-10,12-18,20-23 * * *"  # book scanner only
   workflow_dispatch:
 
 concurrency:
@@ -42,13 +44,13 @@ jobs:
           PBOT_KALSHI_API_BASE: https://api.elections.kalshi.com/trade-api/v2
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
           PBOT_ODDS_API_KEY: ${{ secrets.PBOT_ODDS_API_KEY }}
+          # github.event.schedule is the cron expression that fired, so slot selection is
+          # immune to delayed starts; manual runs always include the sportsbook strategy.
+          SPORTSBOOK_SLOT: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3,11,19 * * *' }}
         run: |
           set -eo pipefail
           pbot paper -s book_scanner --cycles 1 | tee ledger/last_run.txt
-          sportsbook_slot=false
-          case "$(date -u +%-H:%M)" in 3:[0-2]*|11:[0-2]*|19:[0-2]*) sportsbook_slot=true;; esac
-          [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && sportsbook_slot=true
-          if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$sportsbook_slot" = true ]; then
+          if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" = true ]; then
             pbot paper -s sportsbook_arb --cycles 1 \
               --series KXNFLGAME --series KXNCAAFGAME --series KXNBAGAME --series KXNHLGAME \
               | tee -a ledger/last_run.txt
