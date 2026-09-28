@@ -59,6 +59,19 @@ and sizing are applied consistently) and registering it in `strategies/__init__.
   `fair_prob` vs outcomes, and the *market price paid* vs outcomes. The strategy has
   to beat the market Brier score, not just have positive PnL on a small sample.
 
+## Scheduled paper trading (GitHub Actions)
+
+`.github/workflows/paper.yml` runs one paper cycle three times a day against Kalshi's
+**public production** prices (paper mode never places orders; no Kalshi credentials
+are used) and commits `paper.sqlite`, `last_run.txt` and `REPORT.txt` to the
+`paper-ledger` branch. Add `PBOT_ODDS_API_KEY` as a repository Actions secret
+(Settings → Secrets and variables → Actions) to include `sportsbook_arb`; the run
+covers NFL/NCAAF/NBA/NHL to stay within The Odds API free tier. Trigger a run by hand
+from the Actions tab (`workflow_dispatch`).
+
+Demo-venue prices are thin and often stale, so edges seen with the default demo URL
+overstate what the real book offers — evaluate strategies on production data.
+
 ## Safety
 
 * `PBOT_MODE=paper` (default) never sends orders. `Engine` only sends live orders when
