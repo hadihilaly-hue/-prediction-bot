@@ -29,12 +29,14 @@ def make_market(ticker: str, yes_bid: str | None, yes_ask: str | None, **kw: obj
         volume=Decimal(100),
         result=str(kw.pop("result", "")),
     )
+    bid_size = Decimal(str(kw.pop("yes_bid_size", 50)))
+    ask_size = Decimal(str(kw.pop("yes_ask_size", 50)))
     defaults.update(kw)
     q = Quote(
         ticker=ticker,
         yes_bid=None if yes_bid is None else Decimal(yes_bid),
         yes_ask=None if yes_ask is None else Decimal(yes_ask),
-        yes_bid_size=Decimal(50),
-        yes_ask_size=Decimal(50),
+        yes_bid_size=bid_size,
+        yes_ask_size=ask_size,
     )
     return Market(ticker=ticker, quote=q, **defaults)  # type: ignore[arg-type]

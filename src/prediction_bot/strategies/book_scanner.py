@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from decimal import Decimal
 
 from prediction_bot.models import Market, OutcomeSide, Signal
@@ -27,10 +28,18 @@ class BookScannerStrategy(Strategy):
             total = yes_ask + no_ask
             if total >= 1:
                 continue
-            # Both legs pay $1 on exactly one side; treat each leg's fair value as 1 - other ask
+            # Both legs pay $1 on exactly one side; treat each leg's fair value as 1 - other ask.
+            # Legs must be equal-sized and filled together or the position is not locked.
             rationale = f"yes_ask+no_ask={total:.4f} < 1"
-            for side, other in ((OutcomeSide.yes, no_ask), (OutcomeSide.no, yes_ask)):
-                sig = self.make_signal(m, side, Decimal(1) - other, rationale)
-                if sig:
-                    out.append(sig)
+            size = min(q.ask_size_for(OutcomeSide.yes), q.ask_size_for(OutcomeSide.no))
+            legs = [
+                self.make_signal(
+                    m, side, Decimal(1) - other, rationale, max_size=size, group=m.ticker
+                )
+                for side, other in ((OutcomeSide.yes, no_ask), (OutcomeSide.no, yes_ask))
+            ]
+            if all(legs):
+                pair = [s for s in legs if s]
+                size = min(s.size for s in pair)
+                out.extend(replace(s, size=size) for s in pair)
         return out

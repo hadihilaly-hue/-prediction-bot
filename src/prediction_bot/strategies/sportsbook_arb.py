@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from collections.abc import Sequence
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from prediction_bot.config import Settings
@@ -38,6 +39,7 @@ class SportsbookArbStrategy(Strategy):
         self._cache: dict[str, list[ConsensusOdds]] = {}
 
     def games_for(self, sport: str) -> list[ConsensusOdds]:
+        """Odds are fetched at most once per `evaluate` call (cache cleared on each)."""
         if sport not in self._cache:
             if self.odds is None:
                 return []
@@ -51,6 +53,7 @@ class SportsbookArbStrategy(Strategy):
         if self.odds is None:
             log.warning("sportsbook_arb: PBOT_ODDS_API_KEY not set; no signals")
             return []
+        self._cache.clear()
         by_event: dict[str, list[Market]] = defaultdict(list)
         for m in markets:
             series = m.event_ticker.split("-")[0]
@@ -79,12 +82,51 @@ class SportsbookArbStrategy(Strategy):
                 out.extend(s for s in (yes_sig, no_sig) if s)
         return out
 
-    @staticmethod
-    def _match_game(legs: list[Market], games: list[ConsensusOdds]) -> ConsensusOdds | None:
+    # Kalshi's expected_expiration_time sits a few hours after kickoff; close_time
+    # (fallback) is a couple of days later. Games further from the anchor than the
+    # window are a different fixture.
+    EXPIRATION_WINDOW = timedelta(hours=18)
+    CLOSE_WINDOW = timedelta(days=4)
+
+    @classmethod
+    def _match_game(cls, legs: list[Market], games: list[ConsensusOdds]) -> ConsensusOdds | None:
+        """Pick the game whose teams match the legs. Repeated matchups (e.g. a series)
+        are disambiguated by the game start nearest the market's expected expiration."""
         names = [m.subtitle for m in legs if m.subtitle]
-        best: tuple[int, ConsensusOdds | None] = (0, None)
+        need = min(2, len(names))
+        anchor, window = None, cls.EXPIRATION_WINDOW
+        if exp := next((m.expected_expiration for m in legs if m.expected_expiration), None):
+            anchor = exp
+        elif close := next((m.close_time for m in legs if m.close_time), None):
+            anchor, window = close, cls.CLOSE_WINDOW
+        candidates: list[tuple[timedelta, ConsensusOdds]] = []
         for g in games:
             hits = sum(1 for n in names if best_team(n, [g.home_team, g.away_team]))
-            if hits > best[0]:
-                best = (hits, g)
-        return best[1] if best[0] >= min(2, len(names)) else None
+            if hits < need:
+                continue
+            gap = cls._start_gap(g.commence_time, anchor, window)
+            if gap is None:
+                continue
+            candidates.append((gap, g))
+        if not candidates:
+            return None
+        if len(candidates) > 1 and anchor is None:
+            return None  # same matchup listed twice and no date to disambiguate
+        return min(candidates, key=lambda c: c[0])[1]
+
+    @classmethod
+    def _start_gap(
+        cls, commence: str, anchor: datetime | None, window: timedelta
+    ) -> timedelta | None:
+        if anchor is None:
+            return timedelta(0)
+        try:
+            start = datetime.fromisoformat(commence.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if anchor.tzinfo is None:
+            anchor = anchor.replace(tzinfo=timezone.utc)
+        gap = anchor - start
+        if gap < timedelta(0):
+            return None  # game starts after the market is expected to resolve
+        return gap if gap <= window else None

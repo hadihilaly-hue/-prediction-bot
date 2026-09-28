@@ -63,6 +63,7 @@ class Market:
     status: str
     close_time: datetime | None
     quote: Quote
+    expected_expiration: datetime | None = None  # ~ event end (game finish) for sports
     volume: Decimal = Decimal(0)
     open_interest: Decimal = Decimal(0)
     result: str = ""  # "yes" / "no" / "" when unsettled
@@ -86,6 +87,7 @@ class Signal:
     edge: Decimal  # fair_prob - limit_price - fees (prob points)
     size: Decimal  # contracts
     rationale: str = ""
+    group: str | None = None  # legs sharing a group are acted on all-or-nothing
     created_at: datetime = field(default_factory=datetime.utcnow)
 
 

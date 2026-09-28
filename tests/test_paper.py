@@ -4,6 +4,7 @@ from decimal import Decimal
 
 import pytest
 
+from prediction_bot.config import Mode
 from prediction_bot.engine import Engine
 from prediction_bot.models import OutcomeSide, fee_for
 from prediction_bot.paper.ledger import Ledger
@@ -62,7 +63,56 @@ def test_book_scanner_finds_locked_arb(settings) -> None:  # type: ignore[no-unt
     assert {s.side for s in sigs} == {OutcomeSide.yes, OutcomeSide.no}
     yes = next(s for s in sigs if s.side is OutcomeSide.yes)
     assert yes.limit_price == Decimal("0.40")
-    assert yes.size == 25  # max_order_notional 10 / 0.40
+    no = next(s for s in sigs if s.side is OutcomeSide.no)
+    # legs are equal-sized: min(10/0.40=25, 10/0.50=20) so neither side is uncovered
+    assert yes.size == no.size == 20
+    assert yes.group == no.group == "E-A"
+
+
+def test_book_scanner_pairs_legs_by_thinner_side(settings) -> None:  # type: ignore[no-untyped-def]
+    strat = BookScannerStrategy(settings)
+    m = make_market("E-A", yes_bid="0.50", yes_ask="0.40", yes_ask_size="3")  # 3 YES, 50 NO
+    sigs = strat.evaluate([m])
+    assert sorted(s.size for s in sigs) == [3, 3]
+
+
+def test_book_scanner_skips_empty_levels(settings) -> None:  # type: ignore[no-untyped-def]
+    strat = BookScannerStrategy(settings)
+    m = make_market("E-A", yes_bid="0.50", yes_ask="0.40", yes_bid_size="0")
+    assert strat.evaluate([m]) == []
+
+
+def test_engine_grouped_legs_are_all_or_nothing(settings) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(settings.paper_db_path, settings.paper_starting_cash)
+    eng = Engine(settings, object(), [BookScannerStrategy(settings)], ledger)  # type: ignore[arg-type]
+    # hold 15 YES already; cap 30 means the 20-lot YES leg would breach, so NO must not fill
+    ledger.record_fill(
+        "seed", "E-A", OutcomeSide.yes, Decimal("0.40"), Decimal(15), Decimal(0), Decimal("0.5")
+    )
+    settings.max_position_contracts = Decimal(30)
+    res = eng.run_cycle([make_market("E-A", yes_bid="0.50", yes_ask="0.40")])
+    assert res.acted == []
+    assert ledger.position_count("E-A", OutcomeSide.no) == 0
+
+
+def test_engine_live_cap_counts_venue_positions_and_resting_orders(settings) -> None:  # type: ignore[no-untyped-def]
+    class Venue:
+        orders: list[tuple[object, ...]] = []
+
+        def live_exposure(self, ticker: str, side: OutcomeSide) -> Decimal:
+            return Decimal(95)
+
+        def create_order(self, *a: object) -> dict[str, object]:
+            self.orders.append(a)
+            return {"order": {}}
+
+    ledger = Ledger(settings.paper_db_path, settings.paper_starting_cash)
+    venue = Venue()
+    settings.mode = Mode.live
+    eng = Engine(settings, venue, [BookScannerStrategy(settings)], ledger, allow_live=True)  # type: ignore[arg-type]
+    assert eng.live
+    res = eng.run_cycle([make_market("E-A", yes_bid="0.50", yes_ask="0.40")])
+    assert res.acted == [] and venue.orders == []
 
 
 def test_engine_paper_cycle_never_calls_venue(settings) -> None:  # type: ignore[no-untyped-def]
@@ -79,3 +129,26 @@ def test_engine_paper_cycle_never_calls_venue(settings) -> None:  # type: ignore
     settings.max_position_contracts = Decimal(30)
     res2 = eng.run_cycle([make_market("E-A", yes_bid="0.50", yes_ask="0.40")])
     assert res2.acted == []
+
+
+def test_engine_live_grouped_legs_are_fok_and_stop_on_kill(settings) -> None:  # type: ignore[no-untyped-def]
+    class Venue:
+        def __init__(self) -> None:
+            self.orders: list[tuple[object, ...]] = []
+
+        def live_exposure(self, ticker: str, side: OutcomeSide) -> Decimal:
+            return Decimal(0)
+
+        def create_order(
+            self, ticker: str, side: OutcomeSide, count: Decimal, price: Decimal, **kw: object
+        ) -> dict[str, object]:
+            self.orders.append((side, kw.get("time_in_force")))
+            return {"order": {"status": "canceled"}}  # FOK killed
+
+    ledger = Ledger(settings.paper_db_path, settings.paper_starting_cash)
+    venue = Venue()
+    settings.mode = Mode.live
+    eng = Engine(settings, venue, [BookScannerStrategy(settings)], ledger, allow_live=True)  # type: ignore[arg-type]
+    res = eng.run_cycle([make_market("E-A", yes_bid="0.50", yes_ask="0.40")])
+    assert res.acted == []
+    assert venue.orders == [(OutcomeSide.yes, "fill_or_kill")]  # second leg never sent

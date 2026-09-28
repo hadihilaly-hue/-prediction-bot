@@ -9,7 +9,7 @@ from prediction_bot.config import Settings
 from prediction_bot.models import Market, OutcomeSide, Signal, fee_for
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.base import Strategy
-from prediction_bot.venues.kalshi import KalshiClient
+from prediction_bot.venues.kalshi import KalshiClient, KalshiError
 
 log = logging.getLogger(__name__)
 
@@ -52,21 +52,87 @@ class Engine:
                 res.signals.extend(strat.evaluate(markets))
             except Exception:  # keep other strategies alive
                 log.exception("strategy %s failed", strat.name)
-        for sig in res.signals:
-            if self._act(sig, res):
-                res.acted.append(sig)
+        for batch in self._batches(res.signals):
+            if not all(self._admissible(s, batch) for s in batch):
+                for s in batch:
+                    self.ledger.record_signal(s, acted=False)
+                continue
+            for sig in batch:
+                if self._act(sig, res, grouped=len(batch) > 1):
+                    res.acted.append(sig)
+                elif self.live and len(batch) > 1:
+                    done = [s for s in batch if s in res.acted]
+                    if done:
+                        log.error(
+                            "UNHEDGED: leg %s/%s failed after %d filled leg(s) of group %s",
+                            sig.ticker,
+                            sig.side.value,
+                            len(done),
+                            sig.group,
+                        )
+                    break
         return res
 
-    def _act(self, sig: Signal, res: CycleResult) -> bool:
-        held = self.ledger.position_count(sig.ticker, sig.side)
-        if held + sig.size > self.settings.max_position_contracts:
-            self.ledger.record_signal(sig, acted=False)
-            return False
+    @staticmethod
+    def _batches(signals: Sequence[Signal]) -> list[list[Signal]]:
+        """Group legs that must be acted on together; ungrouped signals stand alone."""
+        groups: dict[str, list[Signal]] = {}
+        out: list[list[Signal]] = []
+        for s in signals:
+            if s.group is None:
+                out.append([s])
+            elif s.group in groups:
+                groups[s.group].append(s)
+            else:
+                groups[s.group] = [s]
+                out.append(groups[s.group])
+        return out
+
+    def _exposure(self, ticker: str, side: OutcomeSide) -> Decimal:
         if self.live:
-            order = self.kalshi.create_order(sig.ticker, sig.side, sig.size, sig.limit_price)
+            return self.kalshi.live_exposure(ticker, side)
+        return self.ledger.position_count(ticker, side)
+
+    def _admissible(self, sig: Signal, batch: Sequence[Signal]) -> bool:
+        """Position cap and (paper) cash check, counting the whole batch as one action."""
+        same = [s for s in batch if s.ticker == sig.ticker and s.side == sig.side]
+        added = sum((s.size for s in same), Decimal(0))
+        if self._exposure(sig.ticker, sig.side) + added > self.settings.max_position_contracts:
+            return False
+        if not self.live:
+            cost = sum(
+                (
+                    s.limit_price * s.size
+                    + fee_for(s.limit_price, s.size, self.settings.taker_fee_multiplier)
+                    for s in batch
+                ),
+                Decimal(0),
+            )
+            if cost > self.ledger.cash:
+                return False
+        return True
+
+    def _act(self, sig: Signal, res: CycleResult, grouped: bool = False) -> bool:
+        if self.live:
+            # Grouped legs go fill-or-kill so a leg can never rest half-hedged; a
+            # killed leg is reported as not acted and the rest of the group is skipped.
+            tif = "fill_or_kill" if grouped else "good_till_canceled"
+            try:
+                order = self.kalshi.create_order(
+                    sig.ticker, sig.side, sig.size, sig.limit_price, time_in_force=tif
+                )
+            except KalshiError as e:
+                log.warning("live order rejected %s/%s: %s", sig.ticker, sig.side.value, e)
+                self.ledger.record_signal(sig, acted=False)
+                return False
+            detail = order.get("order", order)
             res.live_orders.append(order)
+            if grouped and isinstance(detail, dict) and detail.get("status") != "executed":
+                log.warning("FOK leg not filled %s/%s: %s", sig.ticker, sig.side.value, detail)
+                self.ledger.record_signal(sig, acted=False)
+                return False
             self.ledger.record_signal(sig, acted=True)
-            log.info("LIVE order %s", order.get("order", order))
+            log.info("LIVE order %s", detail)
             return True
         fee = fee_for(sig.limit_price, sig.size, self.settings.taker_fee_multiplier)
         try:
