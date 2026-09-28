@@ -153,6 +153,36 @@ def test_book_scanner_pairs_legs_by_thinner_side(settings) -> None:  # type: ign
     assert sorted(s.size for s in sigs) == [3, 3]
 
 
+def test_book_scanner_requires_gap_to_cover_both_fees(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.min_edge = Decimal("0.01")
+    strat = BookScannerStrategy(settings)
+    # yes ask 0.49, no ask 0.48 -> 3c gap; each leg's fee is 2c, so per-leg edge is 1c
+    # but buying both costs 1.01 per pair: must be rejected.
+    losing = make_market("E-A", yes_bid="0.52", yes_ask="0.49")
+    assert strat.evaluate([losing]) == []
+    # 6c gap covers both fees (0.0175 each at 20 contracts) -> 2.5c locked per pair.
+    winning = make_market("E-B", yes_bid="0.55", yes_ask="0.49")
+    sigs = strat.evaluate([winning])
+    assert len(sigs) == 2
+    assert all(s.edge == Decimal("0.025") for s in sigs)
+    ledger = Ledger(settings.paper_db_path, settings.paper_starting_cash)
+    eng = Engine(settings, object(), [strat], ledger)  # type: ignore[arg-type]
+    eng.run_cycle([winning])
+    (yes, no) = ledger.positions()
+    assert yes.cost + no.cost < yes.count  # a locked pair costs less than its $1 payout
+
+
+def test_book_scanner_edge_uses_size_aware_fees(settings) -> None:  # type: ignore[no-untyped-def]
+    # YES 0.01 / NO 0.96: per-contract fees (ceil to 1c each) say edge 0.02, but at the
+    # 10-contract common size fees total $0.04 -> 0.026/contract, which clears 0.025.
+    settings.min_edge = Decimal("0.025")
+    sigs = BookScannerStrategy(settings).evaluate(
+        [make_market("E-A", yes_bid="0.04", yes_ask="0.01")]
+    )
+    assert [s.size for s in sigs] == [10, 10]
+    assert all(s.edge == Decimal("0.026") for s in sigs)
+
+
 def test_book_scanner_skips_empty_levels(settings) -> None:  # type: ignore[no-untyped-def]
     strat = BookScannerStrategy(settings)
     m = make_market("E-A", yes_bid="0.50", yes_ask="0.40", yes_bid_size="0")
