@@ -63,8 +63,10 @@ and sizing are applied consistently) and registering it in `strategies/__init__.
 
 `.github/workflows/paper.yml` runs one paper cycle three times a day against Kalshi's
 **public production** prices (paper mode never places orders; no Kalshi credentials
-are used) and commits `paper.sqlite`, `last_run.txt` and `REPORT.txt` to the
-`paper-ledger` branch. Add `PBOT_ODDS_API_KEY` as a repository Actions secret
+are used) and commits `paper.sqlite`, `last_run.txt`, `REPORT.txt` and a human-readable
+`PREDICTIONS.md` (every signal with price, fair estimate, edge and outcome once settled) to
+the `paper-ledger` branch — that file is the place to see what the bot is predicting.
+Locally, `pbot predictions` prints the same table. Add `PBOT_ODDS_API_KEY` as a repository Actions secret
 (Settings → Secrets and variables → Actions) to include `sportsbook_arb`; the run
 covers NFL/NCAAF/NBA/NHL to stay within The Odds API free tier. Trigger a run by hand
 from the Actions tab (`workflow_dispatch`).

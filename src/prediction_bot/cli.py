@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -11,7 +13,7 @@ from rich.table import Table
 from prediction_bot.config import Settings
 from prediction_bot.engine import Engine
 from prediction_bot.models import Market, OutcomeSide, Signal
-from prediction_bot.paper.ledger import Ledger
+from prediction_bot.paper.ledger import Ledger, Prediction
 from prediction_bot.strategies import STRATEGIES, Strategy
 from prediction_bot.venues.kalshi import KalshiClient
 from prediction_bot.venues.kalshi_auth import KalshiSigner
@@ -168,6 +170,86 @@ def report() -> None:
                 x.ticker, x.side.value, f"{x.count:.0f}", f"{x.cost:.2f}", f"{x.fair_prob_avg:.3f}"
             )
         console.print(pt)
+
+
+@app.command()
+def predictions(
+    limit: int = typer.Option(50, help="Newest N signals (0 = all)"),
+    markdown: Path | None = typer.Option(None, help="Also write a Markdown table to this file"),
+) -> None:
+    """Every signal the strategies produced, with the outcome once the market settles."""
+    s = _settings()
+    ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+    preds = ledger.predictions(limit)
+    t = Table(title=f"Predictions ({len(preds)})")
+    for col in (
+        "when (UTC)",
+        "strategy",
+        "ticker",
+        "side",
+        "price",
+        "fair",
+        "edge",
+        "traded",
+        "result",
+    ):
+        t.add_column(col)
+    for p in preds:
+        t.add_row(
+            p.created_at[:16].replace("T", " "),
+            p.strategy,
+            p.ticker,
+            p.side.value,
+            _fmt(p.limit_price),
+            _fmt(p.fair_prob),
+            _fmt(p.edge),
+            "yes" if p.acted else "no",
+            _outcome(p),
+        )
+    console.print(t)
+    if markdown is not None:
+        markdown.parent.mkdir(parents=True, exist_ok=True)
+        markdown.write_text(predictions_markdown(ledger, preds))
+
+
+def _outcome(p: Prediction) -> str:
+    if p.result is None:
+        return "open"
+    return f"{'WON' if p.won else 'lost'} ({p.result.value})"
+
+
+def predictions_markdown(ledger: Ledger, preds: list[Prediction]) -> str:
+    perf = ledger.performance()
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    lines = [
+        "# Paper-trading predictions",
+        "",
+        f"Updated {now}. Cash **${perf.cash:.2f}** (started ${perf.starting_cash:.2f}),"
+        f" realized PnL **${perf.realized_pnl:.2f}**, fees ${perf.fees_paid:.2f},"
+        f" settled {perf.settled_count}, wins {perf.wins}, open positions {perf.open_positions}.",
+        "",
+        "Brier (lower is better): strategy "
+        f"{_fmt(perf.brier_score)} vs market price {_fmt(perf.market_brier_score)}.",
+        "",
+        "`price` is what we (paper) pay for `side`; `fair` is the strategy's probability that"
+        " `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or"
+        " cash blocked the fill.",
+        "",
+        "| when (UTC) | strategy | market | side | price | fair | edge | size | traded"
+        " | result | why |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    if not preds:
+        lines.append("| _no signals yet_ | | | | | | | | | | |")
+    for p in preds:
+        why = p.rationale.replace("|", "/").replace("\n", " ")
+        when = p.created_at[:16].replace("T", " ")
+        lines.append(
+            f"| {when} | {p.strategy} | `{p.ticker}` | {p.side.value}"
+            f" | {p.limit_price:.2f} | {p.fair_prob:.2f} | {p.edge:+.3f} | {p.size:.0f}"
+            f" | {'yes' if p.acted else 'no'} | {_outcome(p)} | {why} |"
+        )
+    return "\n".join(lines) + "\n"
 
 
 @app.command()
