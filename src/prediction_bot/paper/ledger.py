@@ -11,14 +11,29 @@ from prediction_bot.models import Market, OutcomeSide, Signal
 
 
 def describe(
-    title: str, ticker: str, side: OutcomeSide, price: Decimal, fair: Decimal, acted: bool
+    title: str,
+    ticker: str,
+    strategy: str,
+    side: OutcomeSide,
+    price: Decimal,
+    fair: Decimal,
+    verb: str,
 ) -> str:
-    """Plain English, e.g. 'Fresno St. wins — NO: Kalshi says 9%, we say 12%; bought at 9¢'."""
+    """Plain English, e.g. 'Fresno St. wins — NO: Kalshi says 9%, we say 12%; bought at 9¢'.
+
+    `book_scanner` legs are one half of a YES+NO pair whose `fair` is 1 - other leg's ask,
+    not an outcome probability, so they are described as an arbitrage instead.
+    """
     what = title.rstrip(".?") or ticker
-    verb = "bought" if acted else "would buy"
+    s, cents = side.value.upper(), f"{price * 100:.0f}¢"
+    if strategy == "book_scanner":
+        pair = (price + Decimal(1) - fair) * 100
+        return (
+            f"{what} — {s} leg of a YES+NO arbitrage: {verb} at {cents};"
+            f" pair costs {pair:.0f}¢ for a $1 payout"
+        )
     return (
-        f"{what} — {side.value.upper()}: Kalshi says {price * 100:.0f}%, we say"
-        f" {fair * 100:.0f}%; {verb} at {price * 100:.0f}¢"
+        f"{what} — {s}: Kalshi says {price * 100:.0f}%, we say {fair * 100:.0f}%; {verb} at {cents}"
     )
 
 
@@ -106,8 +121,15 @@ class Prediction:
 
     @property
     def summary(self) -> str:
+        verb = "placed order" if self.acted else "would buy"
         return describe(
-            self.title, self.ticker, self.side, self.limit_price, self.fair_prob, self.acted
+            self.title,
+            self.ticker,
+            self.strategy,
+            self.side,
+            self.limit_price,
+            self.fair_prob,
+            verb,
         )
 
 
@@ -129,7 +151,9 @@ class Trade:
 
     @property
     def summary(self) -> str:
-        return describe(self.title, self.ticker, self.side, self.price, self.fair_prob, True)
+        return describe(
+            self.title, self.ticker, self.strategy, self.side, self.price, self.fair_prob, "bought"
+        )
 
     @property
     def cost(self) -> Decimal:
@@ -285,6 +309,14 @@ class Ledger:
             "SELECT DISTINCT t FROM (SELECT ticker AS t FROM fills UNION"
             " SELECT ticker FROM signals) WHERE t NOT IN (SELECT ticker FROM settlements)"
             " ORDER BY t"
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def untitled_tickers(self) -> list[str]:
+        """Tickers with a fill or signal but no remembered market title yet."""
+        rows = self.conn.execute(
+            "SELECT DISTINCT t FROM (SELECT ticker AS t FROM fills UNION"
+            " SELECT ticker FROM signals) WHERE t NOT IN (SELECT ticker FROM markets) ORDER BY t"
         ).fetchall()
         return [r[0] for r in rows]
 

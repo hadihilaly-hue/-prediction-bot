@@ -8,7 +8,7 @@ import pytest
 from prediction_bot.cli import predictions_markdown
 from prediction_bot.config import Mode
 from prediction_bot.engine import Engine
-from prediction_bot.models import OutcomeSide, Signal, fee_for
+from prediction_bot.models import Market, OutcomeSide, Signal, fee_for
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.book_scanner import BookScannerStrategy
 from tests.conftest import make_market
@@ -79,7 +79,7 @@ def test_ledger_predictions_join_settlement(tmp_path) -> None:  # type: ignore[n
 
     md = predictions_markdown(led, preds)
     assert (
-        "| T1 — YES: Kalshi says 40%, we say 60%; bought at 40¢ | yes | 0.4000 | 0.6000"
+        "| T1 — YES: Kalshi says 40%, we say 60%; placed order at 40¢ | yes | 0.4000 | 0.6000"
         " | +0.1800 | 5 | yes | lost (no) |" in md
     )
     assert "| T2 — YES:" in md and "| no | open |" in md and "| T1 |\n" in md
@@ -142,18 +142,60 @@ def test_predictions_and_trades_read_as_plain_english(tmp_path) -> None:  # type
         acted=False,
     )
     unknown, old = led.predictions()
-    assert old.summary == "Boise St. wins — NO: Kalshi says 8%, we say 10%; bought at 8¢"
+    assert old.summary == "Boise St. wins — NO: Kalshi says 8%, we say 10%; placed order at 8¢"
     assert unknown.summary == "E-B — YES: Kalshi says 55%, we say 60%; would buy at 55¢"
     (t,) = led.trades()
-    assert t.summary == old.summary
+    assert t.summary == "Boise St. wins — NO: Kalshi says 8%, we say 10%; bought at 8¢"
+    assert led.untitled_tickers() == ["E-B"]
+
+    # book_scanner fair values are 1 - other leg's ask, not probabilities
+    led.record_fill(
+        "book_scanner",
+        "E-B",
+        OutcomeSide.no,
+        Decimal("0.50"),
+        Decimal(1),
+        Decimal(0),
+        Decimal("0.60"),
+    )
+    assert led.trades()[0].summary == (
+        "E-B — NO leg of a YES+NO arbitrage: bought at 50¢; pair costs 90¢ for a $1 payout"
+    )
 
     data = dashboard_data(led)
     assert data["predictions"][1]["summary"] == old.summary  # type: ignore[index]
-    assert data["trades"][0]["summary"] == old.summary  # type: ignore[index]
+    assert data["trades"][1]["summary"] == t.summary  # type: ignore[index]
 
     led.remember_markets([make_market("E-B", "0.5", "0.55", title="<b>x</b></script>")])
     page = render_dashboard(led)
     assert page.count("<script") == 2 and "<b>x<\\/b><\\/script>" in page
+
+
+def test_settle_backfills_titles_for_old_rows(settings) -> None:  # type: ignore[no-untyped-def]
+    class Venue:
+        asked: list[list[str] | None] = []
+
+        def get_markets(self, status: str | None, tickers: list[str] | None) -> list[Market]:
+            self.asked.append(tickers)
+            return [
+                make_market("E-A", "0.5", "0.5", title="A wins", result="yes"),
+                make_market("E-B", "0.5", "0.5", title="B wins"),
+            ]
+
+    ledger = Ledger(settings.paper_db_path, settings.paper_starting_cash)
+    ledger.record_fill(
+        "s", "E-A", OutcomeSide.yes, Decimal("0.5"), Decimal(1), Decimal(0), Decimal("0.6")
+    )
+    ledger.settle("E-A", OutcomeSide.yes)  # settled before titles existed
+    ledger.record_fill(
+        "s", "E-B", OutcomeSide.yes, Decimal("0.5"), Decimal(1), Decimal(0), Decimal("0.6")
+    )
+    venue = Venue()
+    eng = Engine(settings, venue, [], ledger)  # type: ignore[arg-type]
+    assert eng.settle_open_positions() == {}
+    assert venue.asked == [["E-A", "E-B"]]
+    assert {t.ticker: t.title for t in ledger.trades()} == {"E-A": "A wins", "E-B": "B wins"}
+    assert ledger.untitled_tickers() == []
 
 
 def test_ledger_rejects_overspend(tmp_path) -> None:  # type: ignore[no-untyped-def]
