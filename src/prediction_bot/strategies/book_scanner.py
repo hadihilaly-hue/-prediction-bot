@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from dataclasses import replace
 from decimal import Decimal
 
-from prediction_bot.models import Market, OutcomeSide, Signal
+from prediction_bot.models import Market, OutcomeSide, Signal, fee_for
 from prediction_bot.strategies.base import Strategy
 
 
@@ -38,8 +38,16 @@ class BookScannerStrategy(Strategy):
                 )
                 for side, other in ((OutcomeSide.yes, no_ask), (OutcomeSide.no, yes_ask))
             ]
-            if all(legs):
-                pair = [s for s in legs if s]
-                size = min(s.size for s in pair)
-                out.extend(replace(s, size=size) for s in pair)
+            if not all(legs):
+                continue
+            pair = [s for s in legs if s]
+            size = min(s.size for s in pair)
+            # The pair is only locked if the gap covers *both* legs' fees (rounded up per
+            # leg exactly as the engine books them), not each fee against the full gap.
+            mult = self.settings.taker_fee_multiplier
+            fees = sum((fee_for(s.limit_price, size, mult) for s in pair), Decimal(0))
+            pair_edge = (size * (Decimal(1) - total) - fees) / size
+            if pair_edge < self.settings.min_edge:
+                continue
+            out.extend(replace(s, size=size, edge=pair_edge) for s in pair)
         return out
