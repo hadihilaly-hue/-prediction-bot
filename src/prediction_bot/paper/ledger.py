@@ -190,6 +190,15 @@ class Ledger:
     def open_tickers(self) -> list[str]:
         return sorted({p.ticker for p in self.positions()})
 
+    def unsettled_tickers(self) -> list[str]:
+        """Tickers with any fill *or* signal that Kalshi has not yet been seen to resolve."""
+        rows = self.conn.execute(
+            "SELECT DISTINCT t FROM (SELECT ticker AS t FROM fills UNION"
+            " SELECT ticker FROM signals) WHERE t NOT IN (SELECT ticker FROM settlements)"
+            " ORDER BY t"
+        ).fetchall()
+        return [r[0] for r in rows]
+
     # ---- settlement ---------------------------------------------------------
 
     def settle(self, ticker: str, result: OutcomeSide, at: datetime | None = None) -> Decimal:

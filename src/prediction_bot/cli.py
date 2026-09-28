@@ -242,14 +242,22 @@ def predictions_markdown(ledger: Ledger, preds: list[Prediction]) -> str:
     if not preds:
         lines.append("| _no signals yet_ | | | | | | | | | | |")
     for p in preds:
-        why = p.rationale.replace("|", "/").replace("\n", " ")
         when = p.created_at[:16].replace("T", " ")
         lines.append(
-            f"| {when} | {p.strategy} | `{p.ticker}` | {p.side.value}"
-            f" | {p.limit_price:.2f} | {p.fair_prob:.2f} | {p.edge:+.3f} | {p.size:.0f}"
-            f" | {'yes' if p.acted else 'no'} | {_outcome(p)} | {why} |"
+            f"| {when} | {_md(p.strategy)} | {_md(p.ticker)} | {p.side.value}"
+            f" | {p.limit_price:.4f} | {p.fair_prob:.4f} | {p.edge:+.4f} | {p.size:.0f}"
+            f" | {'yes' if p.acted else 'no'} | {_outcome(p)} | {_md(p.rationale)} |"
         )
     return "\n".join(lines) + "\n"
+
+
+_MD_SPECIAL = "\\`*_[]()<>|!#~"
+
+
+def _md(text: str) -> str:
+    """Neutralise Markdown in venue-supplied text so it renders literally in a table cell."""
+    out = "".join(f"\\{ch}" if ch in _MD_SPECIAL else ch for ch in text)
+    return out.replace("\n", " ")
 
 
 @app.command()
