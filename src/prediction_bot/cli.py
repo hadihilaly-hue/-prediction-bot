@@ -27,13 +27,20 @@ def _settings() -> Settings:
 def _client(settings: Settings, need_auth: bool = False) -> KalshiClient:
     signer = None
     if settings.has_kalshi_credentials:
-        assert settings.kalshi_api_key_id and settings.kalshi_private_key_path
-        signer = KalshiSigner.from_file(
-            settings.kalshi_api_key_id, settings.kalshi_private_key_path
-        )
+        assert settings.kalshi_api_key_id
+        if settings.kalshi_private_key_pem:
+            signer = KalshiSigner.from_pem(
+                settings.kalshi_api_key_id, settings.kalshi_private_key_pem
+            )
+        else:
+            assert settings.kalshi_private_key_path
+            signer = KalshiSigner.from_file(
+                settings.kalshi_api_key_id, settings.kalshi_private_key_path
+            )
     elif need_auth:
         raise typer.BadParameter(
-            "Set PBOT_KALSHI_API_KEY_ID and PBOT_KALSHI_PRIVATE_KEY_PATH (demo keys from"
+            "Set PBOT_KALSHI_API_KEY_ID and PBOT_KALSHI_PRIVATE_KEY_PATH or"
+            " PBOT_KALSHI_PRIVATE_KEY_PEM (demo keys from"
             " https://demo.kalshi.co → Account & security → API Keys)"
         )
     return KalshiClient(settings.kalshi_api_base, signer=signer)
