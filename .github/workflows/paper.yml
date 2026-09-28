@@ -43,6 +43,8 @@ jobs:
           PBOT_MODE: paper
           PBOT_KALSHI_API_BASE: https://api.elections.kalshi.com/trade-api/v2
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
+          # 1c after fees: the default 3c found nothing; we want data on small edges too.
+          PBOT_MIN_EDGE: "0.01"
           PBOT_ODDS_API_KEY: ${{ secrets.PBOT_ODDS_API_KEY }}
           # github.event.schedule is the cron expression that fired, so slot selection is
           # immune to delayed starts; manual runs always include the sportsbook strategy.
