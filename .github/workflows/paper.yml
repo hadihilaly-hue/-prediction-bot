@@ -41,7 +41,7 @@ jobs:
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
           PBOT_ODDS_API_KEY: ${{ secrets.PBOT_ODDS_API_KEY }}
         run: |
-          set -o pipefail
+          set -eo pipefail
           pbot paper -s book_scanner --cycles 1 | tee ledger/last_run.txt
           if [ -n "$PBOT_ODDS_API_KEY" ]; then
             pbot paper -s sportsbook_arb --cycles 1 \
