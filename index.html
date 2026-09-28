@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paper-trading dashboard</title>
+<style>
+  :root { --bg:#0f1115; --card:#181b22; --fg:#e6e6e6; --muted:#9aa0aa; --good:#3ddc84;
+          --bad:#ff5d5d; --accent:#6ea8fe; --line:#2a2f3a; }
+  * { box-sizing: border-box; }
+  body { margin:0; font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+         background:var(--bg); color:var(--fg); }
+  header { padding:16px 20px; border-bottom:1px solid var(--line); display:flex;
+           flex-wrap:wrap; gap:8px 16px; align-items:baseline; }
+  header h1 { font-size:18px; margin:0; }
+  header .sub { color:var(--muted); font-size:12px; }
+  main { padding:16px 20px; display:grid; gap:16px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .card .k { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  .card .v { font-size:20px; font-weight:600; margin-top:4px; }
+  .good { color:var(--good); } .bad { color:var(--bad); } .muted { color:var(--muted); }
+  .charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
+  .chart h2, section h2 { font-size:14px; margin:0 0 8px; color:var(--muted); font-weight:600; }
+  svg { width:100%; height:180px; display:block; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .tabs button { background:var(--card); color:var(--fg); border:1px solid var(--line);
+                 border-radius:8px; padding:6px 12px; cursor:pointer; }
+  .tabs button.on { border-color:var(--accent); color:var(--accent); }
+  .tabs input, .tabs select { background:var(--card); color:var(--fg); border:1px solid var(--line);
+                              border-radius:8px; padding:6px 10px; }
+  .tabs input { flex:1; min-width:160px; }
+  .tablewrap { overflow:auto; border:1px solid var(--line); border-radius:10px; }
+  table { border-collapse:collapse; width:100%; min-width:900px; }
+  th, td { padding:8px 10px; text-align:left; border-bottom:1px solid var(--line);
+           white-space:nowrap; font-variant-numeric:tabular-nums; }
+  th { position:sticky; top:0; background:var(--card); color:var(--muted); font-weight:600;
+       cursor:pointer; user-select:none; }
+  td.why { white-space:normal; min-width:260px; max-width:520px; color:var(--muted); }
+  tr:hover td { background:#1d2129; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px;
+          border:1px solid var(--line); }
+  .pill.won { color:var(--good); border-color:var(--good); }
+  .pill.lost { color:var(--bad); border-color:var(--bad); }
+  .empty { padding:24px; text-align:center; color:var(--muted); }
+  footer { padding:12px 20px 24px; color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Paper-trading dashboard</h1>
+  <span class="sub" id="generated"></span>
+  <span class="sub">Paper mode only &mdash; no real orders are placed.</span>
+</header>
+<main>
+  <div class="cards" id="cards"></div>
+  <div class="charts">
+    <div class="card chart"><h2>Equity (cash + open cost)</h2><svg id="equity"></svg></div>
+    <div class="card chart"><h2>Per-run activity (signals / fills)</h2><svg id="activity"></svg></div>
+  </div>
+  <section>
+    <div class="tabs" style="margin-bottom:8px">
+      <button class="on" data-tab="predictions">Predictions</button>
+      <button data-tab="trades">Trades</button>
+      <button data-tab="runs">Runs</button>
+      <input id="q" placeholder="filter: ticker, strategy, text…">
+      <select id="status">
+        <option value="">all</option>
+        <option value="open">open</option>
+        <option value="won">won</option>
+        <option value="lost">lost</option>
+        <option value="traded">traded only</option>
+      </select>
+    </div>
+    <div class="tablewrap"><table id="table"></table></div>
+  </section>
+</main>
+<footer>
+  <b>price</b> is what we (paper) pay for <b>side</b>; <b>fair</b> is the strategy's probability
+  that side wins; <b>edge</b> = fair &minus; price &minus; fees. <b>Brier</b>: lower is better;
+  the strategy has skill only if its Brier beats the market price's.
+</footer>
+<script id="data" type="application/json">{"generated_at":"2026-09-28T16:34:16+00:00","performance":{"cash":1000.0,"starting_cash":1000.0,"open_positions":0,"open_cost":0.0,"settled_count":0,"realized_pnl":0.0,"fees_paid":0.0,"wins":0,"brier":null,"market_brier":null},"predictions":[],"trades":[],"runs":[{"when":"2026-09-28T16:34:15.217871","strategies":"book_scanner","scanned":3000,"signals":0,"filled":0,"settled":0,"cash":1000.0,"equity":1000.0},{"when":"2026-09-28T16:34:16.180419","strategies":"sportsbook_arb","scanned":554,"signals":0,"filled":0,"settled":0,"cash":1000.0,"equity":1000.0}]}</script>
+<script>
+(function () {
+  const D = JSON.parse(document.getElementById('data').textContent);
+  const P = D.performance;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const money = (x) => x == null ? '-' : (x < 0 ? '-' : '') + '$' + Math.abs(x).toFixed(2);
+  const f4 = (x) => x == null ? '-' : x.toFixed(4);
+  const when = (s) => s ? s.slice(0, 16).replace('T', ' ') : '-';
+  const sign = (x) => x == null ? '' : x > 0 ? 'good' : x < 0 ? 'bad' : '';
+
+  $('generated').textContent = 'Updated ' + when(D.generated_at) + ' UTC';
+
+  const cards = [
+    ['Cash', money(P.cash), ''],
+    ['Realized PnL', money(P.realized_pnl), sign(P.realized_pnl)],
+    ['Fees paid', money(P.fees_paid), ''],
+    ['Open positions', P.open_positions + ' (' + money(P.open_cost) + ')', ''],
+    ['Settled / wins', P.settled_count + ' / ' + P.wins, ''],
+    ['Brier strategy vs market', f4(P.brier) + ' vs ' + f4(P.market_brier),
+      P.brier == null ? 'muted' : (P.brier < P.market_brier ? 'good' : 'bad')],
+    ['Signals', D.predictions.length + ' (' + D.predictions.filter(p => p.traded).length + ' traded)', ''],
+    ['Runs', D.runs.length, ''],
+  ];
+  $('cards').innerHTML = cards.map(([k, v, c]) =>
+    '<div class="card"><div class="k">' + esc(k) + '</div><div class="v ' + c + '">' + esc(v) + '</div></div>').join('');
+
+  function lineChart(svg, pts, opts) {
+    const W = 600, H = 180, L = 48, R = 10, T = 10, B = 24;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    if (pts.length < 1) { svg.innerHTML = '<text x="50%" y="50%" fill="#9aa0aa" text-anchor="middle">no runs yet</text>'; return; }
+    let ys = pts.map(p => p.y); let lo = Math.min(...ys, opts.base ?? Infinity), hi = Math.max(...ys, opts.base ?? -Infinity);
+    if (hi === lo) { hi += 1; lo -= 1; }
+    const x = (i) => L + (pts.length === 1 ? (W - L - R) / 2 : i * (W - L - R) / (pts.length - 1));
+    const y = (v) => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+    let out = '';
+    for (let k = 0; k <= 4; k++) {
+      const v = lo + (hi - lo) * k / 4, yy = y(v);
+      out += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="#2a2f3a"/>';
+      out += '<text x="' + (L - 6) + '" y="' + (yy + 4) + '" fill="#9aa0aa" font-size="10" text-anchor="end">' + opts.fmt(v) + '</text>';
+    }
+    if (opts.base != null) out += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(opts.base) + '" y2="' + y(opts.base) + '" stroke="#6ea8fe" stroke-dasharray="4 4"/>';
+    out += '<polyline fill="none" stroke="#3ddc84" stroke-width="2" points="' + pts.map((p, i) => x(i) + ',' + y(p.y)).join(' ') + '"/>';
+    pts.forEach((p, i) => { out += '<circle cx="' + x(i) + '" cy="' + y(p.y) + '" r="3" fill="#3ddc84"><title>' + esc(p.label) + '</title></circle>'; });
+    out += '<text x="' + L + '" y="' + (H - 6) + '" fill="#9aa0aa" font-size="10">' + esc(pts[0].t) + '</text>';
+    out += '<text x="' + (W - R) + '" y="' + (H - 6) + '" fill="#9aa0aa" font-size="10" text-anchor="end">' + esc(pts[pts.length - 1].t) + '</text>';
+    svg.innerHTML = out;
+  }
+  function barChart(svg, runs) {
+    const W = 600, H = 180, L = 32, R = 10, T = 10, B = 24;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    if (!runs.length) { svg.innerHTML = '<text x="50%" y="50%" fill="#9aa0aa" text-anchor="middle">no runs yet</text>'; return; }
+    const hi = Math.max(1, ...runs.map(r => r.signals));
+    const bw = (W - L - R) / runs.length, y = (v) => T + (H - T - B) * (1 - v / hi);
+    let out = '<text x="' + (L - 6) + '" y="' + (T + 4) + '" fill="#9aa0aa" font-size="10" text-anchor="end">' + hi + '</text>';
+    out += '<text x="' + (L - 6) + '" y="' + (H - B + 4) + '" fill="#9aa0aa" font-size="10" text-anchor="end">0</text>';
+    runs.forEach((r, i) => {
+      const x0 = L + i * bw + bw * 0.15, w = Math.max(1, bw * 0.7);
+      out += '<rect x="' + x0 + '" y="' + y(r.signals) + '" width="' + w + '" height="' + (H - B - y(r.signals)) + '" fill="#6ea8fe" opacity=".5"><title>' + esc(when(r.when) + ': ' + r.signals + ' signals, ' + r.filled + ' fills, ' + r.scanned + ' markets') + '</title></rect>';
+      out += '<rect x="' + x0 + '" y="' + y(r.filled) + '" width="' + w + '" height="' + (H - B - y(r.filled)) + '" fill="#3ddc84"/>';
+    });
+    out += '<text x="' + L + '" y="' + (H - 6) + '" fill="#9aa0aa" font-size="10">' + esc(when(runs[0].when)) + '</text>';
+    out += '<text x="' + (W - R) + '" y="' + (H - 6) + '" fill="#9aa0aa" font-size="10" text-anchor="end">' + esc(when(runs[runs.length - 1].when)) + '</text>';
+    svg.innerHTML = out;
+  }
+  lineChart($('equity'), D.runs.map(r => ({ y: r.equity, t: when(r.when), label: when(r.when) + '  ' + money(r.equity) })),
+            { base: P.starting_cash, fmt: (v) => '$' + v.toFixed(0) });
+  barChart($('activity'), D.runs);
+
+  const COLS = {
+    predictions: [
+      ['when (UTC)', r => when(r.when)], ['strategy', r => r.strategy], ['market', r => r.ticker],
+      ['side', r => r.side], ['price', r => f4(r.price)], ['fair', r => f4(r.fair)],
+      ['edge', r => (r.edge > 0 ? '+' : '') + f4(r.edge), r => sign(r.edge)], ['size', r => r.size],
+      ['traded', r => r.traded ? 'yes' : 'no', r => r.traded ? '' : 'muted'],
+      ['result', r => r.result == null ? '<span class="pill">open</span>'
+        : '<span class="pill ' + (r.won ? 'won' : 'lost') + '">' + (r.won ? 'WON' : 'lost') + ' (' + esc(r.result) + ')</span>', null, true],
+      ['why', r => r.why, null, false, 'why'],
+    ],
+    trades: [
+      ['when (UTC)', r => when(r.when)], ['strategy', r => r.strategy], ['market', r => r.ticker],
+      ['side', r => r.side], ['price', r => f4(r.price)], ['contracts', r => r.count],
+      ['fee', r => money(r.fee)], ['cost', r => money(r.cost)], ['fair', r => f4(r.fair)],
+      ['result', r => r.result == null ? '<span class="pill">open</span>'
+        : '<span class="pill ' + (r.pnl >= 0 ? 'won' : 'lost') + '">' + esc(r.result) + '</span>', null, true],
+      ['pnl', r => money(r.pnl), r => sign(r.pnl)], ['settled (UTC)', r => when(r.settled_at)],
+    ],
+    runs: [
+      ['when (UTC)', r => when(r.when)], ['strategies', r => r.strategies], ['markets scanned', r => r.scanned],
+      ['signals', r => r.signals], ['fills', r => r.filled], ['settled', r => r.settled],
+      ['cash', r => money(r.cash)], ['equity', r => money(r.equity)],
+    ],
+  };
+  let tab = 'predictions', sortKey = null, sortDir = -1;
+  function rows() {
+    const q = $('q').value.trim().toLowerCase(), st = $('status').value;
+    return D[tab].filter(r => {
+      if (q && !JSON.stringify(r).toLowerCase().includes(q)) return false;
+      if (tab === 'runs' || !st) return true;
+      if (st === 'open') return r.result == null;
+      if (st === 'traded') return tab === 'trades' || r.traded;
+      const won = tab === 'trades' ? (r.pnl != null && r.pnl >= 0) : r.won;
+      return r.result != null && (st === 'won') === !!won;
+    });
+  }
+  function render() {
+    const cols = COLS[tab];
+    let rs = rows();
+    if (sortKey != null) {
+      const [, get] = cols[sortKey];
+      rs = rs.slice().sort((a, b) => { const x = get(a), y = get(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
+    }
+    let h = '<thead><tr>' + cols.map(([n], i) => '<th data-i="' + i + '">' + esc(n) + (sortKey === i ? (sortDir > 0 ? ' ▲' : ' ▼') : '') + '</th>').join('') + '</tr></thead><tbody>';
+    if (!rs.length) h += '<tr><td colspan="' + cols.length + '" class="empty">nothing here yet — the scheduled run adds rows 3×/day</td></tr>';
+    for (const r of rs) h += '<tr>' + cols.map(([, get, cls, raw, td]) =>
+      '<td class="' + (td || '') + ' ' + (cls ? cls(r) : '') + '">' + (raw ? get(r) : esc(get(r) ?? '-')) + '</td>').join('') + '</tr>';
+    $('table').innerHTML = h + '</tbody>';
+    $('table').querySelectorAll('th').forEach(th => th.onclick = () => {
+      const i = +th.dataset.i; sortDir = sortKey === i ? -sortDir : -1; sortKey = i; render();
+    });
+  }
+  document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); tab = b.dataset.tab; sortKey = null; render();
+  });
+  $('q').oninput = render; $('status').onchange = render;
+  render();
+})();
+</script>
+</body>
+</html>
