@@ -1,2 +1,42 @@
  scanned=3000 signals=0 filled=0 settled=0 cash=1000.00
- scanned=554 signals=0 filled=0 settled=0 cash=1000.00
+ scanned=554 signals=4 filled=4 settled=0 cash=970.40
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ sportsboo… │ KXNCAAFGA… │ yes  │ 0.0800 │ 0.1015 │ 0.0115 │ 100  │ Utah      │
+│            │            │      │        │        │        │      │ State     │
+│            │            │      │        │        │        │      │ Aggies    │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.102     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Boise    │
+│            │            │      │        │        │        │      │ State     │
+│ sportsboo… │ KXNCAAFGA… │ no   │ 0.0800 │ 0.1015 │ 0.0115 │ 100  │ Boise     │
+│            │            │      │        │        │        │      │ State     │
+│            │            │      │        │        │        │      │ Broncos   │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.898     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Boise    │
+│            │            │      │        │        │        │      │ Stat      │
+│ sportsboo… │ KXNCAAFGA… │ no   │ 0.0900 │ 0.1101 │ 0.0101 │ 9    │ North     │
+│            │            │      │        │        │        │      │ Dakota    │
+│            │            │      │        │        │        │      │ State     │
+│            │            │      │        │        │        │      │ Bison     │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.890     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (North    │
+│ sportsboo… │ KXNCAAFGA… │ no   │ 0.1600 │ 0.1805 │ 0.0105 │ 69   │ Ohio      │
+│            │            │      │        │        │        │      │ State     │
+│            │            │      │        │        │        │      │ Buckeyes  │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.819     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Iowa     │
+│            │            │      │        │        │        │      │ Hawke     │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘

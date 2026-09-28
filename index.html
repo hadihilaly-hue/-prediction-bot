@@ -80,7 +80,7 @@
   that side wins; <b>edge</b> = fair &minus; price &minus; fees. <b>Brier</b>: lower is better;
   the strategy has skill only if its Brier beats the market price's.
 </footer>
-<script id="data" type="application/json">{"generated_at":"2026-09-28T16:34:16+00:00","performance":{"cash":1000.0,"starting_cash":1000.0,"open_positions":0,"open_cost":0.0,"settled_count":0,"realized_pnl":0.0,"fees_paid":0.0,"wins":0,"brier":null,"market_brier":null},"predictions":[],"trades":[],"runs":[{"when":"2026-09-28T16:34:15.217871","strategies":"book_scanner","scanned":3000,"signals":0,"filled":0,"settled":0,"cash":1000.0,"equity":1000.0},{"when":"2026-09-28T16:34:16.180419","strategies":"sportsbook_arb","scanned":554,"signals":0,"filled":0,"settled":0,"cash":1000.0,"equity":1000.0}]}</script>
+<script id="data" type="application/json">{"generated_at":"2026-09-28T18:37:48+00:00","performance":{"cash":970.4,"starting_cash":1000.0,"open_positions":4,"open_cost":29.6,"settled_count":0,"realized_pnl":0.0,"fees_paid":1.75,"wins":0,"brier":null,"market_brier":null},"predictions":[{"when":"2026-09-28T18:37:46.867016","strategy":"sportsbook_arb","ticker":"KXNCAAFGAME-26OCT03OSUIOWA-OSU","side":"no","price":0.16,"fair":0.1805426335348479,"edge":0.010542633534847889,"size":69.0,"traded":true,"result":null,"won":null,"why":"Ohio State Buckeyes consensus 0.819 from 3 books (Iowa Hawkeyes vs Ohio State Buckeyes)"},{"when":"2026-09-28T18:37:46.845127","strategy":"sportsbook_arb","ticker":"KXNCAAFGAME-26OCT03WYONDSU-NDSU","side":"no","price":0.09,"fair":0.11009316461286726,"edge":0.01009316461286727,"size":9.0,"traded":true,"result":null,"won":null,"why":"North Dakota State Bison consensus 0.890 from 3 books (North Dakota State Bison vs Wyoming Cowboys)"},{"when":"2026-09-28T18:37:46.830548","strategy":"sportsbook_arb","ticker":"KXNCAAFGAME-26OCT03USUBSU-BSU","side":"no","price":0.08,"fair":0.10153269375889132,"edge":0.011532693758891313,"size":100.0,"traded":true,"result":null,"won":null,"why":"Boise State Broncos consensus 0.898 from 3 books (Boise State Broncos vs Utah State Aggies)"},{"when":"2026-09-28T18:37:46.830519","strategy":"sportsbook_arb","ticker":"KXNCAAFGAME-26OCT03USUBSU-USU","side":"yes","price":0.08,"fair":0.10153269375889132,"edge":0.011532693758891313,"size":100.0,"traded":true,"result":null,"won":null,"why":"Utah State Aggies consensus 0.102 from 3 books (Boise State Broncos vs Utah State Aggies)"}],"trades":[{"when":"2026-09-28T18:37:47.384357","strategy":"sportsbook_arb","ticker":"KXNCAAFGAME-26OCT03OSUIOWA-OSU","side":"no","price":0.16,"count":69.0,"fee":0.65,"cost":11.69,"fair":0.1805426335348479,"result":null,"settled_at":null,"pnl":null},{"when":"2026-09-28T18:37:47.313922","strategy":"sportsbook_arb","ticker":"KXNCAAFGAME-26OCT03WYONDSU-NDSU","side":"no","price":0.09,"count":9.0,"fee":0.06,"cost":0.87,"fair":0.11009316461286726,"result":null,"settled_at":null,"pnl":null},{"when":"2026-09-28T18:37:47.311393","strategy":"sportsbook_arb","ticker":"KXNCAAFGAME-26OCT03USUBSU-BSU","side":"no","price":0.08,"count":100.0,"fee":0.52,"cost":8.52,"fair":0.10153269375889132,"result":null,"settled_at":null,"pnl":null},{"when":"2026-09-28T18:37:47.094943","strategy":"sportsbook_arb","ticker":"KXNCAAFGAME-26OCT03USUBSU-USU","side":"yes","price":0.08,"count":100.0,"fee":0.52,"cost":8.52,"fair":0.10153269375889132,"result":null,"settled_at":null,"pnl":null}],"runs":[{"when":"2026-09-28T16:34:15.217871","strategies":"book_scanner","scanned":3000,"signals":0,"filled":0,"settled":0,"cash":1000.0,"equity":1000.0},{"when":"2026-09-28T16:34:16.180419","strategies":"sportsbook_arb","scanned":554,"signals":0,"filled":0,"settled":0,"cash":1000.0,"equity":1000.0},{"when":"2026-09-28T18:37:46.022117","strategies":"book_scanner","scanned":3000,"signals":0,"filled":0,"settled":0,"cash":1000.0,"equity":1000.0},{"when":"2026-09-28T18:37:47.387474","strategies":"sportsbook_arb","scanned":554,"signals":4,"filled":4,"settled":0,"cash":970.4,"equity":1000.0}]}</script>
 <script>
 (function () {
   const D = JSON.parse(document.getElementById('data').textContent);
@@ -150,28 +150,32 @@
             { base: P.starting_cash, fmt: (v) => '$' + v.toFixed(0) });
   barChart($('activity'), D.runs);
 
+  // column: [header, display, cssClass, isRawHtml, tdClass, sortKey]; sortKey defaults to display
+  const num = (k) => (r) => r[k] == null ? -Infinity : r[k];
   const COLS = {
     predictions: [
-      ['when (UTC)', r => when(r.when)], ['strategy', r => r.strategy], ['market', r => r.ticker],
-      ['side', r => r.side], ['price', r => f4(r.price)], ['fair', r => f4(r.fair)],
-      ['edge', r => (r.edge > 0 ? '+' : '') + f4(r.edge), r => sign(r.edge)], ['size', r => r.size],
+      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['strategy', r => r.strategy], ['market', r => r.ticker],
+      ['side', r => r.side], ['price', r => f4(r.price), null, false, null, num('price')], ['fair', r => f4(r.fair), null, false, null, num('fair')],
+      ['edge', r => (r.edge > 0 ? '+' : '') + f4(r.edge), r => sign(r.edge), false, null, num('edge')], ['size', r => r.size, null, false, null, num('size')],
       ['traded', r => r.traded ? 'yes' : 'no', r => r.traded ? '' : 'muted'],
       ['result', r => r.result == null ? '<span class="pill">open</span>'
-        : '<span class="pill ' + (r.won ? 'won' : 'lost') + '">' + (r.won ? 'WON' : 'lost') + ' (' + esc(r.result) + ')</span>', null, true],
+        : '<span class="pill ' + (r.won ? 'won' : 'lost') + '">' + (r.won ? 'WON' : 'lost') + ' (' + esc(r.result) + ')</span>', null, true, null,
+        r => r.result == null ? 0 : r.won ? 2 : 1],
       ['why', r => r.why, null, false, 'why'],
     ],
     trades: [
-      ['when (UTC)', r => when(r.when)], ['strategy', r => r.strategy], ['market', r => r.ticker],
-      ['side', r => r.side], ['price', r => f4(r.price)], ['contracts', r => r.count],
-      ['fee', r => money(r.fee)], ['cost', r => money(r.cost)], ['fair', r => f4(r.fair)],
+      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['strategy', r => r.strategy], ['market', r => r.ticker],
+      ['side', r => r.side], ['price', r => f4(r.price), null, false, null, num('price')], ['contracts', r => r.count, null, false, null, num('count')],
+      ['fee', r => money(r.fee), null, false, null, num('fee')], ['cost', r => money(r.cost), null, false, null, num('cost')], ['fair', r => f4(r.fair), null, false, null, num('fair')],
       ['result', r => r.result == null ? '<span class="pill">open</span>'
-        : '<span class="pill ' + (r.pnl >= 0 ? 'won' : 'lost') + '">' + esc(r.result) + '</span>', null, true],
-      ['pnl', r => money(r.pnl), r => sign(r.pnl)], ['settled (UTC)', r => when(r.settled_at)],
+        : '<span class="pill ' + (r.pnl >= 0 ? 'won' : 'lost') + '">' + esc(r.result) + '</span>', null, true, null,
+        r => r.result == null ? 0 : r.pnl >= 0 ? 2 : 1],
+      ['pnl', r => money(r.pnl), r => sign(r.pnl), false, null, num('pnl')], ['settled (UTC)', r => when(r.settled_at), null, false, null, r => r.settled_at || ''],
     ],
     runs: [
-      ['when (UTC)', r => when(r.when)], ['strategies', r => r.strategies], ['markets scanned', r => r.scanned],
-      ['signals', r => r.signals], ['fills', r => r.filled], ['settled', r => r.settled],
-      ['cash', r => money(r.cash)], ['equity', r => money(r.equity)],
+      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['strategies', r => r.strategies], ['markets scanned', r => r.scanned, null, false, null, num('scanned')],
+      ['signals', r => r.signals, null, false, null, num('signals')], ['fills', r => r.filled, null, false, null, num('filled')], ['settled', r => r.settled, null, false, null, num('settled')],
+      ['cash', r => money(r.cash), null, false, null, num('cash')], ['equity', r => money(r.equity), null, false, null, num('equity')],
     ],
   };
   let tab = 'predictions', sortKey = null, sortDir = -1;
@@ -190,11 +194,11 @@
     const cols = COLS[tab];
     let rs = rows();
     if (sortKey != null) {
-      const [, get] = cols[sortKey];
+      const get = cols[sortKey][5] || cols[sortKey][1];
       rs = rs.slice().sort((a, b) => { const x = get(a), y = get(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
     }
     let h = '<thead><tr>' + cols.map(([n], i) => '<th data-i="' + i + '">' + esc(n) + (sortKey === i ? (sortDir > 0 ? ' ▲' : ' ▼') : '') + '</th>').join('') + '</tr></thead><tbody>';
-    if (!rs.length) h += '<tr><td colspan="' + cols.length + '" class="empty">nothing here yet — the scheduled run adds rows 3×/day</td></tr>';
+    if (!rs.length) h += '<tr><td colspan="' + cols.length + '" class="empty">nothing here yet — the scheduled run adds rows every 30 min</td></tr>';
     for (const r of rs) h += '<tr>' + cols.map(([, get, cls, raw, td]) =>
       '<td class="' + (td || '') + ' ' + (cls ? cls(r) : '') + '">' + (raw ? get(r) : esc(get(r) ?? '-')) + '</td>').join('') + '</tr>';
     $('table').innerHTML = h + '</tbody>';
