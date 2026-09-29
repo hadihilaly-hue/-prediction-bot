@@ -176,7 +176,7 @@ OUTRIGHT: dict[str, Any] = {
                         {"name": "Scottie Scheffler", "price": 5.0},
                         {"name": "Rory McIlroy", "price": 7.0},
                         {"name": "Zach Johnson", "price": 100.0},
-                        *({"name": f"Golfer {i}", "price": 150.0} for i in range(40)),
+                        *({"name": f"Golfer {i}", "price": 60.0} for i in range(40)),
                     ],
                 }
             ],
@@ -207,9 +207,9 @@ def test_golf_major_uses_outrights(settings) -> None:  # type: ignore[no-untyped
     odds = FakeOutrights()
     strat = SportsbookArbStrategy(settings, odds_client=odds)  # type: ignore[arg-type]
     exp = datetime(2027, 4, 12, tzinfo=timezone.utc)
-    # books put Scheffler ~0.33 (de-vigged over the field); Kalshi asks 0.25 -> buy YES.
+    # books put Scheffler ~0.20 (de-vigged over the field); Kalshi asks 0.15 -> buy YES.
     sch = make_market(
-        "KXMASTERS-27-SS", "0.23", "0.25", subtitle="Scottie Scheffler", expected_expiration=exp
+        "KXMASTERS-27-SS", "0.13", "0.15", subtitle="Scottie Scheffler", expected_expiration=exp
     )
     # Kalshi asks 0.20 for Johnson vs ~0.03 fair -> buy NO.
     zj = make_market(
@@ -232,6 +232,6 @@ def test_golf_major_skips_wrong_edition(settings) -> None:  # type: ignore[no-un
     # market for a past edition: the feed's next tournament starts after it expires
     exp = datetime(2026, 4, 12, tzinfo=timezone.utc)
     sch = make_market(
-        "KXMASTERS-26-SS", "0.38", "0.40", subtitle="Scottie Scheffler", expected_expiration=exp
+        "KXMASTERS-26-SS", "0.13", "0.15", subtitle="Scottie Scheffler", expected_expiration=exp
     )
     assert strat.evaluate([sch]) == []
