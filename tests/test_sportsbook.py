@@ -158,3 +158,79 @@ def test_repeated_matchup_picks_game_nearest_expiration(settings) -> None:  # ty
 def test_sportsbook_arb_without_key_is_noop(settings) -> None:  # type: ignore[no-untyped-def]
     settings.odds_api_key = None
     assert SportsbookArbStrategy(settings).evaluate([]) == []
+
+
+OUTRIGHT: dict[str, Any] = {
+    "id": "masters",
+    "sport_key": "golf_masters_tournament_winner",
+    "home_team": None,
+    "away_team": None,
+    "commence_time": "2027-04-08T11:00:00Z",
+    "bookmakers": [
+        {
+            "key": "draftkings",
+            "markets": [
+                {
+                    "key": "outrights",
+                    "outcomes": [
+                        {"name": "Scottie Scheffler", "price": 5.0},
+                        {"name": "Rory McIlroy", "price": 7.0},
+                        {"name": "Zach Johnson", "price": 100.0},
+                    ],
+                }
+            ],
+        }
+    ],
+}
+
+
+class FakeOutrights:
+    calls: list[str] = []
+
+    def h2h(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
+        raise AssertionError("h2h must not be used for tournament winners")
+
+    def outrights(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
+        self.calls.append(sport)
+        return [OUTRIGHT]
+
+
+def test_outright_consensus_handles_null_teams() -> None:
+    c = consensus(OUTRIGHT, market="outrights")
+    assert c is not None and c.home_team == "" and c.books_used == 1
+    assert c.probs["Scottie Scheffler"] > c.probs["Rory McIlroy"] > c.probs["Zach Johnson"]
+    assert consensus(OUTRIGHT) is None  # no h2h market on an outright event
+
+
+def test_golf_major_uses_outrights(settings) -> None:  # type: ignore[no-untyped-def]
+    odds = FakeOutrights()
+    strat = SportsbookArbStrategy(settings, odds_client=odds)  # type: ignore[arg-type]
+    exp = datetime(2027, 4, 12, tzinfo=timezone.utc)
+    # books put Scheffler ~0.58 (de-vigged); Kalshi asks 0.40 -> buy YES.
+    sch = make_market(
+        "KXMASTERS-27-SS", "0.38", "0.40", subtitle="Scottie Scheffler", expected_expiration=exp
+    )
+    # Kalshi asks 0.20 for Johnson vs ~0.03 fair -> buy NO.
+    zj = make_market(
+        "KXMASTERS-27-ZJ", "0.18", "0.20", subtitle="Zach J Johnson", expected_expiration=exp
+    )
+    unknown = make_market(
+        "KXMASTERS-27-XX", "0.10", "0.12", subtitle="Nobody Here", expected_expiration=exp
+    )
+    sigs = strat.evaluate([sch, zj, unknown])
+    assert odds.calls == ["golf_masters_tournament_winner"]
+    assert [(s.ticker.rsplit("-", 1)[1], s.side) for s in sigs] == [
+        ("SS", OutcomeSide.yes),
+        ("ZJ", OutcomeSide.no),
+    ]
+    assert "outright consensus" in sigs[0].rationale
+
+
+def test_golf_major_skips_wrong_edition(settings) -> None:  # type: ignore[no-untyped-def]
+    strat = SportsbookArbStrategy(settings, odds_client=FakeOutrights())  # type: ignore[arg-type]
+    # market for a past edition: the feed's next tournament starts after it expires
+    exp = datetime(2026, 4, 12, tzinfo=timezone.utc)
+    sch = make_market(
+        "KXMASTERS-26-SS", "0.38", "0.40", subtitle="Scottie Scheffler", expected_expiration=exp
+    )
+    assert strat.evaluate([sch]) == []

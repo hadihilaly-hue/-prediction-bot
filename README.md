@@ -39,6 +39,12 @@ Get a free key from <https://the-odds-api.com> and set `PBOT_ODDS_API_KEY`. Then
 pbot scan -s sportsbook_arb --series KXNFLGAME --series KXNCAAFGAME
 ```
 
+Game-winner series (`KXNFLGAME`, `KXNCAAFGAME`, `KXNBAGAME`, `KXNHLGAME`, `KXMLBGAME`, ...)
+use the books' head-to-head odds; golf major series (`KXMASTERS`, `KXPGA`, `KXUSOPEN`,
+`KXTHEOPEN`) use the books' tournament-winner ("outrights") odds. Each sport that has Kalshi
+markets in the scan costs one Odds API request per run; the free tier has no F1 or weekly
+PGA Tour odds, so those series are not covered.
+
 ## Strategies
 
 | name | idea |

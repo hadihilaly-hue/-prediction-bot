@@ -55,6 +55,8 @@ jobs:
           if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" = true ]; then
             pbot paper -s sportsbook_arb --cycles 1 \
               --series KXNFLGAME --series KXNCAAFGAME --series KXNBAGAME --series KXNHLGAME \
+              --series KXMLBGAME \
+              --series KXMASTERS --series KXPGA --series KXUSOPEN --series KXTHEOPEN \
               | tee -a ledger/last_run.txt
           fi
           pbot report | tee ledger/REPORT.txt

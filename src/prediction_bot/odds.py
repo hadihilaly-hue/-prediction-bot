@@ -23,6 +23,15 @@ KALSHI_SERIES_TO_SPORT: dict[str, str] = {
     "KXMLSGAME": "soccer_usa_mls",
 }
 
+# Kalshi tournament-winner series (one market per player) -> The Odds API "outrights" sport key.
+# The free tier only carries golf's four majors; Kalshi lists these a few weeks before each.
+KALSHI_SERIES_TO_OUTRIGHT: dict[str, str] = {
+    "KXMASTERS": "golf_masters_tournament_winner",
+    "KXPGA": "golf_pga_championship_winner",
+    "KXUSOPEN": "golf_us_open_winner",
+    "KXTHEOPEN": "golf_the_open_championship_winner",
+}
+
 
 @dataclass(frozen=True)
 class ConsensusOdds:
@@ -32,8 +41,12 @@ class ConsensusOdds:
     home_team: str
     away_team: str
     commence_time: str
-    probs: dict[str, Decimal]  # team name -> probability (plus "Draw" for soccer)
+    probs: dict[str, Decimal]  # team/player name -> probability (plus "Draw" for soccer)
     books_used: int
+
+    @property
+    def names(self) -> list[str]:
+        return list(self.probs)
 
 
 def devig(decimal_odds: dict[str, Decimal]) -> dict[str, Decimal]:
@@ -45,16 +58,18 @@ def devig(decimal_odds: dict[str, Decimal]) -> dict[str, Decimal]:
     return {k: v / total for k, v in implied.items()}
 
 
-def consensus(event: dict[str, Any], bookmakers: list[str] | None = None) -> ConsensusOdds | None:
+def consensus(
+    event: dict[str, Any], bookmakers: list[str] | None = None, market: str = "h2h"
+) -> ConsensusOdds | None:
     per_team: dict[str, list[Decimal]] = {}
     used = 0
     for book in event.get("bookmakers", []):
         if bookmakers and book.get("key") not in bookmakers:
             continue
-        h2h = next((m for m in book.get("markets", []) if m.get("key") == "h2h"), None)
-        if not h2h:
+        mkt = next((m for m in book.get("markets", []) if m.get("key") == market), None)
+        if not mkt:
             continue
-        odds = {o["name"]: Decimal(str(o["price"])) for o in h2h.get("outcomes", [])}
+        odds = {o["name"]: Decimal(str(o["price"])) for o in mkt.get("outcomes", [])}
         fair = devig(odds)
         if not fair:
             continue
@@ -66,8 +81,8 @@ def consensus(event: dict[str, Any], bookmakers: list[str] | None = None) -> Con
     probs = {t: sum(ps, Decimal(0)) / len(ps) for t, ps in per_team.items()}
     return ConsensusOdds(
         event_id=str(event["id"]),
-        home_team=str(event["home_team"]),
-        away_team=str(event["away_team"]),
+        home_team=str(event.get("home_team") or ""),
+        away_team=str(event.get("away_team") or ""),
         commence_time=str(event.get("commence_time", "")),
         probs=probs,
         books_used=used,
@@ -111,10 +126,18 @@ class OddsClient:
         self.requests_remaining: str | None = None
 
     def h2h(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
+        return self.odds(sport, "h2h", bookmakers)
+
+    def outrights(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
+        return self.odds(sport, "outrights", bookmakers)
+
+    def odds(
+        self, sport: str, market: str, bookmakers: list[str] | None = None
+    ) -> list[dict[str, Any]]:
         params: dict[str, str] = {
             "apiKey": self.api_key,
             "regions": "us,eu",
-            "markets": "h2h",
+            "markets": market,
             "oddsFormat": "decimal",
         }
         if bookmakers:
