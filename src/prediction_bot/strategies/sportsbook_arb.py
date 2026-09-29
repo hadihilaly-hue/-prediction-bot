@@ -9,6 +9,7 @@ from decimal import Decimal
 from prediction_bot.config import Settings
 from prediction_bot.models import Market, OutcomeSide, Signal
 from prediction_bot.odds import (
+    KALSHI_SERIES_TO_OUTRIGHT,
     KALSHI_SERIES_TO_SPORT,
     ConsensusOdds,
     OddsClient,
@@ -27,6 +28,9 @@ class SportsbookArbStrategy(Strategy):
     team whose `yes_sub_title` is the team name. We match that name against The Odds
     API's home/away teams for the same sport and use the consensus win probability as
     fair value. Fees and `min_edge` are applied in `Strategy.make_signal`.
+
+    Tournament-winner events (`KXMASTERS-<yy>` etc., one market per golfer) are compared
+    against the sportsbooks' "outrights" market for the same tournament instead.
     """
 
     name = "sportsbook_arb"
@@ -49,6 +53,16 @@ class SportsbookArbStrategy(Strategy):
             ]
         return self._cache[sport]
 
+    def outrights_for(self, sport: str) -> list[ConsensusOdds]:
+        key = f"outrights:{sport}"
+        if key not in self._cache:
+            if self.odds is None:
+                return []
+            books = self.settings.odds_bookmakers
+            events = self.odds.outrights(sport, books)
+            self._cache[key] = [c for e in events if (c := consensus(e, books, "outrights"))]
+        return self._cache[key]
+
     def evaluate(self, markets: Sequence[Market]) -> list[Signal]:
         if self.odds is None:
             log.warning("sportsbook_arb: PBOT_ODDS_API_KEY not set; no signals")
@@ -57,12 +71,28 @@ class SportsbookArbStrategy(Strategy):
         by_event: dict[str, list[Market]] = defaultdict(list)
         for m in markets:
             series = m.event_ticker.split("-")[0]
-            if series in KALSHI_SERIES_TO_SPORT:
+            if series in KALSHI_SERIES_TO_SPORT or series in KALSHI_SERIES_TO_OUTRIGHT:
                 by_event[m.event_ticker].append(m)
 
         out: list[Signal] = []
         for legs in by_event.values():
-            sport = KALSHI_SERIES_TO_SPORT[legs[0].event_ticker.split("-")[0]]
+            series = legs[0].event_ticker.split("-")[0]
+            if series in KALSHI_SERIES_TO_OUTRIGHT:
+                sport = KALSHI_SERIES_TO_OUTRIGHT[series]
+                game = self._match_tournament(legs, self.outrights_for(sport))
+                if game is None:
+                    continue
+                for m in legs:
+                    player = best_team(m.subtitle, game.names)
+                    if player is None:
+                        continue
+                    fair = game.probs[player]
+                    rationale = (
+                        f"{player} outright consensus {fair:.3f} from {game.books_used} books"
+                    )
+                    out.extend(self._both_sides(m, fair, rationale))
+                continue
+            sport = KALSHI_SERIES_TO_SPORT[series]
             game = self._match_game(legs, self.games_for(sport))
             if game is None:
                 continue
@@ -70,17 +100,40 @@ class SportsbookArbStrategy(Strategy):
                 team = best_team(m.subtitle, [game.home_team, game.away_team])
                 if team is None:
                     continue
-                fair = game.probs.get(team)
-                if fair is None:
+                team_fair = game.probs.get(team)
+                if team_fair is None:
                     continue
                 rationale = (
-                    f"{team} consensus {fair:.3f} from {game.books_used} books"
+                    f"{team} consensus {team_fair:.3f} from {game.books_used} books"
                     f" ({game.home_team} vs {game.away_team})"
                 )
-                yes_sig = self.make_signal(m, OutcomeSide.yes, fair, rationale)
-                no_sig = self.make_signal(m, OutcomeSide.no, Decimal(1) - fair, rationale)
-                out.extend(s for s in (yes_sig, no_sig) if s)
+                out.extend(self._both_sides(m, team_fair, rationale))
         return out
+
+    def _both_sides(self, m: Market, fair: Decimal, rationale: str) -> list[Signal]:
+        yes_sig = self.make_signal(m, OutcomeSide.yes, fair, rationale)
+        no_sig = self.make_signal(m, OutcomeSide.no, Decimal(1) - fair, rationale)
+        return [s for s in (yes_sig, no_sig) if s]
+
+    # A tournament runs ~4 days; its winner market expires shortly after the final round.
+    TOURNAMENT_WINDOW = timedelta(days=10)
+
+    @classmethod
+    def _match_tournament(
+        cls, legs: list[Market], events: list[ConsensusOdds]
+    ) -> ConsensusOdds | None:
+        """The outrights feed carries one event per tournament (the next edition); accept
+        it only if it starts within the window before the market's expiration."""
+        anchor = next((m.expected_expiration for m in legs if m.expected_expiration), None)
+        anchor = anchor or next((m.close_time for m in legs if m.close_time), None)
+        candidates = [
+            (gap, g)
+            for g in events
+            if (gap := cls._start_gap(g.commence_time, anchor, cls.TOURNAMENT_WINDOW)) is not None
+        ]
+        if not candidates or (len(candidates) > 1 and anchor is None):
+            return None
+        return min(candidates, key=lambda c: c[0])[1]
 
     # Kalshi's expected_expiration_time sits a few hours after kickoff; close_time
     # (fallback) is a couple of days later. Games further from the anchor than the
