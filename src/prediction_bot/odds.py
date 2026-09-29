@@ -58,6 +58,11 @@ def devig(decimal_odds: dict[str, Decimal]) -> dict[str, Decimal]:
     return {k: v / total for k, v in implied.items()}
 
 
+# A book that prices only part of a tournament field would have its whole probability
+# mass normalised onto the players it lists, inflating each; skip such thin outright lists.
+MIN_OUTRIGHT_FIELD = 30
+
+
 def consensus(
     event: dict[str, Any], bookmakers: list[str] | None = None, market: str = "h2h"
 ) -> ConsensusOdds | None:
@@ -70,6 +75,8 @@ def consensus(
         if not mkt:
             continue
         odds = {o["name"]: Decimal(str(o["price"])) for o in mkt.get("outcomes", [])}
+        if market == "outrights" and len(odds) < MIN_OUTRIGHT_FIELD:
+            continue
         fair = devig(odds)
         if not fair:
             continue

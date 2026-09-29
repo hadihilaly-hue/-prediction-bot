@@ -123,15 +123,18 @@ class SportsbookArbStrategy(Strategy):
         cls, legs: list[Market], events: list[ConsensusOdds]
     ) -> ConsensusOdds | None:
         """The outrights feed carries one event per tournament (the next edition); accept
-        it only if it starts within the window before the market's expiration."""
+        it only if it starts within the window before the market's expiration. Without a
+        date on the market we cannot tell editions apart, so undated markets never match."""
         anchor = next((m.expected_expiration for m in legs if m.expected_expiration), None)
         anchor = anchor or next((m.close_time for m in legs if m.close_time), None)
+        if anchor is None:
+            return None
         candidates = [
             (gap, g)
             for g in events
             if (gap := cls._start_gap(g.commence_time, anchor, cls.TOURNAMENT_WINDOW)) is not None
         ]
-        if not candidates or (len(candidates) > 1 and anchor is None):
+        if not candidates:
             return None
         return min(candidates, key=lambda c: c[0])[1]
 
