@@ -3,13 +3,13 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │  924.17 │
-│ open positions       │      10 │
-│ open cost            │   75.83 │
+│ cash                 │  917.77 │
+│ open positions       │      11 │
+│ open cost            │   82.23 │
 │ settled fills        │       0 │
 │ wins                 │       0 │
 │ realized pnl         │    0.00 │
-│ fees paid            │    4.45 │
+│ fees paid            │    4.85 │
 │ brier (strategy)     │       - │
 │ brier (market price) │       - │
 └──────────────────────┴─────────┘
@@ -22,6 +22,7 @@
 │ KXNCAAFGAME-26OCT03TOLBALL-TOL  │ no   │ 5     │ 0.48  │ 0.110    │
 │ KXNCAAFGAME-26OCT03USUBSU-BSU   │ no   │ 100   │ 8.52  │ 0.102    │
 │ KXNCAAFGAME-26OCT03USUBSU-USU   │ yes  │ 100   │ 8.52  │ 0.102    │
+│ KXNCAAFGAME-26OCT03UTEPUNM-UTEP │ yes  │ 100   │ 6.40  │ 0.081    │
 │ KXNCAAFGAME-26OCT03VANUGA-UGA   │ no   │ 100   │ 5.34  │ 0.070    │
 │ KXNCAAFGAME-26OCT03VANUGA-VAN   │ yes  │ 100   │ 5.34  │ 0.070    │
 │ KXNCAAFGAME-26OCT03WMUBUFF-BUFF │ yes  │ 100   │ 16.95 │ 0.180    │

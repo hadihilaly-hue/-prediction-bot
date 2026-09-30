@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-09-30 22:37 UTC. Cash **$924.17** (started $1000.00), realized PnL **$0.00**, fees $4.45, settled 0, wins 0, open positions 10.
+Updated 2026-09-30 23:03 UTC. Cash **$917.77** (started $1000.00), realized PnL **$0.00**, fees $4.85, settled 0, wins 0, open positions 11.
 
 Brier (lower is better): strategy - vs market price -.
 
@@ -8,6 +8,7 @@ Brier (lower is better): strategy - vs market price -.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-09-30 23:03 | sportsbook\_arb | UTEP wins — YES: Kalshi says 6%, we say 8%; bought at 6¢ | yes | 0.0600 | 0.0809 | +0.0109 | 100 | yes | open | UTEP Miners consensus 0.081 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UTEP |
 | 2026-09-29 16:54 | sportsbook\_arb | Georgia wins — NO: Kalshi says 5%, we say 7%; would buy at 5¢ | no | 0.0500 | 0.0701 | +0.0101 | 100 | no | open | Georgia Bulldogs consensus 0.930 from 3 books \(Georgia Bulldogs vs Vanderbilt Commodores\) | KXNCAAFGAME-26OCT03VANUGA-UGA |
 | 2026-09-29 16:54 | sportsbook\_arb | Vanderbilt wins — YES: Kalshi says 5%, we say 7%; would buy at 5¢ | yes | 0.0500 | 0.0701 | +0.0101 | 100 | no | open | Vanderbilt Commodores consensus 0.070 from 3 books \(Georgia Bulldogs vs Vanderbilt Commodores\) | KXNCAAFGAME-26OCT03VANUGA-VAN |
 | 2026-09-29 09:55 | sportsbook\_arb | Buffalo wins — YES: Kalshi says 16%, we say 18%; bought at 16¢ | yes | 0.1600 | 0.1801 | +0.0101 | 100 | yes | open | Buffalo Bulls consensus 0.180 from 3 books \(Buffalo Bulls vs Western Michigan Broncos\) | KXNCAAFGAME-26OCT03WMUBUFF-BUFF |
