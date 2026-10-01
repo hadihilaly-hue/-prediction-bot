@@ -14,8 +14,9 @@ from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
 from prediction_bot.models import Market, OutcomeSide, Signal
+from prediction_bot.odds import OddsClient
 from prediction_bot.paper.ledger import Ledger, Prediction
-from prediction_bot.strategies import STRATEGIES, Strategy
+from prediction_bot.strategies import STRATEGIES, SportsbookArbStrategy, Strategy
 from prediction_bot.venues.kalshi import KalshiClient
 from prediction_bot.venues.kalshi_auth import KalshiSigner
 
@@ -53,7 +54,17 @@ def _strategies(settings: Settings, names: list[str]) -> list[Strategy]:
     unknown = set(names) - set(STRATEGIES)
     if unknown:
         raise typer.BadParameter(f"unknown strategies {sorted(unknown)}; have {sorted(STRATEGIES)}")
-    return [STRATEGIES[n](settings) for n in names]
+    odds = (
+        OddsClient(settings.odds_api_key, settings.odds_api_base) if settings.odds_api_key else None
+    )
+    out: list[Strategy] = []
+    for n in names:
+        cls = STRATEGIES[n]
+        if issubclass(cls, SportsbookArbStrategy):
+            out.append(cls(settings, odds_client=odds))  # one client: odds fetched once per cycle
+        else:
+            out.append(cls(settings))
+    return out
 
 
 def _fmt(d: Decimal | None) -> str:

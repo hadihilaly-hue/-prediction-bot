@@ -51,6 +51,7 @@ PGA Tour odds, so those series are not covered.
 | --- | --- |
 | `book_scanner` | Buys both YES and NO when the asks sum to < $1 after fees (locked profit; rare, mostly a pipeline check). |
 | `sportsbook_arb` | De-vigs h2h odds from several sportsbooks, averages them, and buys a team on Kalshi when its ask is below consensus probability minus fees and `PBOT_MIN_EDGE`. |
+| `underdog_value` | Same consensus model, but only buys sides priced 10c-40c (`PBOT_UNDERDOG_MIN_PRICE`/`MAX_PRICE`): skips near-certain favourites and takes the high-payout side when the books say it is undervalued. Tracked separately so its results can be compared with `sportsbook_arb`. Shares one odds fetch per cycle with `sportsbook_arb`, so it costs no extra quota. |
 
 Add a strategy by subclassing `prediction_bot.strategies.base.Strategy`, implementing
 `evaluate(markets) -> list[Signal]` (use `self.make_signal(...)` so fees, `min_edge`
