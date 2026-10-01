@@ -3,13 +3,13 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │  917.77 │
-│ open positions       │      11 │
-│ open cost            │   82.23 │
+│ cash                 │  895.97 │
+│ open positions       │      14 │
+│ open cost            │  104.03 │
 │ settled fills        │       0 │
 │ wins                 │       0 │
 │ realized pnl         │    0.00 │
-│ fees paid            │    4.85 │
+│ fees paid            │    6.20 │
 │ brier (strategy)     │       - │
 │ brier (market price) │       - │
 └──────────────────────┴─────────┘
@@ -17,11 +17,14 @@
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
 ┃ ticker                          ┃ side ┃ count ┃ cost  ┃ avg fair ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
+│ KXNCAAFGAME-26OCT03NDUNC-ND     │ no   │ 100   │ 7.46  │ 0.091    │
+│ KXNCAAFGAME-26OCT03NDUNC-UNC    │ yes  │ 100   │ 7.46  │ 0.091    │
 │ KXNCAAFGAME-26OCT03OSUIOWA-OSU  │ no   │ 69    │ 11.69 │ 0.181    │
 │ KXNCAAFGAME-26OCT03TOLBALL-BALL │ yes  │ 2     │ 0.20  │ 0.110    │
-│ KXNCAAFGAME-26OCT03TOLBALL-TOL  │ no   │ 5     │ 0.48  │ 0.110    │
+│ KXNCAAFGAME-26OCT03TOLBALL-TOL  │ no   │ 10    │ 0.96  │ 0.110    │
 │ KXNCAAFGAME-26OCT03USUBSU-BSU   │ no   │ 100   │ 8.52  │ 0.102    │
 │ KXNCAAFGAME-26OCT03USUBSU-USU   │ yes  │ 100   │ 8.52  │ 0.102    │
+│ KXNCAAFGAME-26OCT03UTEPUNM-UNM  │ no   │ 100   │ 6.40  │ 0.081    │
 │ KXNCAAFGAME-26OCT03UTEPUNM-UTEP │ yes  │ 100   │ 6.40  │ 0.081    │
 │ KXNCAAFGAME-26OCT03VANUGA-UGA   │ no   │ 100   │ 5.34  │ 0.070    │
 │ KXNCAAFGAME-26OCT03VANUGA-VAN   │ yes  │ 100   │ 5.34  │ 0.070    │

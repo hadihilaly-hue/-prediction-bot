@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-01 07:47 UTC. Cash **$917.77** (started $1000.00), realized PnL **$0.00**, fees $4.85, settled 0, wins 0, open positions 11.
+Updated 2026-10-01 10:14 UTC. Cash **$895.97** (started $1000.00), realized PnL **$0.00**, fees $6.20, settled 0, wins 0, open positions 14.
 
 Brier (lower is better): strategy - vs market price -.
 
@@ -8,6 +8,12 @@ Brier (lower is better): strategy - vs market price -.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-01 10:14 | sportsbook\_arb | Notre Dame wins — NO: Kalshi says 7%, we say 9%; bought at 7¢ | no | 0.0700 | 0.0906 | +0.0106 | 100 | yes | open | Notre Dame Fighting Irish consensus 0.909 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-ND |
+| 2026-10-01 10:14 | sportsbook\_arb | North Carolina wins — YES: Kalshi says 7%, we say 9%; bought at 7¢ | yes | 0.0700 | 0.0906 | +0.0106 | 100 | yes | open | North Carolina Tar Heels consensus 0.091 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-UNC |
+| 2026-10-01 10:14 | sportsbook\_arb | Ball St. wins — YES: Kalshi says 9%, we say 11%; would buy at 9¢ | yes | 0.0900 | 0.1104 | +0.0104 | 100 | no | open | Ball State Cardinals consensus 0.110 from 3 books \(Ball State Cardinals vs Toledo Rockets\) | KXNCAAFGAME-26OCT03TOLBALL-BALL |
+| 2026-10-01 10:14 | sportsbook\_arb | Toledo wins — NO: Kalshi says 9%, we say 11%; bought at 9¢ | no | 0.0900 | 0.1104 | +0.0104 | 5 | yes | open | Toledo Rockets consensus 0.890 from 3 books \(Ball State Cardinals vs Toledo Rockets\) | KXNCAAFGAME-26OCT03TOLBALL-TOL |
+| 2026-10-01 10:14 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; bought at 6¢ | no | 0.0600 | 0.0810 | +0.0110 | 100 | yes | open | New Mexico Lobos consensus 0.919 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |
+| 2026-10-01 10:14 | sportsbook\_arb | UTEP wins — YES: Kalshi says 6%, we say 8%; would buy at 6¢ | yes | 0.0600 | 0.0810 | +0.0110 | 100 | no | open | UTEP Miners consensus 0.081 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UTEP |
 | 2026-09-30 23:03 | sportsbook\_arb | UTEP wins — YES: Kalshi says 6%, we say 8%; bought at 6¢ | yes | 0.0600 | 0.0809 | +0.0109 | 100 | yes | open | UTEP Miners consensus 0.081 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UTEP |
 | 2026-09-29 16:54 | sportsbook\_arb | Georgia wins — NO: Kalshi says 5%, we say 7%; would buy at 5¢ | no | 0.0500 | 0.0701 | +0.0101 | 100 | no | open | Georgia Bulldogs consensus 0.930 from 3 books \(Georgia Bulldogs vs Vanderbilt Commodores\) | KXNCAAFGAME-26OCT03VANUGA-UGA |
 | 2026-09-29 16:54 | sportsbook\_arb | Vanderbilt wins — YES: Kalshi says 5%, we say 7%; would buy at 5¢ | yes | 0.0500 | 0.0701 | +0.0101 | 100 | no | open | Vanderbilt Commodores consensus 0.070 from 3 books \(Georgia Bulldogs vs Vanderbilt Commodores\) | KXNCAAFGAME-26OCT03VANUGA-VAN |
