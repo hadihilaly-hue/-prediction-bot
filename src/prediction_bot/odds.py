@@ -49,19 +49,18 @@ class ConsensusOdds:
         return list(self.probs)
 
 
-def devig(decimal_odds: dict[str, Decimal], partial_ok: bool = False) -> dict[str, Decimal]:
+def devig(decimal_odds: dict[str, Decimal], require_full: bool = False) -> dict[str, Decimal]:
     """Multiplicative de-vig: implied = 1/odds, normalised to sum to 1.
 
-    With `partial_ok` (outright fields, where a book may quote only some players) the
-    implied probabilities are only ever scaled *down*: a list summing to less than 1 is
-    treated as an incomplete field and left as-is rather than inflated to fill the gap.
+    A complete book always has implied probabilities summing to at least 1 (the margin).
+    With `require_full` (outright fields, where a book may quote only some players) a
+    list summing to less than 1 is an incomplete field: normalising it would inflate every
+    listed player and the raw quotes still carry margin, so the book is dropped instead.
     """
     implied = {k: Decimal(1) / v for k, v in decimal_odds.items() if v > 0}
     total = sum(implied.values(), Decimal(0))
-    if total <= 0:
+    if total <= 0 or (require_full and total < 1):
         return {}
-    if partial_ok:
-        total = max(total, Decimal(1))
     return {k: v / total for k, v in implied.items()}
 
 
@@ -77,7 +76,7 @@ def consensus(
         if not mkt:
             continue
         odds = {o["name"]: Decimal(str(o["price"])) for o in mkt.get("outcomes", [])}
-        fair = devig(odds, partial_ok=market == "outrights")
+        fair = devig(odds, require_full=market == "outrights")
         if not fair:
             continue
         used += 1
