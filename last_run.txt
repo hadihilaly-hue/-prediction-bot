@@ -1,1 +1,30 @@
  scanned=3000 signals=0 filled=0 settled=0 cash=894.63
+ scanned=646 signals=7 filled=3 settled=0 cash=851.13
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ sportsboo… │ KXNCAAFGA… │ yes  │ 0.1400 │ 0.1631 │ 0.0131 │ 100  │ South     │
+│            │            │      │        │        │        │      │ Carolina  │
+│            │            │      │        │        │        │      │ Gamecocks │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.163     │
+│            │            │      │        │        │        │      │ from 1    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Flori    │
+│ underdog_… │ KXNCAAFGA… │ yes  │ 0.1400 │ 0.1631 │ 0.0131 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (7.1x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ South     │
+│            │            │      │        │        │        │      │ Carolina  │
+│            │            │      │        │        │        │      │ Gamecocks │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0         │
+│ underdog_… │ KXNCAAFGA… │ no   │ 0.1300 │ 0.1631 │ 0.0231 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (7.7x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Florida   │
+│            │            │      │        │        │        │      │ Gators    │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.837     │
+│            │            │      │        │        │        │      │ from      │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
