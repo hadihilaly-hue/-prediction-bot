@@ -258,3 +258,40 @@ def test_outright_ignores_incomplete_fields() -> None:
     c = consensus(subset, market="outrights")
     assert c is not None and c.books_used == 1
     assert abs(sum(c.probs.values()) - 1) < Decimal("1e-12")
+
+
+def test_underdog_value_only_buys_price_band(settings) -> None:  # type: ignore[no-untyped-def]
+    from prediction_bot.strategies.underdog_value import UnderdogValueStrategy
+
+    settings.odds_bookmakers = ["pinnacle", "draftkings"]
+    strat = UnderdogValueStrategy(settings, odds_client=FakeOdds())  # type: ignore[arg-type]
+    # Books: Troy ~0.655 / Southern Miss ~0.345. Troy YES at 0.55 is a favourite -> skipped;
+    # Southern Miss YES at 0.30 is an underdog priced below consensus -> bought.
+    troy = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy")
+    usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.25", "0.30", subtitle="Southern Miss")
+    sigs = strat.evaluate([troy, usm])
+    assert [(s.ticker.rsplit("-", 1)[1], s.side) for s in sigs] == [("USM", OutcomeSide.yes)]
+    assert sigs[0].strategy == "underdog_value"
+    assert "3.3x payout" in sigs[0].rationale
+    # an underdog priced *above* consensus (0.40 ask vs 0.345) is not a value bet
+    pricey = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.38", "0.40", subtitle="Southern Miss")
+    assert strat.evaluate([troy, pricey]) == []
+
+
+def test_odds_client_shares_fetch_within_ttl() -> None:
+    import httpx
+
+    from prediction_bot.odds import OddsClient
+
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json=[EVENT], headers={"x-requests-remaining": "9"})
+
+    oc = OddsClient("k", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    assert oc.h2h("americanfootball_ncaaf") == oc.h2h("americanfootball_ncaaf")
+    assert calls == 1
+    oc.outrights("golf_masters_tournament_winner")
+    assert calls == 2

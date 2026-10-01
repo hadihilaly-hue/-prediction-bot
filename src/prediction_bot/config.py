@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     max_order_notional: Decimal = Decimal("25")
     max_position_contracts: Decimal = Decimal("100")
     min_edge: Decimal = Decimal("0.03")  # minimum expected edge (prob points) after fees
+    # `underdog_value` only buys sides whose ask is inside this band (10c..40c = 2.5x..10x)
+    underdog_min_price: Decimal = Decimal("0.10")
+    underdog_max_price: Decimal = Decimal("0.40")
 
     # Fees (Kalshi general schedule: fee = mult * C * P * (1-P), rounded up to the cent)
     taker_fee_multiplier: Decimal = Decimal("0.07")
