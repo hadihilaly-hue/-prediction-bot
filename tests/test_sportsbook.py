@@ -276,6 +276,10 @@ def test_underdog_value_only_buys_price_band(settings) -> None:  # type: ignore[
     # an underdog priced *above* consensus (0.40 ask vs 0.345) is not a value bet
     pricey = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.38", "0.40", subtitle="Southern Miss")
     assert strat.evaluate([troy, pricey]) == []
+    # a zero ask never reaches the payout division, even with no price floor
+    settings.underdog_min_price = Decimal(0)
+    zero = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0", "0", subtitle="Southern Miss")
+    assert strat.evaluate([troy, zero]) == []
 
 
 def test_odds_client_shares_fetch_within_ttl() -> None:

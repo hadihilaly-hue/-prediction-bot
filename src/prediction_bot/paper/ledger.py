@@ -280,10 +280,12 @@ class Ledger:
         self._set_cash(self.cash - cost)
         self.conn.commit()
 
-    def positions(self) -> list[Position]:
+    def positions(self, strategy: str | None = None) -> list[Position]:
         rows = self.conn.execute(
             "SELECT f.ticker, f.side, f.price, f.count, f.fee, f.fair_prob FROM fills f"
             " LEFT JOIN settlements s ON s.ticker = f.ticker WHERE s.ticker IS NULL"
+            + (" AND f.strategy = ?" if strategy is not None else ""),
+            (strategy,) if strategy is not None else (),
         ).fetchall()
         agg: dict[tuple[str, OutcomeSide], list[Decimal]] = {}
         for ticker, side, price, count, fee, fair in rows:
@@ -296,9 +298,13 @@ class Ledger:
             for (t, s), (cnt, cost, fair_w) in sorted(agg.items())
         ]
 
-    def position_count(self, ticker: str, side: OutcomeSide) -> Decimal:
+    def position_count(
+        self, ticker: str, side: OutcomeSide, strategy: str | None = None
+    ) -> Decimal:
+        """Open contracts on a side; per strategy when given so paper books stay independent."""
         return sum(
-            (p.count for p in self.positions() if p.ticker == ticker and p.side == side), Decimal(0)
+            (p.count for p in self.positions(strategy) if p.ticker == ticker and p.side == side),
+            Decimal(0),
         )
 
     def open_tickers(self) -> list[str]:

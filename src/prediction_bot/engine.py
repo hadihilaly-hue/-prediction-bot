@@ -90,16 +90,26 @@ class Engine:
                 out.append(groups[s.group])
         return out
 
-    def _exposure(self, ticker: str, side: OutcomeSide) -> Decimal:
+    def _exposure(self, sig: Signal) -> Decimal:
         if self.live:
-            return self.kalshi.live_exposure(ticker, side)
-        return self.ledger.position_count(ticker, side)
+            return self.kalshi.live_exposure(sig.ticker, sig.side)
+        return self.ledger.position_count(sig.ticker, sig.side, sig.strategy)
 
     def _admissible(self, sig: Signal, batch: Sequence[Signal]) -> bool:
-        """Position cap and (paper) cash check, counting the whole batch as one action."""
-        same = [s for s in batch if s.ticker == sig.ticker and s.side == sig.side]
+        """Position cap and (paper) cash check, counting the whole batch as one action.
+
+        Live exposure is per venue position; paper exposure is per strategy so that
+        strategies run together keep independent, comparable books.
+        """
+        same = [
+            s
+            for s in batch
+            if s.ticker == sig.ticker
+            and s.side == sig.side
+            and (self.live or s.strategy == sig.strategy)
+        ]
         added = sum((s.size for s in same), Decimal(0))
-        if self._exposure(sig.ticker, sig.side) + added > self.settings.max_position_contracts:
+        if self._exposure(sig) + added > self.settings.max_position_contracts:
             return False
         if not self.live:
             cost = sum(
