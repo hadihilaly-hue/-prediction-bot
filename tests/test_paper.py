@@ -32,6 +32,7 @@ def test_ledger_fill_settle_and_performance(tmp_path) -> None:  # type: ignore[n
     assert led.position_count("T1", OutcomeSide.yes) == 10
     assert led.position_count("T1", OutcomeSide.yes, "s") == 10
     assert led.position_count("T1", OutcomeSide.yes, "other") == 0
+    assert led.position_count("T1", OutcomeSide.yes, "") == 0
     assert led.open_tickers() == ["T1", "T2"]
 
     assert led.settle("T1", OutcomeSide.yes) == Decimal("10") - Decimal("4.17")
@@ -371,6 +372,7 @@ def test_paper_position_cap_is_per_strategy(tmp_path, settings) -> None:  # type
                     Decimal("0.1"),
                     Decimal(30),
                     "x",
+                    group="shared",
                 )
             ]
 
@@ -378,7 +380,8 @@ def test_paper_position_cap_is_per_strategy(tmp_path, settings) -> None:  # type
     ledger = Ledger(tmp_path / "l.sqlite", Decimal("1000"))
     eng = Engine(settings, object(), [Fixed(settings, "a"), Fixed(settings, "b")], ledger)  # type: ignore[arg-type]
     res = eng.run_cycle([])
-    # both strategies fill their own 30 contracts; neither is blocked by the other's book
+    # both strategies fill their own 30 contracts even when their legs share a group;
+    # neither is blocked by the other's book
     assert [s.strategy for s in res.acted] == ["a", "b"]
     assert ledger.position_count("T1", OutcomeSide.yes, "a") == 30
     assert ledger.position_count("T1", OutcomeSide.yes, "b") == 30

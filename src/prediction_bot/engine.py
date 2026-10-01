@@ -101,7 +101,13 @@ class Engine:
         Live exposure is per venue position; paper exposure is per strategy so that
         strategies run together keep independent, comparable books.
         """
-        same = [s for s in batch if s.ticker == sig.ticker and s.side == sig.side]
+        same = [
+            s
+            for s in batch
+            if s.ticker == sig.ticker
+            and s.side == sig.side
+            and (self.live or s.strategy == sig.strategy)
+        ]
         added = sum((s.size for s in same), Decimal(0))
         if self._exposure(sig) + added > self.settings.max_position_contracts:
             return False

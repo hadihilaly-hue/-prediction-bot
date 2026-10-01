@@ -284,8 +284,8 @@ class Ledger:
         rows = self.conn.execute(
             "SELECT f.ticker, f.side, f.price, f.count, f.fee, f.fair_prob FROM fills f"
             " LEFT JOIN settlements s ON s.ticker = f.ticker WHERE s.ticker IS NULL"
-            + (" AND f.strategy = ?" if strategy else ""),
-            (strategy,) if strategy else (),
+            + (" AND f.strategy = ?" if strategy is not None else ""),
+            (strategy,) if strategy is not None else (),
         ).fetchall()
         agg: dict[tuple[str, OutcomeSide], list[Decimal]] = {}
         for ticker, side, price, count, fee, fair in rows:
