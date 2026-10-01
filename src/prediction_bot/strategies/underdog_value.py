@@ -24,7 +24,7 @@ class UnderdogValueStrategy(SportsbookArbStrategy):
         out: list[Signal] = []
         for side, side_fair in ((OutcomeSide.yes, fair), (OutcomeSide.no, Decimal(1) - fair)):
             ask = m.quote.ask_for(side)
-            if ask is None or not (lo <= ask <= hi):
+            if ask is None or ask <= 0 or not (lo <= ask <= hi):
                 continue
             payout = (Decimal(1) / ask).quantize(Decimal("0.1"))
             sig = self.make_signal(m, side, side_fair, f"underdog ({payout}x payout); {rationale}")

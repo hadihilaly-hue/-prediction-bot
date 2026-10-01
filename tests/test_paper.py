@@ -30,6 +30,8 @@ def test_ledger_fill_settle_and_performance(tmp_path) -> None:  # type: ignore[n
     )
     assert led.cash == Decimal("100") - Decimal("4.17") - Decimal("1.58")
     assert led.position_count("T1", OutcomeSide.yes) == 10
+    assert led.position_count("T1", OutcomeSide.yes, "s") == 10
+    assert led.position_count("T1", OutcomeSide.yes, "other") == 0
     assert led.open_tickers() == ["T1", "T2"]
 
     assert led.settle("T1", OutcomeSide.yes) == Decimal("10") - Decimal("4.17")
@@ -276,7 +278,13 @@ def test_engine_grouped_legs_are_all_or_nothing(settings) -> None:  # type: igno
     eng = Engine(settings, object(), [BookScannerStrategy(settings)], ledger)  # type: ignore[arg-type]
     # hold 15 YES already; cap 30 means the 20-lot YES leg would breach, so NO must not fill
     ledger.record_fill(
-        "seed", "E-A", OutcomeSide.yes, Decimal("0.40"), Decimal(15), Decimal(0), Decimal("0.5")
+        "book_scanner",
+        "E-A",
+        OutcomeSide.yes,
+        Decimal("0.40"),
+        Decimal(15),
+        Decimal(0),
+        Decimal("0.5"),
     )
     settings.max_position_contracts = Decimal(30)
     res = eng.run_cycle([make_market("E-A", yes_bid="0.50", yes_ask="0.40")])
@@ -342,3 +350,36 @@ def test_engine_live_grouped_legs_are_fok_and_stop_on_kill(settings) -> None:  #
     res = eng.run_cycle([make_market("E-A", yes_bid="0.50", yes_ask="0.40")])
     assert res.acted == []
     assert venue.orders == [(OutcomeSide.yes, "fill_or_kill")]  # second leg never sent
+
+
+def test_paper_position_cap_is_per_strategy(tmp_path, settings) -> None:  # type: ignore[no-untyped-def]
+    from prediction_bot.strategies.base import Strategy
+
+    class Fixed(Strategy):
+        def __init__(self, settings, name: str) -> None:  # type: ignore[no-untyped-def]
+            super().__init__(settings)
+            self.name = name
+
+        def evaluate(self, markets):  # type: ignore[no-untyped-def]
+            return [
+                Signal(
+                    self.name,
+                    "T1",
+                    OutcomeSide.yes,
+                    Decimal("0.5"),
+                    Decimal("0.30"),
+                    Decimal("0.1"),
+                    Decimal(30),
+                    "x",
+                )
+            ]
+
+    settings.max_position_contracts = Decimal(30)
+    ledger = Ledger(tmp_path / "l.sqlite", Decimal("1000"))
+    eng = Engine(settings, object(), [Fixed(settings, "a"), Fixed(settings, "b")], ledger)  # type: ignore[arg-type]
+    res = eng.run_cycle([])
+    # both strategies fill their own 30 contracts; neither is blocked by the other's book
+    assert [s.strategy for s in res.acted] == ["a", "b"]
+    assert ledger.position_count("T1", OutcomeSide.yes, "a") == 30
+    assert ledger.position_count("T1", OutcomeSide.yes, "b") == 30
+    assert eng.run_cycle([]).acted == []
