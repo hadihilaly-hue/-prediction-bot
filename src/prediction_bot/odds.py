@@ -64,18 +64,28 @@ def devig(decimal_odds: dict[str, Decimal], require_full: bool = False) -> dict[
     return {k: v / total for k, v in implied.items()}
 
 
+MIN_FIELD_COVERAGE = Decimal("0.9")
+
+
 def consensus(
     event: dict[str, Any], bookmakers: list[str] | None = None, market: str = "h2h"
 ) -> ConsensusOdds | None:
     per_team: dict[str, list[Decimal]] = {}
     used = 0
+    quotes: list[dict[str, Decimal]] = []
     for book in event.get("bookmakers", []):
         if bookmakers and book.get("key") not in bookmakers:
             continue
         mkt = next((m for m in book.get("markets", []) if m.get("key") == market), None)
         if not mkt:
             continue
-        odds = {o["name"]: Decimal(str(o["price"])) for o in mkt.get("outcomes", [])}
+        quotes.append({o["name"]: Decimal(str(o["price"])) for o in mkt.get("outcomes", [])})
+    # The feed never says how big the real field is; the widest book is the best proxy,
+    # and a book quoting far fewer names than that is pricing a subset, not the field.
+    field = max((len(q) for q in quotes), default=0)
+    for odds in quotes:
+        if market == "outrights" and len(odds) < field * MIN_FIELD_COVERAGE:
+            continue
         fair = devig(odds, require_full=market == "outrights")
         if not fair:
             continue
