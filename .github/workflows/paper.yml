@@ -53,7 +53,7 @@ jobs:
           set -eo pipefail
           pbot paper -s book_scanner --cycles 1 | tee ledger/last_run.txt
           if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" = true ]; then
-            pbot paper -s sportsbook_arb --cycles 1 \
+            pbot paper -s sportsbook_arb -s underdog_value --cycles 1 \
               --series KXNFLGAME --series KXNCAAFGAME --series KXNBAGAME --series KXNHLGAME \
               --series KXMLBGAME \
               --series KXMASTERS --series KXPGA --series KXUSOPEN --series KXTHEOPEN \

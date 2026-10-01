@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, cast
@@ -131,6 +132,11 @@ class OddsClient:
         self.base_url = base_url.rstrip("/")
         self._client = client or httpx.Client(timeout=15.0)
         self.requests_remaining: str | None = None
+        self._memo: dict[tuple[str, str, str], tuple[float, list[dict[str, Any]]]] = {}
+
+    # Strategies sharing one client within a cycle reuse the response instead of
+    # spending another quota request; later cycles (minutes apart) refetch.
+    MEMO_TTL_S = 60.0
 
     def h2h(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
         return self.odds(sport, "h2h", bookmakers)
@@ -149,7 +155,13 @@ class OddsClient:
         }
         if bookmakers:
             params["bookmakers"] = ",".join(bookmakers)
+        key = (sport, market, params.get("bookmakers", ""))
+        hit = self._memo.get(key)
+        if hit and time.monotonic() - hit[0] < self.MEMO_TTL_S:
+            return hit[1]
         resp = self._client.get(f"{self.base_url}/sports/{sport}/odds", params=params)
         resp.raise_for_status()
         self.requests_remaining = resp.headers.get("x-requests-remaining")
-        return cast(list[dict[str, Any]], resp.json())
+        data = cast(list[dict[str, Any]], resp.json())
+        self._memo[key] = (time.monotonic(), data)
+        return data
