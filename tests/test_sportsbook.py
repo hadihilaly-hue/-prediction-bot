@@ -237,6 +237,29 @@ def test_golf_major_skips_wrong_edition(settings) -> None:  # type: ignore[no-un
     assert strat.evaluate([sch]) == []
 
 
+def test_outright_ignores_incomplete_fields() -> None:
+    def book(key: str, outcomes: list[dict[str, Any]]) -> dict[str, Any]:
+        return {"key": key, "markets": [{"key": "outrights", "outcomes": outcomes}]}
+
+    # two golfers summing to <1: normalising would make them ~0.58/0.42 and the raw
+    # quotes still carry margin, so an incomplete book contributes nothing
+    thin = dict(OUTRIGHT)
+    thin["bookmakers"] = [
+        book("thin", [{"name": "Scottie Scheffler", "price": 5.0}, {"name": "Rory", "price": 7.0}])
+    ]
+    assert consensus(thin, market="outrights") is None
+    # a book quoting a subset of the field is dropped even when its margin pushes its
+    # implied sum above 1 (normalising would hand it the missing golfers' mass)
+    full_outcomes = OUTRIGHT["bookmakers"][0]["markets"][0]["outcomes"]
+    subset = dict(OUTRIGHT)
+    subset["bookmakers"] = OUTRIGHT["bookmakers"] + [
+        book("subset", [dict(o, price=1.5) for o in full_outcomes[:20]])
+    ]
+    c = consensus(subset, market="outrights")
+    assert c is not None and c.books_used == 1
+    assert abs(sum(c.probs.values()) - 1) < Decimal("1e-12")
+
+
 def test_underdog_value_only_buys_price_band(settings) -> None:  # type: ignore[no-untyped-def]
     from prediction_bot.strategies.underdog_value import UnderdogValueStrategy
 
