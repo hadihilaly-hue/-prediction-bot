@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-02 06:59 UTC. Cash **$851.13** (started $1000.00), realized PnL **$0.00**, fees $8.78, settled 0, wins 0, open positions 16.
+Updated 2026-10-02 09:51 UTC. Cash **$825.63** (started $1000.00), realized PnL **$0.00**, fees $9.50, settled 0, wins 0, open positions 17.
 
 Brier (lower is better): strategy - vs market price -.
 
@@ -8,6 +8,10 @@ Brier (lower is better): strategy - vs market price -.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-02 09:51 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; would buy at 6¢ | no | 0.0600 | 0.0810 | +0.0110 | 100 | no | open | New Mexico Lobos consensus 0.919 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |
+| 2026-10-02 09:51 | sportsbook\_arb | UTEP wins — YES: Kalshi says 6%, we say 8%; would buy at 6¢ | yes | 0.0600 | 0.0810 | +0.0110 | 100 | no | open | UTEP Miners consensus 0.081 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UTEP |
+| 2026-10-02 09:51 | sportsbook\_arb | Utah St. wins — YES: Kalshi says 8%, we say 11%; would buy at 8¢ | yes | 0.0800 | 0.1053 | +0.0153 | 100 | no | open | Utah State Aggies consensus 0.105 from 3 books \(Boise State Broncos vs Utah State Aggies\) | KXNCAAFGAME-26OCT03USUBSU-USU |
+| 2026-10-02 09:51 | sportsbook\_arb | Las Vegas wins — NO: Kalshi says 59%, we say 63%; bought at 59¢ | no | 0.5900 | 0.6268 | +0.0168 | 42 | yes | open | Las Vegas Raiders consensus 0.373 from 2 books \(New England Patriots vs Las Vegas Raiders\) | KXNFLGAME-26OCT11LVNE-LV |
 | 2026-10-01 23:14 | underdog\_value | Florida wins — NO: Kalshi says 13%, we say 16%; bought at 13¢ | no | 0.1300 | 0.1631 | +0.0231 | 100 | yes | open | underdog \(7.7x payout\); Florida Gators consensus 0.837 from 1 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-FLA |
 | 2026-10-01 23:14 | underdog\_value | South Carolina wins — YES: Kalshi says 14%, we say 16%; bought at 14¢ | yes | 0.1400 | 0.1631 | +0.0131 | 100 | yes | open | underdog \(7.1x payout\); South Carolina Gamecocks consensus 0.163 from 1 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-SCAR |
 | 2026-10-01 23:14 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; would buy at 6¢ | no | 0.0600 | 0.0820 | +0.0120 | 100 | no | open | New Mexico Lobos consensus 0.918 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |

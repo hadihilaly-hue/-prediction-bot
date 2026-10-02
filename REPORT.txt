@@ -3,13 +3,13 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │  851.13 │
-│ open positions       │      16 │
-│ open cost            │  148.87 │
+│ cash                 │  825.63 │
+│ open positions       │      17 │
+│ open cost            │  174.37 │
 │ settled fills        │       0 │
 │ wins                 │       0 │
 │ realized pnl         │    0.00 │
-│ fees paid            │    8.78 │
+│ fees paid            │    9.50 │
 │ brier (strategy)     │       - │
 │ brier (market price) │       - │
 └──────────────────────┴─────────┘
@@ -33,4 +33,5 @@
 │ KXNCAAFGAME-26OCT03WYONDSU-NDSU │ no   │ 19    │ 1.84  │ 0.110    │
 │ KXNCAAFGAME-26OCT10SCARFLA-FLA  │ no   │ 109   │ 15.14 │ 0.163    │
 │ KXNCAAFGAME-26OCT10SCARFLA-SCAR │ yes  │ 200   │ 29.70 │ 0.163    │
+│ KXNFLGAME-26OCT11LVNE-LV        │ no   │ 42    │ 25.50 │ 0.627    │
 └─────────────────────────────────┴──────┴───────┴───────┴──────────┘
