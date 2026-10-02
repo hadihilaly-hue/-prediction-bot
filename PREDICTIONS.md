@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-02 13:51 UTC. Cash **$825.63** (started $1000.00), realized PnL **$0.00**, fees $9.50, settled 0, wins 0, open positions 17.
+Updated 2026-10-02 16:41 UTC. Cash **$825.63** (started $1000.00), realized PnL **$0.00**, fees $9.50, settled 0, wins 0, open positions 17.
 
 Brier (lower is better): strategy - vs market price -.
 
@@ -8,6 +8,8 @@ Brier (lower is better): strategy - vs market price -.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-02 16:41 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; would buy at 6¢ | no | 0.0600 | 0.0821 | +0.0121 | 100 | no | open | New Mexico Lobos consensus 0.918 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |
+| 2026-10-02 16:41 | sportsbook\_arb | UTEP wins — YES: Kalshi says 6%, we say 8%; would buy at 6¢ | yes | 0.0600 | 0.0821 | +0.0121 | 100 | no | open | UTEP Miners consensus 0.082 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UTEP |
 | 2026-10-02 09:51 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; would buy at 6¢ | no | 0.0600 | 0.0810 | +0.0110 | 100 | no | open | New Mexico Lobos consensus 0.919 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |
 | 2026-10-02 09:51 | sportsbook\_arb | UTEP wins — YES: Kalshi says 6%, we say 8%; would buy at 6¢ | yes | 0.0600 | 0.0810 | +0.0110 | 100 | no | open | UTEP Miners consensus 0.081 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UTEP |
 | 2026-10-02 09:51 | sportsbook\_arb | Utah St. wins — YES: Kalshi says 8%, we say 11%; would buy at 8¢ | yes | 0.0800 | 0.1053 | +0.0153 | 100 | no | open | Utah State Aggies consensus 0.105 from 3 books \(Boise State Broncos vs Utah State Aggies\) | KXNCAAFGAME-26OCT03USUBSU-USU |
