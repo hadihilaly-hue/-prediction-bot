@@ -1,14 +1,1 @@
- scanned=3000 signals=0 filled=0 settled=0 cash=851.13
- scanned=660 signals=4 filled=1 settled=0 cash=825.63
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
-┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
-│ sportsboo… │ KXNFLGAME… │ no   │ 0.5900 │ 0.6268 │ 0.0168 │ 42   │ Las Vegas │
-│            │            │      │        │        │        │      │ Raiders   │
-│            │            │      │        │        │        │      │ consensus │
-│            │            │      │        │        │        │      │ 0.373     │
-│            │            │      │        │        │        │      │ from 2    │
-│            │            │      │        │        │        │      │ books     │
-│            │            │      │        │        │        │      │ (New      │
-│            │            │      │        │        │        │      │ England   │
-└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
+ scanned=3000 signals=0 filled=0 settled=0 cash=825.63
