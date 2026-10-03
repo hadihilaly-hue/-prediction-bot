@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-03 07:05 UTC. Cash **$825.63** (started $1000.00), realized PnL **$0.00**, fees $9.50, settled 0, wins 0, open positions 17.
+Updated 2026-10-03 09:14 UTC. Cash **$825.63** (started $1000.00), realized PnL **$0.00**, fees $9.50, settled 0, wins 0, open positions 17.
 
 Brier (lower is better): strategy - vs market price -.
 
@@ -8,6 +8,8 @@ Brier (lower is better): strategy - vs market price -.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-03 09:13 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; would buy at 6¢ | no | 0.0600 | 0.0818 | +0.0118 | 100 | no | open | New Mexico Lobos consensus 0.918 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |
+| 2026-10-03 09:13 | sportsbook\_arb | UTEP wins — YES: Kalshi says 6%, we say 8%; would buy at 6¢ | yes | 0.0600 | 0.0818 | +0.0118 | 100 | no | open | UTEP Miners consensus 0.082 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UTEP |
 | 2026-10-02 23:00 | sportsbook\_arb | Notre Dame wins — NO: Kalshi says 7%, we say 9%; would buy at 7¢ | no | 0.0700 | 0.0924 | +0.0124 | 100 | no | open | Notre Dame Fighting Irish consensus 0.908 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-ND |
 | 2026-10-02 23:00 | sportsbook\_arb | North Carolina wins — YES: Kalshi says 7%, we say 9%; would buy at 7¢ | yes | 0.0700 | 0.0924 | +0.0124 | 100 | no | open | North Carolina Tar Heels consensus 0.092 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-UNC |
 | 2026-10-02 23:00 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; would buy at 6¢ | no | 0.0600 | 0.0821 | +0.0121 | 100 | no | open | New Mexico Lobos consensus 0.918 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |
