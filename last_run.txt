@@ -1,1 +1,38 @@
- scanned=3000 signals=0 filled=0 settled=2 cash=825.63
+ scanned=3000 signals=0 filled=0 settled=6 cash=825.63
+ scanned=754 signals=4 filled=4 settled=0 cash=758.83
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ sportsboo… │ KXNCAAFGA… │ no   │ 0.4300 │ 0.4865 │ 0.0365 │ 58   │ Miami     │
+│            │            │      │        │        │        │      │ (OH)      │
+│            │            │      │        │        │        │      │ RedHawks  │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.513     │
+│            │            │      │        │        │        │      │ from 2    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Miami    │
+│            │            │      │        │        │        │      │ (OH)      │
+│ sportsboo… │ KXNCAAFGA… │ yes  │ 0.4300 │ 0.4865 │ 0.0365 │ 58   │ Bowling   │
+│            │            │      │        │        │        │      │ Green     │
+│            │            │      │        │        │        │      │ Falcons   │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.487     │
+│            │            │      │        │        │        │      │ from 2    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Miami (O │
+│ sportsboo… │ KXNCAAFGA… │ no   │ 0.0700 │ 0.0940 │ 0.0140 │ 100  │ Tennessee │
+│            │            │      │        │        │        │      │ Voluntee… │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.906     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Tenness… │
+│ sportsboo… │ KXNCAAFGA… │ yes  │ 0.0700 │ 0.0940 │ 0.0140 │ 100  │ Auburn    │
+│            │            │      │        │        │        │      │ Tigers    │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.094     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Tenness… │
+│            │            │      │        │        │        │      │ Volunt    │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
