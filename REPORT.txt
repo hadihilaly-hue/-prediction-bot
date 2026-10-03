@@ -3,15 +3,15 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │  758.83 │
-│ open positions       │      13 │
-│ open cost            │  180.51 │
-│ settled fills        │       9 │
-│ wins                 │       0 │
-│ realized pnl         │  -60.66 │
+│ cash                 │  874.83 │
+│ open positions       │       9 │
+│ open cost            │  115.10 │
+│ settled fills        │      15 │
+│ wins                 │       2 │
+│ realized pnl         │  -10.07 │
 │ fees paid            │   12.42 │
-│ brier (strategy)     │  0.0151 │
-│ brier (market price) │  0.0109 │
+│ brier (strategy)     │  0.0519 │
+│ brier (market price) │  0.0567 │
 └──────────────────────┴─────────┘
                            Open positions                            
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
@@ -19,14 +19,10 @@
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
 │ KXNCAAFGAME-26OCT03AUBTENN-AUB  │ yes  │ 100   │ 7.46  │ 0.094    │
 │ KXNCAAFGAME-26OCT03AUBTENN-TENN │ no   │ 100   │ 7.46  │ 0.094    │
-│ KXNCAAFGAME-26OCT03BGSUMOH-BGSU │ yes  │ 58    │ 25.94 │ 0.487    │
-│ KXNCAAFGAME-26OCT03BGSUMOH-MOH  │ no   │ 58    │ 25.94 │ 0.487    │
-│ KXNCAAFGAME-26OCT03OSUIOWA-OSU  │ no   │ 69    │ 11.69 │ 0.181    │
 │ KXNCAAFGAME-26OCT03USUBSU-BSU   │ no   │ 100   │ 8.52  │ 0.102    │
 │ KXNCAAFGAME-26OCT03USUBSU-USU   │ yes  │ 100   │ 8.52  │ 0.102    │
 │ KXNCAAFGAME-26OCT03UTEPUNM-UNM  │ no   │ 100   │ 6.40  │ 0.081    │
 │ KXNCAAFGAME-26OCT03UTEPUNM-UTEP │ yes  │ 100   │ 6.40  │ 0.081    │
-│ KXNCAAFGAME-26OCT03WYONDSU-NDSU │ no   │ 19    │ 1.84  │ 0.110    │
 │ KXNCAAFGAME-26OCT10SCARFLA-FLA  │ no   │ 109   │ 15.14 │ 0.163    │
 │ KXNCAAFGAME-26OCT10SCARFLA-SCAR │ yes  │ 200   │ 29.70 │ 0.163    │
 │ KXNFLGAME-26OCT11LVNE-LV        │ no   │ 42    │ 25.50 │ 0.627    │
