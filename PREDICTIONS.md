@@ -1,8 +1,8 @@
 # Paper-trading predictions
 
-Updated 2026-10-03 19:15 UTC. Cash **$825.63** (started $1000.00), realized PnL **$0.00**, fees $9.50, settled 0, wins 0, open positions 17.
+Updated 2026-10-03 19:25 UTC. Cash **$825.63** (started $1000.00), realized PnL **$-14.92**, fees $9.50, settled 2, wins 0, open positions 15.
 
-Brier (lower is better): strategy - vs market price -.
+Brier (lower is better): strategy 0.0082 vs market price 0.0049.
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
@@ -10,8 +10,8 @@ Brier (lower is better): strategy - vs market price -.
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 2026-10-03 09:13 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; would buy at 6¢ | no | 0.0600 | 0.0818 | +0.0118 | 100 | no | open | New Mexico Lobos consensus 0.918 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |
 | 2026-10-03 09:13 | sportsbook\_arb | UTEP wins — YES: Kalshi says 6%, we say 8%; would buy at 6¢ | yes | 0.0600 | 0.0818 | +0.0118 | 100 | no | open | UTEP Miners consensus 0.082 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UTEP |
-| 2026-10-02 23:00 | sportsbook\_arb | Notre Dame wins — NO: Kalshi says 7%, we say 9%; would buy at 7¢ | no | 0.0700 | 0.0924 | +0.0124 | 100 | no | open | Notre Dame Fighting Irish consensus 0.908 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-ND |
-| 2026-10-02 23:00 | sportsbook\_arb | North Carolina wins — YES: Kalshi says 7%, we say 9%; would buy at 7¢ | yes | 0.0700 | 0.0924 | +0.0124 | 100 | no | open | North Carolina Tar Heels consensus 0.092 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-UNC |
+| 2026-10-02 23:00 | sportsbook\_arb | Notre Dame wins — NO: Kalshi says 7%, we say 9%; would buy at 7¢ | no | 0.0700 | 0.0924 | +0.0124 | 100 | no | lost (yes) | Notre Dame Fighting Irish consensus 0.908 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-ND |
+| 2026-10-02 23:00 | sportsbook\_arb | North Carolina wins — YES: Kalshi says 7%, we say 9%; would buy at 7¢ | yes | 0.0700 | 0.0924 | +0.0124 | 100 | no | lost (no) | North Carolina Tar Heels consensus 0.092 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-UNC |
 | 2026-10-02 23:00 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; would buy at 6¢ | no | 0.0600 | 0.0821 | +0.0121 | 100 | no | open | New Mexico Lobos consensus 0.918 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |
 | 2026-10-02 23:00 | sportsbook\_arb | UTEP wins — YES: Kalshi says 6%, we say 8%; would buy at 6¢ | yes | 0.0600 | 0.0821 | +0.0121 | 100 | no | open | UTEP Miners consensus 0.082 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UTEP |
 | 2026-10-02 16:41 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; would buy at 6¢ | no | 0.0600 | 0.0821 | +0.0121 | 100 | no | open | New Mexico Lobos consensus 0.918 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |
@@ -31,8 +31,8 @@ Brier (lower is better): strategy - vs market price -.
 | 2026-10-01 17:24 | sportsbook\_arb | UTEP wins — YES: Kalshi says 6%, we say 8%; would buy at 6¢ | yes | 0.0600 | 0.0808 | +0.0108 | 100 | no | open | UTEP Miners consensus 0.081 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UTEP |
 | 2026-10-01 17:24 | sportsbook\_arb | Utah St. wins — YES: Kalshi says 8%, we say 10%; would buy at 8¢ | yes | 0.0800 | 0.1005 | +0.0105 | 100 | no | open | Utah State Aggies consensus 0.101 from 3 books \(Boise State Broncos vs Utah State Aggies\) | KXNCAAFGAME-26OCT03USUBSU-USU |
 | 2026-10-01 17:24 | sportsbook\_arb | Florida wins — NO: Kalshi says 14%, we say 16%; bought at 14¢ | no | 0.1400 | 0.1631 | +0.0131 | 9 | yes | open | Florida Gators consensus 0.837 from 1 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-FLA |
-| 2026-10-01 10:14 | sportsbook\_arb | Notre Dame wins — NO: Kalshi says 7%, we say 9%; bought at 7¢ | no | 0.0700 | 0.0906 | +0.0106 | 100 | yes | open | Notre Dame Fighting Irish consensus 0.909 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-ND |
-| 2026-10-01 10:14 | sportsbook\_arb | North Carolina wins — YES: Kalshi says 7%, we say 9%; bought at 7¢ | yes | 0.0700 | 0.0906 | +0.0106 | 100 | yes | open | North Carolina Tar Heels consensus 0.091 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-UNC |
+| 2026-10-01 10:14 | sportsbook\_arb | Notre Dame wins — NO: Kalshi says 7%, we say 9%; bought at 7¢ | no | 0.0700 | 0.0906 | +0.0106 | 100 | yes | lost (yes) | Notre Dame Fighting Irish consensus 0.909 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-ND |
+| 2026-10-01 10:14 | sportsbook\_arb | North Carolina wins — YES: Kalshi says 7%, we say 9%; bought at 7¢ | yes | 0.0700 | 0.0906 | +0.0106 | 100 | yes | lost (no) | North Carolina Tar Heels consensus 0.091 from 3 books \(North Carolina Tar Heels vs Notre Dame Fighting Irish\) | KXNCAAFGAME-26OCT03NDUNC-UNC |
 | 2026-10-01 10:14 | sportsbook\_arb | Ball St. wins — YES: Kalshi says 9%, we say 11%; would buy at 9¢ | yes | 0.0900 | 0.1104 | +0.0104 | 100 | no | open | Ball State Cardinals consensus 0.110 from 3 books \(Ball State Cardinals vs Toledo Rockets\) | KXNCAAFGAME-26OCT03TOLBALL-BALL |
 | 2026-10-01 10:14 | sportsbook\_arb | Toledo wins — NO: Kalshi says 9%, we say 11%; bought at 9¢ | no | 0.0900 | 0.1104 | +0.0104 | 5 | yes | open | Toledo Rockets consensus 0.890 from 3 books \(Ball State Cardinals vs Toledo Rockets\) | KXNCAAFGAME-26OCT03TOLBALL-TOL |
 | 2026-10-01 10:14 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; bought at 6¢ | no | 0.0600 | 0.0810 | +0.0110 | 100 | yes | open | New Mexico Lobos consensus 0.919 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |

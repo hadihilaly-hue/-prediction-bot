@@ -4,21 +4,19 @@
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
 │ cash                 │  825.63 │
-│ open positions       │      17 │
-│ open cost            │  174.37 │
-│ settled fills        │       0 │
+│ open positions       │      15 │
+│ open cost            │  159.45 │
+│ settled fills        │       2 │
 │ wins                 │       0 │
-│ realized pnl         │    0.00 │
+│ realized pnl         │  -14.92 │
 │ fees paid            │    9.50 │
-│ brier (strategy)     │       - │
-│ brier (market price) │       - │
+│ brier (strategy)     │  0.0082 │
+│ brier (market price) │  0.0049 │
 └──────────────────────┴─────────┘
                            Open positions                            
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
 ┃ ticker                          ┃ side ┃ count ┃ cost  ┃ avg fair ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
-│ KXNCAAFGAME-26OCT03NDUNC-ND     │ no   │ 100   │ 7.46  │ 0.091    │
-│ KXNCAAFGAME-26OCT03NDUNC-UNC    │ yes  │ 100   │ 7.46  │ 0.091    │
 │ KXNCAAFGAME-26OCT03OSUIOWA-OSU  │ no   │ 69    │ 11.69 │ 0.181    │
 │ KXNCAAFGAME-26OCT03TOLBALL-BALL │ yes  │ 2     │ 0.20  │ 0.110    │
 │ KXNCAAFGAME-26OCT03TOLBALL-TOL  │ no   │ 10    │ 0.96  │ 0.110    │
