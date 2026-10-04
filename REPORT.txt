@@ -3,15 +3,15 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │  385.86 │
-│ open positions       │      17 │
-│ open cost            │  559.31 │
-│ settled fills        │      21 │
-│ wins                 │       2 │
-│ realized pnl         │  -54.83 │
+│ cash                 │  448.86 │
+│ open positions       │      15 │
+│ open cost            │  509.10 │
+│ settled fills        │      23 │
+│ wins                 │       4 │
+│ realized pnl         │  -42.04 │
 │ fees paid            │   32.55 │
-│ brier (strategy)     │  0.0335 │
-│ brier (market price) │  0.0348 │
+│ brier (strategy)     │  0.0327 │
+│ brier (market price) │  0.0353 │
 └──────────────────────┴─────────┘
                            Open positions                            
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
@@ -27,8 +27,6 @@
 │ KXNFLGAME-26OCT04DENSF-SF       │ no   │ 124   │ 51.70 │ 0.451    │
 │ KXNFLGAME-26OCT04KCLV-KC        │ no   │ 124   │ 51.70 │ 0.435    │
 │ KXNFLGAME-26OCT04KCLV-LV        │ yes  │ 124   │ 51.70 │ 0.435    │
-│ KXNFLGAME-26OCT04MIAMIN-MIA     │ no   │ 31    │ 24.86 │ 0.880    │
-│ KXNFLGAME-26OCT04MIAMIN-MIN     │ yes  │ 32    │ 25.35 │ 0.880    │
 │ KXNFLGAME-26OCT11CHIGB-CHI      │ no   │ 2     │ 1.06  │ 0.551    │
 │ KXNFLGAME-26OCT11CHIGB-GB       │ yes  │ 48    │ 25.80 │ 0.551    │
 │ KXNFLGAME-26OCT11LVNE-LV        │ no   │ 42    │ 25.50 │ 0.627    │

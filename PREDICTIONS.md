@@ -1,8 +1,8 @@
 # Paper-trading predictions
 
-Updated 2026-10-04 22:21 UTC. Cash **$385.86** (started $1000.00), realized PnL **$-54.83**, fees $32.55, settled 21, wins 2, open positions 17.
+Updated 2026-10-04 23:08 UTC. Cash **$448.86** (started $1000.00), realized PnL **$-42.04**, fees $32.55, settled 23, wins 4, open positions 15.
 
-Brier (lower is better): strategy 0.0335 vs market price 0.0348.
+Brier (lower is better): strategy 0.0327 vs market price 0.0353.
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
@@ -16,8 +16,8 @@ Brier (lower is better): strategy 0.0335 vs market price 0.0348.
 | 2026-10-04 22:21 | underdog\_value | San Francisco wins — NO: Kalshi says 40%, we say 45%; bought at 40¢ | no | 0.4000 | 0.4511 | +0.0311 | 62 | yes | open | underdog \(2.5x payout\); San Francisco 49ers consensus 0.549 from 3 books \(San Francisco 49ers vs Denver Broncos\) | KXNFLGAME-26OCT04DENSF-SF |
 | 2026-10-04 22:21 | sportsbook\_arb | Milwaukee wins — YES: Kalshi says 17%, we say 21%; bought at 17¢ | yes | 0.1700 | 0.2087 | +0.0287 | 100 | yes | open | Milwaukee Brewers consensus 0.209 from 3 books \(Milwaukee Brewers vs San Diego Padres\) | KXMLBGAME-26OCT041600SDMIL-MIL |
 | 2026-10-04 22:21 | sportsbook\_arb | San Diego wins — NO: Kalshi says 17%, we say 21%; bought at 17¢ | no | 0.1700 | 0.2087 | +0.0287 | 100 | yes | open | San Diego Padres consensus 0.791 from 3 books \(Milwaukee Brewers vs San Diego Padres\) | KXMLBGAME-26OCT041600SDMIL-SD |
-| 2026-10-04 22:21 | sportsbook\_arb | Miami wins — NO: Kalshi says 79%, we say 88%; bought at 79¢ | no | 0.7900 | 0.8801 | +0.0701 | 31 | yes | open | Miami Dolphins consensus 0.120 from 3 books \(Minnesota Vikings vs Miami Dolphins\) | KXNFLGAME-26OCT04MIAMIN-MIA |
-| 2026-10-04 22:21 | sportsbook\_arb | Minnesota wins — YES: Kalshi says 78%, we say 88%; bought at 78¢ | yes | 0.7800 | 0.8801 | +0.0801 | 32 | yes | open | Minnesota Vikings consensus 0.880 from 3 books \(Minnesota Vikings vs Miami Dolphins\) | KXNFLGAME-26OCT04MIAMIN-MIN |
+| 2026-10-04 22:21 | sportsbook\_arb | Miami wins — NO: Kalshi says 79%, we say 88%; bought at 79¢ | no | 0.7900 | 0.8801 | +0.0701 | 31 | yes | WON (no) | Miami Dolphins consensus 0.120 from 3 books \(Minnesota Vikings vs Miami Dolphins\) | KXNFLGAME-26OCT04MIAMIN-MIA |
+| 2026-10-04 22:21 | sportsbook\_arb | Minnesota wins — YES: Kalshi says 78%, we say 88%; bought at 78¢ | yes | 0.7800 | 0.8801 | +0.0801 | 32 | yes | WON (yes) | Minnesota Vikings consensus 0.880 from 3 books \(Minnesota Vikings vs Miami Dolphins\) | KXNFLGAME-26OCT04MIAMIN-MIN |
 | 2026-10-04 22:21 | sportsbook\_arb | Kansas City wins — NO: Kalshi says 40%, we say 43%; bought at 40¢ | no | 0.4000 | 0.4350 | +0.0150 | 62 | yes | open | Kansas City Chiefs consensus 0.565 from 3 books \(Las Vegas Raiders vs Kansas City Chiefs\) | KXNFLGAME-26OCT04KCLV-KC |
 | 2026-10-04 22:21 | sportsbook\_arb | Las Vegas wins — YES: Kalshi says 40%, we say 43%; bought at 40¢ | yes | 0.4000 | 0.4350 | +0.0150 | 62 | yes | open | Las Vegas Raiders consensus 0.435 from 3 books \(Las Vegas Raiders vs Kansas City Chiefs\) | KXNFLGAME-26OCT04KCLV-LV |
 | 2026-10-04 22:21 | sportsbook\_arb | Denver wins — YES: Kalshi says 40%, we say 45%; bought at 40¢ | yes | 0.4000 | 0.4511 | +0.0311 | 62 | yes | open | Denver Broncos consensus 0.451 from 3 books \(San Francisco 49ers vs Denver Broncos\) | KXNFLGAME-26OCT04DENSF-DEN |
