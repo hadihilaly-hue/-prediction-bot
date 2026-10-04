@@ -3,13 +3,13 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │  748.93 │
-│ open positions       │       7 │
-│ open cost            │  196.24 │
+│ cash                 │  385.86 │
+│ open positions       │      17 │
+│ open cost            │  559.31 │
 │ settled fills        │      21 │
 │ wins                 │       2 │
 │ realized pnl         │  -54.83 │
-│ fees paid            │   18.34 │
+│ fees paid            │   32.55 │
 │ brier (strategy)     │  0.0335 │
 │ brier (market price) │  0.0348 │
 └──────────────────────┴─────────┘
@@ -17,11 +17,21 @@
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
 ┃ ticker                          ┃ side ┃ count ┃ cost  ┃ avg fair ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
+│ KXMLBGAME-26OCT041600SDMIL-MIL  │ yes  │ 200   │ 35.98 │ 0.209    │
+│ KXMLBGAME-26OCT041600SDMIL-SD   │ no   │ 200   │ 35.98 │ 0.209    │
 │ KXNCAAFGAME-26OCT10SCARFLA-FLA  │ no   │ 109   │ 15.14 │ 0.163    │
 │ KXNCAAFGAME-26OCT10SCARFLA-SCAR │ yes  │ 200   │ 29.70 │ 0.163    │
 │ KXNCAAFGAME-26OCT10TEXOKLA-OKLA │ yes  │ 200   │ 48.48 │ 0.270    │
 │ KXNCAAFGAME-26OCT10TEXOKLA-TEX  │ no   │ 200   │ 50.56 │ 0.270    │
+│ KXNFLGAME-26OCT04DENSF-DEN      │ yes  │ 124   │ 51.70 │ 0.451    │
+│ KXNFLGAME-26OCT04DENSF-SF       │ no   │ 124   │ 51.70 │ 0.451    │
+│ KXNFLGAME-26OCT04KCLV-KC        │ no   │ 124   │ 51.70 │ 0.435    │
+│ KXNFLGAME-26OCT04KCLV-LV        │ yes  │ 124   │ 51.70 │ 0.435    │
+│ KXNFLGAME-26OCT04MIAMIN-MIA     │ no   │ 31    │ 24.86 │ 0.880    │
+│ KXNFLGAME-26OCT04MIAMIN-MIN     │ yes  │ 32    │ 25.35 │ 0.880    │
 │ KXNFLGAME-26OCT11CHIGB-CHI      │ no   │ 2     │ 1.06  │ 0.551    │
 │ KXNFLGAME-26OCT11CHIGB-GB       │ yes  │ 48    │ 25.80 │ 0.551    │
 │ KXNFLGAME-26OCT11LVNE-LV        │ no   │ 42    │ 25.50 │ 0.627    │
+│ KXNFLGAME-26OCT11SFSEA-SEA      │ yes  │ 47    │ 25.73 │ 0.615    │
+│ KXNFLGAME-26OCT11SFSEA-SF       │ no   │ 15    │ 8.37  │ 0.615    │
 └─────────────────────────────────┴──────┴───────┴───────┴──────────┘

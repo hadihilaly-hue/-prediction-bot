@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-04 21:56 UTC. Cash **$748.93** (started $1000.00), realized PnL **$-54.83**, fees $18.34, settled 21, wins 2, open positions 7.
+Updated 2026-10-04 22:21 UTC. Cash **$385.86** (started $1000.00), realized PnL **$-54.83**, fees $32.55, settled 21, wins 2, open positions 17.
 
 Brier (lower is better): strategy 0.0335 vs market price 0.0348.
 
@@ -8,6 +8,22 @@ Brier (lower is better): strategy 0.0335 vs market price 0.0348.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-04 22:21 | underdog\_value | Milwaukee wins — YES: Kalshi says 17%, we say 21%; bought at 17¢ | yes | 0.1700 | 0.2087 | +0.0287 | 100 | yes | open | underdog \(5.9x payout\); Milwaukee Brewers consensus 0.209 from 3 books \(Milwaukee Brewers vs San Diego Padres\) | KXMLBGAME-26OCT041600SDMIL-MIL |
+| 2026-10-04 22:21 | underdog\_value | San Diego wins — NO: Kalshi says 17%, we say 21%; bought at 17¢ | no | 0.1700 | 0.2087 | +0.0287 | 100 | yes | open | underdog \(5.9x payout\); San Diego Padres consensus 0.791 from 3 books \(Milwaukee Brewers vs San Diego Padres\) | KXMLBGAME-26OCT041600SDMIL-SD |
+| 2026-10-04 22:21 | underdog\_value | Kansas City wins — NO: Kalshi says 40%, we say 43%; bought at 40¢ | no | 0.4000 | 0.4350 | +0.0150 | 62 | yes | open | underdog \(2.5x payout\); Kansas City Chiefs consensus 0.565 from 3 books \(Las Vegas Raiders vs Kansas City Chiefs\) | KXNFLGAME-26OCT04KCLV-KC |
+| 2026-10-04 22:21 | underdog\_value | Las Vegas wins — YES: Kalshi says 40%, we say 43%; bought at 40¢ | yes | 0.4000 | 0.4350 | +0.0150 | 62 | yes | open | underdog \(2.5x payout\); Las Vegas Raiders consensus 0.435 from 3 books \(Las Vegas Raiders vs Kansas City Chiefs\) | KXNFLGAME-26OCT04KCLV-LV |
+| 2026-10-04 22:21 | underdog\_value | Denver wins — YES: Kalshi says 40%, we say 45%; bought at 40¢ | yes | 0.4000 | 0.4511 | +0.0311 | 62 | yes | open | underdog \(2.5x payout\); Denver Broncos consensus 0.451 from 3 books \(San Francisco 49ers vs Denver Broncos\) | KXNFLGAME-26OCT04DENSF-DEN |
+| 2026-10-04 22:21 | underdog\_value | San Francisco wins — NO: Kalshi says 40%, we say 45%; bought at 40¢ | no | 0.4000 | 0.4511 | +0.0311 | 62 | yes | open | underdog \(2.5x payout\); San Francisco 49ers consensus 0.549 from 3 books \(San Francisco 49ers vs Denver Broncos\) | KXNFLGAME-26OCT04DENSF-SF |
+| 2026-10-04 22:21 | sportsbook\_arb | Milwaukee wins — YES: Kalshi says 17%, we say 21%; bought at 17¢ | yes | 0.1700 | 0.2087 | +0.0287 | 100 | yes | open | Milwaukee Brewers consensus 0.209 from 3 books \(Milwaukee Brewers vs San Diego Padres\) | KXMLBGAME-26OCT041600SDMIL-MIL |
+| 2026-10-04 22:21 | sportsbook\_arb | San Diego wins — NO: Kalshi says 17%, we say 21%; bought at 17¢ | no | 0.1700 | 0.2087 | +0.0287 | 100 | yes | open | San Diego Padres consensus 0.791 from 3 books \(Milwaukee Brewers vs San Diego Padres\) | KXMLBGAME-26OCT041600SDMIL-SD |
+| 2026-10-04 22:21 | sportsbook\_arb | Miami wins — NO: Kalshi says 79%, we say 88%; bought at 79¢ | no | 0.7900 | 0.8801 | +0.0701 | 31 | yes | open | Miami Dolphins consensus 0.120 from 3 books \(Minnesota Vikings vs Miami Dolphins\) | KXNFLGAME-26OCT04MIAMIN-MIA |
+| 2026-10-04 22:21 | sportsbook\_arb | Minnesota wins — YES: Kalshi says 78%, we say 88%; bought at 78¢ | yes | 0.7800 | 0.8801 | +0.0801 | 32 | yes | open | Minnesota Vikings consensus 0.880 from 3 books \(Minnesota Vikings vs Miami Dolphins\) | KXNFLGAME-26OCT04MIAMIN-MIN |
+| 2026-10-04 22:21 | sportsbook\_arb | Kansas City wins — NO: Kalshi says 40%, we say 43%; bought at 40¢ | no | 0.4000 | 0.4350 | +0.0150 | 62 | yes | open | Kansas City Chiefs consensus 0.565 from 3 books \(Las Vegas Raiders vs Kansas City Chiefs\) | KXNFLGAME-26OCT04KCLV-KC |
+| 2026-10-04 22:21 | sportsbook\_arb | Las Vegas wins — YES: Kalshi says 40%, we say 43%; bought at 40¢ | yes | 0.4000 | 0.4350 | +0.0150 | 62 | yes | open | Las Vegas Raiders consensus 0.435 from 3 books \(Las Vegas Raiders vs Kansas City Chiefs\) | KXNFLGAME-26OCT04KCLV-LV |
+| 2026-10-04 22:21 | sportsbook\_arb | Denver wins — YES: Kalshi says 40%, we say 45%; bought at 40¢ | yes | 0.4000 | 0.4511 | +0.0311 | 62 | yes | open | Denver Broncos consensus 0.451 from 3 books \(San Francisco 49ers vs Denver Broncos\) | KXNFLGAME-26OCT04DENSF-DEN |
+| 2026-10-04 22:21 | sportsbook\_arb | San Francisco wins — NO: Kalshi says 40%, we say 45%; bought at 40¢ | no | 0.4000 | 0.4511 | +0.0311 | 62 | yes | open | San Francisco 49ers consensus 0.549 from 3 books \(San Francisco 49ers vs Denver Broncos\) | KXNFLGAME-26OCT04DENSF-SF |
+| 2026-10-04 22:21 | sportsbook\_arb | Seattle wins — YES: Kalshi says 53%, we say 62%; bought at 53¢ | yes | 0.5300 | 0.6154 | +0.0654 | 47 | yes | open | Seattle Seahawks consensus 0.615 from 2 books \(Seattle Seahawks vs San Francisco 49ers\) | KXNFLGAME-26OCT11SFSEA-SEA |
+| 2026-10-04 22:21 | sportsbook\_arb | San Francisco wins — NO: Kalshi says 54%, we say 62%; bought at 54¢ | no | 0.5400 | 0.6154 | +0.0554 | 15 | yes | open | San Francisco 49ers consensus 0.385 from 2 books \(Seattle Seahawks vs San Francisco 49ers\) | KXNFLGAME-26OCT11SFSEA-SF |
 | 2026-10-04 09:52 | underdog\_value | Oklahoma wins — YES: Kalshi says 23%, we say 27%; bought at 23¢ | yes | 0.2300 | 0.2703 | +0.0203 | 100 | yes | open | underdog \(4.3x payout\); Oklahoma Sooners consensus 0.270 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |
 | 2026-10-04 09:52 | underdog\_value | Texas wins — NO: Kalshi says 24%, we say 27%; bought at 24¢ | no | 0.2400 | 0.2703 | +0.0103 | 100 | yes | open | underdog \(4.2x payout\); Texas Longhorns consensus 0.730 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-TEX |
 | 2026-10-04 09:52 | sportsbook\_arb | Oklahoma wins — YES: Kalshi says 23%, we say 27%; bought at 23¢ | yes | 0.2300 | 0.2703 | +0.0203 | 100 | yes | open | Oklahoma Sooners consensus 0.270 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |
