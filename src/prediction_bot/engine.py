@@ -125,9 +125,11 @@ class Engine:
         return out
 
     def _exposure(self, sig: Signal) -> Decimal:
+        """Open contracts on the signal's outcome, including equivalent legs on other tickers."""
+        legs = ((sig.ticker, sig.side), *sig.equivalents)
         if self.live:
-            return self.kalshi.live_exposure(sig.ticker, sig.side)
-        return self.ledger.position_count(sig.ticker, sig.side, sig.strategy)
+            return sum((self.kalshi.live_exposure(t, sd) for t, sd in legs), Decimal(0))
+        return sum((self.ledger.position_count(t, sd, sig.strategy) for t, sd in legs), Decimal(0))
 
     def _admissible(self, sig: Signal, batch: Sequence[Signal]) -> bool:
         """Position cap and (paper) cash check, counting the whole batch as one action.
@@ -135,12 +137,11 @@ class Engine:
         Live exposure is per venue position; paper exposure is per strategy so that
         strategies run together keep independent, comparable books.
         """
+        legs = {(sig.ticker, sig.side), *sig.equivalents}
         same = [
             s
             for s in batch
-            if s.ticker == sig.ticker
-            and s.side == sig.side
-            and (self.live or s.strategy == sig.strategy)
+            if (s.ticker, s.side) in legs and (self.live or s.strategy == sig.strategy)
         ]
         added = sum((s.size for s in same), Decimal(0))
         if self._exposure(sig) + added > self.settings.max_position_contracts:

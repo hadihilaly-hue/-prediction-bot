@@ -88,6 +88,8 @@ class Signal:
     size: Decimal  # contracts
     rationale: str = ""
     group: str | None = None  # legs sharing a group are acted on all-or-nothing
+    # other (ticker, side) legs that pay out on the same outcome; exposure counts them too
+    equivalents: tuple[tuple[str, OutcomeSide], ...] = ()
     created_at: datetime = field(default_factory=datetime.utcnow)
 
 
