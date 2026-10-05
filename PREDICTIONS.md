@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-05 18:26 UTC. Cash **$848.86** (started $1000.00), realized PnL **$79.20**, fees $32.55, settled 35, wins 8, open positions 9.
+Updated 2026-10-05 19:43 UTC. Cash **$812.88** (started $1000.00), realized PnL **$79.20**, fees $34.53, settled 35, wins 8, open positions 10.
 
 Brier (lower is better): strategy 0.1668 vs market price 0.1714.
 
@@ -11,6 +11,10 @@ Brier (lower is better): strategy 0.1668 vs market price 0.1714.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-05 19:43 | underdog\_value | Florida wins — NO: Kalshi says 16%, we say 19%; would buy at 16¢ | no | 0.1600 | 0.1898 | +0.0198 | 100 | no | open | underdog \(6.2x payout\); Florida Gators consensus 0.810 from 3 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-FLA |
+| 2026-10-05 19:43 | underdog\_value | Dallas wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1917 | +0.0117 | 100 | yes | open | underdog \(5.9x payout\); Dallas Cowboys consensus 0.808 from 3 books \(Dallas Cowboys vs Tampa Bay Buccaneers\) | KXNFLGAME-26OCT08TBDAL-DAL |
+| 2026-10-05 19:43 | sportsbook\_arb | Florida wins — NO: Kalshi says 16%, we say 19%; would buy at 16¢ | no | 0.1600 | 0.1898 | +0.0198 | 100 | no | open | Florida Gators consensus 0.810 from 3 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-FLA |
+| 2026-10-05 19:43 | sportsbook\_arb | Dallas wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1917 | +0.0117 | 100 | yes | open | Dallas Cowboys consensus 0.808 from 3 books \(Dallas Cowboys vs Tampa Bay Buccaneers\) | KXNFLGAME-26OCT08TBDAL-DAL |
 | 2026-10-04 22:21 | underdog\_value | Milwaukee wins — YES: Kalshi says 17%, we say 21%; bought at 17¢ | yes | 0.1700 | 0.2087 | +0.0287 | 100 | yes | WON (yes) | underdog \(5.9x payout\); Milwaukee Brewers consensus 0.209 from 3 books \(Milwaukee Brewers vs San Diego Padres\) | KXMLBGAME-26OCT041600SDMIL-MIL |
 | 2026-10-04 22:21 | underdog\_value | San Diego wins — NO: Kalshi says 17%, we say 21%; bought at 17¢ | no | 0.1700 | 0.2087 | +0.0287 | 100 | yes | WON (no) | underdog \(5.9x payout\); San Diego Padres consensus 0.791 from 3 books \(Milwaukee Brewers vs San Diego Padres\) | KXMLBGAME-26OCT041600SDMIL-SD |
 | 2026-10-04 22:21 | underdog\_value | Kansas City wins — NO: Kalshi says 40%, we say 43%; bought at 40¢ | no | 0.4000 | 0.4350 | +0.0150 | 62 | yes | lost (yes) | underdog \(2.5x payout\); Kansas City Chiefs consensus 0.565 from 3 books \(Las Vegas Raiders vs Kansas City Chiefs\) | KXNFLGAME-26OCT04KCLV-KC |
