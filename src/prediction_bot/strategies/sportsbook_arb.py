@@ -96,6 +96,7 @@ class SportsbookArbStrategy(Strategy):
             game = self._match_game(legs, self.games_for(sport))
             if game is None:
                 continue
+            game_sigs: list[tuple[str, Signal]] = []
             for m in legs:
                 team = best_team(m.subtitle, [game.home_team, game.away_team])
                 if team is None:
@@ -107,8 +108,23 @@ class SportsbookArbStrategy(Strategy):
                     f"{team} consensus {team_fair:.3f} from {game.books_used} books"
                     f" ({game.home_team} vs {game.away_team})"
                 )
-                out.extend(self._both_sides(m, team_fair, rationale))
+                other = game.away_team if team == game.home_team else game.home_team
+                for sig in self._both_sides(m, team_fair, rationale):
+                    winner = team if sig.side is OutcomeSide.yes else other
+                    game_sigs.append((winner, sig))
+            out.extend(self._one_per_outcome(game_sigs))
         return out
+
+    @staticmethod
+    def _one_per_outcome(sigs: list[tuple[str, Signal]]) -> list[Signal]:
+        """Kalshi lists a game once per team, so "A yes" and "B no" are the same bet.
+        Keep only the cheapest way to back each outcome."""
+        best: dict[str, Signal] = {}
+        for winner, sig in sigs:
+            cur = best.get(winner)
+            if cur is None or sig.edge > cur.edge:
+                best[winner] = sig
+        return list(best.values())
 
     def _both_sides(self, m: Market, fair: Decimal, rationale: str) -> list[Signal]:
         yes_sig = self.make_signal(m, OutcomeSide.yes, fair, rationale)

@@ -83,15 +83,16 @@ class FakeOdds:
 def test_sportsbook_arb_signals(settings) -> None:  # type: ignore[no-untyped-def]
     settings.odds_bookmakers = ["pinnacle", "draftkings"]
     strat = SportsbookArbStrategy(settings, odds_client=FakeOdds())  # type: ignore[arg-type]
-    # Kalshi prices Troy at 0.55 ask while books say ~0.655 -> buy YES Troy.
+    # Kalshi prices Troy at 0.55 ask while books say ~0.655 -> back Troy. "Troy YES" and
+    # "Southern Miss NO" are the same bet; only the cheaper leg (NO at 0.54) is signalled.
     troy = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy")
-    usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.45", "0.50", subtitle="Southern Miss")
+    usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.46", "0.50", subtitle="Southern Miss")
     sigs = strat.evaluate([troy, usm])
-    assert [(s.ticker.rsplit("-", 1)[1], s.side) for s in sigs] == [
-        ("TROY", OutcomeSide.yes),
-        ("USM", OutcomeSide.no),
-    ]
+    assert [(s.ticker.rsplit("-", 1)[1], s.side) for s in sigs] == [("USM", OutcomeSide.no)]
     assert all(s.edge >= settings.min_edge for s in sigs)
+    # with equal prices exactly one leg is kept
+    tie = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.45", "0.50", subtitle="Southern Miss")
+    assert len(strat.evaluate([troy, tie])) == 1
 
 
 def test_sportsbook_odds_refetched_each_cycle(settings) -> None:  # type: ignore[no-untyped-def]
