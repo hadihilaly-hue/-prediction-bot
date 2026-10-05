@@ -75,23 +75,52 @@ def test_team_matching() -> None:
 
 
 class FakeOdds:
+    def __init__(self, events: list[dict[str, Any]] | None = None) -> None:
+        self.events = events if events is not None else [EVENT]
+
     def h2h(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
-        assert sport == "americanfootball_ncaaf"
-        return [EVENT]
+        return self.events
 
 
 def test_sportsbook_arb_signals(settings) -> None:  # type: ignore[no-untyped-def]
     settings.odds_bookmakers = ["pinnacle", "draftkings"]
     strat = SportsbookArbStrategy(settings, odds_client=FakeOdds())  # type: ignore[arg-type]
-    # Kalshi prices Troy at 0.55 ask while books say ~0.655 -> buy YES Troy.
+    # Kalshi prices Troy at 0.55 ask while books say ~0.655 -> back Troy. "Troy YES" and
+    # "Southern Miss NO" are the same bet; only the cheaper leg (NO at 0.54) is signalled.
     troy = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy")
-    usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.45", "0.50", subtitle="Southern Miss")
+    usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.46", "0.50", subtitle="Southern Miss")
     sigs = strat.evaluate([troy, usm])
-    assert [(s.ticker.rsplit("-", 1)[1], s.side) for s in sigs] == [
-        ("TROY", OutcomeSide.yes),
-        ("USM", OutcomeSide.no),
-    ]
+    assert [(s.ticker.rsplit("-", 1)[1], s.side) for s in sigs] == [("USM", OutcomeSide.no)]
     assert all(s.edge >= settings.min_edge for s in sigs)
+    assert sigs[0].equivalents == (("KXNCAAFGAME-26OCT06USMTROY-TROY", OutcomeSide.yes),)
+    # with equal prices exactly one leg is kept
+    tie = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.45", "0.50", subtitle="Southern Miss")
+    assert len(strat.evaluate([troy, tie])) == 1
+
+
+def test_soccer_draw_keeps_both_legs(settings) -> None:  # type: ignore[no-untyped-def]
+    import copy
+
+    ev = copy.deepcopy(EVENT)
+    ev["home_team"], ev["away_team"] = "Arsenal", "Chelsea"
+    for b in ev["bookmakers"]:
+        b["markets"][0]["outcomes"] = [
+            {"name": "Arsenal", "price": 2.0},
+            {"name": "Chelsea", "price": 4.0},
+            {"name": "Draw", "price": 4.0},
+        ]
+    settings.odds_bookmakers = ["pinnacle", "draftkings"]
+    strat = SportsbookArbStrategy(settings, odds_client=FakeOdds([ev]))  # type: ignore[arg-type]
+    # Arsenal ~0.50, Chelsea ~0.25. "Arsenal YES" (0.40) and "Chelsea NO" (0.60, fair 0.75)
+    # are different bets because Chelsea NO also wins on a draw: both are kept.
+    ars = make_market("KXEPLGAME-26OCT06CHEARS-ARS", "0.35", "0.40", subtitle="Arsenal")
+    che = make_market("KXEPLGAME-26OCT06CHEARS-CHE", "0.40", "0.45", subtitle="Chelsea")
+    sigs = strat.evaluate([ars, che])
+    assert {(s.ticker.rsplit("-", 1)[1], s.side) for s in sigs} == {
+        ("ARS", OutcomeSide.yes),
+        ("CHE", OutcomeSide.no),
+    }
+    assert all(s.equivalents == () for s in sigs)
 
 
 def test_sportsbook_odds_refetched_each_cycle(settings) -> None:  # type: ignore[no-untyped-def]

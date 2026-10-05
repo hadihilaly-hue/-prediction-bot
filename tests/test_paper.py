@@ -476,3 +476,42 @@ def test_performance_by_strategy(tmp_path) -> None:  # type: ignore[no-untyped-d
     total = led.performance()
     assert total.realized_pnl == by["a"].realized_pnl + by["b"].realized_pnl
     assert total.fees_paid == Decimal("0.60")
+
+
+def test_equivalent_legs_share_position_cap(tmp_path, settings) -> None:  # type: ignore[no-untyped-def]
+    """ "A yes" held on one ticker counts against "B no" on the twin ticker."""
+    from prediction_bot.models import Signal
+    from prediction_bot.strategies.base import Strategy
+
+    class Fixed(Strategy):
+        name = "fixed"
+
+        def __init__(self, s, sig: Signal) -> None:  # type: ignore[no-untyped-def]
+            super().__init__(s)
+            self.sig = sig
+
+        def evaluate(self, markets):  # type: ignore[no-untyped-def]
+            return [self.sig]
+
+    settings.max_position_contracts = Decimal(30)
+    settings.paper_db_path = tmp_path / "eq.sqlite"
+    ledger = Ledger(settings.paper_db_path, Decimal("1000"))
+    ledger.record_fill(
+        "fixed", "G-A", OutcomeSide.yes, Decimal("0.55"), Decimal(25), Decimal(0), Decimal("0.65")
+    )
+    sig = Signal(
+        strategy="fixed",
+        ticker="G-B",
+        side=OutcomeSide.no,
+        fair_prob=Decimal("0.65"),
+        limit_price=Decimal("0.54"),
+        edge=Decimal("0.10"),
+        size=Decimal(10),
+        equivalents=(("G-A", OutcomeSide.yes),),
+    )
+    eng = Engine(settings, object(), [Fixed(settings, sig)], ledger)  # type: ignore[arg-type]
+    market = make_market("G-B", yes_bid="0.46", yes_ask="0.50")
+    assert eng.run_cycle([market]).acted == []  # 25 held + 10 > 30
+    small = Signal(**{**sig.__dict__, "size": Decimal(5)})
+    eng = Engine(settings, object(), [Fixed(settings, small)], ledger)  # type: ignore[arg-type]
+    assert len(eng.run_cycle([market]).acted) == 1

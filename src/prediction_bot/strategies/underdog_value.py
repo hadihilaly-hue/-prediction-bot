@@ -19,7 +19,9 @@ class UnderdogValueStrategy(SportsbookArbStrategy):
 
     name = "underdog_value"
 
-    def _both_sides(self, m: Market, fair: Decimal, rationale: str) -> list[Signal]:
+    def _both_sides(
+        self, m: Market, fair: Decimal, rationale: str, twin: Market | None = None
+    ) -> list[Signal]:
         lo, hi = self.settings.underdog_min_price, self.settings.underdog_max_price
         out: list[Signal] = []
         for side, side_fair in ((OutcomeSide.yes, fair), (OutcomeSide.no, Decimal(1) - fair)):
@@ -27,7 +29,10 @@ class UnderdogValueStrategy(SportsbookArbStrategy):
             if ask is None or ask <= 0 or not (lo <= ask <= hi):
                 continue
             payout = (Decimal(1) / ask).quantize(Decimal("0.1"))
-            sig = self.make_signal(m, side, side_fair, f"underdog ({payout}x payout); {rationale}")
+            eq = ((twin.ticker, side.opposite()),) if twin else ()
+            sig = self.make_signal(
+                m, side, side_fair, f"underdog ({payout}x payout); {rationale}", equivalents=eq
+            )
             if sig:
                 out.append(sig)
         return out

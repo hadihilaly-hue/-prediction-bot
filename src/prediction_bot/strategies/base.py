@@ -33,6 +33,7 @@ class Strategy(ABC):
         max_size: Decimal | None = None,
         group: str | None = None,
         check_edge: bool = True,
+        equivalents: tuple[tuple[str, OutcomeSide], ...] = (),
     ) -> Signal | None:
         """Build a signal to buy `side` at the current ask if edge clears `min_edge`.
 
@@ -63,6 +64,7 @@ class Strategy(ABC):
             size=size,
             rationale=rationale,
             group=group,
+            equivalents=equivalents,
         )
 
     def _size(self, price: Decimal, available: Decimal) -> Decimal:
