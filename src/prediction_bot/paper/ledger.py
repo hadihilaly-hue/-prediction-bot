@@ -450,11 +450,27 @@ class Ledger:
         return [Run(r[0], r[1], r[2], r[3], r[4], r[5], Decimal(r[6]), Decimal(r[7])) for r in rows]
 
     def realized_pnl_since(self, since: datetime) -> Decimal:
-        """Sum of settlement PnL booked at or after `since` (used for the daily-loss limit)."""
+        """Sum of settlement PnL booked at or after `since`."""
         rows = self.conn.execute(
             "SELECT pnl FROM settlements WHERE settled_at >= ?", (since.isoformat(),)
         )
         return sum((Decimal(r[0]) for r in rows), Decimal(0))
+
+    def worst_drawdown_since(self, since: datetime) -> Decimal:
+        """Lowest running total of settlement PnL since `since`, in settlement order.
+
+        The daily-loss limit uses this rather than the net, so a loss that crossed the limit
+        is not masked by a win booked later in the same cycle.
+        """
+        rows = self.conn.execute(
+            "SELECT pnl FROM settlements WHERE settled_at >= ? ORDER BY settled_at, rowid",
+            (since.isoformat(),),
+        )
+        total = low = Decimal(0)
+        for (pnl,) in rows:
+            total += Decimal(pnl)
+            low = min(low, total)
+        return low
 
     def halt_for_day(self, day: str) -> str | None:
         """Reason trading was halted on `day` (YYYY-MM-DD), if a hard stop tripped that day."""

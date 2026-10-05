@@ -63,7 +63,7 @@ class Engine:
             # The paper ledger does not see live fills, so the daily-loss limit cannot be
             # measured in live mode yet; fail closed rather than trade with a dead stop.
             return "daily loss limit is set but live PnL is not tracked; refusing to trade live"
-        today = self.ledger.realized_pnl_since(day.replace(tzinfo=None))
+        today = self.ledger.worst_drawdown_since(day.replace(tzinfo=None))
         if today <= -limit:
             reason = f"daily loss limit hit: {today:.2f} <= -{limit:.2f}"
             self.ledger.record_halt(key, reason)

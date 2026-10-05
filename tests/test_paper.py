@@ -436,6 +436,24 @@ def test_kill_switch_and_daily_loss_halt_entries(tmp_path, settings) -> None:  #
     res = Engine(settings, object(), [strat], fresh).run_cycle([market])  # type: ignore[arg-type]
     assert res.halted is None and res.acted
 
+    # a loss that crosses the limit trips it even if a win booked in the same cycle nets out
+    settings.max_daily_loss = Decimal("5")
+    netted = Ledger(tmp_path / "l3.sqlite", Decimal("1000"))
+    for tk, px in (("L", "0.80"), ("W", "0.10")):
+        netted.record_fill(
+            "book_scanner",
+            tk,
+            OutcomeSide.yes,
+            Decimal(px),
+            Decimal(10),
+            Decimal(0),
+            Decimal("0.5"),
+        )
+    netted.settle("L", OutcomeSide.no)  # -8.00
+    netted.settle("W", OutcomeSide.yes)  # +9.00 -> net +1.00
+    res = Engine(settings, object(), [strat], netted).run_cycle([market])  # type: ignore[arg-type]
+    assert res.acted == [] and res.halted is not None and "daily loss" in res.halted
+
 
 def test_performance_by_strategy(tmp_path) -> None:  # type: ignore[no-untyped-def]
     led = Ledger(tmp_path / "l.sqlite", Decimal("100"))
