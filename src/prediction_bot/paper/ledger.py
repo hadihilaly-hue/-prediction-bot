@@ -445,23 +445,53 @@ class Ledger:
         )
         return [Run(r[0], r[1], r[2], r[3], r[4], r[5], Decimal(r[6]), Decimal(r[7])) for r in rows]
 
-    def performance(self) -> Performance:
-        pos = self.positions()
-        settled = self.conn.execute(
-            "SELECT f.side, f.price, f.count, f.fair_prob, s.result FROM fills f"
-            " JOIN settlements s ON s.ticker = f.ticker"
-        ).fetchall()
-        realized = sum(
-            (Decimal(r[0]) for r in self.conn.execute("SELECT pnl FROM settlements")), Decimal(0)
+    def realized_pnl_since(self, since: datetime) -> Decimal:
+        """Sum of settlement PnL booked at or after `since` (used for the daily-loss limit)."""
+        rows = self.conn.execute(
+            "SELECT pnl FROM settlements WHERE settled_at >= ?", (since.isoformat(),)
         )
-        fees = sum((Decimal(r[0]) for r in self.conn.execute("SELECT fee FROM fills")), Decimal(0))
+        return sum((Decimal(r[0]) for r in rows), Decimal(0))
+
+    def strategies(self) -> list[str]:
+        rows = self.conn.execute(
+            "SELECT DISTINCT strategy FROM (SELECT strategy FROM fills UNION"
+            " SELECT strategy FROM signals) ORDER BY strategy"
+        )
+        return [r[0] for r in rows]
+
+    def performance_by_strategy(self) -> dict[str, Performance]:
+        return {name: self.performance(name) for name in self.strategies()}
+
+    def performance(self, strategy: str | None = None) -> Performance:
+        """Whole-book performance, or one strategy's slice of it when `strategy` is given.
+
+        Settlement PnL is stored per ticker, so per-strategy realized PnL is recomputed
+        from that strategy's fills (payout minus cost) rather than read from `settlements`.
+        """
+        where = " AND f.strategy = ?" if strategy is not None else ""
+        args: tuple[str, ...] = (strategy,) if strategy is not None else ()
+        pos = self.positions(strategy)
+        settled = self.conn.execute(
+            "SELECT f.side, f.price, f.count, f.fair_prob, s.result, f.fee FROM fills f"
+            " JOIN settlements s ON s.ticker = f.ticker WHERE 1=1" + where,
+            args,
+        ).fetchall()
+        fees = sum(
+            (
+                Decimal(r[0])
+                for r in self.conn.execute("SELECT f.fee FROM fills f WHERE 1=1" + where, args)
+            ),
+            Decimal(0),
+        )
         wins = 0
+        realized = Decimal(0)
         brier_num = market_num = Decimal(0)
         weight = Decimal(0)
-        for side, price, count, fair, result in settled:
+        for side, price, count, fair, result, fee in settled:
             outcome = Decimal(1) if side == result else Decimal(0)
             c = Decimal(count)
             wins += int(outcome == 1)
+            realized += outcome * c - Decimal(price) * c - Decimal(fee)
             brier_num += (Decimal(fair) - outcome) ** 2 * c
             market_num += (Decimal(price) - outcome) ** 2 * c
             weight += c

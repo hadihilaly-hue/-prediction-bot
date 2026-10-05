@@ -96,6 +96,15 @@ overstate what the real book offers — evaluate strategies on production data.
 * `PBOT_MODE=paper` (default) never sends orders. `Engine` only sends live orders when
   mode is `live` **and** the caller passes `allow_live=True`; no CLI command does that yet.
 * `PBOT_MAX_ORDER_NOTIONAL` and `PBOT_MAX_POSITION_CONTRACTS` cap every signal.
+* `PBOT_KILL_SWITCH=true` halts every new entry (and cancels resting live orders);
+  `PBOT_MAX_DAILY_LOSS=<dollars>` halts entries for the rest of the UTC day once realized
+  PnL settled that day reaches the limit. Both live in code and no strategy can override
+  them. The scheduled workflow reads them from the repository *variables*
+  `PBOT_KILL_SWITCH` / `PBOT_MAX_DAILY_LOSS` (Settings → Secrets and variables → Actions →
+  Variables), so you can pull the plug without a code change.
+* `pbot report`, `PREDICTIONS.md` and the dashboard break settled count, wins, realized
+  PnL and Brier out **per strategy**, so `book_scanner`, `sportsbook_arb` and
+  `underdog_value` can be judged on their own.
 * Kalshi 429s are retried with exponential backoff.
 
 ## Kalshi API notes
