@@ -1,8 +1,11 @@
 # Paper-trading predictions
 
-Updated 2026-10-05 01:59 UTC. Cash **$848.86** (started $1000.00), realized PnL **$79.20**, fees $32.55, settled 35, wins 8, open positions 9.
+Updated 2026-10-05 07:41 UTC. Cash **$848.86** (started $1000.00), realized PnL **$79.20**, fees $32.55, settled 35, wins 8, open positions 9.
 
 Brier (lower is better): strategy 0.1668 vs market price 0.1714.
+
+- `sportsbook_arb`: settled 29, wins 6, realized PnL $18.58, Brier 0.1154 vs market 0.1192
+- `underdog_value`: settled 6, wins 2, realized PnL $60.62, Brier 0.3883 vs market 0.3961
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
