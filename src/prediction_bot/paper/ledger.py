@@ -68,6 +68,10 @@ CREATE TABLE IF NOT EXISTS settlements (
     result TEXT NOT NULL,
     pnl TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS halts (
+    day TEXT PRIMARY KEY,
+    reason TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS cash (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     balance TEXT NOT NULL
@@ -451,6 +455,15 @@ class Ledger:
             "SELECT pnl FROM settlements WHERE settled_at >= ?", (since.isoformat(),)
         )
         return sum((Decimal(r[0]) for r in rows), Decimal(0))
+
+    def halt_for_day(self, day: str) -> str | None:
+        """Reason trading was halted on `day` (YYYY-MM-DD), if a hard stop tripped that day."""
+        row = self.conn.execute("SELECT reason FROM halts WHERE day = ?", (day,)).fetchone()
+        return None if row is None else str(row[0])
+
+    def record_halt(self, day: str, reason: str) -> None:
+        self.conn.execute("INSERT OR IGNORE INTO halts (day, reason) VALUES (?, ?)", (day, reason))
+        self.conn.commit()
 
     def strategies(self) -> list[str]:
         rows = self.conn.execute(

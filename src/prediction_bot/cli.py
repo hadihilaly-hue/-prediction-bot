@@ -328,6 +328,8 @@ def order(
 ) -> None:
     """Place one real limit order on the configured venue (demo by default)."""
     s = _settings()
+    if s.kill_switch:
+        raise typer.BadParameter("PBOT_KILL_SWITCH is on; no orders of any kind are placed")
     client = _client(s, need_auth=True)
     if not client.is_demo and not yes_i_mean_it:
         raise typer.BadParameter("Non-demo venue: pass --yes-i-mean-it to place a real-money order")

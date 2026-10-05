@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime
 from decimal import Decimal
 
 import pytest
@@ -415,8 +416,24 @@ def test_kill_switch_and_daily_loss_halt_entries(tmp_path, settings) -> None:  #
     res = eng.run_cycle([market])
     assert res.acted == [] and res.halted is not None and "daily loss" in res.halted
 
-    settings.max_daily_loss = Decimal("50")
+    # a winning settlement later the same day must not reopen trading: the halt is latched
+    ledger.record_fill(
+        "book_scanner",
+        "W1",
+        OutcomeSide.yes,
+        Decimal("0.10"),
+        Decimal(10),
+        Decimal(0),
+        Decimal("0.9"),
+    )
+    ledger.settle("W1", OutcomeSide.yes)  # +9.00, day now +1.00
+    assert ledger.realized_pnl_since(datetime(2000, 1, 1)) > 0
     res = eng.run_cycle([market])
+    assert res.acted == [] and res.halted is not None and "halted until" in res.halted
+
+    fresh = Ledger(tmp_path / "l2.sqlite", Decimal("1000"))
+    settings.max_daily_loss = Decimal("50")
+    res = Engine(settings, object(), [strat], fresh).run_cycle([market])  # type: ignore[arg-type]
     assert res.halted is None and res.acted
 
 

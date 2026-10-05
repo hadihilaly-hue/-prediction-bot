@@ -52,11 +52,22 @@ class Engine:
         if self.settings.kill_switch:
             return "kill switch is on (PBOT_KILL_SWITCH)"
         limit = self.settings.max_daily_loss
-        if limit is not None:
-            day = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-            today = self.ledger.realized_pnl_since(day.replace(tzinfo=None))
-            if today <= -limit:
-                return f"daily loss limit hit: {today:.2f} <= -{limit:.2f}"
+        if limit is None:
+            return None
+        day = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        key = day.strftime("%Y-%m-%d")
+        latched = self.ledger.halt_for_day(key)
+        if latched:
+            return f"{latched} (halted until {key} 23:59 UTC)"
+        if self.live:
+            # The paper ledger does not see live fills, so the daily-loss limit cannot be
+            # measured in live mode yet; fail closed rather than trade with a dead stop.
+            return "daily loss limit is set but live PnL is not tracked; refusing to trade live"
+        today = self.ledger.realized_pnl_since(day.replace(tzinfo=None))
+        if today <= -limit:
+            reason = f"daily loss limit hit: {today:.2f} <= -{limit:.2f}"
+            self.ledger.record_halt(key, reason)
+            return reason
         return None
 
     def run_cycle(self, markets: Sequence[Market]) -> CycleResult:
