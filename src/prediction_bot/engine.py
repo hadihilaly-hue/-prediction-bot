@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from prediction_bot.config import Settings
@@ -21,6 +22,7 @@ class CycleResult:
     acted: list[Signal] = field(default_factory=list)
     settled: dict[str, Decimal] = field(default_factory=dict)
     live_orders: list[dict[str, object]] = field(default_factory=list)
+    halted: str | None = None  # reason no entries were taken this cycle, if any
 
 
 class Engine:
@@ -45,6 +47,18 @@ class Engine:
     def live(self) -> bool:
         return self.settings.is_live and self.allow_live
 
+    def halt_reason(self) -> str | None:
+        """Code-owned hard stops, checked before any strategy output is acted on."""
+        if self.settings.kill_switch:
+            return "kill switch is on (PBOT_KILL_SWITCH)"
+        limit = self.settings.max_daily_loss
+        if limit is not None:
+            day = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            today = self.ledger.realized_pnl_since(day.replace(tzinfo=None))
+            if today <= -limit:
+                return f"daily loss limit hit: {today:.2f} <= -{limit:.2f}"
+        return None
+
     def run_cycle(self, markets: Sequence[Market]) -> CycleResult:
         res = CycleResult(markets_scanned=len(markets))
         for strat in self.strategies:
@@ -54,6 +68,15 @@ class Engine:
                 log.exception("strategy %s failed", strat.name)
         hit = {s.ticker for s in res.signals}
         self.ledger.remember_markets([m for m in markets if m.ticker in hit])
+        res.halted = self.halt_reason()
+        if res.halted:
+            log.warning("HALTED, no entries: %s", res.halted)
+            if self.live and self.settings.kill_switch:
+                for o in self.kalshi.get_orders(status="resting"):
+                    self.kalshi.cancel_order(str(o["order_id"]))
+            for s in res.signals:
+                self.ledger.record_signal(s, acted=False)
+            return res
         for batch in self._batches(res.signals):
             if not all(self._admissible(s, batch) for s in batch):
                 for s in batch:

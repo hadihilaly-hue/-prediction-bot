@@ -386,3 +386,58 @@ def test_paper_position_cap_is_per_strategy(tmp_path, settings) -> None:  # type
     assert ledger.position_count("T1", OutcomeSide.yes, "a") == 30
     assert ledger.position_count("T1", OutcomeSide.yes, "b") == 30
     assert eng.run_cycle([]).acted == []
+
+
+def test_kill_switch_and_daily_loss_halt_entries(tmp_path, settings) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "l.sqlite", Decimal("1000"))
+    strat = BookScannerStrategy(settings)
+    market = make_market("E-A", yes_bid="0.50", yes_ask="0.40")
+
+    settings.kill_switch = True
+    eng = Engine(settings, object(), [strat], ledger)  # type: ignore[arg-type]
+    res = eng.run_cycle([market])
+    assert res.signals and res.acted == [] and res.halted is not None
+    assert "kill switch" in res.halted
+    assert all(not p.acted for p in ledger.predictions())
+
+    settings.kill_switch = False
+    settings.max_daily_loss = Decimal("5")
+    ledger.record_fill(
+        "book_scanner",
+        "L1",
+        OutcomeSide.yes,
+        Decimal("0.80"),
+        Decimal(10),
+        Decimal(0),
+        Decimal("0.9"),
+    )
+    ledger.settle("L1", OutcomeSide.no)  # -8.00 today
+    res = eng.run_cycle([market])
+    assert res.acted == [] and res.halted is not None and "daily loss" in res.halted
+
+    settings.max_daily_loss = Decimal("50")
+    res = eng.run_cycle([market])
+    assert res.halted is None and res.acted
+
+
+def test_performance_by_strategy(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    led = Ledger(tmp_path / "l.sqlite", Decimal("100"))
+    led.record_fill(
+        "a", "T1", OutcomeSide.yes, Decimal("0.40"), Decimal(10), Decimal("0.20"), Decimal("0.6")
+    )
+    led.record_fill(
+        "b", "T1", OutcomeSide.no, Decimal("0.50"), Decimal(10), Decimal("0.30"), Decimal("0.5")
+    )
+    led.record_fill(
+        "b", "T2", OutcomeSide.yes, Decimal("0.30"), Decimal(5), Decimal("0.10"), Decimal("0.4")
+    )
+    led.settle("T1", OutcomeSide.yes)
+    by = led.performance_by_strategy()
+    assert set(by) == {"a", "b"}
+    assert by["a"].realized_pnl == Decimal("10") - Decimal("4.00") - Decimal("0.20")
+    assert by["a"].wins == 1 and by["a"].settled_count == 1
+    assert by["b"].realized_pnl == -Decimal("5.00") - Decimal("0.30")
+    assert by["b"].wins == 0 and by["b"].settled_count == 1 and by["b"].open_positions == 1
+    total = led.performance()
+    assert total.realized_pnl == by["a"].realized_pnl + by["b"].realized_pnl
+    assert total.fees_paid == Decimal("0.60")

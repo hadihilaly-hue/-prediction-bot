@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     max_order_notional: Decimal = Decimal("25")
     max_position_contracts: Decimal = Decimal("100")
     min_edge: Decimal = Decimal("0.03")  # minimum expected edge (prob points) after fees
+    # Hard stops owned by code, never by a strategy: the kill switch halts every new entry
+    # (and cancels resting live orders); the daily-loss limit halts entries for the rest of
+    # the UTC day once realized PnL settled today reaches -limit. Unset = disabled.
+    kill_switch: bool = False
+    max_daily_loss: Decimal | None = None
     # `underdog_value` only buys sides whose ask is inside this band (10c..40c = 2.5x..10x)
     underdog_min_price: Decimal = Decimal("0.10")
     underdog_max_price: Decimal = Decimal("0.40")

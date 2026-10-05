@@ -145,6 +145,8 @@ def paper(
             f"[cycle {n}] scanned={res.markets_scanned} signals={len(res.signals)}"
             f" filled={len(res.acted)} settled={len(settled)} cash={ledger.cash:.2f}"
         )
+        if res.halted:
+            console.print(f"[bold red]HALTED, no entries: {res.halted}[/bold red]")
         _print_signals(res.acted)
         if cycles and n >= cycles:
             break
@@ -175,6 +177,22 @@ def report() -> None:
     for k, v in rows:
         t.add_row(k, v)
     console.print(t)
+    by = ledger.performance_by_strategy()
+    if by:
+        st = Table(title="Per strategy")
+        for col in ("strategy", "settled", "wins", "realized pnl", "fees", "brier", "market brier"):
+            st.add_column(col, justify="right" if col != "strategy" else "left")
+        for name, sp in by.items():
+            st.add_row(
+                name,
+                str(sp.settled_count),
+                str(sp.wins),
+                f"{sp.realized_pnl:.2f}",
+                f"{sp.fees_paid:.2f}",
+                _fmt(sp.brier_score),
+                _fmt(sp.market_brier_score),
+            )
+        console.print(st)
     pos = ledger.positions()
     if pos:
         pt = Table(title="Open positions")
@@ -241,6 +259,13 @@ def predictions_markdown(ledger: Ledger, preds: list[Prediction]) -> str:
         "",
         "Brier (lower is better): strategy "
         f"{_fmt(perf.brier_score)} vs market price {_fmt(perf.market_brier_score)}.",
+        "",
+        *[
+            f"- `{name}`: settled {sp.settled_count}, wins {sp.wins}, realized PnL"
+            f" ${sp.realized_pnl:.2f}, Brier {_fmt(sp.brier_score)} vs market"
+            f" {_fmt(sp.market_brier_score)}"
+            for name, sp in ledger.performance_by_strategy().items()
+        ],
         "",
         "`price` is what we (paper) pay for `side`; `fair` is the strategy's probability that"
         " `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or"
