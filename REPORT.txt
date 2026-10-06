@@ -3,13 +3,13 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │  812.88 │
-│ open positions       │      10 │
-│ open cost            │  266.32 │
+│ cash                 │  787.00 │
+│ open positions       │      11 │
+│ open cost            │  292.20 │
 │ settled fills        │      35 │
 │ wins                 │       8 │
 │ realized pnl         │   79.20 │
-│ fees paid            │   34.53 │
+│ fees paid            │   35.41 │
 │ brier (strategy)     │  0.1668 │
 │ brier (market price) │  0.1714 │
 └──────────────────────┴─────────┘
@@ -17,13 +17,14 @@
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
 ┃ strategy     ┃ settled ┃ wins ┃ realized pnl ┃  fees ┃  brier ┃ market brier ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ sportsbook_… │      29 │    6 │        18.58 │ 23.19 │ 0.1154 │       0.1192 │
+│ sportsbook_… │      29 │    6 │        18.58 │ 24.07 │ 0.1154 │       0.1192 │
 │ underdog_va… │       6 │    2 │        60.62 │ 11.34 │ 0.3883 │       0.3961 │
 └──────────────┴─────────┴──────┴──────────────┴───────┴────────┴──────────────┘
                            Open positions                            
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
 ┃ ticker                          ┃ side ┃ count ┃ cost  ┃ avg fair ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
+│ KXMLBGAME-26OCT061800LADATL-LAD │ yes  │ 50    │ 25.88 │ 0.533    │
 │ KXNCAAFGAME-26OCT10SCARFLA-FLA  │ no   │ 109   │ 15.14 │ 0.163    │
 │ KXNCAAFGAME-26OCT10SCARFLA-SCAR │ yes  │ 200   │ 29.70 │ 0.163    │
 │ KXNCAAFGAME-26OCT10TEXOKLA-OKLA │ yes  │ 200   │ 48.48 │ 0.270    │

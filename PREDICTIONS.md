@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-06 21:53 UTC. Cash **$812.88** (started $1000.00), realized PnL **$79.20**, fees $34.53, settled 35, wins 8, open positions 10.
+Updated 2026-10-06 23:05 UTC. Cash **$787.00** (started $1000.00), realized PnL **$79.20**, fees $35.41, settled 35, wins 8, open positions 11.
 
 Brier (lower is better): strategy 0.1668 vs market price 0.1714.
 
@@ -11,6 +11,7 @@ Brier (lower is better): strategy 0.1668 vs market price 0.1714.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-06 23:05 | sportsbook\_arb | Los Angeles D wins — YES: Kalshi says 50%, we say 53%; bought at 50¢ | yes | 0.5000 | 0.5329 | +0.0129 | 50 | yes | open | Los Angeles Dodgers consensus 0.533 from 3 books \(Atlanta Braves vs Los Angeles Dodgers\) | KXMLBGAME-26OCT061800LADATL-LAD |
 | 2026-10-05 19:43 | underdog\_value | Florida wins — NO: Kalshi says 16%, we say 19%; would buy at 16¢ | no | 0.1600 | 0.1898 | +0.0198 | 100 | no | open | underdog \(6.2x payout\); Florida Gators consensus 0.810 from 3 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-FLA |
 | 2026-10-05 19:43 | underdog\_value | Dallas wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1917 | +0.0117 | 100 | yes | open | underdog \(5.9x payout\); Dallas Cowboys consensus 0.808 from 3 books \(Dallas Cowboys vs Tampa Bay Buccaneers\) | KXNFLGAME-26OCT08TBDAL-DAL |
 | 2026-10-05 19:43 | sportsbook\_arb | Florida wins — NO: Kalshi says 16%, we say 19%; would buy at 16¢ | no | 0.1600 | 0.1898 | +0.0198 | 100 | no | open | Florida Gators consensus 0.810 from 3 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-FLA |
