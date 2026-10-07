@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-07 22:16 UTC. Cash **$819.06** (started $1000.00), realized PnL **$103.32**, fees $36.01, settled 36, wins 9, open positions 11.
+Updated 2026-10-07 23:36 UTC. Cash **$766.80** (started $1000.00), realized PnL **$103.32**, fees $38.47, settled 36, wins 9, open positions 12.
 
 Brier (lower is better): strategy 0.1679 vs market price 0.1730.
 
@@ -11,6 +11,8 @@ Brier (lower is better): strategy 0.1679 vs market price 0.1730.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-07 23:36 | underdog\_value | Kennesaw St. wins — YES: Kalshi says 30%, we say 34%; bought at 30¢ | yes | 0.3000 | 0.3384 | +0.0184 | 83 | yes | open | underdog \(3.3x payout\); Kennesaw State Owls consensus 0.338 from 3 books \(Kennesaw State Owls vs Jacksonville State Gamecocks\) | KXNCAAFGAME-26OCT07JVSTKENN-KENN |
+| 2026-10-07 23:36 | sportsbook\_arb | Kennesaw St. wins — YES: Kalshi says 30%, we say 34%; bought at 30¢ | yes | 0.3000 | 0.3384 | +0.0184 | 83 | yes | open | Kennesaw State Owls consensus 0.338 from 3 books \(Kennesaw State Owls vs Jacksonville State Gamecocks\) | KXNCAAFGAME-26OCT07JVSTKENN-KENN |
 | 2026-10-07 17:50 | sportsbook\_arb | Carolina wins — NO: Kalshi says 51%, we say 54%; bought at 51¢ | no | 0.5100 | 0.5400 | +0.0100 | 34 | yes | open | Carolina Panthers consensus 0.460 from 2 books \(Philadelphia Eagles vs Carolina Panthers\) | KXNFLGAME-26OCT18CARPHI-CAR |
 | 2026-10-06 23:05 | sportsbook\_arb | Los Angeles D wins — YES: Kalshi says 50%, we say 53%; bought at 50¢ | yes | 0.5000 | 0.5329 | +0.0129 | 50 | yes | WON (yes) | Los Angeles Dodgers consensus 0.533 from 3 books \(Atlanta Braves vs Los Angeles Dodgers\) | KXMLBGAME-26OCT061800LADATL-LAD |
 | 2026-10-05 19:43 | underdog\_value | Florida wins — NO: Kalshi says 16%, we say 19%; would buy at 16¢ | no | 0.1600 | 0.1898 | +0.0198 | 100 | no | open | underdog \(6.2x payout\); Florida Gators consensus 0.810 from 3 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-FLA |
