@@ -1,13 +1,1 @@
- scanned=3000 signals=0 filled=0 settled=0 cash=837.00
- scanned=682 signals=1 filled=1 settled=0 cash=819.06
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
-┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
-│ sportsboo… │ KXNFLGAME… │ no   │ 0.5100 │ 0.5400 │ 0.0100 │ 34   │ Carolina  │
-│            │            │      │        │        │        │      │ Panthers  │
-│            │            │      │        │        │        │      │ consensus │
-│            │            │      │        │        │        │      │ 0.460     │
-│            │            │      │        │        │        │      │ from 2    │
-│            │            │      │        │        │        │      │ books     │
-│            │            │      │        │        │        │      │ (Philade… │
-└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
+ scanned=3000 signals=0 filled=0 settled=0 cash=819.06
