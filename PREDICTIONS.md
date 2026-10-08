@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-08 22:27 UTC. Cash **$766.80** (started $1000.00), realized PnL **$51.06**, fees $38.47, settled 38, wins 9, open positions 11.
+Updated 2026-10-08 23:45 UTC. Cash **$766.80** (started $1000.00), realized PnL **$51.06**, fees $38.47, settled 38, wins 9, open positions 11.
 
 Brier (lower is better): strategy 0.1645 vs market price 0.1677.
 
@@ -11,6 +11,8 @@ Brier (lower is better): strategy 0.1645 vs market price 0.1677.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-08 23:45 | underdog\_value | Boston wins — NO: Kalshi says 13%, we say 22%; would buy at 13¢ | no | 0.1300 | 0.2204 | +0.0804 | 100 | no | open | underdog \(7.7x payout\); Boston Bruins consensus 0.780 from 3 books \(Boston Bruins vs Utah Mammoth\) | KXNHLGAME-26OCT08UTABOS-BOS |
+| 2026-10-08 23:45 | sportsbook\_arb | Boston wins — NO: Kalshi says 13%, we say 22%; would buy at 13¢ | no | 0.1300 | 0.2204 | +0.0804 | 100 | no | open | Boston Bruins consensus 0.780 from 3 books \(Boston Bruins vs Utah Mammoth\) | KXNHLGAME-26OCT08UTABOS-BOS |
 | 2026-10-07 23:36 | underdog\_value | Kennesaw St. wins — YES: Kalshi says 30%, we say 34%; bought at 30¢ | yes | 0.3000 | 0.3384 | +0.0184 | 83 | yes | lost (no) | underdog \(3.3x payout\); Kennesaw State Owls consensus 0.338 from 3 books \(Kennesaw State Owls vs Jacksonville State Gamecocks\) | KXNCAAFGAME-26OCT07JVSTKENN-KENN |
 | 2026-10-07 23:36 | sportsbook\_arb | Kennesaw St. wins — YES: Kalshi says 30%, we say 34%; bought at 30¢ | yes | 0.3000 | 0.3384 | +0.0184 | 83 | yes | lost (no) | Kennesaw State Owls consensus 0.338 from 3 books \(Kennesaw State Owls vs Jacksonville State Gamecocks\) | KXNCAAFGAME-26OCT07JVSTKENN-KENN |
 | 2026-10-07 17:50 | sportsbook\_arb | Carolina wins — NO: Kalshi says 51%, we say 54%; bought at 51¢ | no | 0.5100 | 0.5400 | +0.0100 | 34 | yes | open | Carolina Panthers consensus 0.460 from 2 books \(Philadelphia Eagles vs Carolina Panthers\) | KXNFLGAME-26OCT18CARPHI-CAR |
