@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-09 16:34 UTC. Cash **$966.80** (started $1000.00), realized PnL **$215.08**, fees $38.47, settled 40, wins 11, open positions 10.
+Updated 2026-10-09 17:27 UTC. Cash **$926.64** (started $1000.00), realized PnL **$215.08**, fees $40.63, settled 40, wins 11, open positions 11.
 
 Brier (lower is better): strategy 0.1995 vs market price 0.2051.
 
@@ -11,6 +11,8 @@ Brier (lower is better): strategy 0.1995 vs market price 0.2051.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-09 17:27 | underdog\_value | Kansas City wins — NO: Kalshi says 19%, we say 23%; bought at 19¢ | no | 0.1900 | 0.2264 | +0.0164 | 100 | yes | open | underdog \(5.3x payout\); Kansas City Chiefs consensus 0.774 from 2 books \(Kansas City Chiefs vs Los Angeles Chargers\) | KXNFLGAME-26OCT18LACKC-KC |
+| 2026-10-09 17:27 | sportsbook\_arb | Kansas City wins — NO: Kalshi says 19%, we say 23%; bought at 19¢ | no | 0.1900 | 0.2264 | +0.0164 | 100 | yes | open | Kansas City Chiefs consensus 0.774 from 2 books \(Kansas City Chiefs vs Los Angeles Chargers\) | KXNFLGAME-26OCT18LACKC-KC |
 | 2026-10-08 23:45 | underdog\_value | Boston wins — NO: Kalshi says 13%, we say 22%; would buy at 13¢ | no | 0.1300 | 0.2204 | +0.0804 | 100 | no | lost (yes) | underdog \(7.7x payout\); Boston Bruins consensus 0.780 from 3 books \(Boston Bruins vs Utah Mammoth\) | KXNHLGAME-26OCT08UTABOS-BOS |
 | 2026-10-08 23:45 | sportsbook\_arb | Boston wins — NO: Kalshi says 13%, we say 22%; would buy at 13¢ | no | 0.1300 | 0.2204 | +0.0804 | 100 | no | lost (yes) | Boston Bruins consensus 0.780 from 3 books \(Boston Bruins vs Utah Mammoth\) | KXNHLGAME-26OCT08UTABOS-BOS |
 | 2026-10-07 23:36 | underdog\_value | Kennesaw St. wins — YES: Kalshi says 30%, we say 34%; bought at 30¢ | yes | 0.3000 | 0.3384 | +0.0184 | 83 | yes | lost (no) | underdog \(3.3x payout\); Kennesaw State Owls consensus 0.338 from 3 books \(Kennesaw State Owls vs Jacksonville State Gamecocks\) | KXNCAAFGAME-26OCT07JVSTKENN-KENN |
