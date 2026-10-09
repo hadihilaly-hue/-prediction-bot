@@ -1,11 +1,11 @@
 # Paper-trading predictions
 
-Updated 2026-10-09 02:33 UTC. Cash **$766.80** (started $1000.00), realized PnL **$51.06**, fees $38.47, settled 38, wins 9, open positions 11.
+Updated 2026-10-09 09:02 UTC. Cash **$966.80** (started $1000.00), realized PnL **$215.08**, fees $38.47, settled 40, wins 11, open positions 10.
 
-Brier (lower is better): strategy 0.1645 vs market price 0.1677.
+Brier (lower is better): strategy 0.1995 vs market price 0.2051.
 
-- `sportsbook_arb`: settled 31, wins 7, realized PnL $16.57, Brier 0.1178 vs market 0.1212
-- `underdog_value`: settled 7, wins 2, realized PnL $34.49, Brier 0.3455 vs market 0.3483
+- `sportsbook_arb`: settled 32, wins 8, realized PnL $98.58, Brier 0.1426 vs market 0.1475
+- `underdog_value`: settled 8, wins 3, realized PnL $116.50, Brier 0.3943 vs market 0.4023
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
@@ -18,9 +18,9 @@ Brier (lower is better): strategy 0.1645 vs market price 0.1677.
 | 2026-10-07 17:50 | sportsbook\_arb | Carolina wins — NO: Kalshi says 51%, we say 54%; bought at 51¢ | no | 0.5100 | 0.5400 | +0.0100 | 34 | yes | open | Carolina Panthers consensus 0.460 from 2 books \(Philadelphia Eagles vs Carolina Panthers\) | KXNFLGAME-26OCT18CARPHI-CAR |
 | 2026-10-06 23:05 | sportsbook\_arb | Los Angeles D wins — YES: Kalshi says 50%, we say 53%; bought at 50¢ | yes | 0.5000 | 0.5329 | +0.0129 | 50 | yes | WON (yes) | Los Angeles Dodgers consensus 0.533 from 3 books \(Atlanta Braves vs Los Angeles Dodgers\) | KXMLBGAME-26OCT061800LADATL-LAD |
 | 2026-10-05 19:43 | underdog\_value | Florida wins — NO: Kalshi says 16%, we say 19%; would buy at 16¢ | no | 0.1600 | 0.1898 | +0.0198 | 100 | no | open | underdog \(6.2x payout\); Florida Gators consensus 0.810 from 3 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-FLA |
-| 2026-10-05 19:43 | underdog\_value | Dallas wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1917 | +0.0117 | 100 | yes | open | underdog \(5.9x payout\); Dallas Cowboys consensus 0.808 from 3 books \(Dallas Cowboys vs Tampa Bay Buccaneers\) | KXNFLGAME-26OCT08TBDAL-DAL |
+| 2026-10-05 19:43 | underdog\_value | Dallas wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1917 | +0.0117 | 100 | yes | WON (no) | underdog \(5.9x payout\); Dallas Cowboys consensus 0.808 from 3 books \(Dallas Cowboys vs Tampa Bay Buccaneers\) | KXNFLGAME-26OCT08TBDAL-DAL |
 | 2026-10-05 19:43 | sportsbook\_arb | Florida wins — NO: Kalshi says 16%, we say 19%; would buy at 16¢ | no | 0.1600 | 0.1898 | +0.0198 | 100 | no | open | Florida Gators consensus 0.810 from 3 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-FLA |
-| 2026-10-05 19:43 | sportsbook\_arb | Dallas wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1917 | +0.0117 | 100 | yes | open | Dallas Cowboys consensus 0.808 from 3 books \(Dallas Cowboys vs Tampa Bay Buccaneers\) | KXNFLGAME-26OCT08TBDAL-DAL |
+| 2026-10-05 19:43 | sportsbook\_arb | Dallas wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1917 | +0.0117 | 100 | yes | WON (no) | Dallas Cowboys consensus 0.808 from 3 books \(Dallas Cowboys vs Tampa Bay Buccaneers\) | KXNFLGAME-26OCT08TBDAL-DAL |
 | 2026-10-04 22:21 | underdog\_value | Milwaukee wins — YES: Kalshi says 17%, we say 21%; bought at 17¢ | yes | 0.1700 | 0.2087 | +0.0287 | 100 | yes | WON (yes) | underdog \(5.9x payout\); Milwaukee Brewers consensus 0.209 from 3 books \(Milwaukee Brewers vs San Diego Padres\) | KXMLBGAME-26OCT041600SDMIL-MIL |
 | 2026-10-04 22:21 | underdog\_value | San Diego wins — NO: Kalshi says 17%, we say 21%; bought at 17¢ | no | 0.1700 | 0.2087 | +0.0287 | 100 | yes | WON (no) | underdog \(5.9x payout\); San Diego Padres consensus 0.791 from 3 books \(Milwaukee Brewers vs San Diego Padres\) | KXMLBGAME-26OCT041600SDMIL-SD |
 | 2026-10-04 22:21 | underdog\_value | Kansas City wins — NO: Kalshi says 40%, we say 43%; bought at 40¢ | no | 0.4000 | 0.4350 | +0.0150 | 62 | yes | lost (yes) | underdog \(2.5x payout\); Kansas City Chiefs consensus 0.565 from 3 books \(Las Vegas Raiders vs Kansas City Chiefs\) | KXNFLGAME-26OCT04KCLV-KC |
