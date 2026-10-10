@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-10 13:58 UTC. Cash **$950.76** (started $1000.00), realized PnL **$239.20**, fees $41.51, settled 41, wins 12, open positions 11.
+Updated 2026-10-10 16:15 UTC. Cash **$898.46** (started $1000.00), realized PnL **$239.20**, fees $43.89, settled 41, wins 12, open positions 12.
 
 Brier (lower is better): strategy 0.1996 vs market price 0.2059.
 
@@ -11,6 +11,8 @@ Brier (lower is better): strategy 0.1996 vs market price 0.2059.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-10 16:15 | underdog\_value | North Carolina wins — YES: Kalshi says 32%, we say 36%; bought at 32¢ | yes | 0.3200 | 0.3588 | +0.0188 | 78 | yes | open | underdog \(3.1x payout\); North Carolina Tar Heels consensus 0.359 from 3 books \(Pittsburgh Panthers vs North Carolina Tar Heels\) | KXNCAAFGAME-26OCT10UNCPITT-UNC |
+| 2026-10-10 16:15 | sportsbook\_arb | North Carolina wins — YES: Kalshi says 32%, we say 36%; bought at 32¢ | yes | 0.3200 | 0.3588 | +0.0188 | 78 | yes | open | North Carolina Tar Heels consensus 0.359 from 3 books \(Pittsburgh Panthers vs North Carolina Tar Heels\) | KXNCAAFGAME-26OCT10UNCPITT-UNC |
 | 2026-10-09 23:18 | sportsbook\_arb | Louisville wins — YES: Kalshi says 50%, we say 55%; bought at 50¢ | yes | 0.5000 | 0.5485 | +0.0285 | 50 | yes | WON (yes) | Louisville Cardinals consensus 0.548 from 3 books \(Louisville Cardinals vs Florida State Seminoles\) | KXNCAAFGAME-26OCT09FSULOU-LOU |
 | 2026-10-09 17:27 | underdog\_value | Kansas City wins — NO: Kalshi says 19%, we say 23%; bought at 19¢ | no | 0.1900 | 0.2264 | +0.0164 | 100 | yes | open | underdog \(5.3x payout\); Kansas City Chiefs consensus 0.774 from 2 books \(Kansas City Chiefs vs Los Angeles Chargers\) | KXNFLGAME-26OCT18LACKC-KC |
 | 2026-10-09 17:27 | sportsbook\_arb | Kansas City wins — NO: Kalshi says 19%, we say 23%; bought at 19¢ | no | 0.1900 | 0.2264 | +0.0164 | 100 | yes | open | Kansas City Chiefs consensus 0.774 from 2 books \(Kansas City Chiefs vs Los Angeles Chargers\) | KXNFLGAME-26OCT18LACKC-KC |

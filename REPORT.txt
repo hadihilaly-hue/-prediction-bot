@@ -3,13 +3,13 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │  950.76 │
-│ open positions       │      11 │
-│ open cost            │  288.44 │
+│ cash                 │  898.46 │
+│ open positions       │      12 │
+│ open cost            │  340.74 │
 │ settled fills        │      41 │
 │ wins                 │      12 │
 │ realized pnl         │  239.20 │
-│ fees paid            │   41.51 │
+│ fees paid            │   43.89 │
 │ brier (strategy)     │  0.1996 │
 │ brier (market price) │  0.2059 │
 └──────────────────────┴─────────┘
@@ -17,8 +17,8 @@
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
 ┃ strategy     ┃ settled ┃ wins ┃ realized pnl ┃  fees ┃  brier ┃ market brier ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ sportsbook_… │      33 │    9 │       122.70 │ 27.86 │ 0.1440 │       0.1498 │
-│ underdog_va… │       8 │    3 │       116.50 │ 13.65 │ 0.3943 │       0.4023 │
+│ sportsbook_… │      33 │    9 │       122.70 │ 29.05 │ 0.1440 │       0.1498 │
+│ underdog_va… │       8 │    3 │       116.50 │ 14.84 │ 0.3943 │       0.4023 │
 └──────────────┴─────────┴──────┴──────────────┴───────┴────────┴──────────────┘
                            Open positions                            
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
@@ -28,6 +28,7 @@
 │ KXNCAAFGAME-26OCT10SCARFLA-SCAR │ yes  │ 200   │ 29.70 │ 0.163    │
 │ KXNCAAFGAME-26OCT10TEXOKLA-OKLA │ yes  │ 200   │ 48.48 │ 0.270    │
 │ KXNCAAFGAME-26OCT10TEXOKLA-TEX  │ no   │ 200   │ 50.56 │ 0.270    │
+│ KXNCAAFGAME-26OCT10UNCPITT-UNC  │ yes  │ 156   │ 52.30 │ 0.359    │
 │ KXNFLGAME-26OCT11CHIGB-CHI      │ no   │ 2     │ 1.06  │ 0.551    │
 │ KXNFLGAME-26OCT11CHIGB-GB       │ yes  │ 48    │ 25.80 │ 0.551    │
 │ KXNFLGAME-26OCT11LVNE-LV        │ no   │ 42    │ 25.50 │ 0.627    │
