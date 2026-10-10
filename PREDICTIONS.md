@@ -1,10 +1,10 @@
 # Paper-trading predictions
 
-Updated 2026-10-10 22:37 UTC. Cash **$1283.85** (started $1000.00), realized PnL **$607.06**, fees $47.70, settled 47, wins 18, open positions 13.
+Updated 2026-10-10 22:56 UTC. Cash **$1283.85** (started $1000.00), realized PnL **$605.99**, fees $47.70, settled 48, wins 18, open positions 12.
 
-Brier (lower is better): strategy 0.2564 vs market price 0.2684.
+Brier (lower is better): strategy 0.2489 vs market price 0.2605.
 
-- `sportsbook_arb`: settled 36, wins 12, realized PnL $267.36, Brier 0.1780 vs market 0.1868
+- `sportsbook_arb`: settled 37, wins 12, realized PnL $266.29, Brier 0.1710 vs market 0.1793
 - `underdog_value`: settled 11, wins 6, realized PnL $339.70, Brier 0.4631 vs market 0.4835
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
@@ -13,7 +13,7 @@ Brier (lower is better): strategy 0.2564 vs market price 0.2684.
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 2026-10-10 22:37 | underdog\_value | Oregon wins — YES: Kalshi says 11%, we say 19%; bought at 11¢ | yes | 0.1100 | 0.1922 | +0.0722 | 100 | yes | open | underdog \(9.1x payout\); Oregon Ducks consensus 0.192 from 3 books \(Oregon Ducks vs UCLA Bruins\) | KXNCAAFGAME-26OCT10UCLAORE-ORE |
 | 2026-10-10 22:37 | underdog\_value | Temple wins — YES: Kalshi says 14%, we say 17%; bought at 14¢ | yes | 0.1400 | 0.1707 | +0.0207 | 100 | yes | open | underdog \(7.1x payout\); Temple Owls consensus 0.171 from 2 books \(Temple Owls vs UConn Huskies\) | KXNCAAFGAME-26OCT10CONNTEM-TEM |
-| 2026-10-10 22:37 | sportsbook\_arb | Edmonton wins — NO: Kalshi says 1%, we say 4%; bought at 1¢ | no | 0.0100 | 0.0445 | +0.0245 | 100 | yes | open | Edmonton Oilers consensus 0.956 from 3 books \(San Jose Sharks vs Edmonton Oilers\) | KXNHLGAME-26OCT10EDMSJ-EDM |
+| 2026-10-10 22:37 | sportsbook\_arb | Edmonton wins — NO: Kalshi says 1%, we say 4%; bought at 1¢ | no | 0.0100 | 0.0445 | +0.0245 | 100 | yes | lost (yes) | Edmonton Oilers consensus 0.956 from 3 books \(San Jose Sharks vs Edmonton Oilers\) | KXNHLGAME-26OCT10EDMSJ-EDM |
 | 2026-10-10 22:37 | sportsbook\_arb | Oregon wins — YES: Kalshi says 11%, we say 19%; bought at 11¢ | yes | 0.1100 | 0.1922 | +0.0722 | 100 | yes | open | Oregon Ducks consensus 0.192 from 3 books \(Oregon Ducks vs UCLA Bruins\) | KXNCAAFGAME-26OCT10UCLAORE-ORE |
 | 2026-10-10 22:37 | sportsbook\_arb | Temple wins — YES: Kalshi says 14%, we say 17%; bought at 14¢ | yes | 0.1400 | 0.1707 | +0.0207 | 100 | yes | open | Temple Owls consensus 0.171 from 2 books \(Temple Owls vs UConn Huskies\) | KXNCAAFGAME-26OCT10CONNTEM-TEM |
 | 2026-10-10 22:37 | sportsbook\_arb | Oklahoma wins — NO: Kalshi says 62%, we say 65%; bought at 62¢ | no | 0.6200 | 0.6539 | +0.0139 | 40 | yes | open | Oklahoma Sooners consensus 0.346 from 3 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |

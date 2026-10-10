@@ -4,20 +4,20 @@
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
 │ cash                 │ 1283.85 │
-│ open positions       │      13 │
-│ open cost            │  323.21 │
-│ settled fills        │      47 │
+│ open positions       │      12 │
+│ open cost            │  322.14 │
+│ settled fills        │      48 │
 │ wins                 │      18 │
-│ realized pnl         │  607.06 │
+│ realized pnl         │  605.99 │
 │ fees paid            │   47.70 │
-│ brier (strategy)     │  0.2564 │
-│ brier (market price) │  0.2684 │
+│ brier (strategy)     │  0.2489 │
+│ brier (market price) │  0.2605 │
 └──────────────────────┴─────────┘
                                   Per strategy                                  
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
 ┃ strategy     ┃ settled ┃ wins ┃ realized pnl ┃  fees ┃  brier ┃ market brier ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ sportsbook_… │      36 │   12 │       267.36 │ 31.32 │ 0.1780 │       0.1868 │
+│ sportsbook_… │      37 │   12 │       266.29 │ 31.32 │ 0.1710 │       0.1793 │
 │ underdog_va… │      11 │    6 │       339.70 │ 16.38 │ 0.4631 │       0.4835 │
 └──────────────┴─────────┴──────┴──────────────┴───────┴────────┴──────────────┘
                            Open positions                            
@@ -36,5 +36,4 @@
 │ KXNFLGAME-26OCT11SFSEA-SF       │ no   │ 15    │ 8.37  │ 0.615    │
 │ KXNFLGAME-26OCT18CARPHI-CAR     │ no   │ 34    │ 17.94 │ 0.540    │
 │ KXNFLGAME-26OCT18LACKC-KC       │ no   │ 200   │ 40.16 │ 0.226    │
-│ KXNHLGAME-26OCT10EDMSJ-EDM      │ no   │ 100   │ 1.07  │ 0.044    │
 └─────────────────────────────────┴──────┴───────┴───────┴──────────┘
