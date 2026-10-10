@@ -1,1 +1,56 @@
- scanned=3000 signals=0 filled=0 settled=0 cash=898.46
+ scanned=3000 signals=0 filled=0 settled=3 cash=1363.46
+ scanned=788 signals=6 filled=6 settled=0 cash=1283.85
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ sportsboo… │ KXNCAAFGA… │ no   │ 0.6200 │ 0.6539 │ 0.0139 │ 40   │ Oklahoma  │
+│            │            │      │        │        │        │      │ Sooners   │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.346     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Oklahoma │
+│            │            │      │        │        │        │      │ Soon      │
+│ sportsboo… │ KXNCAAFGA… │ yes  │ 0.1400 │ 0.1707 │ 0.0207 │ 100  │ Temple    │
+│            │            │      │        │        │        │      │ Owls      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.171     │
+│            │            │      │        │        │        │      │ from 2    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Temple   │
+│            │            │      │        │        │        │      │ Owls vs   │
+│            │            │      │        │        │        │      │ UCo       │
+│ sportsboo… │ KXNCAAFGA… │ yes  │ 0.1100 │ 0.1922 │ 0.0722 │ 100  │ Oregon    │
+│            │            │      │        │        │        │      │ Ducks     │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.192     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (Oregon   │
+│            │            │      │        │        │        │      │ Ducks vs  │
+│            │            │      │        │        │        │      │ U         │
+│ sportsboo… │ KXNHLGAME… │ no   │ 0.0100 │ 0.0445 │ 0.0245 │ 100  │ Edmonton  │
+│            │            │      │        │        │        │      │ Oilers    │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.956     │
+│            │            │      │        │        │        │      │ from 3    │
+│            │            │      │        │        │        │      │ books     │
+│            │            │      │        │        │        │      │ (San Jose │
+│            │            │      │        │        │        │      │ Shark     │
+│ underdog_… │ KXNCAAFGA… │ yes  │ 0.1400 │ 0.1707 │ 0.0207 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (7.1x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Temple    │
+│            │            │      │        │        │        │      │ Owls      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.171     │
+│            │            │      │        │        │        │      │ from 2 b  │
+│ underdog_… │ KXNCAAFGA… │ yes  │ 0.1100 │ 0.1922 │ 0.0722 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (9.1x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Oregon    │
+│            │            │      │        │        │        │      │ Ducks     │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.192     │
+│            │            │      │        │        │        │      │ from 3    │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
