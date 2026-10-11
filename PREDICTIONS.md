@@ -1,20 +1,20 @@
 # Paper-trading predictions
 
-Updated 2026-10-11 22:57 UTC. Cash **$1646.64** (started $1000.00), realized PnL **$816.21**, fees $53.15, settled 62, wins 25, open positions 5.
+Updated 2026-10-11 23:59 UTC. Cash **$1646.64** (started $1000.00), realized PnL **$704.74**, fees $53.15, settled 67, wins 25, open positions 2.
 
-Brier (lower is better): strategy 0.2510 vs market price 0.2625.
+Brier (lower is better): strategy 0.2487 vs market price 0.2572.
 
-- `sportsbook_arb`: settled 46, wins 17, realized PnL $378.49, Brier 0.1878 vs market 0.1965
-- `underdog_value`: settled 16, wins 8, realized PnL $437.72, Brier 0.3929 vs market 0.4104
+- `sportsbook_arb`: settled 50, wins 17, realized PnL $293.20, Brier 0.1922 vs market 0.1977
+- `underdog_value`: settled 17, wins 8, realized PnL $411.54, Brier 0.3751 vs market 0.3903
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-10-11 22:57 | underdog\_value | Denver wins — NO: Kalshi says 28%, we say 31%; bought at 28¢ | no | 0.2800 | 0.3127 | +0.0127 | 89 | yes | open | underdog \(3.6x payout\); Denver Broncos consensus 0.687 from 3 books \(Los Angeles Chargers vs Denver Broncos\) | KXNFLGAME-26OCT11DENLAC-DEN |
+| 2026-10-11 22:57 | underdog\_value | Denver wins — NO: Kalshi says 28%, we say 31%; bought at 28¢ | no | 0.2800 | 0.3127 | +0.0127 | 89 | yes | lost (yes) | underdog \(3.6x payout\); Denver Broncos consensus 0.687 from 3 books \(Los Angeles Chargers vs Denver Broncos\) | KXNFLGAME-26OCT11DENLAC-DEN |
 | 2026-10-11 22:57 | underdog\_value | Kansas City wins — NO: Kalshi says 20%, we say 24%; would buy at 20¢ | no | 0.2000 | 0.2356 | +0.0156 | 100 | no | open | underdog \(5.0x payout\); Kansas City Chiefs consensus 0.764 from 2 books \(Kansas City Chiefs vs Los Angeles Chargers\) | KXNFLGAME-26OCT18LACKC-KC |
-| 2026-10-11 22:57 | sportsbook\_arb | Denver wins — NO: Kalshi says 28%, we say 31%; bought at 28¢ | no | 0.2800 | 0.3127 | +0.0127 | 89 | yes | open | Denver Broncos consensus 0.687 from 3 books \(Los Angeles Chargers vs Denver Broncos\) | KXNFLGAME-26OCT11DENLAC-DEN |
-| 2026-10-11 22:57 | sportsbook\_arb | San Francisco wins — NO: Kalshi says 66%, we say 69%; bought at 66¢ | no | 0.6600 | 0.6929 | +0.0129 | 37 | yes | open | San Francisco 49ers consensus 0.307 from 2 books \(Seattle Seahawks vs San Francisco 49ers\) | KXNFLGAME-26OCT11SFSEA-SF |
+| 2026-10-11 22:57 | sportsbook\_arb | Denver wins — NO: Kalshi says 28%, we say 31%; bought at 28¢ | no | 0.2800 | 0.3127 | +0.0127 | 89 | yes | lost (yes) | Denver Broncos consensus 0.687 from 3 books \(Los Angeles Chargers vs Denver Broncos\) | KXNFLGAME-26OCT11DENLAC-DEN |
+| 2026-10-11 22:57 | sportsbook\_arb | San Francisco wins — NO: Kalshi says 66%, we say 69%; bought at 66¢ | no | 0.6600 | 0.6929 | +0.0129 | 37 | yes | lost (yes) | San Francisco 49ers consensus 0.307 from 2 books \(Seattle Seahawks vs San Francisco 49ers\) | KXNFLGAME-26OCT11SFSEA-SF |
 | 2026-10-11 22:57 | sportsbook\_arb | Kansas City wins — NO: Kalshi says 20%, we say 24%; would buy at 20¢ | no | 0.2000 | 0.2356 | +0.0156 | 100 | no | open | Kansas City Chiefs consensus 0.764 from 2 books \(Kansas City Chiefs vs Los Angeles Chargers\) | KXNFLGAME-26OCT18LACKC-KC |
 | 2026-10-11 16:39 | underdog\_value | Philadelphia wins — YES: Kalshi says 33%, we say 36%; bought at 33¢ | yes | 0.3300 | 0.3615 | +0.0115 | 75 | yes | lost (no) | underdog \(3.0x payout\); Philadelphia Eagles consensus 0.361 from 3 books \(Jacksonville Jaguars vs Philadelphia Eagles\) | KXNFLGAME-26OCT11PHIJAC-PHI |
 | 2026-10-11 16:39 | sportsbook\_arb | Philadelphia wins — YES: Kalshi says 33%, we say 36%; bought at 33¢ | yes | 0.3300 | 0.3615 | +0.0115 | 75 | yes | lost (no) | Philadelphia Eagles consensus 0.361 from 3 books \(Jacksonville Jaguars vs Philadelphia Eagles\) | KXNFLGAME-26OCT11PHIJAC-PHI |
@@ -53,8 +53,8 @@ Brier (lower is better): strategy 0.2510 vs market price 0.2625.
 | 2026-10-04 22:21 | sportsbook\_arb | Las Vegas wins — YES: Kalshi says 40%, we say 43%; bought at 40¢ | yes | 0.4000 | 0.4350 | +0.0150 | 62 | yes | lost (no) | Las Vegas Raiders consensus 0.435 from 3 books \(Las Vegas Raiders vs Kansas City Chiefs\) | KXNFLGAME-26OCT04KCLV-LV |
 | 2026-10-04 22:21 | sportsbook\_arb | Denver wins — YES: Kalshi says 40%, we say 45%; bought at 40¢ | yes | 0.4000 | 0.4511 | +0.0311 | 62 | yes | lost (no) | Denver Broncos consensus 0.451 from 3 books \(San Francisco 49ers vs Denver Broncos\) | KXNFLGAME-26OCT04DENSF-DEN |
 | 2026-10-04 22:21 | sportsbook\_arb | San Francisco wins — NO: Kalshi says 40%, we say 45%; bought at 40¢ | no | 0.4000 | 0.4511 | +0.0311 | 62 | yes | lost (yes) | San Francisco 49ers consensus 0.549 from 3 books \(San Francisco 49ers vs Denver Broncos\) | KXNFLGAME-26OCT04DENSF-SF |
-| 2026-10-04 22:21 | sportsbook\_arb | Seattle wins — YES: Kalshi says 53%, we say 62%; bought at 53¢ | yes | 0.5300 | 0.6154 | +0.0654 | 47 | yes | open | Seattle Seahawks consensus 0.615 from 2 books \(Seattle Seahawks vs San Francisco 49ers\) | KXNFLGAME-26OCT11SFSEA-SEA |
-| 2026-10-04 22:21 | sportsbook\_arb | San Francisco wins — NO: Kalshi says 54%, we say 62%; bought at 54¢ | no | 0.5400 | 0.6154 | +0.0554 | 15 | yes | open | San Francisco 49ers consensus 0.385 from 2 books \(Seattle Seahawks vs San Francisco 49ers\) | KXNFLGAME-26OCT11SFSEA-SF |
+| 2026-10-04 22:21 | sportsbook\_arb | Seattle wins — YES: Kalshi says 53%, we say 62%; bought at 53¢ | yes | 0.5300 | 0.6154 | +0.0654 | 47 | yes | lost (no) | Seattle Seahawks consensus 0.615 from 2 books \(Seattle Seahawks vs San Francisco 49ers\) | KXNFLGAME-26OCT11SFSEA-SEA |
+| 2026-10-04 22:21 | sportsbook\_arb | San Francisco wins — NO: Kalshi says 54%, we say 62%; bought at 54¢ | no | 0.5400 | 0.6154 | +0.0554 | 15 | yes | lost (yes) | San Francisco 49ers consensus 0.385 from 2 books \(Seattle Seahawks vs San Francisco 49ers\) | KXNFLGAME-26OCT11SFSEA-SF |
 | 2026-10-04 09:52 | underdog\_value | Oklahoma wins — YES: Kalshi says 23%, we say 27%; bought at 23¢ | yes | 0.2300 | 0.2703 | +0.0203 | 100 | yes | WON (yes) | underdog \(4.3x payout\); Oklahoma Sooners consensus 0.270 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |
 | 2026-10-04 09:52 | underdog\_value | Texas wins — NO: Kalshi says 24%, we say 27%; bought at 24¢ | no | 0.2400 | 0.2703 | +0.0103 | 100 | yes | WON (no) | underdog \(4.2x payout\); Texas Longhorns consensus 0.730 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-TEX |
 | 2026-10-04 09:52 | sportsbook\_arb | Oklahoma wins — YES: Kalshi says 23%, we say 27%; bought at 23¢ | yes | 0.2300 | 0.2703 | +0.0203 | 100 | yes | WON (yes) | Oklahoma Sooners consensus 0.270 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |
