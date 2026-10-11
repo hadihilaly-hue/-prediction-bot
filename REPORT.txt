@@ -3,35 +3,32 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │ 1283.85 │
-│ open positions       │      10 │
-│ open cost            │  269.06 │
-│ settled fills        │      52 │
-│ wins                 │      18 │
-│ realized pnl         │  552.91 │
+│ cash                 │ 1683.85 │
+│ open positions       │       7 │
+│ open cost            │  144.56 │
+│ settled fills        │      57 │
+│ wins                 │      22 │
+│ realized pnl         │  828.41 │
 │ fees paid            │   47.70 │
-│ brier (strategy)     │  0.2262 │
-│ brier (market price) │  0.2348 │
+│ brier (strategy)     │  0.2570 │
+│ brier (market price) │  0.2692 │
 └──────────────────────┴─────────┘
                                   Per strategy                                  
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
 ┃ strategy     ┃ settled ┃ wins ┃ realized pnl ┃  fees ┃  brier ┃ market brier ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ sportsbook_… │      39 │   12 │       239.75 │ 31.32 │ 0.1607 │       0.1672 │
-│ underdog_va… │      13 │    6 │       313.16 │ 16.38 │ 0.3855 │       0.3992 │
+│ sportsbook_… │      42 │   14 │       364.77 │ 31.32 │ 0.1897 │       0.1986 │
+│ underdog_va… │      15 │    8 │       463.64 │ 16.38 │ 0.4080 │       0.4276 │
 └──────────────┴─────────┴──────┴──────────────┴───────┴────────┴──────────────┘
-                           Open positions                            
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
-┃ ticker                          ┃ side ┃ count ┃ cost  ┃ avg fair ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
-│ KXNCAAFGAME-26OCT10TEXOKLA-OKLA │ no   │ 40    │ 25.46 │ 0.654    │
-│ KXNCAAFGAME-26OCT10TEXOKLA-OKLA │ yes  │ 200   │ 48.48 │ 0.270    │
-│ KXNCAAFGAME-26OCT10TEXOKLA-TEX  │ no   │ 200   │ 50.56 │ 0.270    │
-│ KXNFLGAME-26OCT11CHIGB-CHI      │ no   │ 2     │ 1.06  │ 0.551    │
-│ KXNFLGAME-26OCT11CHIGB-GB       │ yes  │ 48    │ 25.80 │ 0.551    │
-│ KXNFLGAME-26OCT11LVNE-LV        │ no   │ 42    │ 25.50 │ 0.627    │
-│ KXNFLGAME-26OCT11SFSEA-SEA      │ yes  │ 47    │ 25.73 │ 0.615    │
-│ KXNFLGAME-26OCT11SFSEA-SF       │ no   │ 15    │ 8.37  │ 0.615    │
-│ KXNFLGAME-26OCT18CARPHI-CAR     │ no   │ 34    │ 17.94 │ 0.540    │
-│ KXNFLGAME-26OCT18LACKC-KC       │ no   │ 200   │ 40.16 │ 0.226    │
-└─────────────────────────────────┴──────┴───────┴───────┴──────────┘
+                         Open positions                          
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
+┃ ticker                      ┃ side ┃ count ┃ cost  ┃ avg fair ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
+│ KXNFLGAME-26OCT11CHIGB-CHI  │ no   │ 2     │ 1.06  │ 0.551    │
+│ KXNFLGAME-26OCT11CHIGB-GB   │ yes  │ 48    │ 25.80 │ 0.551    │
+│ KXNFLGAME-26OCT11LVNE-LV    │ no   │ 42    │ 25.50 │ 0.627    │
+│ KXNFLGAME-26OCT11SFSEA-SEA  │ yes  │ 47    │ 25.73 │ 0.615    │
+│ KXNFLGAME-26OCT11SFSEA-SF   │ no   │ 15    │ 8.37  │ 0.615    │
+│ KXNFLGAME-26OCT18CARPHI-CAR │ no   │ 34    │ 17.94 │ 0.540    │
+│ KXNFLGAME-26OCT18LACKC-KC   │ no   │ 200   │ 40.16 │ 0.226    │
+└─────────────────────────────┴──────┴───────┴───────┴──────────┘

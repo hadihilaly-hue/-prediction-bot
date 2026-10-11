@@ -1,11 +1,11 @@
 # Paper-trading predictions
 
-Updated 2026-10-10 23:32 UTC. Cash **$1283.85** (started $1000.00), realized PnL **$552.91**, fees $47.70, settled 52, wins 18, open positions 10.
+Updated 2026-10-11 02:11 UTC. Cash **$1683.85** (started $1000.00), realized PnL **$828.41**, fees $47.70, settled 57, wins 22, open positions 7.
 
-Brier (lower is better): strategy 0.2262 vs market price 0.2348.
+Brier (lower is better): strategy 0.2570 vs market price 0.2692.
 
-- `sportsbook_arb`: settled 39, wins 12, realized PnL $239.75, Brier 0.1607 vs market 0.1672
-- `underdog_value`: settled 13, wins 6, realized PnL $313.16, Brier 0.3855 vs market 0.3992
+- `sportsbook_arb`: settled 42, wins 14, realized PnL $364.77, Brier 0.1897 vs market 0.1986
+- `underdog_value`: settled 15, wins 8, realized PnL $463.64, Brier 0.4080 vs market 0.4276
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
@@ -16,7 +16,7 @@ Brier (lower is better): strategy 0.2262 vs market price 0.2348.
 | 2026-10-10 22:37 | sportsbook\_arb | Edmonton wins — NO: Kalshi says 1%, we say 4%; bought at 1¢ | no | 0.0100 | 0.0445 | +0.0245 | 100 | yes | lost (yes) | Edmonton Oilers consensus 0.956 from 3 books \(San Jose Sharks vs Edmonton Oilers\) | KXNHLGAME-26OCT10EDMSJ-EDM |
 | 2026-10-10 22:37 | sportsbook\_arb | Oregon wins — YES: Kalshi says 11%, we say 19%; bought at 11¢ | yes | 0.1100 | 0.1922 | +0.0722 | 100 | yes | lost (no) | Oregon Ducks consensus 0.192 from 3 books \(Oregon Ducks vs UCLA Bruins\) | KXNCAAFGAME-26OCT10UCLAORE-ORE |
 | 2026-10-10 22:37 | sportsbook\_arb | Temple wins — YES: Kalshi says 14%, we say 17%; bought at 14¢ | yes | 0.1400 | 0.1707 | +0.0207 | 100 | yes | lost (no) | Temple Owls consensus 0.171 from 2 books \(Temple Owls vs UConn Huskies\) | KXNCAAFGAME-26OCT10CONNTEM-TEM |
-| 2026-10-10 22:37 | sportsbook\_arb | Oklahoma wins — NO: Kalshi says 62%, we say 65%; bought at 62¢ | no | 0.6200 | 0.6539 | +0.0139 | 40 | yes | open | Oklahoma Sooners consensus 0.346 from 3 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |
+| 2026-10-10 22:37 | sportsbook\_arb | Oklahoma wins — NO: Kalshi says 62%, we say 65%; bought at 62¢ | no | 0.6200 | 0.6539 | +0.0139 | 40 | yes | lost (yes) | Oklahoma Sooners consensus 0.346 from 3 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |
 | 2026-10-10 16:15 | underdog\_value | North Carolina wins — YES: Kalshi says 32%, we say 36%; bought at 32¢ | yes | 0.3200 | 0.3588 | +0.0188 | 78 | yes | WON (yes) | underdog \(3.1x payout\); North Carolina Tar Heels consensus 0.359 from 3 books \(Pittsburgh Panthers vs North Carolina Tar Heels\) | KXNCAAFGAME-26OCT10UNCPITT-UNC |
 | 2026-10-10 16:15 | sportsbook\_arb | North Carolina wins — YES: Kalshi says 32%, we say 36%; bought at 32¢ | yes | 0.3200 | 0.3588 | +0.0188 | 78 | yes | WON (yes) | North Carolina Tar Heels consensus 0.359 from 3 books \(Pittsburgh Panthers vs North Carolina Tar Heels\) | KXNCAAFGAME-26OCT10UNCPITT-UNC |
 | 2026-10-09 23:18 | sportsbook\_arb | Louisville wins — YES: Kalshi says 50%, we say 55%; bought at 50¢ | yes | 0.5000 | 0.5485 | +0.0285 | 50 | yes | WON (yes) | Louisville Cardinals consensus 0.548 from 3 books \(Louisville Cardinals vs Florida State Seminoles\) | KXNCAAFGAME-26OCT09FSULOU-LOU |
@@ -48,10 +48,10 @@ Brier (lower is better): strategy 0.2262 vs market price 0.2348.
 | 2026-10-04 22:21 | sportsbook\_arb | San Francisco wins — NO: Kalshi says 40%, we say 45%; bought at 40¢ | no | 0.4000 | 0.4511 | +0.0311 | 62 | yes | lost (yes) | San Francisco 49ers consensus 0.549 from 3 books \(San Francisco 49ers vs Denver Broncos\) | KXNFLGAME-26OCT04DENSF-SF |
 | 2026-10-04 22:21 | sportsbook\_arb | Seattle wins — YES: Kalshi says 53%, we say 62%; bought at 53¢ | yes | 0.5300 | 0.6154 | +0.0654 | 47 | yes | open | Seattle Seahawks consensus 0.615 from 2 books \(Seattle Seahawks vs San Francisco 49ers\) | KXNFLGAME-26OCT11SFSEA-SEA |
 | 2026-10-04 22:21 | sportsbook\_arb | San Francisco wins — NO: Kalshi says 54%, we say 62%; bought at 54¢ | no | 0.5400 | 0.6154 | +0.0554 | 15 | yes | open | San Francisco 49ers consensus 0.385 from 2 books \(Seattle Seahawks vs San Francisco 49ers\) | KXNFLGAME-26OCT11SFSEA-SF |
-| 2026-10-04 09:52 | underdog\_value | Oklahoma wins — YES: Kalshi says 23%, we say 27%; bought at 23¢ | yes | 0.2300 | 0.2703 | +0.0203 | 100 | yes | open | underdog \(4.3x payout\); Oklahoma Sooners consensus 0.270 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |
-| 2026-10-04 09:52 | underdog\_value | Texas wins — NO: Kalshi says 24%, we say 27%; bought at 24¢ | no | 0.2400 | 0.2703 | +0.0103 | 100 | yes | open | underdog \(4.2x payout\); Texas Longhorns consensus 0.730 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-TEX |
-| 2026-10-04 09:52 | sportsbook\_arb | Oklahoma wins — YES: Kalshi says 23%, we say 27%; bought at 23¢ | yes | 0.2300 | 0.2703 | +0.0203 | 100 | yes | open | Oklahoma Sooners consensus 0.270 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |
-| 2026-10-04 09:52 | sportsbook\_arb | Texas wins — NO: Kalshi says 24%, we say 27%; bought at 24¢ | no | 0.2400 | 0.2703 | +0.0103 | 100 | yes | open | Texas Longhorns consensus 0.730 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-TEX |
+| 2026-10-04 09:52 | underdog\_value | Oklahoma wins — YES: Kalshi says 23%, we say 27%; bought at 23¢ | yes | 0.2300 | 0.2703 | +0.0203 | 100 | yes | WON (yes) | underdog \(4.3x payout\); Oklahoma Sooners consensus 0.270 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |
+| 2026-10-04 09:52 | underdog\_value | Texas wins — NO: Kalshi says 24%, we say 27%; bought at 24¢ | no | 0.2400 | 0.2703 | +0.0103 | 100 | yes | WON (no) | underdog \(4.2x payout\); Texas Longhorns consensus 0.730 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-TEX |
+| 2026-10-04 09:52 | sportsbook\_arb | Oklahoma wins — YES: Kalshi says 23%, we say 27%; bought at 23¢ | yes | 0.2300 | 0.2703 | +0.0203 | 100 | yes | WON (yes) | Oklahoma Sooners consensus 0.270 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |
+| 2026-10-04 09:52 | sportsbook\_arb | Texas wins — NO: Kalshi says 24%, we say 27%; bought at 24¢ | no | 0.2400 | 0.2703 | +0.0103 | 100 | yes | WON (no) | Texas Longhorns consensus 0.730 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-TEX |
 | 2026-10-04 09:52 | sportsbook\_arb | Chicago wins — NO: Kalshi says 51%, we say 55%; bought at 51¢ | no | 0.5100 | 0.5508 | +0.0208 | 2 | yes | open | Chicago Bears consensus 0.449 from 2 books \(Green Bay Packers vs Chicago Bears\) | KXNFLGAME-26OCT11CHIGB-CHI |
 | 2026-10-04 09:52 | sportsbook\_arb | Green Bay wins — YES: Kalshi says 52%, we say 55%; bought at 52¢ | yes | 0.5200 | 0.5508 | +0.0108 | 48 | yes | open | Green Bay Packers consensus 0.551 from 2 books \(Green Bay Packers vs Chicago Bears\) | KXNFLGAME-26OCT11CHIGB-GB |
 | 2026-10-03 22:09 | sportsbook\_arb | Auburn wins — YES: Kalshi says 7%, we say 9%; bought at 7¢ | yes | 0.0700 | 0.0940 | +0.0140 | 100 | yes | lost (no) | Auburn Tigers consensus 0.094 from 3 books \(Tennessee Volunteers vs Auburn Tigers\) | KXNCAAFGAME-26OCT03AUBTENN-AUB |
