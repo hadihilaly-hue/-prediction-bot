@@ -1,18 +1,18 @@
 # Paper-trading predictions
 
-Updated 2026-10-11 16:39 UTC. Cash **$1632.01** (started $1000.00), realized PnL **$828.41**, fees $50.04, settled 57, wins 22, open positions 8.
+Updated 2026-10-11 18:04 UTC. Cash **$1632.01** (started $1000.00), realized PnL **$776.57**, fees $50.04, settled 59, wins 22, open positions 7.
 
-Brier (lower is better): strategy 0.2570 vs market price 0.2692.
+Brier (lower is better): strategy 0.2527 vs market price 0.2637.
 
-- `sportsbook_arb`: settled 42, wins 14, realized PnL $364.77, Brier 0.1897 vs market 0.1986
-- `underdog_value`: settled 15, wins 8, realized PnL $463.64, Brier 0.4080 vs market 0.4276
+- `sportsbook_arb`: settled 43, wins 14, realized PnL $338.85, Brier 0.1882 vs market 0.1964
+- `underdog_value`: settled 16, wins 8, realized PnL $437.72, Brier 0.3929 vs market 0.4104
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-10-11 16:39 | underdog\_value | Philadelphia wins — YES: Kalshi says 33%, we say 36%; bought at 33¢ | yes | 0.3300 | 0.3615 | +0.0115 | 75 | yes | open | underdog \(3.0x payout\); Philadelphia Eagles consensus 0.361 from 3 books \(Jacksonville Jaguars vs Philadelphia Eagles\) | KXNFLGAME-26OCT11PHIJAC-PHI |
-| 2026-10-11 16:39 | sportsbook\_arb | Philadelphia wins — YES: Kalshi says 33%, we say 36%; bought at 33¢ | yes | 0.3300 | 0.3615 | +0.0115 | 75 | yes | open | Philadelphia Eagles consensus 0.361 from 3 books \(Jacksonville Jaguars vs Philadelphia Eagles\) | KXNFLGAME-26OCT11PHIJAC-PHI |
+| 2026-10-11 16:39 | underdog\_value | Philadelphia wins — YES: Kalshi says 33%, we say 36%; bought at 33¢ | yes | 0.3300 | 0.3615 | +0.0115 | 75 | yes | lost (no) | underdog \(3.0x payout\); Philadelphia Eagles consensus 0.361 from 3 books \(Jacksonville Jaguars vs Philadelphia Eagles\) | KXNFLGAME-26OCT11PHIJAC-PHI |
+| 2026-10-11 16:39 | sportsbook\_arb | Philadelphia wins — YES: Kalshi says 33%, we say 36%; bought at 33¢ | yes | 0.3300 | 0.3615 | +0.0115 | 75 | yes | lost (no) | Philadelphia Eagles consensus 0.361 from 3 books \(Jacksonville Jaguars vs Philadelphia Eagles\) | KXNFLGAME-26OCT11PHIJAC-PHI |
 | 2026-10-10 22:37 | underdog\_value | Oregon wins — YES: Kalshi says 11%, we say 19%; bought at 11¢ | yes | 0.1100 | 0.1922 | +0.0722 | 100 | yes | lost (no) | underdog \(9.1x payout\); Oregon Ducks consensus 0.192 from 3 books \(Oregon Ducks vs UCLA Bruins\) | KXNCAAFGAME-26OCT10UCLAORE-ORE |
 | 2026-10-10 22:37 | underdog\_value | Temple wins — YES: Kalshi says 14%, we say 17%; bought at 14¢ | yes | 0.1400 | 0.1707 | +0.0207 | 100 | yes | lost (no) | underdog \(7.1x payout\); Temple Owls consensus 0.171 from 2 books \(Temple Owls vs UConn Huskies\) | KXNCAAFGAME-26OCT10CONNTEM-TEM |
 | 2026-10-10 22:37 | sportsbook\_arb | Edmonton wins — NO: Kalshi says 1%, we say 4%; bought at 1¢ | no | 0.0100 | 0.0445 | +0.0245 | 100 | yes | lost (yes) | Edmonton Oilers consensus 0.956 from 3 books \(San Jose Sharks vs Edmonton Oilers\) | KXNHLGAME-26OCT10EDMSJ-EDM |
