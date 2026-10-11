@@ -1,10 +1,10 @@
 # Paper-trading predictions
 
-Updated 2026-10-11 18:04 UTC. Cash **$1632.01** (started $1000.00), realized PnL **$776.57**, fees $50.04, settled 59, wins 22, open positions 7.
+Updated 2026-10-11 20:34 UTC. Cash **$1724.01** (started $1000.00), realized PnL **$816.21**, fees $50.04, settled 62, wins 25, open positions 4.
 
-Brier (lower is better): strategy 0.2527 vs market price 0.2637.
+Brier (lower is better): strategy 0.2510 vs market price 0.2625.
 
-- `sportsbook_arb`: settled 43, wins 14, realized PnL $338.85, Brier 0.1882 vs market 0.1964
+- `sportsbook_arb`: settled 46, wins 17, realized PnL $378.49, Brier 0.1878 vs market 0.1965
 - `underdog_value`: settled 16, wins 8, realized PnL $437.72, Brier 0.3929 vs market 0.4104
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
@@ -54,8 +54,8 @@ Brier (lower is better): strategy 0.2527 vs market price 0.2637.
 | 2026-10-04 09:52 | underdog\_value | Texas wins — NO: Kalshi says 24%, we say 27%; bought at 24¢ | no | 0.2400 | 0.2703 | +0.0103 | 100 | yes | WON (no) | underdog \(4.2x payout\); Texas Longhorns consensus 0.730 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-TEX |
 | 2026-10-04 09:52 | sportsbook\_arb | Oklahoma wins — YES: Kalshi says 23%, we say 27%; bought at 23¢ | yes | 0.2300 | 0.2703 | +0.0203 | 100 | yes | WON (yes) | Oklahoma Sooners consensus 0.270 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-OKLA |
 | 2026-10-04 09:52 | sportsbook\_arb | Texas wins — NO: Kalshi says 24%, we say 27%; bought at 24¢ | no | 0.2400 | 0.2703 | +0.0103 | 100 | yes | WON (no) | Texas Longhorns consensus 0.730 from 2 books \(Oklahoma Sooners vs Texas Longhorns\) | KXNCAAFGAME-26OCT10TEXOKLA-TEX |
-| 2026-10-04 09:52 | sportsbook\_arb | Chicago wins — NO: Kalshi says 51%, we say 55%; bought at 51¢ | no | 0.5100 | 0.5508 | +0.0208 | 2 | yes | open | Chicago Bears consensus 0.449 from 2 books \(Green Bay Packers vs Chicago Bears\) | KXNFLGAME-26OCT11CHIGB-CHI |
-| 2026-10-04 09:52 | sportsbook\_arb | Green Bay wins — YES: Kalshi says 52%, we say 55%; bought at 52¢ | yes | 0.5200 | 0.5508 | +0.0108 | 48 | yes | open | Green Bay Packers consensus 0.551 from 2 books \(Green Bay Packers vs Chicago Bears\) | KXNFLGAME-26OCT11CHIGB-GB |
+| 2026-10-04 09:52 | sportsbook\_arb | Chicago wins — NO: Kalshi says 51%, we say 55%; bought at 51¢ | no | 0.5100 | 0.5508 | +0.0208 | 2 | yes | WON (no) | Chicago Bears consensus 0.449 from 2 books \(Green Bay Packers vs Chicago Bears\) | KXNFLGAME-26OCT11CHIGB-CHI |
+| 2026-10-04 09:52 | sportsbook\_arb | Green Bay wins — YES: Kalshi says 52%, we say 55%; bought at 52¢ | yes | 0.5200 | 0.5508 | +0.0108 | 48 | yes | WON (yes) | Green Bay Packers consensus 0.551 from 2 books \(Green Bay Packers vs Chicago Bears\) | KXNFLGAME-26OCT11CHIGB-GB |
 | 2026-10-03 22:09 | sportsbook\_arb | Auburn wins — YES: Kalshi says 7%, we say 9%; bought at 7¢ | yes | 0.0700 | 0.0940 | +0.0140 | 100 | yes | lost (no) | Auburn Tigers consensus 0.094 from 3 books \(Tennessee Volunteers vs Auburn Tigers\) | KXNCAAFGAME-26OCT03AUBTENN-AUB |
 | 2026-10-03 22:09 | sportsbook\_arb | Tennessee wins — NO: Kalshi says 7%, we say 9%; bought at 7¢ | no | 0.0700 | 0.0940 | +0.0140 | 100 | yes | lost (yes) | Tennessee Volunteers consensus 0.906 from 3 books \(Tennessee Volunteers vs Auburn Tigers\) | KXNCAAFGAME-26OCT03AUBTENN-TENN |
 | 2026-10-03 22:09 | sportsbook\_arb | Bowling Green wins — YES: Kalshi says 43%, we say 49%; bought at 43¢ | yes | 0.4300 | 0.4865 | +0.0365 | 58 | yes | WON (yes) | Bowling Green Falcons consensus 0.487 from 2 books \(Miami \(OH\) RedHawks vs Bowling Green Falcons\) | KXNCAAFGAME-26OCT03BGSUMOH-BGSU |
@@ -71,7 +71,7 @@ Brier (lower is better): strategy 0.2527 vs market price 0.2637.
 | 2026-10-02 09:51 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; would buy at 6¢ | no | 0.0600 | 0.0810 | +0.0110 | 100 | no | lost (yes) | New Mexico Lobos consensus 0.919 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |
 | 2026-10-02 09:51 | sportsbook\_arb | UTEP wins — YES: Kalshi says 6%, we say 8%; would buy at 6¢ | yes | 0.0600 | 0.0810 | +0.0110 | 100 | no | lost (no) | UTEP Miners consensus 0.081 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UTEP |
 | 2026-10-02 09:51 | sportsbook\_arb | Utah St. wins — YES: Kalshi says 8%, we say 11%; would buy at 8¢ | yes | 0.0800 | 0.1053 | +0.0153 | 100 | no | lost (no) | Utah State Aggies consensus 0.105 from 3 books \(Boise State Broncos vs Utah State Aggies\) | KXNCAAFGAME-26OCT03USUBSU-USU |
-| 2026-10-02 09:51 | sportsbook\_arb | Las Vegas wins — NO: Kalshi says 59%, we say 63%; bought at 59¢ | no | 0.5900 | 0.6268 | +0.0168 | 42 | yes | open | Las Vegas Raiders consensus 0.373 from 2 books \(New England Patriots vs Las Vegas Raiders\) | KXNFLGAME-26OCT11LVNE-LV |
+| 2026-10-02 09:51 | sportsbook\_arb | Las Vegas wins — NO: Kalshi says 59%, we say 63%; bought at 59¢ | no | 0.5900 | 0.6268 | +0.0168 | 42 | yes | WON (no) | Las Vegas Raiders consensus 0.373 from 2 books \(New England Patriots vs Las Vegas Raiders\) | KXNFLGAME-26OCT11LVNE-LV |
 | 2026-10-01 23:14 | underdog\_value | Florida wins — NO: Kalshi says 13%, we say 16%; bought at 13¢ | no | 0.1300 | 0.1631 | +0.0231 | 100 | yes | WON (no) | underdog \(7.7x payout\); Florida Gators consensus 0.837 from 1 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-FLA |
 | 2026-10-01 23:14 | underdog\_value | South Carolina wins — YES: Kalshi says 14%, we say 16%; bought at 14¢ | yes | 0.1400 | 0.1631 | +0.0131 | 100 | yes | WON (yes) | underdog \(7.1x payout\); South Carolina Gamecocks consensus 0.163 from 1 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-SCAR |
 | 2026-10-01 23:14 | sportsbook\_arb | New Mexico wins — NO: Kalshi says 6%, we say 8%; would buy at 6¢ | no | 0.0600 | 0.0820 | +0.0120 | 100 | no | lost (yes) | New Mexico Lobos consensus 0.918 from 3 books \(New Mexico Lobos vs UTEP Miners\) | KXNCAAFGAME-26OCT03UTEPUNM-UNM |

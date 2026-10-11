@@ -3,30 +3,27 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │ 1632.01 │
-│ open positions       │       7 │
-│ open cost            │  144.56 │
-│ settled fills        │      59 │
-│ wins                 │      22 │
-│ realized pnl         │  776.57 │
+│ cash                 │ 1724.01 │
+│ open positions       │       4 │
+│ open cost            │   92.20 │
+│ settled fills        │      62 │
+│ wins                 │      25 │
+│ realized pnl         │  816.21 │
 │ fees paid            │   50.04 │
-│ brier (strategy)     │  0.2527 │
-│ brier (market price) │  0.2637 │
+│ brier (strategy)     │  0.2510 │
+│ brier (market price) │  0.2625 │
 └──────────────────────┴─────────┘
                                   Per strategy                                  
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
 ┃ strategy     ┃ settled ┃ wins ┃ realized pnl ┃  fees ┃  brier ┃ market brier ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ sportsbook_… │      43 │   14 │       338.85 │ 32.49 │ 0.1882 │       0.1964 │
+│ sportsbook_… │      46 │   17 │       378.49 │ 32.49 │ 0.1878 │       0.1965 │
 │ underdog_va… │      16 │    8 │       437.72 │ 17.55 │ 0.3929 │       0.4104 │
 └──────────────┴─────────┴──────┴──────────────┴───────┴────────┴──────────────┘
                          Open positions                          
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
 ┃ ticker                      ┃ side ┃ count ┃ cost  ┃ avg fair ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
-│ KXNFLGAME-26OCT11CHIGB-CHI  │ no   │ 2     │ 1.06  │ 0.551    │
-│ KXNFLGAME-26OCT11CHIGB-GB   │ yes  │ 48    │ 25.80 │ 0.551    │
-│ KXNFLGAME-26OCT11LVNE-LV    │ no   │ 42    │ 25.50 │ 0.627    │
 │ KXNFLGAME-26OCT11SFSEA-SEA  │ yes  │ 47    │ 25.73 │ 0.615    │
 │ KXNFLGAME-26OCT11SFSEA-SF   │ no   │ 15    │ 8.37  │ 0.615    │
 │ KXNFLGAME-26OCT18CARPHI-CAR │ no   │ 34    │ 17.94 │ 0.540    │
