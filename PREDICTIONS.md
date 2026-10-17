@@ -1,20 +1,20 @@
 # Paper-trading predictions
 
-Updated 2026-10-17 22:16 UTC. Cash **$1542.87** (started $1000.00), realized PnL **$704.74**, fees $57.66, settled 67, wins 25, open positions 5.
+Updated 2026-10-17 23:26 UTC. Cash **$1542.87** (started $1000.00), realized PnL **$600.97**, fees $57.66, settled 71, wins 25, open positions 2.
 
-Brier (lower is better): strategy 0.2487 vs market price 0.2572.
+Brier (lower is better): strategy 0.2434 vs market price 0.2493.
 
-- `sportsbook_arb`: settled 50, wins 17, realized PnL $293.20, Brier 0.1922 vs market 0.1977
-- `underdog_value`: settled 17, wins 8, realized PnL $411.54, Brier 0.3751 vs market 0.3903
+- `sportsbook_arb`: settled 53, wins 17, realized PnL $215.61, Brier 0.1912 vs market 0.1940
+- `underdog_value`: settled 18, wins 8, realized PnL $385.36, Brier 0.3606 vs market 0.3734
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-10-17 21:30 | underdog\_value | Tampa Bay wins — NO: Kalshi says 29%, we say 34%; bought at 29¢ | no | 0.2900 | 0.3354 | +0.0254 | 86 | yes | open | underdog \(3.4x payout\); Tampa Bay Lightning consensus 0.665 from 3 books \(Tampa Bay Lightning vs Vancouver Canucks\) | KXNHLGAME-26OCT17VANTB-TB |
-| 2026-10-17 21:30 | sportsbook\_arb | Winnipeg wins — YES: Kalshi says 42%, we say 49%; bought at 42¢ | yes | 0.4200 | 0.4866 | +0.0466 | 59 | yes | open | Winnipeg Jets consensus 0.487 from 3 books \(Winnipeg Jets vs Carolina Hurricanes\) | KXNHLGAME-26OCT17CARWPG-WPG |
-| 2026-10-17 21:30 | sportsbook\_arb | Tampa Bay wins — NO: Kalshi says 29%, we say 34%; bought at 29¢ | no | 0.2900 | 0.3354 | +0.0254 | 86 | yes | open | Tampa Bay Lightning consensus 0.665 from 3 books \(Tampa Bay Lightning vs Vancouver Canucks\) | KXNHLGAME-26OCT17VANTB-TB |
-| 2026-10-17 21:30 | sportsbook\_arb | UNLV wins — YES: Kalshi says 41%, we say 45%; bought at 41¢ | yes | 0.4100 | 0.4500 | +0.0200 | 60 | yes | open | UNLV Rebels consensus 0.450 from 3 books \(Air Force Falcons vs UNLV Rebels\) | KXNCAAFGAME-26OCT17UNLVAFA-UNLV |
+| 2026-10-17 21:30 | underdog\_value | Tampa Bay wins — NO: Kalshi says 29%, we say 34%; bought at 29¢ | no | 0.2900 | 0.3354 | +0.0254 | 86 | yes | lost (yes) | underdog \(3.4x payout\); Tampa Bay Lightning consensus 0.665 from 3 books \(Tampa Bay Lightning vs Vancouver Canucks\) | KXNHLGAME-26OCT17VANTB-TB |
+| 2026-10-17 21:30 | sportsbook\_arb | Winnipeg wins — YES: Kalshi says 42%, we say 49%; bought at 42¢ | yes | 0.4200 | 0.4866 | +0.0466 | 59 | yes | lost (no) | Winnipeg Jets consensus 0.487 from 3 books \(Winnipeg Jets vs Carolina Hurricanes\) | KXNHLGAME-26OCT17CARWPG-WPG |
+| 2026-10-17 21:30 | sportsbook\_arb | Tampa Bay wins — NO: Kalshi says 29%, we say 34%; bought at 29¢ | no | 0.2900 | 0.3354 | +0.0254 | 86 | yes | lost (yes) | Tampa Bay Lightning consensus 0.665 from 3 books \(Tampa Bay Lightning vs Vancouver Canucks\) | KXNHLGAME-26OCT17VANTB-TB |
+| 2026-10-17 21:30 | sportsbook\_arb | UNLV wins — YES: Kalshi says 41%, we say 45%; bought at 41¢ | yes | 0.4100 | 0.4500 | +0.0200 | 60 | yes | lost (no) | UNLV Rebels consensus 0.450 from 3 books \(Air Force Falcons vs UNLV Rebels\) | KXNCAAFGAME-26OCT17UNLVAFA-UNLV |
 | 2026-10-11 22:57 | underdog\_value | Denver wins — NO: Kalshi says 28%, we say 31%; bought at 28¢ | no | 0.2800 | 0.3127 | +0.0127 | 89 | yes | lost (yes) | underdog \(3.6x payout\); Denver Broncos consensus 0.687 from 3 books \(Los Angeles Chargers vs Denver Broncos\) | KXNFLGAME-26OCT11DENLAC-DEN |
 | 2026-10-11 22:57 | underdog\_value | Kansas City wins — NO: Kalshi says 20%, we say 24%; would buy at 20¢ | no | 0.2000 | 0.2356 | +0.0156 | 100 | no | open | underdog \(5.0x payout\); Kansas City Chiefs consensus 0.764 from 2 books \(Kansas City Chiefs vs Los Angeles Chargers\) | KXNFLGAME-26OCT18LACKC-KC |
 | 2026-10-11 22:57 | sportsbook\_arb | Denver wins — NO: Kalshi says 28%, we say 31%; bought at 28¢ | no | 0.2800 | 0.3127 | +0.0127 | 89 | yes | lost (yes) | Denver Broncos consensus 0.687 from 3 books \(Los Angeles Chargers vs Denver Broncos\) | KXNFLGAME-26OCT11DENLAC-DEN |

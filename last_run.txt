@@ -1,1 +1,2 @@
- scanned=3000 signals=0 filled=0 settled=0 cash=1542.87
+ scanned=3000 signals=0 filled=0 settled=3 cash=1542.87
+HALTED, no entries: daily loss limit hit: -103.77 <= -50.00
