@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-18 06:35 UTC. Cash **$1542.87** (started $1000.00), realized PnL **$600.97**, fees $57.66, settled 71, wins 25, open positions 2.
+Updated 2026-10-18 08:07 UTC. Cash **$1517.37** (started $1000.00), realized PnL **$600.97**, fees $58.38, settled 71, wins 25, open positions 3.
 
 Brier (lower is better): strategy 0.2434 vs market price 0.2493.
 
@@ -11,6 +11,7 @@ Brier (lower is better): strategy 0.2434 vs market price 0.2493.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-18 08:07 | sportsbook\_arb | Baltimore wins — YES: Kalshi says 59%, we say 62%; bought at 59¢ | yes | 0.5900 | 0.6201 | +0.0101 | 42 | yes | open | Baltimore Ravens consensus 0.620 from 2 books \(Baltimore Ravens vs Cincinnati Bengals\) | KXNFLGAME-26OCT25CINBAL-BAL |
 | 2026-10-17 21:30 | underdog\_value | Tampa Bay wins — NO: Kalshi says 29%, we say 34%; bought at 29¢ | no | 0.2900 | 0.3354 | +0.0254 | 86 | yes | lost (yes) | underdog \(3.4x payout\); Tampa Bay Lightning consensus 0.665 from 3 books \(Tampa Bay Lightning vs Vancouver Canucks\) | KXNHLGAME-26OCT17VANTB-TB |
 | 2026-10-17 21:30 | sportsbook\_arb | Winnipeg wins — YES: Kalshi says 42%, we say 49%; bought at 42¢ | yes | 0.4200 | 0.4866 | +0.0466 | 59 | yes | lost (no) | Winnipeg Jets consensus 0.487 from 3 books \(Winnipeg Jets vs Carolina Hurricanes\) | KXNHLGAME-26OCT17CARWPG-WPG |
 | 2026-10-17 21:30 | sportsbook\_arb | Tampa Bay wins — NO: Kalshi says 29%, we say 34%; bought at 29¢ | no | 0.2900 | 0.3354 | +0.0254 | 86 | yes | lost (yes) | Tampa Bay Lightning consensus 0.665 from 3 books \(Tampa Bay Lightning vs Vancouver Canucks\) | KXNHLGAME-26OCT17VANTB-TB |
