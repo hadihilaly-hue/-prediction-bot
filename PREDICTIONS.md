@@ -1,10 +1,10 @@
 # Paper-trading predictions
 
-Updated 2026-10-18 18:16 UTC. Cash **$1491.66** (started $1000.00), realized PnL **$575.26**, fees $59.34, settled 72, wins 25, open positions 3.
+Updated 2026-10-18 20:41 UTC. Cash **$1491.66** (started $1000.00), realized PnL **$557.32**, fees $59.34, settled 73, wins 25, open positions 2.
 
-Brier (lower is better): strategy 0.2436 vs market price 0.2488.
+Brier (lower is better): strategy 0.2439 vs market price 0.2489.
 
-- `sportsbook_arb`: settled 54, wins 17, realized PnL $189.90, Brier 0.1922 vs market 0.1941
+- `sportsbook_arb`: settled 55, wins 17, realized PnL $171.96, Brier 0.1931 vs market 0.1948
 - `underdog_value`: settled 18, wins 8, realized PnL $385.36, Brier 0.3606 vs market 0.3734
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
@@ -39,7 +39,7 @@ Brier (lower is better): strategy 0.2436 vs market price 0.2488.
 | 2026-10-08 23:45 | sportsbook\_arb | Boston wins — NO: Kalshi says 13%, we say 22%; would buy at 13¢ | no | 0.1300 | 0.2204 | +0.0804 | 100 | no | lost (yes) | Boston Bruins consensus 0.780 from 3 books \(Boston Bruins vs Utah Mammoth\) | KXNHLGAME-26OCT08UTABOS-BOS |
 | 2026-10-07 23:36 | underdog\_value | Kennesaw St. wins — YES: Kalshi says 30%, we say 34%; bought at 30¢ | yes | 0.3000 | 0.3384 | +0.0184 | 83 | yes | lost (no) | underdog \(3.3x payout\); Kennesaw State Owls consensus 0.338 from 3 books \(Kennesaw State Owls vs Jacksonville State Gamecocks\) | KXNCAAFGAME-26OCT07JVSTKENN-KENN |
 | 2026-10-07 23:36 | sportsbook\_arb | Kennesaw St. wins — YES: Kalshi says 30%, we say 34%; bought at 30¢ | yes | 0.3000 | 0.3384 | +0.0184 | 83 | yes | lost (no) | Kennesaw State Owls consensus 0.338 from 3 books \(Kennesaw State Owls vs Jacksonville State Gamecocks\) | KXNCAAFGAME-26OCT07JVSTKENN-KENN |
-| 2026-10-07 17:50 | sportsbook\_arb | Carolina wins — NO: Kalshi says 51%, we say 54%; bought at 51¢ | no | 0.5100 | 0.5400 | +0.0100 | 34 | yes | open | Carolina Panthers consensus 0.460 from 2 books \(Philadelphia Eagles vs Carolina Panthers\) | KXNFLGAME-26OCT18CARPHI-CAR |
+| 2026-10-07 17:50 | sportsbook\_arb | Carolina wins — NO: Kalshi says 51%, we say 54%; bought at 51¢ | no | 0.5100 | 0.5400 | +0.0100 | 34 | yes | lost (yes) | Carolina Panthers consensus 0.460 from 2 books \(Philadelphia Eagles vs Carolina Panthers\) | KXNFLGAME-26OCT18CARPHI-CAR |
 | 2026-10-06 23:05 | sportsbook\_arb | Los Angeles D wins — YES: Kalshi says 50%, we say 53%; bought at 50¢ | yes | 0.5000 | 0.5329 | +0.0129 | 50 | yes | WON (yes) | Los Angeles Dodgers consensus 0.533 from 3 books \(Atlanta Braves vs Los Angeles Dodgers\) | KXMLBGAME-26OCT061800LADATL-LAD |
 | 2026-10-05 19:43 | underdog\_value | Florida wins — NO: Kalshi says 16%, we say 19%; would buy at 16¢ | no | 0.1600 | 0.1898 | +0.0198 | 100 | no | WON (no) | underdog \(6.2x payout\); Florida Gators consensus 0.810 from 3 books \(Florida Gators vs South Carolina Gamecocks\) | KXNCAAFGAME-26OCT10SCARFLA-FLA |
 | 2026-10-05 19:43 | underdog\_value | Dallas wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1917 | +0.0117 | 100 | yes | WON (no) | underdog \(5.9x payout\); Dallas Cowboys consensus 0.808 from 3 books \(Dallas Cowboys vs Tampa Bay Buccaneers\) | KXNFLGAME-26OCT08TBDAL-DAL |
