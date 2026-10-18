@@ -1,17 +1,17 @@
 # Paper-trading predictions
 
-Updated 2026-10-18 14:49 UTC. Cash **$1491.66** (started $1000.00), realized PnL **$600.97**, fees $59.34, settled 71, wins 25, open positions 4.
+Updated 2026-10-18 17:22 UTC. Cash **$1491.66** (started $1000.00), realized PnL **$575.26**, fees $59.34, settled 72, wins 25, open positions 3.
 
-Brier (lower is better): strategy 0.2434 vs market price 0.2493.
+Brier (lower is better): strategy 0.2436 vs market price 0.2488.
 
-- `sportsbook_arb`: settled 53, wins 17, realized PnL $215.61, Brier 0.1912 vs market 0.1940
+- `sportsbook_arb`: settled 54, wins 17, realized PnL $189.90, Brier 0.1922 vs market 0.1941
 - `underdog_value`: settled 18, wins 8, realized PnL $385.36, Brier 0.3606 vs market 0.3734
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-10-18 14:38 | sportsbook\_arb | Houston wins — NO: Kalshi says 45%, we say 51%; bought at 45¢ | no | 0.4500 | 0.5065 | +0.0365 | 55 | yes | open | Houston Texans consensus 0.494 from 3 books \(Jacksonville Jaguars vs Houston Texans\) | KXNFLGAME-26OCT18HOUJAC-HOU |
+| 2026-10-18 14:38 | sportsbook\_arb | Houston wins — NO: Kalshi says 45%, we say 51%; bought at 45¢ | no | 0.4500 | 0.5065 | +0.0365 | 55 | yes | lost (yes) | Houston Texans consensus 0.494 from 3 books \(Jacksonville Jaguars vs Houston Texans\) | KXNFLGAME-26OCT18HOUJAC-HOU |
 | 2026-10-18 08:07 | sportsbook\_arb | Baltimore wins — YES: Kalshi says 59%, we say 62%; bought at 59¢ | yes | 0.5900 | 0.6201 | +0.0101 | 42 | yes | open | Baltimore Ravens consensus 0.620 from 2 books \(Baltimore Ravens vs Cincinnati Bengals\) | KXNFLGAME-26OCT25CINBAL-BAL |
 | 2026-10-17 21:30 | underdog\_value | Tampa Bay wins — NO: Kalshi says 29%, we say 34%; bought at 29¢ | no | 0.2900 | 0.3354 | +0.0254 | 86 | yes | lost (yes) | underdog \(3.4x payout\); Tampa Bay Lightning consensus 0.665 from 3 books \(Tampa Bay Lightning vs Vancouver Canucks\) | KXNHLGAME-26OCT17VANTB-TB |
 | 2026-10-17 21:30 | sportsbook\_arb | Winnipeg wins — YES: Kalshi says 42%, we say 49%; bought at 42¢ | yes | 0.4200 | 0.4866 | +0.0466 | 59 | yes | lost (no) | Winnipeg Jets consensus 0.487 from 3 books \(Winnipeg Jets vs Carolina Hurricanes\) | KXNHLGAME-26OCT17CARWPG-WPG |
