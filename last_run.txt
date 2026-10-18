@@ -1,14 +1,1 @@
- scanned=3000 signals=0 filled=0 settled=0 cash=1542.87
- scanned=658 signals=1 filled=1 settled=0 cash=1517.37
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
-┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
-│ sportsboo… │ KXNFLGAME… │ yes  │ 0.5900 │ 0.6201 │ 0.0101 │ 42   │ Baltimore │
-│            │            │      │        │        │        │      │ Ravens    │
-│            │            │      │        │        │        │      │ consensus │
-│            │            │      │        │        │        │      │ 0.620     │
-│            │            │      │        │        │        │      │ from 2    │
-│            │            │      │        │        │        │      │ books     │
-│            │            │      │        │        │        │      │ (Baltimo… │
-│            │            │      │        │        │        │      │ Rav       │
-└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
+ scanned=3000 signals=0 filled=0 settled=0 cash=1517.37
