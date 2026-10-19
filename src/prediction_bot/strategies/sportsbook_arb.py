@@ -103,6 +103,12 @@ class SportsbookArbStrategy(Strategy):
 
         out: list[Signal] = []
         for legs in self._prioritised(by_event):
+            # cheap pre-filter on the market's own timing (expiry else close): if even
+            # the close -- which trails resolution -- is inside min_lead_hours, nothing
+            # here is bettable, so don't spend an Odds API request on the feed. Markets
+            # with no timing still reach the feed and the game-time gate below.
+            if _anchor(legs) is not None and not self._early_enough(legs):
+                continue
             series = legs[0].event_ticker.split("-")[0]
             if series in KALSHI_SERIES_TO_OUTRIGHT:
                 sport = KALSHI_SERIES_TO_OUTRIGHT[series]
@@ -165,6 +171,8 @@ class SportsbookArbStrategy(Strategy):
         for legs in by_event.values():
             feed = _feed(legs[0])
             first.setdefault(feed, datetime.max.replace(tzinfo=timezone.utc))
+            if not self._early_enough(legs):
+                continue  # ineligible under min_lead_hours: never outranks bettable events
             anchor = _anchor(legs)
             if anchor is None:
                 continue

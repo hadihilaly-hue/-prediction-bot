@@ -390,6 +390,29 @@ def test_min_lead_close_time_is_not_a_game_anchor(settings) -> None:  # type: ig
     assert strat.evaluate([troy, usm]) == []
 
 
+def test_min_lead_skips_feed_without_spending_odds_budget(settings) -> None:  # type: ignore[no-untyped-def]
+    # an event whose market timing is already inside the lead window can't produce a
+    # signal -- it must be skipped before the feed is even fetched, or the per-run
+    # odds budget goes to leagues that are never bettable
+    calls: list[str] = []
+
+    class CountingOdds(FakeOdds):
+        def h2h(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
+            calls.append(sport)
+            return []
+
+    strat = SportsbookArbStrategy(settings, odds_client=CountingOdds())  # type: ignore[arg-type]
+    troy = make_market(
+        "KXNCAAFGAME-26OCT06USMTROY-TROY",
+        "0.50",
+        "0.55",
+        subtitle="Troy",
+        expected_expiration=datetime.now(timezone.utc) + timedelta(hours=24),
+    )
+    assert strat.evaluate([troy]) == []
+    assert calls == []
+
+
 def test_outright_stops_entering_near_expiry(settings) -> None:  # type: ignore[no-untyped-def]
     class SoonOutrights(FakeOutrights):
         # feed's next tournament starts tomorrow, so the market match succeeds and
@@ -519,15 +542,18 @@ def test_budget_goes_to_league_with_most_games_soon(settings) -> None:  # type: 
             self.sports.append(sport)
             return []
 
+    # anchors must sit beyond min_lead_hours or the events are ineligible and no
+    # longer compete for budget; lookahead is widened so "soon" still discriminates
+    settings.odds_lookahead_hours = 200
     now = datetime.now(timezone.utc)
-    soon, later = now + timedelta(hours=5), now + timedelta(hours=100)
+    soon, later = now + timedelta(hours=80), now + timedelta(hours=150)
     mk = [
         make_market("KXNHLGAME-X1-A", "0.4", "0.5", subtitle="A", expected_expiration=soon),
         make_market("KXEPLGAME-Y1-A", "0.4", "0.5", subtitle="A", expected_expiration=soon),
         make_market("KXEPLGAME-Y2-A", "0.4", "0.5", subtitle="A", expected_expiration=soon),
+        make_market("KXEPLGAME-Y3-A", "0.4", "0.5", subtitle="A", expected_expiration=soon),
         make_market("KXMLBGAME-Z1-A", "0.4", "0.5", subtitle="A", expected_expiration=later),
         make_market("KXMLBGAME-Z2-A", "0.4", "0.5", subtitle="A", expected_expiration=later),
-        make_market("KXMLBGAME-Z3-A", "0.4", "0.5", subtitle="A", expected_expiration=later),
     ]
     odds = OneCall()
     strat = SportsbookArbStrategy(settings, odds_client=odds)  # type: ignore[arg-type]
