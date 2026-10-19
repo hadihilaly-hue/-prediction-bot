@@ -1,11 +1,18 @@
 # Paper-trading predictions
 
-Updated 2026-10-19 20:42 UTC. Cash **$1491.66** (started $1000.00), realized PnL **$517.16**, fees $59.34, settled 75, wins 25, open positions 1.
+Updated 2026-10-19 22:55 UTC. Cash **$1491.66** (started $1000.00), realized PnL **$517.16**, fees $59.34, settled 75, wins 25, open positions 1.
 
 Brier (lower is better): strategy 0.2367 vs market price 0.2409.
 
 - `sportsbook_arb`: settled 56, wins 17, realized PnL $151.88, Brier 0.1893 vs market 0.1905
 - `underdog_value`: settled 19, wins 8, realized PnL $365.28, Brier 0.3420 vs market 0.3531
+
+Per league (Kalshi series):
+
+- `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
+- `KXNCAAFGAME`: open 0, settled 40, wins 13, realized PnL $481.69, Brier 0.2044 vs market 0.2152
+- `KXNFLGAME`: open 1, settled 26, wins 7, realized PnL $-237.47, Brier 0.2281 vs market 0.2105
+- `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
