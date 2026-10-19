@@ -165,10 +165,11 @@ class SportsbookArbStrategy(Strategy):
         """Events grouped so the odds feeds with the most bettable games are fetched
         first; when the per-run Odds API budget runs out, the quieter feeds are skipped.
 
-        Ordering only counts expected_expiration: close_time trails kickoff by days, so
-        a close-only event can't prove it's bettable and sorts last rather than spending
-        budget to find out. "Soon" means soon after the min_lead_hours gate opens -- a
-        lookahead shorter than the lead would otherwise score every feed zero."""
+        Games only count expected_expiration: close_time trails kickoff by days, so a
+        close-only game can't prove it's bettable and sorts last rather than spending
+        budget to find out. Outrights are different -- their close IS the resolution
+        clock, so it still counts. "Soon" means soon after the min_lead_hours gate
+        opens -- a lookahead shorter than the lead would score every feed zero."""
         now = datetime.now(timezone.utc)
         lead = timedelta(hours=self.settings.min_lead_hours)
         window = (now + lead, now + lead + timedelta(hours=self.settings.odds_lookahead_hours))
@@ -179,7 +180,11 @@ class SportsbookArbStrategy(Strategy):
             first.setdefault(feed, datetime.max.replace(tzinfo=timezone.utc))
             if not self._early_enough(legs):
                 continue  # ineligible under min_lead_hours: never outranks bettable events
-            anchor = next((m.expected_expiration for m in legs if m.expected_expiration), None)
+            series = legs[0].event_ticker.split("-")[0]
+            if series in KALSHI_SERIES_TO_OUTRIGHT:
+                anchor = _anchor(legs)
+            else:
+                anchor = next((m.expected_expiration for m in legs if m.expected_expiration), None)
             if anchor is None:
                 continue
             if anchor.tzinfo is None:
