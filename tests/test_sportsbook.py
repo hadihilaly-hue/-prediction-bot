@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -17,11 +17,17 @@ from prediction_bot.odds import (
 from prediction_bot.strategies.sportsbook_arb import SportsbookArbStrategy
 from tests.conftest import make_market
 
+
+def _iso(**kw: float) -> str:
+    return (datetime.now(timezone.utc) + timedelta(**kw)).isoformat()
+
+
 EVENT: dict[str, Any] = {
     "id": "e1",
     "home_team": "Troy Trojans",
     "away_team": "Southern Miss Golden Eagles",
-    "commence_time": "2026-10-06T23:00:00Z",
+    # 10 days out: comfortably past the min_lead_hours entry cutoff
+    "commence_time": _iso(days=10),
     "bookmakers": [
         {
             "key": "pinnacle",
@@ -317,6 +323,91 @@ def test_underdog_value_only_buys_price_band(settings) -> None:  # type: ignore[
     settings.underdog_min_price = Decimal(0)
     zero = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0", "0", subtitle="Southern Miss")
     assert strat.evaluate([troy, zero]) == []
+
+
+def test_min_lead_blocks_games_too_soon(settings) -> None:  # type: ignore[no-untyped-def]
+    # same edge as test_sportsbook_arb_signals, but kickoff is inside the lead window
+    soon = dict(EVENT, id="soon", commence_time=_iso(hours=24))
+    settings.odds_bookmakers = ["pinnacle", "draftkings"]
+    strat = SportsbookArbStrategy(settings, odds_client=FakeOdds([soon]))  # type: ignore[arg-type]
+    troy = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy")
+    usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.46", "0.50", subtitle="Southern Miss")
+    assert strat.evaluate([troy, usm]) == []
+
+    # underdog_value inherits the same cutoff through evaluate()
+    from prediction_bot.strategies.underdog_value import UnderdogValueStrategy
+
+    dogs = UnderdogValueStrategy(settings, odds_client=FakeOdds([soon]))  # type: ignore[arg-type]
+    assert dogs.evaluate([troy, usm]) == []
+
+
+def test_min_lead_disabled(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.min_lead_hours = 0
+    soon = dict(EVENT, id="soon", commence_time=_iso(hours=24))
+    settings.odds_bookmakers = ["pinnacle", "draftkings"]
+    strat = SportsbookArbStrategy(settings, odds_client=FakeOdds([soon]))  # type: ignore[arg-type]
+    troy = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy")
+    usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.46", "0.50", subtitle="Southern Miss")
+    assert len(strat.evaluate([troy, usm])) == 1
+
+
+def test_min_lead_uses_market_expiry(settings) -> None:  # type: ignore[no-untyped-def]
+    # the market's own expiry beats the odds feed's commence_time when both exist:
+    # this game starts in 10 days but the market resolves tomorrow
+    settings.odds_bookmakers = ["pinnacle", "draftkings"]
+    strat = SportsbookArbStrategy(settings, odds_client=FakeOdds())  # type: ignore[arg-type]
+    troy = make_market(
+        "KXNCAAFGAME-26OCT06USMTROY-TROY",
+        "0.50",
+        "0.55",
+        subtitle="Troy",
+        expected_expiration=datetime.now(timezone.utc) + timedelta(hours=20),
+    )
+    usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.46", "0.50", subtitle="Southern Miss")
+    assert strat.evaluate([troy, usm]) == []
+
+
+def test_min_lead_close_time_is_not_a_game_anchor(settings) -> None:  # type: ignore[no-untyped-def]
+    # close_time trails kickoff by days: a game starting in 24h must not slip through
+    # just because its market keeps trading for four more days
+    soon = dict(EVENT, id="soon", commence_time=_iso(hours=24))
+    settings.odds_bookmakers = ["pinnacle", "draftkings"]
+    strat = SportsbookArbStrategy(settings, odds_client=FakeOdds([soon]))  # type: ignore[arg-type]
+    troy = make_market(
+        "KXNCAAFGAME-26OCT06USMTROY-TROY",
+        "0.50",
+        "0.55",
+        subtitle="Troy",
+        close_time=datetime.now(timezone.utc) + timedelta(days=4),
+    )
+    usm = make_market(
+        "KXNCAAFGAME-26OCT06USMTROY-USM",
+        "0.46",
+        "0.50",
+        subtitle="Southern Miss",
+        close_time=datetime.now(timezone.utc) + timedelta(days=4),
+    )
+    assert strat.evaluate([troy, usm]) == []
+
+
+def test_outright_stops_entering_near_expiry(settings) -> None:  # type: ignore[no-untyped-def]
+    class SoonOutrights(FakeOutrights):
+        # feed's next tournament starts tomorrow, so the market match succeeds and
+        # only the lead-time cutoff can reject it
+        def outrights(
+            self, sport: str, bookmakers: list[str] | None = None
+        ) -> list[dict[str, Any]]:
+            return [dict(OUTRIGHT, commence_time=_iso(hours=24))]
+
+    strat = SportsbookArbStrategy(settings, odds_client=SoonOutrights())  # type: ignore[arg-type]
+    sch = make_market(
+        "KXMASTERS-27-SS",
+        "0.13",
+        "0.15",
+        subtitle="Scottie Scheffler",
+        expected_expiration=datetime.now(timezone.utc) + timedelta(hours=48),
+    )
+    assert strat.evaluate([sch]) == []
 
 
 def test_odds_client_shares_fetch_within_ttl() -> None:

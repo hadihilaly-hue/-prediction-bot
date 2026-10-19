@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # `underdog_value` only buys sides whose ask is inside this band (10c..40c = 2.5x..10x)
     underdog_min_price: Decimal = Decimal("0.10")
     underdog_max_price: Decimal = Decimal("0.40")
+    # Sportsbook strategies only enter at least this many hours before the event
+    # resolves: paper results show same-day entries in efficient markets lose while
+    # early entries keep their edge. 0 disables the check.
+    min_lead_hours: int = 72
 
     # Fees (Kalshi general schedule: fee = mult * C * P * (1-P), rounded up to the cent)
     taker_fee_multiplier: Decimal = Decimal("0.07")

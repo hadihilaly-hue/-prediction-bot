@@ -107,7 +107,7 @@ class SportsbookArbStrategy(Strategy):
             if series in KALSHI_SERIES_TO_OUTRIGHT:
                 sport = KALSHI_SERIES_TO_OUTRIGHT[series]
                 game = self._match_tournament(legs, self.outrights_for(sport))
-                if game is None:
+                if game is None or not self._early_enough(legs):
                     continue
                 for m in legs:
                     player = best_team(m.subtitle, game.names)
@@ -121,7 +121,7 @@ class SportsbookArbStrategy(Strategy):
                 continue
             sport = KALSHI_SERIES_TO_SPORT[series]
             game = self._match_game(legs, self.games_for(sport))
-            if game is None:
+            if game is None or not self._early_enough(legs, game.commence_time):
                 continue
             by_team: dict[str, Market] = {}
             for m in legs:
@@ -175,6 +175,34 @@ class SportsbookArbStrategy(Strategy):
             by_event.values(),
             key=lambda legs: (-soon[_feed(legs[0])], first[_feed(legs[0])], _feed(legs[0])),
         )
+
+    def _early_enough(self, legs: list[Market], commence: str | None = None) -> bool:
+        """True while the event still has `min_lead_hours` before it resolves.
+
+        Late in a market's life the Kalshi price is the sharp one, so a small
+        disagreement with the books there is noise, not edge. The anchor is the
+        market's expected expiration (game end), then the game's commence_time.
+        close_time is NOT a game anchor — it trails kickoff by days — but outright
+        legs get no commence_time and their close is the resolution clock, so it is
+        the fallback for them. With no usable timing we fail closed rather than
+        risk a same-day entry.
+        """
+        min_lead = timedelta(hours=self.settings.min_lead_hours)
+        if min_lead <= timedelta(0):
+            return True
+        anchor = next((m.expected_expiration for m in legs if m.expected_expiration), None)
+        if anchor is None and commence:
+            try:
+                anchor = datetime.fromisoformat(commence.replace("Z", "+00:00"))
+            except ValueError:
+                anchor = None
+        if anchor is None and commence is None:
+            anchor = next((m.close_time for m in legs if m.close_time), None)
+        if anchor is None:
+            return False
+        if anchor.tzinfo is None:
+            anchor = anchor.replace(tzinfo=timezone.utc)
+        return anchor - datetime.now(timezone.utc) >= min_lead
 
     @staticmethod
     def _one_per_outcome(sigs: list[tuple[str, Signal]]) -> list[Signal]:
