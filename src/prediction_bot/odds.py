@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import math
 import re
 import time
+import unicodedata
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from decimal import Decimal
+from difflib import SequenceMatcher
 from typing import Any, cast
 
 import httpx
@@ -22,6 +26,14 @@ KALSHI_SERIES_TO_SPORT: dict[str, str] = {
     "KXEPLGAME": "soccer_epl",
     "KXUCLGAME": "soccer_uefa_champs_league",
     "KXMLSGAME": "soccer_usa_mls",
+    "KXLALIGAGAME": "soccer_spain_la_liga",
+    "KXSERIEAGAME": "soccer_italy_serie_a",
+    "KXBUNDESLIGAGAME": "soccer_germany_bundesliga",
+    "KXLIGUE1GAME": "soccer_france_ligue_one",
+    "KXUELGAME": "soccer_uefa_europa_league",
+    "KXUECLGAME": "soccer_uefa_europa_conference_league",
+    "KXLIGAMXGAME": "soccer_mexico_ligamx",
+    "KXUFCFIGHT": "mma_mixed_martial_arts",
 }
 
 # Kalshi tournament-winner series (one market per player) -> The Odds API "outrights" sport key.
@@ -106,11 +118,51 @@ def consensus(
     )
 
 
-_STOP = {"the", "at", "vs", "v", "winner", "state", "st", "university", "of", "fc"}
+_STOP = {
+    "the", "at", "vs", "v", "winner", "state", "st", "university", "of", "fc",
+    "ac", "afc", "cf", "sc", "fk", "calcio", "club", "and", "de", "stade",
+}  # fmt: skip
+
+# Kalshi short names the books spell differently enough that token overlap misses them.
+_ALIASES = {
+    "psg": "paris saint germain",
+    "stade rennais": "rennes",
+    "sporting cp": "sporting lisbon",
+    "slavia prague": "slavia praha",
+}
+
+_TRANSLIT = str.maketrans({"ø": "oe", "æ": "ae", "ß": "ss", "ł": "l", "đ": "d"})
+
+
+def _normalise(name: str) -> str:
+    """Lower-case, strip accents ("Atlético" -> "atletico") and apostrophes ("Lone'er")."""
+    name = unicodedata.normalize("NFKD", name.lower().translate(_TRANSLIT))
+    name = "".join(ch for ch in name if not unicodedata.combining(ch))
+    return re.sub(r"['’`]", "", name)
 
 
 def _tokens(name: str) -> set[str]:
-    return {t for t in re.findall(r"[a-z0-9]+", name.lower()) if t not in _STOP}
+    norm = _normalise(name).strip()
+    norm = _ALIASES.get(norm, norm)
+    toks = set(re.findall(r"[a-z0-9]+", norm))
+    # "Abdul-Rakhman" vs "Abdulrakhman": keep the hyphen-joined form as well.
+    toks |= {w.replace("-", "") for w in re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)+", norm)}
+    return {t for t in toks if t not in _STOP}
+
+
+def _same_token(a: str, b: str) -> bool:
+    """Exact, or a one-letter transliteration slip in a long name ("Jasmin"/"Iasmin")."""
+    if a == b:
+        return True
+    if min(len(a), len(b)) < 5 or abs(len(a) - len(b)) > 1:
+        return False
+    return SequenceMatcher(None, a, b).ratio() >= 0.8
+
+
+# A Kalshi short name whose every token appears in the book's longer name ("Brighton" in
+# "Brighton and Hove Albion") scores exactly the match threshold: enough to match, but an
+# exact-length name ("Texas" vs "Texas Longhorns") still outranks it.
+SUBSET_SCORE = 0.34
 
 
 def team_match_score(kalshi_name: str, book_name: str) -> float:
@@ -118,7 +170,19 @@ def team_match_score(kalshi_name: str, book_name: str) -> float:
     a, b = _tokens(kalshi_name), _tokens(book_name)
     if not a or not b:
         return 0.0
-    return len(a & b) / len(a | b)
+    unmatched = set(b)
+    common = 0
+    for t in sorted(a):
+        hit = (
+            t if t in unmatched else next((u for u in sorted(unmatched) if _same_token(t, u)), None)
+        )
+        if hit is not None:
+            unmatched.discard(hit)
+            common += 1
+    score = common / (len(a) + len(b) - common)
+    if common == len(a) and score < SUBSET_SCORE:
+        return SUBSET_SCORE
+    return score
 
 
 def best_team(kalshi_name: str, candidates: list[str], min_score: float = 0.34) -> str | None:
@@ -130,17 +194,36 @@ def best_team(kalshi_name: str, candidates: list[str], min_score: float = 0.34) 
     return scored[0][1]
 
 
+class OddsBudgetExhausted(RuntimeError):
+    """This run already spent its share of the monthly Odds API quota."""
+
+
+def per_run_budget(remaining: int, runs_per_day: float, now: datetime | None = None) -> int:
+    """Split the quota left this month evenly over the scheduled runs left in it.
+
+    The free tier resets on the 1st (UTC); a run that would get less than one request
+    gets none, so the quota can't hit zero before the reset."""
+    now = now or datetime.now(timezone.utc)
+    nxt = datetime(now.year + now.month // 12, now.month % 12 + 1, 1, tzinfo=timezone.utc)
+    runs_left = max(1, math.ceil((nxt - now).total_seconds() / 86400 * runs_per_day))
+    return max(0, remaining) // runs_left
+
+
 class OddsClient:
     def __init__(
         self,
         api_key: str,
         base_url: str = "https://api.the-odds-api.com/v4",
         client: httpx.Client | None = None,
+        budget: int | None = None,
     ) -> None:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self._client = client or httpx.Client(timeout=15.0)
         self.requests_remaining: str | None = None
+        # Max quota-costing requests this client may make; None = unlimited.
+        self.budget = budget
+        self.requests_made = 0
         self._memo: dict[tuple[str, str, str], tuple[float, list[dict[str, Any]]]] = {}
 
     # Strategies sharing one client within a cycle reuse the response instead of
@@ -168,9 +251,23 @@ class OddsClient:
         hit = self._memo.get(key)
         if hit and time.monotonic() - hit[0] < self.MEMO_TTL_S:
             return hit[1]
+        if self.budget is not None and self.requests_made >= self.budget:
+            raise OddsBudgetExhausted(f"odds budget of {self.budget} requests spent")
+        self.requests_made += 1
         resp = self._client.get(f"{self.base_url}/sports/{sport}/odds", params=params)
         resp.raise_for_status()
         self.requests_remaining = resp.headers.get("x-requests-remaining")
         data = cast(list[dict[str, Any]], resp.json())
         self._memo[key] = (time.monotonic(), data)
         return data
+
+    def quota_remaining(self) -> int | None:
+        """Requests left this month. `/sports` doesn't count against the quota."""
+        resp = self._client.get(f"{self.base_url}/sports", params={"apiKey": self.api_key})
+        resp.raise_for_status()
+        left = resp.headers.get("x-requests-remaining")
+        self.requests_remaining = left
+        try:
+            return int(float(left)) if left is not None else None
+        except ValueError:
+            return None

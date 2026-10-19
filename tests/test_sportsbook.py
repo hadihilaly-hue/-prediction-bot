@@ -5,7 +5,14 @@ from decimal import Decimal
 from typing import Any
 
 from prediction_bot.models import OutcomeSide
-from prediction_bot.odds import best_team, consensus, devig
+from prediction_bot.odds import (
+    OddsBudgetExhausted,
+    OddsClient,
+    best_team,
+    consensus,
+    devig,
+    per_run_budget,
+)
 from prediction_bot.strategies.sportsbook_arb import SportsbookArbStrategy
 from tests.conftest import make_market
 
@@ -328,3 +335,109 @@ def test_odds_client_shares_fetch_within_ttl() -> None:
     assert calls == 1
     oc.outrights("golf_masters_tournament_winner")
     assert calls == 2
+
+
+def test_team_matching_spelling_variants() -> None:
+    assert best_team("Atletico", ["VfB Stuttgart", "Atlético Madrid"]) == "Atlético Madrid"
+    assert best_team("Bodoe/Glimt", ["Napoli", "Bodø/Glimt"]) == "Bodø/Glimt"
+    assert best_team("PSG", ["Paris Saint Germain", "Barcelona"]) == "Paris Saint Germain"
+    assert best_team("Brighton", ["Liverpool", "Brighton and Hove Albion"]) == (
+        "Brighton and Hove Albion"
+    )
+    assert best_team("Milan", ["Inter Milan", "AC Milan"]) == "AC Milan"
+    assert best_team("Inter", ["Inter Milan", "AC Milan"]) == "Inter Milan"
+    # UFC: transliteration slips, apostrophes and hyphenated names
+    assert best_team("Jasmin Lucindo", ["Iasmin Lucindo", "Nicolle Caliari"]) == "Iasmin Lucindo"
+    assert best_team("Loneer Kavanagh", ["Lone'er Kavanagh", "Ramazonbek Temirov"]) == (
+        "Lone'er Kavanagh"
+    )
+    assert best_team("Abdul-Rakhman Yakhyaev", ["Nikita Krylov", "Abdulrakhman Yakhyaev"]) == (
+        "Abdulrakhman Yakhyaev"
+    )
+    # looser matching must not blur genuinely different teams
+    assert best_team("Arkansas", ["Kansas Jayhawks", "Arkansas Razorbacks"]) == (
+        "Arkansas Razorbacks"
+    )
+    assert best_team("Texas", ["Texas Tech Red Raiders", "Texas Longhorns"]) == "Texas Longhorns"
+    assert best_team("Southern Miss", ["Ole Miss Rebels", "Mississippi State"]) is None
+
+
+def _soccer_event() -> dict[str, Any]:
+    import copy
+
+    ev = copy.deepcopy(EVENT)
+    ev["home_team"], ev["away_team"] = "Arsenal", "Chelsea"
+    for b in ev["bookmakers"]:
+        b["markets"][0]["outcomes"] = [
+            {"name": "Arsenal", "price": 2.0},
+            {"name": "Chelsea", "price": 4.0},
+            {"name": "Draw", "price": 4.0},
+        ]
+    return ev
+
+
+def test_soccer_tie_leg_priced_from_draw_odds(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.odds_bookmakers = ["pinnacle", "draftkings"]
+    strat = SportsbookArbStrategy(settings, odds_client=FakeOdds([_soccer_event()]))  # type: ignore[arg-type]
+    ars = make_market("KXEPLGAME-26OCT06CHEARS-ARS", "0.48", "0.52", subtitle="Arsenal")
+    che = make_market("KXEPLGAME-26OCT06CHEARS-CHE", "0.23", "0.27", subtitle="Chelsea")
+    tie = make_market("KXEPLGAME-26OCT06CHEARS-TIE", "0.15", "0.18", subtitle="Tie")
+    sigs = strat.evaluate([ars, che, tie])
+    assert [(s.ticker.rsplit("-", 1)[1], s.side) for s in sigs] == [("TIE", OutcomeSide.yes)]
+    assert abs(sigs[0].fair_prob - Decimal("0.25")) < Decimal("0.001")
+    assert sigs[0].equivalents == ()
+    assert "Draw consensus" in sigs[0].rationale
+
+
+def test_per_run_budget_spreads_quota_to_month_end() -> None:
+    oct19 = datetime(2026, 10, 19, tzinfo=timezone.utc)
+    assert per_run_budget(216, 3, oct19) == 216 // 39  # 13 days x 3 runs left
+    assert per_run_budget(10, 3, datetime(2026, 10, 31, 23, tzinfo=timezone.utc)) == 10
+    assert per_run_budget(20, 3, datetime(2026, 12, 2, tzinfo=timezone.utc)) == 0  # 90 runs
+    assert per_run_budget(-5, 3, oct19) == 0
+
+
+def test_odds_client_stops_at_budget() -> None:
+    import httpx
+    import pytest
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[], headers={"x-requests-remaining": "41"})
+
+    oc = OddsClient("k", client=httpx.Client(transport=httpx.MockTransport(handler)), budget=1)
+    assert oc.quota_remaining() == 41 and oc.requests_made == 0  # /sports is free
+    oc.h2h("soccer_epl")
+    oc.h2h("soccer_epl")  # memoised: no new request
+    with pytest.raises(OddsBudgetExhausted):
+        oc.h2h("icehockey_nhl")
+    assert oc.requests_made == 1
+
+
+def test_budget_goes_to_league_with_most_games_soon(settings) -> None:  # type: ignore[no-untyped-def]
+    from datetime import timedelta
+
+    class OneCall(FakeOdds):
+        def __init__(self) -> None:
+            super().__init__([])
+            self.sports: list[str] = []
+
+        def h2h(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
+            if self.sports:
+                raise OddsBudgetExhausted("spent")
+            self.sports.append(sport)
+            return []
+
+    now = datetime.now(timezone.utc)
+    soon, later = now + timedelta(hours=5), now + timedelta(hours=100)
+    mk = [
+        make_market("KXNHLGAME-X1-A", "0.4", "0.5", subtitle="A", expected_expiration=soon),
+        make_market("KXEPLGAME-Y1-A", "0.4", "0.5", subtitle="A", expected_expiration=soon),
+        make_market("KXEPLGAME-Y2-A", "0.4", "0.5", subtitle="A", expected_expiration=soon),
+        make_market("KXMLBGAME-Z1-A", "0.4", "0.5", subtitle="A", expected_expiration=later),
+        make_market("KXMLBGAME-Z2-A", "0.4", "0.5", subtitle="A", expected_expiration=later),
+        make_market("KXMLBGAME-Z3-A", "0.4", "0.5", subtitle="A", expected_expiration=later),
+    ]
+    odds = OneCall()
+    strat = SportsbookArbStrategy(settings, odds_client=odds)  # type: ignore[arg-type]
+    assert strat.evaluate(mk) == []
+    assert odds.sports == ["soccer_epl"]

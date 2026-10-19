@@ -14,7 +14,7 @@ from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
 from prediction_bot.models import Market, OutcomeSide, Signal
-from prediction_bot.odds import OddsClient
+from prediction_bot.odds import OddsClient, per_run_budget
 from prediction_bot.paper.ledger import Ledger, Prediction
 from prediction_bot.strategies import STRATEGIES, SportsbookArbStrategy, Strategy
 from prediction_bot.venues.kalshi import KalshiClient
@@ -57,6 +57,17 @@ def _strategies(settings: Settings, names: list[str]) -> list[Strategy]:
     odds = (
         OddsClient(settings.odds_api_key, settings.odds_api_base) if settings.odds_api_key else None
     )
+    if (
+        odds is not None
+        and settings.odds_runs_per_day > 0
+        and any(issubclass(STRATEGIES[n], SportsbookArbStrategy) for n in names)
+    ):
+        left = odds.quota_remaining()
+        if left is not None:
+            odds.budget = per_run_budget(left, settings.odds_runs_per_day)
+            logging.getLogger(__name__).info(
+                "odds api: %d requests left this month, budget %d", left, odds.budget
+            )
     out: list[Strategy] = []
     for n in names:
         cls = STRATEGIES[n]
@@ -193,6 +204,22 @@ def report() -> None:
                 _fmt(sp.market_brier_score),
             )
         console.print(st)
+    by_league = ledger.performance_by_league()
+    if by_league:
+        lt = Table(title="Per league")
+        for col in ("league", "open", "settled", "wins", "realized pnl", "brier", "market brier"):
+            lt.add_column(col, justify="right" if col != "league" else "left")
+        for name, lp in by_league.items():
+            lt.add_row(
+                name,
+                str(lp.open_positions),
+                str(lp.settled_count),
+                str(lp.wins),
+                f"{lp.realized_pnl:.2f}",
+                _fmt(lp.brier_score),
+                _fmt(lp.market_brier_score),
+            )
+        console.print(lt)
     pos = ledger.positions()
     if pos:
         pt = Table(title="Open positions")
@@ -265,6 +292,15 @@ def predictions_markdown(ledger: Ledger, preds: list[Prediction]) -> str:
             f" ${sp.realized_pnl:.2f}, Brier {_fmt(sp.brier_score)} vs market"
             f" {_fmt(sp.market_brier_score)}"
             for name, sp in ledger.performance_by_strategy().items()
+        ],
+        "",
+        "Per league (Kalshi series):",
+        "",
+        *[
+            f"- `{name}`: open {lp.open_positions}, settled {lp.settled_count}, wins {lp.wins},"
+            f" realized PnL ${lp.realized_pnl:.2f}, Brier {_fmt(lp.brier_score)} vs market"
+            f" {_fmt(lp.market_brier_score)}"
+            for name, lp in ledger.performance_by_league().items()
         ],
         "",
         "`price` is what we (paper) pay for `side`; `fair` is the strategy's probability that"

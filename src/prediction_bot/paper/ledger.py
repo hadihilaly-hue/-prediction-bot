@@ -284,12 +284,24 @@ class Ledger:
         self._set_cash(self.cash - cost)
         self.conn.commit()
 
-    def positions(self, strategy: str | None = None) -> list[Position]:
+    @staticmethod
+    def _fill_filter(strategy: str | None, league: str | None) -> tuple[str, tuple[str, ...]]:
+        """SQL suffix restricting fills `f` to one strategy and/or one Kalshi series."""
+        where = ""
+        args: tuple[str, ...] = ()
+        if strategy is not None:
+            where, args = where + " AND f.strategy = ?", (*args, strategy)
+        if league is not None:
+            esc = league.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            where, args = where + " AND f.ticker LIKE ? ESCAPE '\\'", (*args, esc + "-%")
+        return where, args
+
+    def positions(self, strategy: str | None = None, league: str | None = None) -> list[Position]:
+        where, args = self._fill_filter(strategy, league)
         rows = self.conn.execute(
             "SELECT f.ticker, f.side, f.price, f.count, f.fee, f.fair_prob FROM fills f"
-            " LEFT JOIN settlements s ON s.ticker = f.ticker WHERE s.ticker IS NULL"
-            + (" AND f.strategy = ?" if strategy is not None else ""),
-            (strategy,) if strategy is not None else (),
+            " LEFT JOIN settlements s ON s.ticker = f.ticker WHERE s.ticker IS NULL" + where,
+            args,
         ).fetchall()
         agg: dict[tuple[str, OutcomeSide], list[Decimal]] = {}
         for ticker, side, price, count, fee, fair in rows:
@@ -491,15 +503,23 @@ class Ledger:
     def performance_by_strategy(self) -> dict[str, Performance]:
         return {name: self.performance(name) for name in self.strategies()}
 
-    def performance(self, strategy: str | None = None) -> Performance:
-        """Whole-book performance, or one strategy's slice of it when `strategy` is given.
+    def leagues(self) -> list[str]:
+        """Kalshi series (ticker prefix, e.g. `KXEPLGAME`) that have fills."""
+        rows = self.conn.execute("SELECT DISTINCT ticker FROM fills").fetchall()
+        return sorted({r[0].split("-")[0] for r in rows})
+
+    def performance_by_league(self) -> dict[str, Performance]:
+        return {name: self.performance(league=name) for name in self.leagues()}
+
+    def performance(self, strategy: str | None = None, league: str | None = None) -> Performance:
+        """Whole-book performance, or a slice of it for one `strategy` and/or `league`
+        (Kalshi series ticker, e.g. `KXEPLGAME`).
 
         Settlement PnL is stored per ticker, so per-strategy realized PnL is recomputed
         from that strategy's fills (payout minus cost) rather than read from `settlements`.
         """
-        where = " AND f.strategy = ?" if strategy is not None else ""
-        args: tuple[str, ...] = (strategy,) if strategy is not None else ()
-        pos = self.positions(strategy)
+        where, args = self._fill_filter(strategy, league)
+        pos = self.positions(strategy, league)
         settled = self.conn.execute(
             "SELECT f.side, f.price, f.count, f.fair_prob, s.result, f.fee FROM fills f"
             " JOIN settlements s ON s.ticker = f.ticker WHERE 1=1" + where,

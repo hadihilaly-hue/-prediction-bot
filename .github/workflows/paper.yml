@@ -49,6 +49,9 @@ jobs:
           PBOT_KILL_SWITCH: ${{ vars.PBOT_KILL_SWITCH || 'false' }}
           PBOT_MAX_DAILY_LOSS: ${{ vars.PBOT_MAX_DAILY_LOSS || '50' }}
           PBOT_ODDS_API_KEY: ${{ secrets.PBOT_ODDS_API_KEY }}
+          # Three sportsbook slots a day: each spends only its share of the free-tier quota
+          # left this month, on the leagues with the most games in the next 36h.
+          PBOT_ODDS_RUNS_PER_DAY: "3"
           # github.event.schedule is the cron expression that fired, so slot selection is
           # immune to delayed starts; manual runs always include the sportsbook strategy.
           SPORTSBOOK_SLOT: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3,11,19 * * *' }}
@@ -59,6 +62,9 @@ jobs:
             pbot paper -s sportsbook_arb -s underdog_value --cycles 1 \
               --series KXNFLGAME --series KXNCAAFGAME --series KXNBAGAME --series KXNHLGAME \
               --series KXMLBGAME \
+              --series KXEPLGAME --series KXLALIGAGAME --series KXUCLGAME --series KXSERIEAGAME \
+              --series KXBUNDESLIGAGAME --series KXLIGUE1GAME --series KXUELGAME \
+              --series KXUECLGAME --series KXMLSGAME --series KXLIGAMXGAME --series KXUFCFIGHT \
               --series KXMASTERS --series KXPGA --series KXUSOPEN --series KXTHEOPEN \
               | tee -a ledger/last_run.txt
           fi

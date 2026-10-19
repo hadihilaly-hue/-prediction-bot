@@ -12,6 +12,7 @@ from prediction_bot.odds import (
     KALSHI_SERIES_TO_OUTRIGHT,
     KALSHI_SERIES_TO_SPORT,
     ConsensusOdds,
+    OddsBudgetExhausted,
     OddsClient,
     best_team,
     consensus,
@@ -19,6 +20,24 @@ from prediction_bot.odds import (
 from prediction_bot.strategies.base import Strategy
 
 log = logging.getLogger(__name__)
+
+# Kalshi soccer events list the draw as a third market with this subtitle.
+DRAW_NAMES = {"tie", "draw"}
+
+
+def _feed(m: Market) -> str:
+    series = m.event_ticker.split("-")[0]
+    if series in KALSHI_SERIES_TO_OUTRIGHT:
+        return f"outrights:{KALSHI_SERIES_TO_OUTRIGHT[series]}"
+    return KALSHI_SERIES_TO_SPORT[series]
+
+
+def _anchor(legs: list[Market]) -> datetime | None:
+    t = next((m.expected_expiration for m in legs if m.expected_expiration), None)
+    t = t or next((m.close_time for m in legs if m.close_time), None)
+    if t is not None and t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    return t
 
 
 class SportsbookArbStrategy(Strategy):
@@ -47,7 +66,11 @@ class SportsbookArbStrategy(Strategy):
         if sport not in self._cache:
             if self.odds is None:
                 return []
-            events = self.odds.h2h(sport, self.settings.odds_bookmakers)
+            try:
+                events = self.odds.h2h(sport, self.settings.odds_bookmakers)
+            except OddsBudgetExhausted:
+                log.info("%s: odds budget spent; skipping %s this run", self.name, sport)
+                events = []
             self._cache[sport] = [
                 c for e in events if (c := consensus(e, self.settings.odds_bookmakers))
             ]
@@ -59,7 +82,11 @@ class SportsbookArbStrategy(Strategy):
             if self.odds is None:
                 return []
             books = self.settings.odds_bookmakers
-            events = self.odds.outrights(sport, books)
+            try:
+                events = self.odds.outrights(sport, books)
+            except OddsBudgetExhausted:
+                log.info("%s: odds budget spent; skipping %s outrights", self.name, sport)
+                events = []
             self._cache[key] = [c for e in events if (c := consensus(e, books, "outrights"))]
         return self._cache[key]
 
@@ -75,7 +102,7 @@ class SportsbookArbStrategy(Strategy):
                 by_event[m.event_ticker].append(m)
 
         out: list[Signal] = []
-        for legs in by_event.values():
+        for legs in self._prioritised(by_event):
             series = legs[0].event_ticker.split("-")[0]
             if series in KALSHI_SERIES_TO_OUTRIGHT:
                 sport = KALSHI_SERIES_TO_OUTRIGHT[series]
@@ -98,6 +125,15 @@ class SportsbookArbStrategy(Strategy):
                 continue
             by_team: dict[str, Market] = {}
             for m in legs:
+                if m.subtitle.strip().lower() in DRAW_NAMES:
+                    if "Draw" in game.probs:
+                        fair = game.probs["Draw"]
+                        rationale = (
+                            f"Draw consensus {fair:.3f} from {game.books_used} books"
+                            f" ({game.home_team} vs {game.away_team})"
+                        )
+                        out.extend(self._both_sides(m, fair, rationale))
+                    continue
                 team = best_team(m.subtitle, [game.home_team, game.away_team])
                 if team is not None and team in game.probs:
                     by_team.setdefault(team, m)
@@ -118,6 +154,27 @@ class SportsbookArbStrategy(Strategy):
                     game_sigs.append((winner, sig))
             out.extend(self._one_per_outcome(game_sigs) if two_way else [s for _, s in game_sigs])
         return out
+
+    def _prioritised(self, by_event: dict[str, list[Market]]) -> list[list[Market]]:
+        """Events grouped so the odds feeds with the most games starting soon are fetched
+        first; when the per-run Odds API budget runs out, the quieter feeds are skipped."""
+        now = datetime.now(timezone.utc)
+        horizon = now + timedelta(hours=self.settings.odds_lookahead_hours)
+        soon: dict[str, int] = defaultdict(int)
+        first: dict[str, datetime] = {}
+        for legs in by_event.values():
+            feed = _feed(legs[0])
+            first.setdefault(feed, datetime.max.replace(tzinfo=timezone.utc))
+            anchor = _anchor(legs)
+            if anchor is None:
+                continue
+            first[feed] = min(first[feed], anchor)
+            if now <= anchor <= horizon:
+                soon[feed] += 1
+        return sorted(
+            by_event.values(),
+            key=lambda legs: (-soon[_feed(legs[0])], first[_feed(legs[0])], _feed(legs[0])),
+        )
 
     @staticmethod
     def _one_per_outcome(sigs: list[tuple[str, Signal]]) -> list[Signal]:
@@ -175,7 +232,9 @@ class SportsbookArbStrategy(Strategy):
     def _match_game(cls, legs: list[Market], games: list[ConsensusOdds]) -> ConsensusOdds | None:
         """Pick the game whose teams match the legs. Repeated matchups (e.g. a series)
         are disambiguated by the game start nearest the market's expected expiration."""
-        names = [m.subtitle for m in legs if m.subtitle]
+        names = [
+            m.subtitle for m in legs if m.subtitle and m.subtitle.strip().lower() not in DRAW_NAMES
+        ]
         need = min(2, len(names))
         anchor, window = None, cls.EXPIRATION_WINDOW
         if exp := next((m.expected_expiration for m in legs if m.expected_expiration), None):
