@@ -47,6 +47,19 @@ def dashboard_data(ledger: Ledger) -> dict[str, object]:
             }
             for name, sp in ledger.performance_by_strategy().items()
         ],
+        "by_league": [
+            {
+                "league": name,
+                "settled_count": lp.settled_count,
+                "wins": lp.wins,
+                "realized_pnl": _num(lp.realized_pnl),
+                "fees_paid": _num(lp.fees_paid),
+                "open_positions": lp.open_positions,
+                "brier": _num(lp.brier_score),
+                "market_brier": _num(lp.market_brier_score),
+            }
+            for name, lp in ledger.performance_by_league().items()
+        ],
         "predictions": [
             {
                 "when": p.created_at,
@@ -169,6 +182,10 @@ _TEMPLATE = """<!doctype html>
     <h2>Per strategy</h2>
     <div class="tablewrap"><table id="bystrat"></table></div>
   </section>
+  <section class="card" style="margin-bottom:16px">
+    <h2>Per league</h2>
+    <div class="tablewrap"><table id="byleague"></table></div>
+  </section>
   <div class="charts">
     <div class="card chart"><h2>Equity (cash + open cost)</h2><svg id="equity"></svg></div>
     <div class="card chart"><h2>Per-run activity (signals / fills)</h2><svg id="activity"></svg></div>
@@ -223,14 +240,17 @@ _TEMPLATE = """<!doctype html>
   $('cards').innerHTML = cards.map(([k, v, c]) =>
     '<div class="card"><div class="k">' + esc(k) + '</div><div class="v ' + c + '">' + esc(v) + '</div></div>').join('');
 
-  const S = D.by_strategy || [];
-  $('bystrat').innerHTML = '<thead><tr><th>strategy</th><th>open</th><th>settled</th><th>wins</th>' +
-    '<th>realized PnL</th><th>fees</th><th>Brier vs market</th></tr></thead><tbody>' +
-    (S.length ? S.map(s => '<tr><td>' + esc(s.strategy) + '</td><td>' + s.open_positions + '</td><td>' +
-      s.settled_count + '</td><td>' + s.wins + '</td><td class="' + sign(s.realized_pnl) + '">' + money(s.realized_pnl) +
-      '</td><td>' + money(s.fees_paid) + '</td><td class="' + (s.brier == null ? 'muted' : (s.brier < s.market_brier ? 'good' : 'bad')) +
-      '">' + f4(s.brier) + ' vs ' + f4(s.market_brier) + '</td></tr>').join('')
-      : '<tr><td colspan="7" class="empty">no strategy activity yet</td></tr>') + '</tbody>';
+  function sliceTable(id, rows, key, empty) {
+    $(id).innerHTML = '<thead><tr><th>' + key + '</th><th>open</th><th>settled</th><th>wins</th>' +
+      '<th>realized PnL</th><th>fees</th><th>Brier vs market</th></tr></thead><tbody>' +
+      (rows.length ? rows.map(s => '<tr><td>' + esc(s[key]) + '</td><td>' + s.open_positions + '</td><td>' +
+        s.settled_count + '</td><td>' + s.wins + '</td><td class="' + sign(s.realized_pnl) + '">' + money(s.realized_pnl) +
+        '</td><td>' + money(s.fees_paid) + '</td><td class="' + (s.brier == null ? 'muted' : (s.brier < s.market_brier ? 'good' : 'bad')) +
+        '">' + f4(s.brier) + ' vs ' + f4(s.market_brier) + '</td></tr>').join('')
+        : '<tr><td colspan="7" class="empty">' + empty + '</td></tr>') + '</tbody>';
+  }
+  sliceTable('bystrat', D.by_strategy || [], 'strategy', 'no strategy activity yet');
+  sliceTable('byleague', D.by_league || [], 'league', 'no fills yet');
 
   function lineChart(svg, pts, opts) {
     const W = 600, H = 180, L = 48, R = 10, T = 10, B = 24;

@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     odds_bookmakers: list[str] = Field(
         default_factory=lambda: ["pinnacle", "draftkings", "fanduel"]
     )
+    # Scheduled runs per day. When > 0, each run spends at most its even share of the
+    # Odds API requests left this month, on the leagues with the most games starting
+    # within `odds_lookahead_hours`. 0 = no budget.
+    odds_runs_per_day: float = 0
+    odds_lookahead_hours: float = 36
 
     # Paper trading
     paper_db_path: Path = Path("data/paper.sqlite")

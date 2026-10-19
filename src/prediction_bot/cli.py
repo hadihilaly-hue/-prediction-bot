@@ -14,7 +14,7 @@ from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
 from prediction_bot.models import Market, OutcomeSide, Signal
-from prediction_bot.odds import OddsClient
+from prediction_bot.odds import OddsClient, OddsPacer
 from prediction_bot.paper.ledger import Ledger, Prediction
 from prediction_bot.strategies import STRATEGIES, SportsbookArbStrategy, Strategy
 from prediction_bot.venues.kalshi import KalshiClient
@@ -50,13 +50,19 @@ def _client(settings: Settings, need_auth: bool = False) -> KalshiClient:
     return KalshiClient(settings.kalshi_api_base, signer=signer)
 
 
-def _strategies(settings: Settings, names: list[str]) -> list[Strategy]:
+def _odds_client(settings: Settings) -> OddsClient | None:
+    if not settings.odds_api_key:
+        return None
+    return OddsClient(settings.odds_api_key, settings.odds_api_base)
+
+
+def _strategies(
+    settings: Settings, names: list[str], odds: OddsClient | None = None
+) -> list[Strategy]:
     unknown = set(names) - set(STRATEGIES)
     if unknown:
         raise typer.BadParameter(f"unknown strategies {sorted(unknown)}; have {sorted(STRATEGIES)}")
-    odds = (
-        OddsClient(settings.odds_api_key, settings.odds_api_base) if settings.odds_api_key else None
-    )
+    odds = odds or _odds_client(settings)
     out: list[Strategy] = []
     for n in names:
         cls = STRATEGIES[n]
@@ -132,10 +138,20 @@ def paper(
     s = _settings()
     client = _client(s)
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
-    engine = Engine(s, client, _strategies(s, strategy), ledger, allow_live=False)
+    odds = _odds_client(s)
+    strats = _strategies(s, strategy, odds)
+    pacer = None
+    uses_odds = any(isinstance(st, SportsbookArbStrategy) for st in strats)
+    if odds is not None and s.odds_runs_per_day > 0 and uses_odds:
+        # A one-shot run is one of the scheduled runs; a loop paces per cycle.
+        per_day = s.odds_runs_per_day if cycles == 1 else 86400 / max(interval, 1)
+        pacer = OddsPacer(odds, max(per_day, s.odds_runs_per_day))
+    engine = Engine(s, client, strats, ledger, allow_live=False)
     n = 0
     while True:
         n += 1
+        if pacer is not None:
+            pacer.start_run()
         settled = engine.settle_open_positions()
         res = engine.run_cycle(_fetch(client, series))
         ledger.record_run(
@@ -193,6 +209,22 @@ def report() -> None:
                 _fmt(sp.market_brier_score),
             )
         console.print(st)
+    by_league = ledger.performance_by_league()
+    if by_league:
+        lt = Table(title="Per league")
+        for col in ("league", "open", "settled", "wins", "realized pnl", "brier", "market brier"):
+            lt.add_column(col, justify="right" if col != "league" else "left")
+        for name, lp in by_league.items():
+            lt.add_row(
+                name,
+                str(lp.open_positions),
+                str(lp.settled_count),
+                str(lp.wins),
+                f"{lp.realized_pnl:.2f}",
+                _fmt(lp.brier_score),
+                _fmt(lp.market_brier_score),
+            )
+        console.print(lt)
     pos = ledger.positions()
     if pos:
         pt = Table(title="Open positions")
@@ -265,6 +297,15 @@ def predictions_markdown(ledger: Ledger, preds: list[Prediction]) -> str:
             f" ${sp.realized_pnl:.2f}, Brier {_fmt(sp.brier_score)} vs market"
             f" {_fmt(sp.market_brier_score)}"
             for name, sp in ledger.performance_by_strategy().items()
+        ],
+        "",
+        "Per league (Kalshi series):",
+        "",
+        *[
+            f"- `{name}`: open {lp.open_positions}, settled {lp.settled_count}, wins {lp.wins},"
+            f" realized PnL ${lp.realized_pnl:.2f}, Brier {_fmt(lp.brier_score)} vs market"
+            f" {_fmt(lp.market_brier_score)}"
+            for name, lp in ledger.performance_by_league().items()
         ],
         "",
         "`price` is what we (paper) pay for `side`; `fair` is the strategy's probability that"

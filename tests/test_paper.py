@@ -515,3 +515,25 @@ def test_equivalent_legs_share_position_cap(tmp_path, settings) -> None:  # type
     small = Signal(**{**sig.__dict__, "size": Decimal(5)})
     eng = Engine(settings, object(), [Fixed(settings, small)], ledger)  # type: ignore[arg-type]
     assert len(eng.run_cycle([market]).acted) == 1
+
+
+def test_performance_by_league(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    led = Ledger(tmp_path / "l.sqlite", Decimal("100"))
+    for tk, px in (("KXEPLGAME-26OCT06CHEARS-TIE", "0.20"), ("KXNFLGAME-26OCT18LACKC-KC", "0.50")):
+        led.record_fill(
+            "sportsbook_arb",
+            tk,
+            OutcomeSide.yes,
+            Decimal(px),
+            Decimal(10),
+            Decimal(0),
+            Decimal("0.5"),
+        )
+    led.settle("KXEPLGAME-26OCT06CHEARS-TIE", OutcomeSide.yes)
+    by = led.performance_by_league()
+    assert list(by) == ["KXEPLGAME", "KXNFLGAME"]
+    assert by["KXEPLGAME"].settled_count == 1 and by["KXEPLGAME"].realized_pnl == Decimal("8.00")
+    assert by["KXEPLGAME"].open_positions == 0
+    assert by["KXNFLGAME"].settled_count == 0 and by["KXNFLGAME"].open_positions == 1
+    # LIKE wildcards in a series name don't leak into other leagues
+    assert led.performance(league="KX%").settled_count == 0
