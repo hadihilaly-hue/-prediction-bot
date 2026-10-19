@@ -561,6 +561,39 @@ def test_budget_goes_to_league_with_most_games_soon(settings) -> None:  # type: 
     assert odds.sports == ["soccer_epl"]
 
 
+def test_close_only_event_does_not_outrank_timed_feeds(settings) -> None:  # type: ignore[no-untyped-def]
+    # close_time trails kickoff by days, so it can't prove a game is bettable: a
+    # close-only event sorts behind feeds with real expiry timing instead of
+    # spending odds budget to discover its kickoff is too soon
+    calls: list[str] = []
+
+    class OneCall(FakeOdds):
+        def h2h(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
+            if calls:
+                raise OddsBudgetExhausted("spent")
+            calls.append(sport)
+            return []
+
+    now = datetime.now(timezone.utc)
+    nhl = make_market(
+        "KXNHLGAME-X1-A",
+        "0.4",
+        "0.5",
+        subtitle="A",
+        close_time=now + timedelta(hours=79),  # earlier than the EPL expiry below
+    )
+    epl = make_market(
+        "KXEPLGAME-Y1-A",
+        "0.4",
+        "0.5",
+        subtitle="A",
+        expected_expiration=now + timedelta(hours=80),
+    )
+    strat = SportsbookArbStrategy(settings, odds_client=OneCall())  # type: ignore[arg-type]
+    strat.evaluate([nhl, epl])
+    assert calls == ["soccer_epl"]
+
+
 def test_draw_leg_alone_matches_no_fixture(settings) -> None:  # type: ignore[no-untyped-def]
     settings.odds_bookmakers = ["pinnacle", "draftkings"]
     strat = SportsbookArbStrategy(settings, odds_client=FakeOdds([_soccer_event()]))  # type: ignore[arg-type]
