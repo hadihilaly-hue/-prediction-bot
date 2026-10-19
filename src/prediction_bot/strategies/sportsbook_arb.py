@@ -235,6 +235,8 @@ class SportsbookArbStrategy(Strategy):
         names = [
             m.subtitle for m in legs if m.subtitle and m.subtitle.strip().lower() not in DRAW_NAMES
         ]
+        if not names:
+            return None  # e.g. only the "Tie" leg: nothing ties it to a fixture
         need = min(2, len(names))
         anchor, window = None, cls.EXPIRATION_WINDOW
         if exp := next((m.expected_expiration for m in legs if m.expected_expiration), None):

@@ -8,6 +8,7 @@ from prediction_bot.models import OutcomeSide
 from prediction_bot.odds import (
     OddsBudgetExhausted,
     OddsClient,
+    OddsPacer,
     best_team,
     consensus,
     devig,
@@ -441,3 +442,34 @@ def test_budget_goes_to_league_with_most_games_soon(settings) -> None:  # type: 
     strat = SportsbookArbStrategy(settings, odds_client=odds)  # type: ignore[arg-type]
     assert strat.evaluate(mk) == []
     assert odds.sports == ["soccer_epl"]
+
+
+def test_draw_leg_alone_matches_no_fixture(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.odds_bookmakers = ["pinnacle", "draftkings"]
+    strat = SportsbookArbStrategy(settings, odds_client=FakeOdds([_soccer_event()]))  # type: ignore[arg-type]
+    tie = make_market("KXEPLGAME-26OCT06CHEARS-TIE", "0.15", "0.18", subtitle="Tie")
+    assert strat.evaluate([tie]) == []
+
+
+def test_odds_pacer_resets_each_run_and_fails_closed() -> None:
+    import httpx
+
+    status = {"code": 200}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(status["code"], json=[], headers={"x-requests-remaining": "10"})
+
+    oc = OddsClient("k", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    oct31 = datetime(2026, 10, 31, 12, tzinfo=timezone.utc)  # 12h left
+    pacer = OddsPacer(oc, runs_per_day=48)  # 24 runs left -> 10/24 request per run
+    assert pacer.start_run(oct31) == 0
+    assert pacer.start_run(oct31) == 0
+    assert pacer.start_run(oct31) == 1  # carried-over fractions add up
+    oc.h2h("soccer_epl")
+    assert pacer.start_run(oct31) == 0 and oc.requests_made == 0  # spent credit is deducted
+    many = OddsPacer(oc, runs_per_day=1)
+    assert many.start_run(oct31) == 10
+    oc.h2h("icehockey_nhl")
+    assert many.start_run(oct31) == 10  # a later run gets a fresh budget, not a used-up one
+    status["code"] = 500
+    assert many.start_run(oct31) == 0 and oc.budget == 0  # quota unreadable: no odds, no crash

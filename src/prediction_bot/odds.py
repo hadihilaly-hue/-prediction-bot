@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 import time
@@ -13,6 +14,8 @@ from difflib import SequenceMatcher
 from typing import Any, cast
 
 import httpx
+
+log = logging.getLogger(__name__)
 
 # Kalshi game-winner series -> The Odds API sport key
 KALSHI_SERIES_TO_SPORT: dict[str, str] = {
@@ -198,15 +201,18 @@ class OddsBudgetExhausted(RuntimeError):
     """This run already spent its share of the monthly Odds API quota."""
 
 
-def per_run_budget(remaining: int, runs_per_day: float, now: datetime | None = None) -> int:
-    """Split the quota left this month evenly over the scheduled runs left in it.
-
-    The free tier resets on the 1st (UTC); a run that would get less than one request
-    gets none, so the quota can't hit zero before the reset."""
+def run_share(remaining: int, runs_per_day: float, now: datetime | None = None) -> float:
+    """This run's even share of the quota left this month (free tier resets on the 1st UTC)."""
     now = now or datetime.now(timezone.utc)
     nxt = datetime(now.year + now.month // 12, now.month % 12 + 1, 1, tzinfo=timezone.utc)
     runs_left = max(1, math.ceil((nxt - now).total_seconds() / 86400 * runs_per_day))
-    return max(0, remaining) // runs_left
+    return max(0, remaining) / runs_left
+
+
+def per_run_budget(remaining: int, runs_per_day: float, now: datetime | None = None) -> int:
+    """Whole requests a single run may spend; never more than its share, so the quota
+    can't hit zero before the reset."""
+    return math.floor(run_share(remaining, runs_per_day, now))
 
 
 class OddsClient:
@@ -271,3 +277,32 @@ class OddsClient:
             return int(float(left)) if left is not None else None
         except ValueError:
             return None
+
+
+class OddsPacer:
+    """Sets `client.budget` at the start of each run to that run's share of the quota
+    left this month. Unspent fractions carry over, so a frequent loop (share < 1 request
+    per cycle) still fetches every few cycles instead of never. If the quota can't be
+    read the run gets no odds requests (fail closed) but everything else still runs."""
+
+    def __init__(self, client: OddsClient, runs_per_day: float) -> None:
+        self.client = client
+        self.runs_per_day = runs_per_day
+        self.credit = 0.0
+
+    def start_run(self, now: datetime | None = None) -> int:
+        self.credit -= self.client.requests_made
+        self.client.requests_made = 0
+        try:
+            left = self.client.quota_remaining()
+        except httpx.HTTPError as e:
+            log.warning("odds api quota check failed (%s); no odds requests this run", e)
+            left = None
+        if left is None:
+            self.client.budget = 0
+            return 0
+        share = run_share(left, self.runs_per_day, now)
+        self.credit = min(self.credit + share, float(max(0, left)))
+        self.client.budget = max(0, math.floor(self.credit))
+        log.info("odds api: %d requests left this month, run budget %d", left, self.client.budget)
+        return self.client.budget

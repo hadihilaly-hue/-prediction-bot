@@ -14,7 +14,7 @@ from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
 from prediction_bot.models import Market, OutcomeSide, Signal
-from prediction_bot.odds import OddsClient, per_run_budget
+from prediction_bot.odds import OddsClient, OddsPacer
 from prediction_bot.paper.ledger import Ledger, Prediction
 from prediction_bot.strategies import STRATEGIES, SportsbookArbStrategy, Strategy
 from prediction_bot.venues.kalshi import KalshiClient
@@ -50,24 +50,19 @@ def _client(settings: Settings, need_auth: bool = False) -> KalshiClient:
     return KalshiClient(settings.kalshi_api_base, signer=signer)
 
 
-def _strategies(settings: Settings, names: list[str]) -> list[Strategy]:
+def _odds_client(settings: Settings) -> OddsClient | None:
+    if not settings.odds_api_key:
+        return None
+    return OddsClient(settings.odds_api_key, settings.odds_api_base)
+
+
+def _strategies(
+    settings: Settings, names: list[str], odds: OddsClient | None = None
+) -> list[Strategy]:
     unknown = set(names) - set(STRATEGIES)
     if unknown:
         raise typer.BadParameter(f"unknown strategies {sorted(unknown)}; have {sorted(STRATEGIES)}")
-    odds = (
-        OddsClient(settings.odds_api_key, settings.odds_api_base) if settings.odds_api_key else None
-    )
-    if (
-        odds is not None
-        and settings.odds_runs_per_day > 0
-        and any(issubclass(STRATEGIES[n], SportsbookArbStrategy) for n in names)
-    ):
-        left = odds.quota_remaining()
-        if left is not None:
-            odds.budget = per_run_budget(left, settings.odds_runs_per_day)
-            logging.getLogger(__name__).info(
-                "odds api: %d requests left this month, budget %d", left, odds.budget
-            )
+    odds = odds or _odds_client(settings)
     out: list[Strategy] = []
     for n in names:
         cls = STRATEGIES[n]
@@ -143,10 +138,20 @@ def paper(
     s = _settings()
     client = _client(s)
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
-    engine = Engine(s, client, _strategies(s, strategy), ledger, allow_live=False)
+    odds = _odds_client(s)
+    strats = _strategies(s, strategy, odds)
+    pacer = None
+    uses_odds = any(isinstance(st, SportsbookArbStrategy) for st in strats)
+    if odds is not None and s.odds_runs_per_day > 0 and uses_odds:
+        # A one-shot run is one of the scheduled runs; a loop paces per cycle.
+        per_day = s.odds_runs_per_day if cycles == 1 else 86400 / max(interval, 1)
+        pacer = OddsPacer(odds, max(per_day, s.odds_runs_per_day))
+    engine = Engine(s, client, strats, ledger, allow_live=False)
     n = 0
     while True:
         n += 1
+        if pacer is not None:
+            pacer.start_run()
         settled = engine.settle_open_positions()
         res = engine.run_cycle(_fetch(client, series))
         ledger.record_run(
