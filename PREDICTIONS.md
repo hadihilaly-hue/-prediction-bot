@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-20 15:22 UTC. Cash **$1491.66** (started $1000.00), realized PnL **$517.16**, fees $59.34, settled 75, wins 25, open positions 1.
+Updated 2026-10-20 15:40 UTC. Cash **$1489.36** (started $1000.00), realized PnL **$517.16**, fees $59.48, settled 75, wins 25, open positions 2.
 
 Brier (lower is better): strategy 0.2367 vs market price 0.2409.
 
@@ -10,6 +10,7 @@ Brier (lower is better): strategy 0.2367 vs market price 0.2409.
 Per league (Kalshi series):
 
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
+- `KXMLSGAME`: open 1, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXNCAAFGAME`: open 0, settled 40, wins 13, realized PnL $481.69, Brier 0.2044 vs market 0.2152
 - `KXNFLGAME`: open 1, settled 26, wins 7, realized PnL $-237.47, Brier 0.2281 vs market 0.2105
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
@@ -18,6 +19,8 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-20 15:40 | underdog\_value | Los Angeles G wins — YES: Kalshi says 18%, we say 61%; bought at 18¢ | yes | 0.1800 | 0.6140 | +0.4140 | 6 | yes | open | underdog \(5.6x payout\); Los Angeles FC consensus 0.614 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
+| 2026-10-20 15:40 | sportsbook\_arb | Los Angeles G wins — YES: Kalshi says 18%, we say 61%; bought at 18¢ | yes | 0.1800 | 0.6140 | +0.4140 | 6 | yes | open | Los Angeles FC consensus 0.614 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
 | 2026-10-18 14:38 | sportsbook\_arb | Houston wins — NO: Kalshi says 45%, we say 51%; bought at 45¢ | no | 0.4500 | 0.5065 | +0.0365 | 55 | yes | lost (yes) | Houston Texans consensus 0.494 from 3 books \(Jacksonville Jaguars vs Houston Texans\) | KXNFLGAME-26OCT18HOUJAC-HOU |
 | 2026-10-18 08:07 | sportsbook\_arb | Baltimore wins — YES: Kalshi says 59%, we say 62%; bought at 59¢ | yes | 0.5900 | 0.6201 | +0.0101 | 42 | yes | open | Baltimore Ravens consensus 0.620 from 2 books \(Baltimore Ravens vs Cincinnati Bengals\) | KXNFLGAME-26OCT25CINBAL-BAL |
 | 2026-10-17 21:30 | underdog\_value | Tampa Bay wins — NO: Kalshi says 29%, we say 34%; bought at 29¢ | no | 0.2900 | 0.3354 | +0.0254 | 86 | yes | lost (yes) | underdog \(3.4x payout\); Tampa Bay Lightning consensus 0.665 from 3 books \(Tampa Bay Lightning vs Vancouver Canucks\) | KXNHLGAME-26OCT17VANTB-TB |
