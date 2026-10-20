@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-20 19:34 UTC. Cash **$1489.36** (started $1000.00), realized PnL **$517.16**, fees $59.48, settled 75, wins 25, open positions 2.
+Updated 2026-10-20 22:21 UTC. Cash **$1453.38** (started $1000.00), realized PnL **$517.16**, fees $61.46, settled 75, wins 25, open positions 3.
 
 Brier (lower is better): strategy 0.2367 vs market price 0.2409.
 
@@ -14,11 +14,16 @@ Per league (Kalshi series):
 - `KXNCAAFGAME`: open 0, settled 40, wins 13, realized PnL $481.69, Brier 0.2044 vs market 0.2152
 - `KXNFLGAME`: open 1, settled 26, wins 7, realized PnL $-237.47, Brier 0.2281 vs market 0.2105
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
+- `KXUFCFIGHT`: open 1, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-20 22:21 | underdog\_value | Los Angeles G wins — YES: Kalshi says 19%, we say 61%; would buy at 19¢ | yes | 0.1900 | 0.6140 | +0.4040 | 100 | no | open | underdog \(5.3x payout\); Los Angeles FC consensus 0.614 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
+| 2026-10-20 22:21 | underdog\_value | Asaf Chopurov wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1936 | +0.0136 | 100 | yes | open | underdog \(5.9x payout\); Asaf Chopurov consensus 0.806 from 3 books \(Asaf Chopurov vs Colby Thicknesse\) | KXUFCFIGHT-26OCT24THICHO-CHO |
+| 2026-10-20 22:21 | sportsbook\_arb | Los Angeles G wins — YES: Kalshi says 19%, we say 61%; would buy at 19¢ | yes | 0.1900 | 0.6140 | +0.4040 | 100 | no | open | Los Angeles FC consensus 0.614 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
+| 2026-10-20 22:21 | sportsbook\_arb | Asaf Chopurov wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1936 | +0.0136 | 100 | yes | open | Asaf Chopurov consensus 0.806 from 3 books \(Asaf Chopurov vs Colby Thicknesse\) | KXUFCFIGHT-26OCT24THICHO-CHO |
 | 2026-10-20 15:40 | underdog\_value | Los Angeles G wins — YES: Kalshi says 18%, we say 61%; bought at 18¢ | yes | 0.1800 | 0.6140 | +0.4140 | 6 | yes | open | underdog \(5.6x payout\); Los Angeles FC consensus 0.614 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
 | 2026-10-20 15:40 | sportsbook\_arb | Los Angeles G wins — YES: Kalshi says 18%, we say 61%; bought at 18¢ | yes | 0.1800 | 0.6140 | +0.4140 | 6 | yes | open | Los Angeles FC consensus 0.614 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
 | 2026-10-18 14:38 | sportsbook\_arb | Houston wins — NO: Kalshi says 45%, we say 51%; bought at 45¢ | no | 0.4500 | 0.5065 | +0.0365 | 55 | yes | lost (yes) | Houston Texans consensus 0.494 from 3 books \(Jacksonville Jaguars vs Houston Texans\) | KXNFLGAME-26OCT18HOUJAC-HOU |
