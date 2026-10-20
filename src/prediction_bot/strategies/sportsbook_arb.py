@@ -162,10 +162,17 @@ class SportsbookArbStrategy(Strategy):
         return out
 
     def _prioritised(self, by_event: dict[str, list[Market]]) -> list[list[Market]]:
-        """Events grouped so the odds feeds with the most games starting soon are fetched
-        first; when the per-run Odds API budget runs out, the quieter feeds are skipped."""
+        """Events grouped so the odds feeds with the most bettable games are fetched
+        first; when the per-run Odds API budget runs out, the quieter feeds are skipped.
+
+        Games only count expected_expiration: close_time trails kickoff by days, so a
+        close-only game can't prove it's bettable and sorts last rather than spending
+        budget to find out. Outrights are different -- their close IS the resolution
+        clock, so it still counts. "Soon" means soon after the min_lead_hours gate
+        opens -- a lookahead shorter than the lead would score every feed zero."""
         now = datetime.now(timezone.utc)
-        horizon = now + timedelta(hours=self.settings.odds_lookahead_hours)
+        lead = timedelta(hours=self.settings.min_lead_hours)
+        window = (now + lead, now + lead + timedelta(hours=self.settings.odds_lookahead_hours))
         soon: dict[str, int] = defaultdict(int)
         first: dict[str, datetime] = {}
         for legs in by_event.values():
@@ -173,11 +180,17 @@ class SportsbookArbStrategy(Strategy):
             first.setdefault(feed, datetime.max.replace(tzinfo=timezone.utc))
             if not self._early_enough(legs):
                 continue  # ineligible under min_lead_hours: never outranks bettable events
-            anchor = _anchor(legs)
+            series = legs[0].event_ticker.split("-")[0]
+            if series in KALSHI_SERIES_TO_OUTRIGHT:
+                anchor = _anchor(legs)
+            else:
+                anchor = next((m.expected_expiration for m in legs if m.expected_expiration), None)
             if anchor is None:
                 continue
+            if anchor.tzinfo is None:
+                anchor = anchor.replace(tzinfo=timezone.utc)
             first[feed] = min(first[feed], anchor)
-            if now <= anchor <= horizon:
+            if window[0] <= anchor <= window[1]:
                 soon[feed] += 1
         return sorted(
             by_event.values(),

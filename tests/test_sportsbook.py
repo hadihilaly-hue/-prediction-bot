@@ -561,6 +561,80 @@ def test_budget_goes_to_league_with_most_games_soon(settings) -> None:  # type: 
     assert odds.sports == ["soccer_epl"]
 
 
+def test_close_only_event_does_not_outrank_timed_feeds(settings) -> None:  # type: ignore[no-untyped-def]
+    # close_time trails kickoff by days, so it can't prove a game is bettable: a
+    # close-only event sorts behind feeds with real expiry timing instead of
+    # spending odds budget to discover its kickoff is too soon
+    calls: list[str] = []
+
+    class OneCall(FakeOdds):
+        def h2h(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
+            if calls:
+                raise OddsBudgetExhausted("spent")
+            calls.append(sport)
+            return []
+
+    now = datetime.now(timezone.utc)
+    nhl = make_market(
+        "KXNHLGAME-X1-A",
+        "0.4",
+        "0.5",
+        subtitle="A",
+        close_time=now + timedelta(hours=79),  # earlier than the EPL expiry below
+    )
+    epl = make_market(
+        "KXEPLGAME-Y1-A",
+        "0.4",
+        "0.5",
+        subtitle="A",
+        expected_expiration=now + timedelta(hours=80),
+    )
+    strat = SportsbookArbStrategy(settings, odds_client=OneCall())  # type: ignore[arg-type]
+    strat.evaluate([nhl, epl])
+    assert calls == ["soccer_epl"]
+
+
+def test_close_only_outright_still_competes_for_budget(settings) -> None:  # type: ignore[no-untyped-def]
+    # outrights have no kickoff separate from their market close -- the close IS the
+    # resolution clock, so a close-only tournament still counts for priority instead
+    # of sorting last like a close-only game
+    calls: list[str] = []
+
+    class OneCall(FakeOdds):
+        def h2h(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
+            if calls:
+                raise OddsBudgetExhausted("spent")
+            calls.append(sport)
+            return []
+
+        def outrights(
+            self, sport: str, bookmakers: list[str] | None = None
+        ) -> list[dict[str, Any]]:
+            if calls:
+                raise OddsBudgetExhausted("spent")
+            calls.append(sport)
+            return []
+
+    now = datetime.now(timezone.utc)
+    outright = make_market(
+        "KXMASTERS-27-SS",
+        "0.13",
+        "0.15",
+        subtitle="Scottie Scheffler",
+        close_time=now + timedelta(hours=79),  # earlier than the EPL expiry below
+    )
+    epl = make_market(
+        "KXEPLGAME-Y1-A",
+        "0.4",
+        "0.5",
+        subtitle="A",
+        expected_expiration=now + timedelta(hours=80),
+    )
+    strat = SportsbookArbStrategy(settings, odds_client=OneCall())  # type: ignore[arg-type]
+    strat.evaluate([outright, epl])
+    assert calls == ["golf_masters_tournament_winner"]
+
+
 def test_draw_leg_alone_matches_no_fixture(settings) -> None:  # type: ignore[no-untyped-def]
     settings.odds_bookmakers = ["pinnacle", "draftkings"]
     strat = SportsbookArbStrategy(settings, odds_client=FakeOdds([_soccer_event()]))  # type: ignore[arg-type]
