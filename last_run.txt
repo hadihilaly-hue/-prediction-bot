@@ -1,1 +1,2 @@
  scanned=3000 signals=0 filled=0 settled=0 cash=1491.66
+ scanned=1461 signals=0 filled=0 settled=0 cash=1491.66
