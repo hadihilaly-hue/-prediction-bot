@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-21 20:53 UTC. Cash **$1453.38** (started $1000.00), realized PnL **$517.16**, fees $61.46, settled 75, wins 25, open positions 3.
+Updated 2026-10-21 22:24 UTC. Cash **$1453.38** (started $1000.00), realized PnL **$517.16**, fees $61.46, settled 75, wins 25, open positions 3.
 
 Brier (lower is better): strategy 0.2367 vs market price 0.2409.
 
@@ -20,6 +20,8 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-21 22:24 | underdog\_value | Los Angeles G wins — YES: Kalshi says 18%, we say 62%; would buy at 18¢ | yes | 0.1800 | 0.6160 | +0.4160 | 100 | no | open | underdog \(5.6x payout\); Los Angeles FC consensus 0.616 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
+| 2026-10-21 22:24 | sportsbook\_arb | Los Angeles G wins — YES: Kalshi says 18%, we say 62%; would buy at 18¢ | yes | 0.1800 | 0.6160 | +0.4160 | 100 | no | open | Los Angeles FC consensus 0.616 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
 | 2026-10-21 15:59 | underdog\_value | Los Angeles G wins — YES: Kalshi says 18%, we say 62%; would buy at 18¢ | yes | 0.1800 | 0.6160 | +0.4160 | 100 | no | open | underdog \(5.6x payout\); Los Angeles FC consensus 0.616 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
 | 2026-10-21 15:59 | underdog\_value | Colby Thicknesse wins — YES: Kalshi says 17%, we say 19%; would buy at 17¢ | yes | 0.1700 | 0.1902 | +0.0102 | 100 | no | open | underdog \(5.9x payout\); Colby Thicknesse consensus 0.190 from 3 books \(Asaf Chopurov vs Colby Thicknesse\) | KXUFCFIGHT-26OCT24THICHO-THI |
 | 2026-10-21 15:58 | sportsbook\_arb | Los Angeles G wins — YES: Kalshi says 18%, we say 62%; would buy at 18¢ | yes | 0.1800 | 0.6160 | +0.4160 | 100 | no | open | Los Angeles FC consensus 0.616 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
