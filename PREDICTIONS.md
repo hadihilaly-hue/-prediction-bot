@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-10-21 07:37 UTC. Cash **$1453.38** (started $1000.00), realized PnL **$517.16**, fees $61.46, settled 75, wins 25, open positions 3.
+Updated 2026-10-21 08:39 UTC. Cash **$1453.38** (started $1000.00), realized PnL **$517.16**, fees $61.46, settled 75, wins 25, open positions 3.
 
 Brier (lower is better): strategy 0.2367 vs market price 0.2409.
 
@@ -20,6 +20,8 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-21 08:39 | underdog\_value | Los Angeles G wins — YES: Kalshi says 18%, we say 62%; would buy at 18¢ | yes | 0.1800 | 0.6160 | +0.4160 | 100 | no | open | underdog \(5.6x payout\); Los Angeles FC consensus 0.616 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
+| 2026-10-21 08:39 | sportsbook\_arb | Los Angeles G wins — YES: Kalshi says 18%, we say 62%; would buy at 18¢ | yes | 0.1800 | 0.6160 | +0.4160 | 100 | no | open | Los Angeles FC consensus 0.616 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
 | 2026-10-20 22:21 | underdog\_value | Los Angeles G wins — YES: Kalshi says 19%, we say 61%; would buy at 19¢ | yes | 0.1900 | 0.6140 | +0.4040 | 100 | no | open | underdog \(5.3x payout\); Los Angeles FC consensus 0.614 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
 | 2026-10-20 22:21 | underdog\_value | Asaf Chopurov wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1936 | +0.0136 | 100 | yes | open | underdog \(5.9x payout\); Asaf Chopurov consensus 0.806 from 3 books \(Asaf Chopurov vs Colby Thicknesse\) | KXUFCFIGHT-26OCT24THICHO-CHO |
 | 2026-10-20 22:21 | sportsbook\_arb | Los Angeles G wins — YES: Kalshi says 19%, we say 61%; would buy at 19¢ | yes | 0.1900 | 0.6140 | +0.4040 | 100 | no | open | Los Angeles FC consensus 0.614 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
