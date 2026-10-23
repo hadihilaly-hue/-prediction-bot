@@ -185,50 +185,60 @@ def _feed_report_sections(
                 f"{run_id},{previous_id if previous_id is not None else 'none'},{credits},{feeds}"
             )
 
-        recent_pulls = [row for row in feed_pulls if since <= row[0] <= now]
         useful_pulls: Counter[str] = Counter()
         total_pulls: Counter[str] = Counter()
-        if recent_pulls:
-            source = "feed_pulls"
-            for _created_at, feed, candidates in recent_pulls:
-                total_pulls[feed] += 1
-                useful_pulls[feed] += int(candidates > 0)
-        else:
-            source = "blocks+signals reconstructed per run window"
-            series_to_feed = {**KALSHI_SERIES_TO_SPORT, **KALSHI_SERIES_TO_OUTRIGHT}
-            for run_id, _previous_id, start_at, end_at, _delta, _status in report_windows:
-                entry_window_events = {
-                    (event_ticker, rules_version)
-                    for created_at, event_ticker, reason, rules_version in blocks
-                    if start_at < created_at <= end_at
-                    and reason == "entry_window"
-                    and event_ticker
-                }
-                candidates: Counter[str] = Counter()
-                for created_at, event_ticker, reason, rules_version in blocks:
-                    if (
-                        reason != "net_edge"
-                        or not start_at < created_at <= end_at
-                        or not event_ticker
-                        or (event_ticker, rules_version) in entry_window_events
-                    ):
-                        continue
-                    feed = series_to_feed.get(event_ticker.split("-", 1)[0])
-                    if feed:
-                        candidates[feed] += 1
-                for created_at, event_ticker, rules_version in signals:
-                    if (
-                        not start_at < created_at <= end_at
-                        or not event_ticker
-                        or (event_ticker, rules_version) in entry_window_events
-                    ):
-                        continue
-                    feed = series_to_feed.get(event_ticker.split("-", 1)[0])
-                    if feed:
-                        candidates[feed] += 1
-                for feed in feeds_by_run[run_id]:
+        source = "feed_pulls per run window; blocks+signals reconstructed when absent"
+        series_to_feed = {**KALSHI_SERIES_TO_SPORT, **KALSHI_SERIES_TO_OUTRIGHT}
+        for run_id, _previous_id, start_at, end_at, _delta, _status in report_windows:
+            window_start = max(start_at, since)
+            run_pulls = [
+                (feed, candidates)
+                for created_at, feed, candidates in feed_pulls
+                if window_start < created_at <= end_at
+            ]
+            if run_pulls:
+                for feed, candidates in run_pulls:
                     total_pulls[feed] += 1
-                    useful_pulls[feed] += int(candidates[feed] > 0)
+                    useful_pulls[feed] += int(candidates > 0)
+                continue
+
+            entry_window_events = {
+                (event_ticker, rules_version)
+                for created_at, event_ticker, reason, rules_version in blocks
+                if window_start < created_at <= end_at
+                and reason == "entry_window"
+                and event_ticker
+            }
+            candidates: Counter[str] = Counter()
+            for created_at, event_ticker, reason, rules_version in blocks:
+                if (
+                    reason != "net_edge"
+                    or not window_start < created_at <= end_at
+                    or not event_ticker
+                    or (event_ticker, rules_version) in entry_window_events
+                ):
+                    continue
+                feed = series_to_feed.get(event_ticker.split("-", 1)[0])
+                if feed:
+                    candidates[feed] += 1
+            for created_at, event_ticker, rules_version in signals:
+                if (
+                    not window_start < created_at <= end_at
+                    or not event_ticker
+                    or (event_ticker, rules_version) in entry_window_events
+                ):
+                    continue
+                feed = series_to_feed.get(event_ticker.split("-", 1)[0])
+                if feed:
+                    candidates[feed] += 1
+            run_feeds = {
+                feed
+                for created_at, feed in snapshots
+                if window_start < created_at <= end_at
+            }
+            for feed in run_feeds:
+                total_pulls[feed] += 1
+                useful_pulls[feed] += int(candidates[feed] > 0)
         lines.extend(
             [
                 f"useful-pull ratio per feed (source: {source}; lookback starts {since.isoformat()}):",

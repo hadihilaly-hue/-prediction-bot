@@ -143,6 +143,48 @@ def test_compute_feed_stats_uses_nearest_rank_and_distinct_event_observations(
     assert not stats["basketball_nba"].provisional
 
 
+def test_repeat_pulls_do_not_drag_feed_percentiles_below_distinct_event_leads(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "repeat-feed-pulls.sqlite", Decimal("100"))
+    commence = now + timedelta(hours=24)
+    for index in range(10):
+        created = now - timedelta(hours=index)
+        _snapshot(
+            ledger,
+            "americanfootball_nfl",
+            "repeated-event",
+            created.isoformat(),
+            commence.isoformat(),
+        )
+        _snapshot(
+            ledger,
+            "americanfootball_nfl",
+            "repeated-event",
+            created.isoformat(),
+            commence.isoformat(),
+            team="Away",
+        )
+    for index in range(5):
+        created = now - timedelta(hours=1)
+        _snapshot(
+            ledger,
+            "americanfootball_nfl",
+            f"early-event-{index}",
+            created.isoformat(),
+            (created + timedelta(hours=200)).isoformat(),
+        )
+    ledger.conn.commit()
+
+    stat = compute_feed_stats(ledger, ["americanfootball_nfl"], now)["americanfootball_nfl"]
+    settings = Settings(_env_file=None, min_lead_hours=72, rules_version="v3")
+
+    assert stat.lead_p90_h >= 200
+    assert not stat.provisional
+    assert eligible(stat, settings)
+
+
 def test_feed_stats_count_recent_and_useful_pulls_from_feed_pulls(
     tmp_path,
 ) -> None:  # type: ignore[no-untyped-def]
@@ -523,13 +565,13 @@ def test_odds_budget_reports_run_feeds_credits_and_reconstructed_useful_pulls(
     assert "2,1,5,americanfootball_nfl|soccer_uefa_europa_league" in report
     assert "4,3,5,soccer_uefa_europa_league" in report
     assert (
-        "useful-pull ratio per feed (source: blocks+signals reconstructed per run window" in report
+        "useful-pull ratio per feed (source: feed_pulls per run window; blocks+signals "
+        "reconstructed when absent" in report
     )
     assert "americanfootball_nfl,1,0,0.000" in report
     assert "soccer_uefa_europa_league,2,1,0.500" in report
     assert "feed stats and eligibility (nearest-rank percentiles; min_lead_hours=72)" in report
-    ledger.record_feed_pulls({"americanfootball_nfl": 2}, "v3", run_times[1])
-    ledger.record_feed_pulls({"americanfootball_nfl": 0}, "v3", run_times[3])
+    ledger.record_feed_pulls({"baseball_mlb": 1}, "v3", run_times[2])
     report_with_feed_pulls = _feed_report_sections(
         path,
         [
@@ -539,8 +581,10 @@ def test_odds_budget_reports_run_feeds_credits_and_reconstructed_useful_pulls(
         run_times[0],
         run_times[-1] + timedelta(minutes=1),
     )
-    assert "useful-pull ratio per feed (source: feed_pulls;" in report_with_feed_pulls
-    assert "americanfootball_nfl,2,1,0.500" in report_with_feed_pulls
+    assert "useful-pull ratio per feed (source: feed_pulls per run window" in report_with_feed_pulls
+    assert "americanfootball_nfl,1,0,0.000" in report_with_feed_pulls
+    assert "baseball_mlb,1,1,1.000" in report_with_feed_pulls
+    assert "soccer_uefa_europa_league,2,1,0.500" in report_with_feed_pulls
 
 
 def test_v3_evaluate_counts_net_edge_blocks_and_signals_as_feed_candidates(

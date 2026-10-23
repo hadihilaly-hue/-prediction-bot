@@ -88,26 +88,25 @@ def compute_feed_stats_from_connection(
     source_feeds = sorted({*feed_names, *(f"outrights:{feed}" for feed in feed_names)})
     placeholders = ",".join("?" for _ in source_feeds)
     observations = conn.execute(
-        "SELECT feed,event_id,created_at,MIN(commence_time) FROM odds_snapshots "
-        f"WHERE feed IN ({placeholders}) GROUP BY feed,event_id,created_at",
+        "SELECT feed,event_id,created_at,commence_time FROM odds_snapshots "
+        f"WHERE feed IN ({placeholders})",
         source_feeds,
     )
-    lead_values: dict[str, list[float]] = {feed: [] for feed in feed_names}
-    event_ids: dict[str, set[str]] = {feed: set() for feed in feed_names}
+    event_leads: dict[str, dict[str, float]] = {feed: {} for feed in feed_names}
     for feed_value, event_value, created_value, commence_value in observations:
         feed = str(feed_value).removeprefix("outrights:")
         created_at = _timestamp(str(created_value))
         commence_time = _timestamp(str(commence_value))
         if (
-            feed not in lead_values
+            feed not in event_leads
             or created_at is None
             or commence_time is None
             or not cutoff <= created_at <= now_utc
         ):
             continue
         event_id = str(event_value)
-        event_ids[feed].add(event_id)
-        lead_values[feed].append((commence_time - created_at).total_seconds() / 3600)
+        lead = (commence_time - created_at).total_seconds() / 3600
+        event_leads[feed][event_id] = max(event_leads[feed].get(event_id, lead), lead)
 
     table_exists = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='feed_pulls'"
@@ -129,8 +128,8 @@ def compute_feed_stats_from_connection(
 
     stats: dict[str, FeedStat] = {}
     for feed in feed_names:
-        values = lead_values[feed]
-        provisional = len(event_ids[feed]) < MIN_EVENTS_FOR_PERCENTILES
+        values = list(event_leads[feed].values())
+        provisional = len(event_leads[feed]) < MIN_EVENTS_FOR_PERCENTILES
         if provisional:
             lead_p50 = lead_p90 = float(_seed_lead_hours(feed))
         else:
