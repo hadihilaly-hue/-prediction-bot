@@ -110,6 +110,10 @@ def test_dashboard_renders_captioned_measurement_tables(tmp_path) -> None:  # ty
         assert caption in html
     assert 'data-rules="v2"' in html
     assert 'data-rules="v1"' in html
+    assert 'id="evidence"' in html
+    assert "How much evidence is there?" in html
+    assert "Expected return if the Kalshi closing price is the true chance" in html
+    assert "closing-price gain by how far ahead of the game" in html
     for heading in (
         "Expected wins",
         "Actual wins",

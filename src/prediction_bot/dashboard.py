@@ -709,6 +709,10 @@ _TEMPLATE = """<!doctype html>
   .verdict h3 { margin:0 0 6px; font-size:15px; }
   .verdict .big { font-size:20px; font-weight:700; }
   .verdict p { margin:6px 0 0; font-size:13px; color:#3d4555; }
+  .evidence-head { margin:18px 0 4px; font-size:16px; }
+  .meter { display:grid; grid-template-columns:minmax(150px,220px) 1fr auto; gap:10px; align-items:center; margin:6px 0; font-size:13px; }
+  .meter .bar { height:10px; border-radius:999px; background:var(--line); overflow:hidden; }
+  .meter .bar span { display:block; height:100%; background:var(--good); }
   .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px; }
   .tabs button { border:1px solid var(--line); background:#fff; border-radius:999px;
                  padding:6px 14px; cursor:pointer; font:inherit; font-size:14px; }
@@ -765,6 +769,9 @@ _TEMPLATE = """<!doctype html>
     </div>
     <div class="note" id="rules-note" hidden></div>
     <div class="verdicts" id="verdicts"></div>
+    <h3 class="evidence-head">How much evidence is there?</h3>
+    <p class="hint">Closing-price gain (CLV) is the main evidence: it shows up long before profit stops being luck. A result counts once 50 bets have it and the whole 95% range is above zero.</p>
+    <div id="evidence"></div>
   </section>
 
   <section class="block">
@@ -956,9 +963,49 @@ _TEMPLATE = """<!doctype html>
       out.push(verdict('', 'Beating the closing price?', 'No data yet', 'Measured from Kalshi prices just before kickoff, after each game.'));
     }
     $('verdicts').innerHTML = out.join('');
+    renderEvidence(mine, done);
     renderPositions();
     renderMeasurement(V);
   }
+  function meanCi(values) {
+    if (!values.length) return null;
+    const m = values.reduce((a, b) => a + b, 0) / values.length;
+    if (values.length < 2) return {n: values.length, mean: m, ci: null};
+    const sd = Math.sqrt(values.reduce((a, b) => a + (b - m) * (b - m), 0) / (values.length - 1));
+    const h = 1.96 * sd / Math.sqrt(values.length);
+    return {n: values.length, mean: m, ci: [m - h, m + h]};
+  }
+
+  function evidenceVerdict(n, ci) {
+    if (n < 50) return pill('', 'Not enough yet');
+    if (ci && ci[0] > 0) return pill('won', 'Real edge');
+    if (ci && ci[1] < 0) return pill('lost', 'Losing to the close');
+    return pill('', 'No edge shown');
+  }
+
+  function renderEvidence(mine, done) {
+    const withClv = mine.filter(p => num(p.clv));
+    const meter = (label, n) => '<div class="meter"><div>' + esc(label) + '</div><div class="bar"><span style="width:' + Math.min(100, n / 50 * 100) + '%"></span></div><div><b>' + n + '</b> / 50</div></div>';
+    const cents = meanCi(withClv.map(p => p.clv));
+    const perDollar = meanCi(withClv.filter(p => num(p.price) && p.price > 0).map(p => p.clv / 100 / p.price));
+    const range = (r, f) => r && r.ci ? f(r.ci[0]) + ' to ' + f(r.ci[1]) : '–';
+    const per100 = x => (x >= 0 ? '+$' : '−$') + Math.abs(x * 100).toFixed(2);
+    const rows = [
+      ['Per contract (cents)', String(cents ? cents.n : 0), {v: cents ? signedCents(cents.mean) : '–', cls: cents ? tone(cents.mean) : ''}, range(cents, signedCents), cents ? evidenceVerdict(cents.n, cents.ci) : evidenceVerdict(0, null)],
+      ['Per $100 bet', String(perDollar ? perDollar.n : 0), {v: perDollar ? per100(perDollar.mean) : '–', cls: perDollar ? tone(perDollar.mean) : ''}, range(perDollar, per100), perDollar ? evidenceVerdict(perDollar.n, perDollar.ci) : evidenceVerdict(0, null)]
+    ];
+    const windows = (Q.entry_window_clv || {})[rules] || {};
+    const windowNames = {'72h+': 'Bought 3+ days before', '24-72h': 'Bought 1–3 days before', '2-24h': 'Bought on game day'};
+    const windowRows = Object.keys(windowNames).filter(w => windows[w]).map(w => {
+      const g = windows[w]; const n = g.n || 0;
+      return [windowNames[w], String(n), {v: signedCents(g.mean_clv), cls: tone(g.mean_clv)}, g.ci95 ? signedCents(g.ci95[0]) + ' to ' + signedCents(g.ci95[1]) : '–', evidenceVerdict(n, g.ci95)];
+    });
+    $('evidence').innerHTML = meter('Bets with a closing price', withClv.length) + meter('Finished bets', done.length) +
+      '<div class="tablewrap"><table id="expected"></table></div>' + (windowRows.length ? '<div class="tablewrap"><table id="windows"></table></div>' : '');
+    table('expected', 'Expected return if the Kalshi closing price is the true chance, before fees on the way out.', ['Measure', '#Bets', '#Average', '95% range', 'Verdict'], rows, '');
+    if (windowRows.length) table('windows', 'When to buy: closing-price gain by how far ahead of the game the bot would have bought (shadow test, no real trades).', ['Window', '#Bets', '#Average', '95% range', 'Verdict'], windowRows, '');
+  }
+
   document.querySelectorAll('#rules-tabs button').forEach(b => b.addEventListener('click', () => { rules = b.dataset.rules; renderVerdicts(); }));
 
   const groupOpen = new Map();
