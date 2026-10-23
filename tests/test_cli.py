@@ -57,11 +57,10 @@ def test_v1_paper_does_not_implicitly_add_v2_shadow(tmp_path, monkeypatch) -> No
 def test_scanner_only_paper_uses_configured_clv_budget(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     import prediction_bot.cli as cli
 
-    settings = Settings(
-        _env_file=None,
+    settings = Settings.model_construct(
         rules_version="v1",
         shadow_strategies=[],
-        paper_db_path=str(tmp_path / "scanner-clv.sqlite"),
+        paper_db_path=tmp_path / "scanner-clv.sqlite",
         clv_max_calls_scanner=300,
     )
     budgets: list[int] = []
@@ -79,12 +78,21 @@ def test_scanner_only_paper_uses_configured_clv_budget(tmp_path, monkeypatch) ->
     monkeypatch.setattr(cli, "_settings", lambda: settings)
     monkeypatch.setattr(cli, "_client", lambda _settings: object())
     monkeypatch.setattr(cli, "_odds_client", lambda _settings: None)
-    monkeypatch.setattr(cli, "_strategies", lambda *_args, **_kwargs: [])
+
+    def strategies_stub(*_args: object, **_kwargs: object) -> list[object]:
+        return []
+
+    monkeypatch.setattr(cli, "_strategies", strategies_stub)
     monkeypatch.setattr(cli, "_fetch", lambda _client, _series: [])
     monkeypatch.setattr(cli, "Engine", EngineStub)
-    monkeypatch.setattr(
-        cli, "record_clv", lambda *args, **kwargs: budgets.append(kwargs["max_calls"]) or 0
-    )
+
+    def record_clv_stub(*_args: object, **kwargs: object) -> int:
+        max_calls = kwargs.get("max_calls")
+        if isinstance(max_calls, int):
+            budgets.append(max_calls)
+        return 0
+
+    monkeypatch.setattr(cli, "record_clv", record_clv_stub)
 
     cli.paper(strategy=["book_scanner"], cycles=1)
 

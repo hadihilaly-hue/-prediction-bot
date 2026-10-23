@@ -1180,7 +1180,7 @@ def test_entry_window_candidate_is_shadowed_but_not_traded(settings, tmp_path) -
     assert decision == ("v2", "24-72h", 1, "entry_window")
 
 
-def test_near_miss_ledger_dedupes_by_day_and_caps_each_run(tmp_path) -> None:
+def test_near_miss_ledger_dedupes_by_day_and_caps_each_run(tmp_path: Path) -> None:
     created = datetime(2026, 10, 23, 12, tzinfo=timezone.utc)
     commence = created + timedelta(hours=100)
     ledger = Ledger(tmp_path / "near-miss-ledger.sqlite", Decimal("1000"))
@@ -1241,7 +1241,7 @@ def test_near_miss_ledger_dedupes_by_day_and_caps_each_run(tmp_path) -> None:
     assert capped.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 400
 
 
-def test_entry_window_would_trade_shadow_is_deduped_per_utc_day(tmp_path) -> None:
+def test_entry_window_would_trade_shadow_is_deduped_per_utc_day(tmp_path: Path) -> None:
     from dataclasses import replace
 
     created = datetime(2026, 10, 23, 23, 30, tzinfo=timezone.utc)

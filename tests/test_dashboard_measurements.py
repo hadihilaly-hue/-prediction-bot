@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import cast
 
 from prediction_bot.dashboard import dashboard_data, render_dashboard
 from prediction_bot.models import MakerShadowCandidate, OutcomeSide, Signal
@@ -50,21 +51,24 @@ def test_dashboard_clv_cohorts_report_bucket_verdicts_and_exclusions(tmp_path) -
     )
     ledger.conn.commit()
 
-    quality = dashboard_data(ledger)["measurement"]["quality"]
-    by_edge = quality["clv_by_edge"]
-    supported = next(row for row in by_edge["buckets"] if row["edge_bucket"] == "0-1")
-    rejected = next(row for row in by_edge["buckets"] if row["edge_bucket"] == "2-3")
-    opened = next(row for row in by_edge["buckets"] if row["edge_bucket"] == "1-2")
+    measurement = cast(dict[str, object], dashboard_data(ledger)["measurement"])
+    quality = cast(dict[str, object], measurement["quality"])
+    by_edge = cast(dict[str, object], quality["clv_by_edge"])
+    buckets = cast(list[dict[str, object]], by_edge["buckets"])
+    supported = next(row for row in buckets if row["edge_bucket"] == "0-1")
+    rejected = next(row for row in buckets if row["edge_bucket"] == "2-3")
+    opened = next(row for row in buckets if row["edge_bucket"] == "1-2")
     assert (supported["n"], supported["verdict"]) == (50, "supported")
     assert (rejected["n"], rejected["verdict"]) == (50, "rejected")
     assert (opened["n"], opened["verdict"]) == (5, "open")
     assert by_edge["excluded_by_status"] == [
         {"rules_version": "v2", "clv_status": "no_commence", "n": 1}
     ]
-    by_window = quality["clv_by_window"]
-    assert by_window["windows"][0]["window"] == "72h+"
-    assert by_window["windows"][0]["n"] == 105
-    assert by_window["windows"][0]["mean_clv_kalshi"] == 0.5
+    by_window = cast(dict[str, object], quality["clv_by_window"])
+    windows = cast(list[dict[str, object]], by_window["windows"])
+    assert windows[0]["window"] == "72h+"
+    assert windows[0]["n"] == 105
+    assert windows[0]["mean_clv_kalshi"] == 0.5
 
 
 def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: ignore[no-untyped-def]

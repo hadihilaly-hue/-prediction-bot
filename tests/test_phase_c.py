@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 from prediction_bot.cli import _snapshot_markets
 from prediction_bot.clv import record_clv
@@ -281,17 +282,22 @@ def test_dashboard_exposes_versioned_window_clv_and_null_small_sample_ci(tmp_pat
     )
     ledger.conn.commit()
 
-    measurement = dashboard_data(ledger)["measurement"]
-    summary = measurement["quality"]["entry_window_clv"]
-    assert summary["v3"]["72h+"]["n"] == 5
-    assert summary["v3"]["72h+"]["ci95"] is not None
-    assert summary["v3"]["72h+"]["mean_clv_exit"] == 4
-    assert summary["v2"]["72h+"]["n"] == 4
-    assert summary["v2"]["72h+"]["ci95"] is None
+    measurement = cast(dict[str, object], dashboard_data(ledger)["measurement"])
+    quality = cast(dict[str, object], measurement["quality"])
+    summary = cast(dict[str, object], quality["entry_window_clv"])
+    v3 = cast(dict[str, object], summary["v3"])
+    v2 = cast(dict[str, object], summary["v2"])
+    v3_window = cast(dict[str, object], v3["72h+"])
+    v2_window = cast(dict[str, object], v2["72h+"])
+    assert v3_window["n"] == 5
+    assert v3_window["ci95"] is not None
+    assert v3_window["mean_clv_exit"] == 4
+    assert v2_window["n"] == 4
+    assert v2_window["ci95"] is None
     assert (
         next(
             row
-            for row in measurement["quality"]["shadow_decisions"]
+            for row in cast(list[dict[str, object]], quality["shadow_decisions"])
             if row["version"] == "v3" and row["window"] == "72h+"
         )["n"]
         == 5
