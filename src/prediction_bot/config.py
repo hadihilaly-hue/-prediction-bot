@@ -146,6 +146,7 @@ class Settings(BaseSettings):
     odds_planner: Literal["fixed", "event_driven"] = "fixed"
     odds_feed_selection: Literal["rotation", "lead_aware", "legacy"] = "rotation"
     odds_measurement_windows: bool = False
+    odds_weekday_prior: bool = True
     odds_trigger_daily_cap: int = 4
 
     # Paper trading

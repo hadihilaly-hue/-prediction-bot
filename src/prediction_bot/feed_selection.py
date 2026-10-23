@@ -65,6 +65,15 @@ def _utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def weekday_prior(feed: str, now: datetime) -> Decimal:
+    weekday = _utc(now).weekday()
+    if weekday <= 2 and feed in {"americanfootball_nfl", "americanfootball_ncaaf"}:
+        return Decimal("1.5")
+    if weekday >= 3 and (feed.startswith("soccer_") or feed == "mma_mixed_martial_arts"):
+        return Decimal("1.5")
+    return Decimal(1)
+
+
 def _timestamp(value: str | datetime) -> datetime | None:
     if isinstance(value, datetime):
         return _utc(value)
@@ -431,7 +440,9 @@ def select_rotation_feeds(
         ),
         key=lambda feed: (
             0 if feed_state[feed][1] else 1 if feed_state[feed][2] else 2,
-            -scores[feed].entry_value * scores[feed].staleness_hours,
+            -scores[feed].entry_value
+            * scores[feed].staleness_hours
+            * (weekday_prior(feed, now_utc) if settings.odds_weekday_prior else Decimal(1)),
             scores[feed].soonest_kickoff or datetime.max.replace(tzinfo=timezone.utc),
             feed,
         ),

@@ -561,7 +561,9 @@ def paper(
                 log.exception("Lead-aware odds planning failed; no odds feeds selected")
         elif odds is not None:
             odds.allowed_sports = None
+        cycle_started_at = datetime.now(timezone.utc)
         res = engine.run_cycle(markets)
+        ledger.record_feed_pull_gate_candidates(res.gate_candidates, cycle_started_at)
         if trigger is not None:
             status = "pulled" if odds is not None and odds.odds_requests_made > 0 else "skipped"
             ledger.finish_odds_trigger(trigger, status)

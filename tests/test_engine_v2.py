@@ -160,6 +160,43 @@ def test_engine_records_request_costs_then_clears_per_run_odds_state(settings, t
     assert odds.requests_last_by_sport == {}
 
 
+def test_engine_logs_distinct_gate_candidates_only_for_pulled_feeds(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    primary_signal = v2_signal(key="signal")
+    near_misses = [
+        (v2_signal(key="edge-1"), "net_edge"),
+        (v2_signal(key="edge-2"), "net_edge"),
+        (v2_signal(key="entry-1"), "entry_window"),
+        (v2_signal(key="entry-2"), "entry_window"),
+        (v2_signal(key="entry-3"), "entry_window"),
+    ]
+
+    class Candidates(FixedSignals):
+        def seen_feed_pulls(self) -> dict[str, int]:
+            return {"americanfootball_nfl": 1}
+
+        def seen_near_miss_decisions(self) -> list[tuple[Signal, str]]:
+            return near_misses
+
+    ledger = Ledger(tmp_path / "gate-candidates.sqlite", Decimal("100"))
+    started = datetime.now(timezone.utc)
+    ledger.record_feed_pulls({"soccer_epl": 1}, "v2", started - timedelta(minutes=1))
+    engine = Engine(
+        settings.model_copy(update={"kill_switch": True}),
+        object(),
+        [Candidates(settings, [primary_signal])],
+        ledger,
+    )  # type: ignore[arg-type]
+
+    result = engine.run_cycle([])
+    updated = ledger.record_feed_pull_gate_candidates(result.gate_candidates, started)
+
+    assert result.gate_candidates == {"americanfootball_nfl": 3}
+    assert updated == 1
+    assert ledger.conn.execute(
+        "SELECT feed,gate_candidates FROM feed_pulls ORDER BY id"
+    ).fetchall() == [("soccer_epl", None), ("americanfootball_nfl", 3)]
+
+
 def test_v2_blocks_opposite_position_in_same_event(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
     ledger = Ledger(tmp_path / "opposite.sqlite", Decimal("1000"))
     first = v2_signal()

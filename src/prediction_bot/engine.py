@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 class CycleResult:
     markets_scanned: int = 0
     signals: list[Signal] = field(default_factory=list)
+    gate_candidates: dict[str, int] = field(default_factory=dict)
     acted: list[Signal] = field(default_factory=list)
     orders_placed: list[Signal] = field(default_factory=list)
     paper_fills_resolved: int = 0
@@ -82,11 +83,23 @@ class Engine:
 
     def run_cycle(self, markets: Sequence[Market]) -> CycleResult:
         res = CycleResult(markets_scanned=len(markets))
+        gate_candidate_keys: dict[str, set[str]] = {}
+
+        def add_gate_candidate(signal: Signal) -> None:
+            if signal.position_key is None or signal.event_ticker is None:
+                return
+            feed = KALSHI_SERIES_TO_SPORT.get(signal.event_ticker.split("-", 1)[0])
+            if feed is not None:
+                gate_candidate_keys.setdefault(feed, set()).add(signal.position_key)
+
         if self._maker_first_enabled() or (not self.live and bool(self.ledger.open_paper_orders())):
             res.paper_fills_resolved = self._resolve_paper_orders(self.clock())
         for strat in self.strategies:
             try:
-                res.signals.extend(strat.evaluate(markets))
+                signals = strat.evaluate(markets)
+                res.signals.extend(signals)
+                for signal in signals:
+                    add_gate_candidate(signal)
             except Exception:  # keep other strategies alive
                 log.exception("strategy %s failed", strat.name)
         for sig in res.signals:
@@ -108,7 +121,9 @@ class Engine:
                         self.ledger.record_shadow_decision(sig, "v2", reason="line_move_follower")
         for strat in self.shadow_strategies:
             try:
-                for sig in strat.evaluate(markets):
+                shadow_signals = strat.evaluate(markets)
+                for sig in shadow_signals:
+                    add_gate_candidate(sig)
                     if sig.strategy != "book_scanner":
                         version = sig.rules_version or (
                             "v2" if strat.name == "sportsbook_v2" else "v1"
@@ -136,7 +151,11 @@ class Engine:
             for strat in (*self.strategies, *self.shadow_strategies):
                 get = getattr(strat, "seen_near_miss_decisions", None)
                 if get is not None:
-                    near_miss_decisions.extend(get())
+                    decisions = get()
+                    near_miss_decisions.extend(decisions)
+                    for signal, reason in decisions:
+                        if reason == "net_edge":
+                            add_gate_candidate(signal)
             self.ledger.record_near_miss_decisions(near_miss_decisions)
         except Exception:
             log.exception("failed to record near-miss decisions")
@@ -239,6 +258,9 @@ class Engine:
                     self.kalshi.cancel_order(str(o["order_id"]))
             for s in res.signals:
                 self.ledger.record_signal(s, acted=False)
+            res.gate_candidates = {
+                feed: len(position_keys) for feed, position_keys in gate_candidate_keys.items()
+            }
             return res
         for batch in self._batches(res.signals):
             if not all(self._admissible(s, batch) for s in batch):
@@ -260,6 +282,9 @@ class Engine:
                             sig.group,
                         )
                     break
+        res.gate_candidates = {
+            feed: len(position_keys) for feed, position_keys in gate_candidate_keys.items()
+        }
         return res
 
     def _maker_first_enabled(self) -> bool:

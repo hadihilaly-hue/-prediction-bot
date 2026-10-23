@@ -142,9 +142,12 @@ def _feed_report_sections(
             str(row[0]) for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
         feed_pulls: list[tuple[datetime, str, int, int | None]] = []
+        gate_candidate_pulls: list[tuple[datetime, str, int]] = []
+        has_gate_candidate_column = False
         if "feed_pulls" in table_names:
             pull_columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(feed_pulls)")}
             requests_column = "requests_last" if "requests_last" in pull_columns else "NULL"
+            has_gate_candidate_column = "gate_candidates" in pull_columns
             feed_pulls = [
                 (
                     _utc(str(created_at)),
@@ -156,6 +159,14 @@ def _feed_report_sections(
                     f"SELECT created_at,feed,candidates,{requests_column} FROM feed_pulls"
                 )
             ]
+            if has_gate_candidate_column:
+                gate_candidate_pulls = [
+                    (_utc(str(created_at)), _canonical_feed(str(feed)), int(count))
+                    for created_at, feed, count in conn.execute(
+                        "SELECT created_at,feed,gate_candidates FROM feed_pulls "
+                        "WHERE gate_candidates IS NOT NULL"
+                    )
+                ]
         blocks = [
             (
                 _utc(str(created_at)),
@@ -296,6 +307,26 @@ def _feed_report_sections(
             lines.append(f"{feed},{credits_by_feed[feed]}")
         if not credits_by_feed:
             lines.append("none")
+
+        if has_gate_candidate_column:
+            gate_totals: Counter[str] = Counter()
+            gate_pulls: Counter[str] = Counter()
+            for _run_id, _previous_id, start_at, end_at, _delta, _status in report_windows:
+                window_start = max(start_at, since)
+                for created_at, feed, count in gate_candidate_pulls:
+                    if window_start < created_at <= end_at:
+                        gate_totals[feed] += count
+                        gate_pulls[feed] += 1
+            lines.extend(
+                [
+                    "mean gate candidates per feed pull:",
+                    "feed,mean_gate_candidates",
+                ]
+            )
+            for feed in sorted(gate_totals):
+                lines.append(f"{feed},{gate_totals[feed] / gate_pulls[feed]:.3f}")
+            if not gate_totals:
+                lines.append("none")
 
         skip_counts: Counter[tuple[str, str]] = Counter()
         for created_at, feed, reason in skips:
