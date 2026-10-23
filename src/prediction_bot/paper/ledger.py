@@ -328,6 +328,8 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
 );
 CREATE INDEX IF NOT EXISTS market_snapshots_ticker_fetched_at
     ON market_snapshots(ticker, fetched_at);
+CREATE INDEX IF NOT EXISTS market_snapshots_event_ticker_fetched_at
+    ON market_snapshots(event_ticker, fetched_at);
 CREATE TABLE IF NOT EXISTS closing_quotes (
     ticker TEXT NOT NULL,
     commence_time TEXT NOT NULL,

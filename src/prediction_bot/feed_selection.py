@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import sqlite3
 from collections.abc import Iterable, Mapping, Sequence
@@ -15,6 +16,8 @@ if TYPE_CHECKING:
     import sqlite3
 
     from prediction_bot.paper.ledger import Ledger
+
+log = logging.getLogger(__name__)
 
 SEED_LEAD_HOURS: dict[str, int] = {
     "americanfootball_nfl": 240,
@@ -378,12 +381,18 @@ def select_rotation_feeds(
         if events_client is not None and getattr(events_client, "events_free", True):
             window_start = _utc(now) + timedelta(hours=settings.min_lead_hours)
             window_end = _utc(now) + ENTRY_LOOKAHEAD
-            events = events_client.events(feed, window_start, window_end)
-            if getattr(events_client, "events_free", True) and not any(
-                (commence := _timestamp(str(event.get("commence_time", "")))) is not None
-                and window_start <= commence <= window_end
-                for event in events
-            ):
+            try:
+                events = events_client.events(feed, window_start, window_end)
+                no_events = getattr(events_client, "events_free", True) and not any(
+                    (commence := _timestamp(str(event.get("commence_time", "")))) is not None
+                    and window_start <= commence <= window_end
+                    for event in events
+                )
+            except Exception as exc:
+                log.warning("Rotation events check failed for %s: %s", feed, exc)
+                skips[feed] = "events_error"
+                continue
+            if no_events:
                 skips[feed] = "no_events"
                 continue
         selected.append(feed)

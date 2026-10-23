@@ -409,6 +409,41 @@ def test_rotation_no_events_is_recorded_and_events_cost_disables_blocking(
     assert skips == {}
 
 
+def test_rotation_events_error_skips_one_feed_without_failing_selection(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "rotation-events-error.sqlite", Decimal("100"))
+    games = {
+        "americanfootball_nfl": [PlannedGame(now + timedelta(hours=100), event_ticker="NFL-EVENT")],
+        "soccer_epl": [PlannedGame(now + timedelta(hours=100), event_ticker="EPL-EVENT")],
+    }
+    _market_snapshot(ledger, "NFL-EVENT", "NFL-EVENT-H", now, "0.45", "0.49", "10")
+    _market_snapshot(ledger, "EPL-EVENT", "EPL-EVENT-H", now, "0.45", "0.49", "10")
+
+    class Events:
+        events_free = True
+
+        def events(self, feed: str, *_args, **_kwargs):
+            if feed == "americanfootball_nfl":
+                raise RuntimeError("temporary events failure")
+            return [{"commence_time": (now + timedelta(hours=100)).isoformat()}]
+
+    selected, skips, _scores = select_rotation_feeds(
+        ledger,
+        games,
+        {
+            "americanfootball_nfl": _stat("americanfootball_nfl", 240),
+            "soccer_epl": _stat("soccer_epl", 168),
+        },
+        Settings(_env_file=None, rules_version="v3", min_lead_hours=72),
+        Events(),
+        now,
+        2,
+    )
+
+    assert selected == ["soccer_epl"]
+    assert skips == {"americanfootball_nfl": "events_error"}
+
+
 def test_rotation_evaluates_top_feed_on_each_two_hour_slot_in_no_move_day(
     tmp_path,
 ) -> None:  # type: ignore[no-untyped-def]
@@ -839,6 +874,50 @@ def test_odds_budget_reports_run_feeds_credits_and_reconstructed_useful_pulls(
     assert "baseball_mlb,2" in report_with_feed_pulls
     assert "feed skips by reason:" in report_with_feed_pulls
     assert "soccer_uefa_europa_league,no_move,1" in report_with_feed_pulls
+
+
+def test_odds_budget_sums_feed_request_costs_and_skip_reasons(tmp_path: Path) -> None:
+    path = tmp_path / "budget-feed-costs.sqlite"
+    ledger = Ledger(path, Decimal("100"))
+    run_times = [datetime(2026, 10, 1, hour, tzinfo=timezone.utc) for hour in (10, 12)]
+    for index, (ran_at, cumulative) in enumerate(zip(run_times, (5, 8), strict=True), 1):
+        ledger.conn.execute(
+            "INSERT INTO runs (id,ran_at,strategies,scanned,signals,filled,settled,cash,"
+            "open_cost,odds_used) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (index, ran_at.isoformat(), "sportsbook_v3", 0, 0, 0, 0, "100", "0", cumulative),
+        )
+    ledger.record_feed_pulls(
+        {"soccer_epl": 1},
+        "v3",
+        run_times[0] - timedelta(minutes=1),
+        {"soccer_epl": 1},
+    )
+    ledger.record_feed_pulls(
+        {"soccer_epl": 1},
+        "v3",
+        run_times[1] - timedelta(minutes=1),
+        {"soccer_epl": 2},
+    )
+    ledger.record_feed_skips({"soccer_epl": "no_move"}, run_times[0] - timedelta(minutes=2))
+    ledger.record_feed_skips({"soccer_epl": "no_move"}, run_times[1] - timedelta(minutes=2))
+    ledger.record_feed_skips({"soccer_epl": "no_events"}, run_times[1] - timedelta(minutes=3))
+    ledger.conn.commit()
+
+    report = _feed_report_sections(
+        path,
+        [
+            (index, ran_at, cumulative)
+            for index, (ran_at, cumulative) in enumerate(zip(run_times, (5, 8), strict=True), 1)
+        ],
+        run_times[0] - timedelta(hours=1),
+        run_times[-1] + timedelta(minutes=1),
+    )
+
+    assert "credits by feed (SUM(requests_last), fallback to feed attribution)" in report
+    assert "soccer_epl,3" in report
+    assert "feed skips by reason:" in report
+    assert "soccer_epl,no_move,2" in report
+    assert "soccer_epl,no_events,1" in report
 
 
 def test_v3_evaluate_counts_net_edge_blocks_and_signals_as_feed_candidates(

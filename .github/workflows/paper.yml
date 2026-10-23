@@ -3,8 +3,9 @@ name: Paper trading
 # Paper-trades against Kalshi's *public production* market data (real prices, no
 # credentials, paper mode never places orders) and persists the SQLite ledger +
 # report on the `paper-ledger` branch. The book scanner runs every 30 min (free on a
-# public repo); the sportsbook strategy runs 12 times a day and spends about 1 feed
-# per run (12 runs x 1 feed x 31 days = 372 req/month), inside the free 500 tier.
+# public repo); each sportsbook run spends its pacer share of the quota left this
+# month (~16/day on the 500 free tier; most runs pull 1 feed and about every third
+# pulls 2). Skipped pulls are banked.
 # Manual runs always include the sportsbook strategy.
 on:
   schedule:
