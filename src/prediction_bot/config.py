@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -57,9 +58,15 @@ class Settings(BaseSettings):
     # the UTC day once realized PnL settled today reaches -limit. Unset = disabled.
     kill_switch: bool = False
     max_daily_loss: Decimal | None = None
-    # `underdog_value` only buys sides whose ask is inside this band (10c..25c = 4x..10x).
-    # Paper results: <=24c entries won 4/7 vs 1/7 at 28-40c, so the top of the old band is
-    # where "edge vs consensus" was noise rather than value.
+    # Entry style: "maker" posts at bid+1c inside the spread when it exists (1.75% fee
+    # and a better price than the ask), "taker" always crosses to the ask (7% fee).
+    entry_style: Literal["taker", "maker"] = "maker"
+    # Entries are skipped when the top of book holds fewer than this many contracts on
+    # the level we'd interact with — a thinner book is usually a stale/dead quote.
+    min_book_depth: Decimal = Decimal("10")
+    # `underdog_value` only buys sides whose entry price sits in this band (10c..25c =
+    # 4x..10x). Paper results: <=24c entries won 4/7 vs 1/7 at 28-40c, so the top of the
+    # old band is where "edge vs consensus" was noise rather than value.
     underdog_min_price: Decimal = Decimal("0.10")
     underdog_max_price: Decimal = Decimal("0.25")
     # Sportsbook strategies only enter at least this many hours before the event

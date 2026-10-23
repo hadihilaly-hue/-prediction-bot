@@ -38,9 +38,14 @@ class BookScannerStrategy(Strategy):
                     side,
                     Decimal(1) - other,
                     rationale,
+                    taker=True,  # both legs must cross now; a resting leg is unhedged
                     max_size=size,
                     group=m.ticker,
                     check_edge=False,
+                    # FOK all-or-nothing pairs are safe at any depth — the fill either
+                    # covers both legs or nothing trades. Thin books are where sub-$1
+                    # pairs actually appear, so the depth gate would only hide them.
+                    check_depth=False,
                 )
                 for side, other in ((OutcomeSide.yes, no_ask), (OutcomeSide.no, yes_ask))
             ]

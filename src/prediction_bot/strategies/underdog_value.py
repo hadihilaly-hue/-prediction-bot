@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 from prediction_bot.models import Market, OutcomeSide, Signal
@@ -25,14 +26,10 @@ class UnderdogValueStrategy(SportsbookArbStrategy):
         lo, hi = self.settings.underdog_min_price, self.settings.underdog_max_price
         out: list[Signal] = []
         for side, side_fair in ((OutcomeSide.yes, fair), (OutcomeSide.no, Decimal(1) - fair)):
-            ask = m.quote.ask_for(side)
-            if ask is None or ask <= 0 or not (lo <= ask <= hi):
-                continue
-            payout = (Decimal(1) / ask).quantize(Decimal("0.1"))
             eq = ((twin.ticker, side.opposite()),) if twin else ()
-            sig = self.make_signal(
-                m, side, side_fair, f"underdog ({payout}x payout); {rationale}", equivalents=eq
-            )
-            if sig:
-                out.append(sig)
+            sig = self.make_signal(m, side, side_fair, rationale, equivalents=eq)
+            if sig is None or not (lo <= sig.limit_price <= hi):
+                continue  # the entry price we'd actually pay must sit in the band
+            payout = (Decimal(1) / sig.limit_price).quantize(Decimal("0.1"))
+            out.append(replace(sig, rationale=f"underdog ({payout}x payout); {rationale}"))
         return out
