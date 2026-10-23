@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from prediction_bot.config import Settings
+from prediction_bot.fees import FEE_MODEL_VERSION, maker_fee, taker_fee
 from prediction_bot.models import Block, Market, OutcomeSide, Signal, fee_for
 from prediction_bot.odds import ConsensusOdds
 from prediction_bot.paper.ledger import Ledger
@@ -94,6 +95,28 @@ class Engine:
                     write(items)
                 except Exception:
                     log.exception("failed to record %s", method_name)
+        shadow_updates = [
+            update
+            for strat in self.strategies
+            if (get := getattr(strat, "seen_maker_shadow_updates", None)) is not None
+            for update in get()
+        ]
+        if shadow_updates:
+            try:
+                self.ledger.update_maker_shadows(shadow_updates)
+            except Exception:
+                log.exception("failed to update maker shadows")
+        maker_shadows = [
+            shadow
+            for strat in self.strategies
+            if (get := getattr(strat, "seen_maker_shadows", None)) is not None
+            for shadow in get()
+        ]
+        if maker_shadows:
+            try:
+                self.ledger.record_maker_shadows(maker_shadows)
+            except Exception:
+                log.exception("failed to record maker shadows")
         # Snapshot every sportsbook consensus the strategies fetched this cycle, once
         # per (feed, event) — strategies sharing one odds client report the same data.
         seen: dict[str, dict[str, ConsensusOdds]] = {}
@@ -176,20 +199,43 @@ class Engine:
                 reason = "missing_position_key"
             elif any(held != sig.position_key for held in self.ledger.held_keys(sig.event_ticker)):
                 reason = "opposite_position"
+            elif sig.fee_type is None or sig.fee_multiplier is None:
+                reason = "fee_unknown"
+            elif sig.fee_type not in {"quadratic", "quadratic_with_maker_fees"}:
+                reason = "unknown_fee_type"
             else:
-                cost = sig.limit_price * sig.size + fee_for(
-                    sig.limit_price, sig.size, self.settings.taker_fee_multiplier
-                )
-                if (
-                    self.ledger.position_cost(sig.position_key) + cost
-                    > self.settings.v2_max_position_cost
-                ):
-                    reason = "cap_position"
-                elif (
-                    self.ledger.event_cost(sig.event_ticker) + cost
-                    > self.settings.v2_max_event_cost
-                ):
-                    reason = "cap_event"
+                try:
+                    fee = self._fee_amount(sig, sig.limit_price, sig.size)
+                except ValueError:
+                    reason = "fee_unknown"
+                else:
+                    cost = sig.limit_price * sig.size + fee
+                    bankroll = self.ledger.cash + sum(
+                        (position.cost for position in self.ledger.positions()), Decimal(0)
+                    )
+                    utc_day = sig.created_at.astimezone(timezone.utc).replace(
+                        hour=0, minute=0, second=0, microsecond=0
+                    )
+                    if (
+                        self.ledger.position_cost(sig.position_key) + cost
+                        > bankroll * self.settings.v2_position_bankroll_fraction
+                    ):
+                        reason = "cap_position"
+                    elif (
+                        self.ledger.event_cost(sig.event_ticker) + cost
+                        > bankroll * self.settings.v2_event_bankroll_fraction
+                    ):
+                        reason = "cap_event"
+                    elif (
+                        self.ledger.v2_new_risk_since(utc_day) + cost
+                        > bankroll * self.settings.v2_daily_bankroll_fraction
+                    ):
+                        reason = "cap_day"
+                    elif (
+                        self.ledger.v2_total_open_cost() + cost
+                        > bankroll * self.settings.v2_total_open_bankroll_fraction
+                    ):
+                        reason = "cap_total"
             if reason:
                 self.ledger.record_blocks(
                     [
@@ -212,9 +258,7 @@ class Engine:
                 )
                 return False
             if not self.live:
-                cost = sig.limit_price * sig.size + fee_for(
-                    sig.limit_price, sig.size, self.settings.taker_fee_multiplier
-                )
+                cost = sig.limit_price * sig.size + self._fee_amount(sig, sig.limit_price, sig.size)
                 if cost > self.ledger.cash:
                     return False
             return True
@@ -243,6 +287,23 @@ class Engine:
         if sig.taker:
             return self.settings.taker_fee_multiplier
         return self.settings.maker_fee_multiplier
+
+    def _fee_amount(self, sig: Signal, price: Decimal, count: Decimal) -> Decimal:
+        if sig.rules_version != "v2":
+            return fee_for(price, count, self._fee_multiplier(sig))
+        if sig.fee_type not in {"quadratic", "quadratic_with_maker_fees"}:
+            raise ValueError(f"unknown fee type: {sig.fee_type}")
+        if sig.fee_multiplier is None:
+            raise ValueError("v2 signal has no series fee multiplier")
+        if sig.taker:
+            return taker_fee(price, count, sig.fee_multiplier, self.settings.fee_rounding)
+        return maker_fee(
+            price,
+            count,
+            sig.fee_multiplier,
+            sig.fee_type,
+            self.settings.fee_rounding,
+        )
 
     def _act(self, sig: Signal, res: CycleResult, grouped: bool = False) -> bool:
         if self.live:
@@ -273,7 +334,24 @@ class Engine:
             self.ledger.record_signal(sig, acted=True)
             log.info("LIVE order %s", detail)
             return True
-        fee = fee_for(sig.limit_price, sig.size, self._fee_multiplier(sig))
+        try:
+            fee = self._fee_amount(sig, sig.limit_price, sig.size)
+        except ValueError as exc:
+            reason = "unknown_fee_type" if "unknown fee type" in str(exc) else "fee_unknown"
+            self.ledger.record_blocks(
+                [
+                    Block(
+                        reason=reason,
+                        strategy=sig.strategy,
+                        ticker=sig.ticker,
+                        event_ticker=sig.event_ticker or "",
+                        detail=str(exc),
+                        created_at=sig.created_at,
+                    )
+                ]
+            )
+            self.ledger.record_signal(sig, acted=False)
+            return False
         try:
             self.ledger.record_fill(
                 sig.strategy,
@@ -288,6 +366,7 @@ class Engine:
                 event_ticker=sig.event_ticker,
                 tags=sig.tags,
                 commence_time=sig.commence_time,
+                fee_model_version=FEE_MODEL_VERSION if sig.rules_version == "v2" else "v1-flat",
             )
         except ValueError as e:
             log.warning("skip %s: %s", sig.ticker, e)

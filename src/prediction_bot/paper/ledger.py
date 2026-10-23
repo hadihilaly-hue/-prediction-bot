@@ -8,7 +8,16 @@ from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from prediction_bot.models import Block, EdgeReview, Market, OutcomeSide, QuoteSnapshot, Signal
+from prediction_bot.models import (
+    Block,
+    EdgeReview,
+    MakerShadowCandidate,
+    MakerShadowUpdate,
+    Market,
+    OutcomeSide,
+    QuoteSnapshot,
+    Signal,
+)
 
 if TYPE_CHECKING:
     from prediction_bot.odds import ConsensusOdds
@@ -58,7 +67,15 @@ CREATE TABLE IF NOT EXISTS signals (
     position_key TEXT,
     event_ticker TEXT,
     tags TEXT,
-    commence_time TEXT
+    commence_time TEXT,
+    devig_json TEXT,
+    reference_source TEXT,
+    book_count INTEGER,
+    book_spread TEXT,
+    book_probs_json TEXT,
+    fair_pre_haircut TEXT,
+    fee_type TEXT,
+    fee_multiplier TEXT
 );
 CREATE TABLE IF NOT EXISTS fills (
     id INTEGER PRIMARY KEY,
@@ -75,8 +92,33 @@ CREATE TABLE IF NOT EXISTS fills (
     event_ticker TEXT,
     tags TEXT,
     commence_time TEXT,
-    fee_model_version TEXT
+    fee_model_version TEXT,
+    fee_paid TEXT
 );
+CREATE TABLE IF NOT EXISTS series_fees (
+    series_ticker TEXT PRIMARY KEY,
+    fee_type TEXT NOT NULL,
+    fee_multiplier TEXT NOT NULL,
+    fetched_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS maker_shadow (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    side TEXT NOT NULL,
+    position_key TEXT NOT NULL,
+    price TEXT NOT NULL,
+    size TEXT NOT NULL,
+    fair TEXT NOT NULL,
+    maker_fee TEXT NOT NULL,
+    status TEXT NOT NULL,
+    status_at TEXT NOT NULL,
+    trade_through_at TEXT,
+    event_ticker TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS maker_shadow_position_key
+    ON maker_shadow(position_key);
 CREATE TABLE IF NOT EXISTS settlements (
     ticker TEXT PRIMARY KEY,
     settled_at TEXT NOT NULL,
@@ -277,6 +319,14 @@ class Ledger:
                 "event_ticker": "TEXT",
                 "tags": "TEXT",
                 "commence_time": "TEXT",
+                "devig_json": "TEXT",
+                "reference_source": "TEXT",
+                "book_count": "INTEGER",
+                "book_spread": "TEXT",
+                "book_probs_json": "TEXT",
+                "fair_pre_haircut": "TEXT",
+                "fee_type": "TEXT",
+                "fee_multiplier": "TEXT",
             },
             "fills": {
                 "rules_version": "TEXT",
@@ -285,6 +335,7 @@ class Ledger:
                 "tags": "TEXT",
                 "commence_time": "TEXT",
                 "fee_model_version": "TEXT",
+                "fee_paid": "TEXT",
             },
             "odds_snapshots": {"max_book_update": "TEXT"},
         }.items():
@@ -315,6 +366,171 @@ class Ledger:
     def _timestamp_param(cls, value: datetime) -> str:
         return cls._utc(value).replace(tzinfo=None).isoformat()
 
+    def get_series_fee(self, series_ticker: str) -> tuple[str, Decimal, datetime] | None:
+        row = self.conn.execute(
+            "SELECT fee_type, fee_multiplier, fetched_at FROM series_fees WHERE series_ticker=?",
+            (series_ticker,),
+        ).fetchone()
+        if row is None:
+            return None
+        fetched_at = datetime.fromisoformat(str(row[2]))
+        return str(row[0]), Decimal(str(row[1])), self._utc(fetched_at)
+
+    def save_series_fee(
+        self, series_ticker: str, fee_type: str, multiplier: Decimal, fetched_at: datetime
+    ) -> None:
+        self.conn.execute(
+            "INSERT OR REPLACE INTO series_fees"
+            " (series_ticker, fee_type, fee_multiplier, fetched_at) VALUES (?,?,?,?)",
+            (series_ticker, fee_type, str(multiplier), self._utc(fetched_at).isoformat()),
+        )
+        self.conn.commit()
+
+    def v2_total_open_cost(self) -> Decimal:
+        rows = self.conn.execute(
+            "SELECT f.price, f.count, f.fee FROM fills f LEFT JOIN settlements s"
+            " ON s.ticker=f.ticker WHERE s.ticker IS NULL AND f.rules_version='v2'"
+        )
+        return sum(
+            (Decimal(price) * Decimal(count) + Decimal(fee) for price, count, fee in rows),
+            Decimal(0),
+        )
+
+    def v2_new_risk_since(self, since: datetime) -> Decimal:
+        rows = self.conn.execute(
+            "SELECT price, count, fee FROM fills WHERE rules_version='v2' AND created_at >= ?",
+            (self._utc(since).isoformat(),),
+        )
+        return sum(
+            (Decimal(price) * Decimal(count) + Decimal(fee) for price, count, fee in rows),
+            Decimal(0),
+        )
+
+    def record_maker_shadows(self, candidates: Sequence[MakerShadowCandidate]) -> int:
+        inserted = 0
+        for shadow in candidates:
+            try:
+                self.conn.execute(
+                    "INSERT INTO maker_shadow (created_at, ticker, side, position_key, price,"
+                    " size, fair, maker_fee, status, status_at, trade_through_at, event_ticker,"
+                    " expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        self._utc(shadow.created_at).isoformat(),
+                        shadow.ticker,
+                        shadow.side.value,
+                        shadow.position_key,
+                        str(shadow.price),
+                        str(shadow.size),
+                        str(shadow.fair),
+                        str(shadow.maker_fee),
+                        "open",
+                        self._utc(shadow.created_at).isoformat(),
+                        None,
+                        shadow.event_ticker,
+                        self._utc(shadow.expires_at).isoformat(),
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                continue
+            inserted += 1
+        self.conn.commit()
+        return inserted
+
+    def update_maker_shadows(self, updates: Sequence[MakerShadowUpdate]) -> int:
+        by_contract = {(update.ticker, update.side): update for update in updates}
+        rows = self.conn.execute(
+            "SELECT id, ticker, side, price, size, maker_fee, status_at, expires_at,"
+            " trade_through_at"
+            " FROM maker_shadow WHERE status='open'"
+        ).fetchall()
+        changed = 0
+        for row in rows:
+            (
+                shadow_id,
+                ticker,
+                side_text,
+                price_text,
+                size_text,
+                fee_text,
+                previous_status_at,
+                expires_text,
+                through,
+            ) = row
+            side = OutcomeSide(side_text)
+            update = by_contract.get((str(ticker), side))
+            if update is None:
+                continue
+            price = Decimal(price_text)
+            status = "open"
+            if update.at >= self._utc(datetime.fromisoformat(str(expires_text))):
+                status = "expired"
+            elif update.ask is not None and update.ask <= price:
+                status = "filled"
+            elif update.fair is not None:
+                size = Decimal(size_text)
+                per_contract_fee = Decimal(fee_text) / size if size else Decimal(0)
+                if update.fair - price - per_contract_fee < 0:
+                    status = "cancelled"
+            side_last = (
+                update.last_price
+                if side is OutcomeSide.yes or update.last_price is None
+                else Decimal(1) - update.last_price
+            )
+            trade_through_at = through
+            if side_last is not None and side_last <= price and trade_through_at is None:
+                trade_through_at = self._utc(update.at).isoformat()
+            status_at = self._utc(update.at).isoformat()
+            self.conn.execute(
+                "UPDATE maker_shadow SET status=?, status_at=?, trade_through_at=? WHERE id=?",
+                (
+                    status,
+                    status_at if status != "open" else previous_status_at,
+                    trade_through_at,
+                    shadow_id,
+                ),
+            )
+            changed += 1
+        self.conn.commit()
+        return changed
+
+    def maker_shadow_metrics(self) -> dict[str, Decimal | int | None]:
+        filled = int(
+            self.conn.execute("SELECT COUNT(*) FROM maker_shadow WHERE status='filled'").fetchone()[
+                0
+            ]
+        )
+        rows = self.conn.execute(
+            "SELECT m.ticker, m.side, m.price, m.size, m.maker_fee, m.expires_at, s.result"
+            " FROM maker_shadow m LEFT JOIN settlements s ON s.ticker=m.ticker"
+            " WHERE m.status='filled'"
+        )
+        pnl = Decimal(0)
+        settled = 0
+        clvs: list[Decimal] = []
+        for ticker, side, price, size, fee, expires_at, result in rows:
+            if result is not None:
+                settled += 1
+                cost = Decimal(price) * Decimal(size) + Decimal(fee)
+                cost = Decimal(size) - cost if result == side else -cost
+                pnl += cost
+            quote = self.conn.execute(
+                "SELECT yes_bid, yes_ask FROM quote_snapshots WHERE ticker=? AND created_at<=?"
+                " AND yes_bid IS NOT NULL AND yes_ask IS NOT NULL ORDER BY created_at DESC, id DESC"
+                " LIMIT 1",
+                (ticker, expires_at),
+            ).fetchone()
+            if quote is not None:
+                mid = (Decimal(quote[0]) + Decimal(quote[1])) / 2
+                side_mid = mid if side == OutcomeSide.yes.value else Decimal(1) - mid
+                clvs.append(side_mid - Decimal(price))
+        return {
+            "filled": filled,
+            "settled": settled,
+            "pnl": pnl,
+            "clv_count": len(clvs),
+            "mean_clv": sum(clvs, Decimal(0)) / len(clvs) if clvs else None,
+        }
+
     # ---- cash ---------------------------------------------------------------
 
     @property
@@ -339,7 +555,10 @@ class Ledger:
         cur = self.conn.execute(
             "INSERT INTO signals (created_at, strategy, ticker, side, fair_prob, limit_price,"
             " edge, size, rationale, acted, rules_version, position_key, event_ticker, tags,"
-            " commence_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " commence_time, devig_json, reference_source, book_count, book_spread,"
+            " book_probs_json,"
+            " fair_pre_haircut, fee_type, fee_multiplier)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 self._utc(sig.created_at).isoformat(),
                 sig.strategy,
@@ -356,6 +575,14 @@ class Ledger:
                 sig.event_ticker,
                 ",".join(sorted(sig.tags)) if sig.tags is not None else None,
                 self._utc(sig.commence_time).isoformat() if sig.commence_time else None,
+                sig.devig_json,
+                sig.reference_source,
+                sig.book_count,
+                str(sig.book_spread) if sig.book_spread is not None else None,
+                sig.book_probs_json,
+                str(sig.fair_pre_haircut) if sig.fair_pre_haircut is not None else None,
+                sig.fee_type,
+                str(sig.fee_multiplier) if sig.fee_multiplier is not None else None,
             ),
         )
         self.conn.commit()
@@ -384,8 +611,8 @@ class Ledger:
             raise ValueError(f"insufficient paper cash: need {cost}, have {self.cash}")
         self.conn.execute(
             "INSERT INTO fills (created_at, strategy, ticker, side, price, count, fee, fair_prob,"
-            " rules_version, position_key, event_ticker, tags, commence_time, fee_model_version)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " rules_version, position_key, event_ticker, tags, commence_time, fee_model_version,"
+            " fee_paid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 self._utc(at or datetime.now(timezone.utc)).isoformat(),
                 strategy,
@@ -401,6 +628,7 @@ class Ledger:
                 ",".join(sorted(tags)) if tags is not None else None,
                 self._utc(commence_time).isoformat() if commence_time else None,
                 fee_model_version,
+                str(fee),
             ),
         )
         self._set_cash(self.cash - cost)

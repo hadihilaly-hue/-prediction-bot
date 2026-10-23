@@ -109,6 +109,40 @@ class Signal:
     event_ticker: str | None = None
     tags: tuple[str, ...] | None = None
     commence_time: datetime | None = None
+    fee_type: str | None = None
+    fee_multiplier: Decimal | None = None
+    fair_pre_haircut: Decimal | None = None
+    available_size: Decimal | None = None
+    spread: Decimal | None = None
+    devig_json: str | None = None
+    reference_source: str | None = None
+    book_count: int | None = None
+    book_spread: Decimal | None = None
+    book_probs_json: str | None = None
+
+
+@dataclass(frozen=True)
+class MakerShadowCandidate:
+    created_at: datetime
+    ticker: str
+    side: OutcomeSide
+    event_ticker: str
+    position_key: str
+    price: Decimal
+    size: Decimal
+    fair: Decimal
+    maker_fee: Decimal
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class MakerShadowUpdate:
+    at: datetime
+    ticker: str
+    side: OutcomeSide
+    ask: Decimal | None
+    last_price: Decimal | None
+    fair: Decimal | None
 
 
 @dataclass(frozen=True)

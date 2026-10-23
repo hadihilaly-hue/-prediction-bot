@@ -76,10 +76,21 @@ def test_exact_manual_titles_disambiguate_miami_and_los_angeles() -> None:
     assert not kalshi_name_ok("KXMLSGAME", "la-galaxy", "Los Angeles FC")
 
 
-def test_unverified_mlb_codes_fail_closed() -> None:
+def test_completed_pro_league_alias_coverage() -> None:
     assert team_for_code("KXNFLGAME", "LAC") == "los-angeles-chargers"
-    for code in ("SD", "LAD", "ATL"):
-        assert team_for_code("KXMLBGAME", code) is None
+    for code, team_id in (
+        ("SD", "san-diego-padres"),
+        ("LAD", "los-angeles-dodgers"),
+        ("ATL", "atlanta-braves"),
+        ("ATH", "athletics"),
+        ("CWS", "chicago-white-sox"),
+    ):
+        assert team_for_code("KXMLBGAME", code) == team_id
+    assert len(_TEAMS["icehockey_nhl"]) == 32
+    assert len(_TEAMS["basketball_nba"]) == 30
+    assert len(_TEAMS["baseball_mlb"]) == 30
+    assert len(_TEAMS["basketball_wnba"]) == 15
+    assert team_for_code("KXNBAGAME", "LIO") is None
 
 
 def test_series_resolution_and_unknown_aliases() -> None:

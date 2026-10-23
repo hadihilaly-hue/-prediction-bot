@@ -14,7 +14,7 @@ from prediction_bot.strategies.sportsbook_v2 import (
     _ticker_start_et,
 )
 from prediction_bot.venues.kalshi import parse_market
-from tests.conftest import make_market
+from tests.conftest import make_market as _make_market
 
 
 def odds_event(
@@ -30,18 +30,21 @@ def odds_event(
         {"name": name, "price": str(Decimal(1) / probability)}
         for name, probability in probabilities.items()
     ]
-    bookmaker: dict[str, object] = {
-        "key": "pinnacle",
-        "markets": [{"key": "h2h", "outcomes": outcomes}],
-    }
+    bookmakers: list[dict[str, object]] = [
+        {
+            "key": key,
+            "markets": [{"key": "h2h", "outcomes": [dict(outcome) for outcome in outcomes]}],
+        }
+        for key in ("pinnacle", "circa", "betonlineag", "draftkings", "fanduel")
+    ]
     if updated is not None:
-        bookmaker["last_update"] = updated
+        bookmakers[0]["last_update"] = updated
     return {
         "id": event_id,
         "home_team": home,
         "away_team": away,
         "commence_time": commence,
-        "bookmakers": [bookmaker],
+        "bookmakers": bookmakers,
     }
 
 
@@ -65,6 +68,30 @@ class FakeKalshi:
     def get_market(self, ticker: str) -> Market:
         self.calls.append(ticker)
         return self.markets[ticker]
+
+
+class FakeFeeCache:
+    def get(self, series: str) -> tuple[str, Decimal]:
+        return "quadratic_with_maker_fees", Decimal(1)
+
+
+_SportsbookV2Strategy = SportsbookV2Strategy
+
+
+class SportsbookV2Strategy(_SportsbookV2Strategy):
+    def __init__(self, settings, odds, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
+        if len(args) < 1:
+            kwargs.setdefault("kalshi_client", FakeKalshi())
+        if len(args) < 2:
+            kwargs.setdefault("ledger", Ledger(":memory:", Decimal("1000")))
+        super().__init__(settings, odds, *args, **kwargs)
+        self.fee_cache = FakeFeeCache()
+
+
+def make_market(*args, **kwargs):  # type: ignore[no-untyped-def]
+    kwargs.setdefault("yes_bid_size", Decimal("100"))
+    kwargs.setdefault("yes_ask_size", Decimal("100"))
+    return _make_market(*args, **kwargs)
 
 
 def fixed_clock(value: str):
@@ -92,7 +119,11 @@ def test_settings_and_provider_parsers_preserve_v2_fields() -> None:
     assert settings.big_edge_whitelist == []
     assert settings.kickoff_buffer_minutes["americanfootball_nfl"] == 30
     assert settings.kickoff_buffer_default_minutes == 15
-    assert settings.v2_max_position_cost == settings.v2_max_event_cost == Decimal("25")
+    assert settings.v2_position_bankroll_fraction == Decimal("0.02")
+    assert settings.v2_event_bankroll_fraction == Decimal("0.02")
+    assert settings.min_books == 2
+    assert settings.max_book_spread == Decimal("0.03")
+    assert settings.longshot_haircut == "slope"
 
     market = parse_market(
         {
@@ -149,7 +180,6 @@ def test_v2_deduplicates_two_way_no_and_yes_to_canonical_position(settings) -> N
             "Las Vegas Raiders": Decimal("0.8"),
         },
     )
-    settings.odds_bookmakers = ["pinnacle"]
     strategy = SportsbookV2Strategy(
         settings, FakeOdds([game]), clock=fixed_clock("2026-10-23T00:00:00Z")
     )
@@ -208,7 +238,6 @@ def test_kickoff_guard_uses_sport_buffer(settings) -> None:  # type: ignore[no-u
             "2026-10-04T20:05:00Z",
         ),
     ]
-    settings.odds_bookmakers = ["pinnacle"]
     for event_ticker, home, away, home_code, away_code, home_title, away_title, commence in cases:
         game = odds_event(
             event_ticker,
@@ -253,7 +282,6 @@ def test_big_edge_requires_whitelist_and_both_fresh_quotes(settings, tmp_path) -
             "Minnesota Vikings": Decimal("0.12"),
         },
     )
-    settings.odds_bookmakers = ["pinnacle"]
     settings.min_edge = Decimal("0.02")
     odds = FakeOdds([game])
     kalshi = FakeKalshi({mia.ticker: mia, minnesota.ticker: minnesota})
@@ -303,6 +331,7 @@ def test_big_edge_requires_whitelist_and_both_fresh_quotes(settings, tmp_path) -
 def test_mls_mapping_uses_galaxy_fair_not_lafc_fair(settings) -> None:  # type: ignore[no-untyped-def]
     event_ticker = "KXMLSGAME-26OCT25LAFCLAG"
     settings.min_lead_hours = 0
+    settings.longshot_haircut = "none"
     game = odds_event(
         "lafc-lag",
         "Los Angeles FC",
@@ -314,7 +343,6 @@ def test_mls_mapping_uses_galaxy_fair_not_lafc_fair(settings) -> None:  # type: 
             "Draw": Decimal("0.2"),
         },
     )
-    settings.odds_bookmakers = ["pinnacle"]
     strategy = SportsbookV2Strategy(
         settings, FakeOdds([game]), clock=fixed_clock("2026-10-23T00:00:00Z")
     )
@@ -324,7 +352,8 @@ def test_mls_mapping_uses_galaxy_fair_not_lafc_fair(settings) -> None:  # type: 
     signals = strategy.evaluate([lafc, lag, tie])
     galaxy = next(signal for signal in signals if signal.ticker == lag.ticker)
     assert galaxy.fair_prob < Decimal("0.2")
-    assert "LA Galaxy consensus 0.186" in galaxy.rationale
+    assert galaxy.fair_pre_haircut is not None
+    assert abs(galaxy.fair_pre_haircut - Decimal("0.186")) < Decimal("0.001")
     assert galaxy.position_key == f"{event_ticker}:la-galaxy"
     assert not any(
         block.reason in {"mapping_failed", "mapping_sum"} for block in strategy.seen_blocks()
@@ -342,12 +371,11 @@ def test_missing_alias_fails_closed_and_ticker_start_mismatch(settings) -> None:
             "Milwaukee Brewers": Decimal("0.5"),
         },
     )
-    settings.odds_bookmakers = ["pinnacle"]
     strategy = SportsbookV2Strategy(
         settings, FakeOdds([game]), clock=fixed_clock("2026-10-04T22:21:00Z")
     )
     sd = make_market(
-        "KXMLBGAME-26OCT041600SDMIL-SD",
+        "KXMLBGAME-26OCT041600SDMIL-UNMAPPED",
         "0.49",
         "0.5",
         subtitle="San Diego",
@@ -418,7 +446,7 @@ def test_missing_alias_fails_closed_and_ticker_start_mismatch(settings) -> None:
         baseball.evaluate(
             [
                 make_market(
-                    "KXMLBGAME-26OCT061800LADATL-LAD",
+                    "KXMLBGAME-26OCT061800LADATL-UNMAPPED",
                     "0.49",
                     "0.5",
                     subtitle="Los Angeles",
@@ -484,7 +512,6 @@ def test_in_play_rules_use_first_quote_and_consensus_snapshots(settings, tmp_pat
     current_consensus = consensus(current, ["pinnacle"])
     assert current_consensus is not None
     market = make_market(ticker, "0.01", "0.02", subtitle="Edmonton")
-    settings.odds_bookmakers = ["pinnacle"]
     strategy = SportsbookV2Strategy(
         settings,
         FakeOdds([current]),
