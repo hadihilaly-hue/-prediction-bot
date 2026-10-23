@@ -19,7 +19,9 @@ from prediction_bot.feed_selection import (
     feed_scores,
     learning_rule_demoted,
     liquidity_weights,
+    rotation_scores,
     select_entry_feeds,
+    select_rotation_feeds,
 )
 from prediction_bot.odds_planner import PlannedGame
 from prediction_bot.paper.ledger import Ledger
@@ -220,6 +222,247 @@ def test_compute_feed_stats_from_connection_handles_legacy_outright_feed_names(
     assert not stats["golf_masters_tournament_winner"].provisional
 
 
+def test_rotation_value_requires_eligible_games_and_uses_staleness(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "rotation-score.sqlite", Decimal("100"))
+    games = {
+        "americanfootball_nfl": [PlannedGame(now + timedelta(hours=100), event_ticker="NFL-EVENT")],
+        "icehockey_nhl": [PlannedGame(now + timedelta(hours=100), event_ticker="NHL-EVENT")],
+        "soccer_epl": [PlannedGame(now + timedelta(hours=100), event_ticker="EPL-EVENT")],
+        "baseball_mlb": [PlannedGame(now + timedelta(hours=100), event_ticker="MLB-EVENT")],
+        "basketball_nba": [PlannedGame(now + timedelta(hours=100), event_ticker="NBA-EVENT")],
+    }
+    games["americanfootball_nfl"].append(
+        PlannedGame(now + timedelta(hours=120), event_ticker="NFL-EVENT-2")
+    )
+    _market_snapshot(ledger, "NFL-EVENT", "NFL-EVENT-H", now, "0.45", "0.49", "10")
+    _market_snapshot(ledger, "NFL-EVENT-2", "NFL-EVENT-2-H", now, "0.45", "0.49", "10")
+    _market_snapshot(ledger, "NHL-EVENT", "NHL-EVENT-H", now, "0.45", "0.49", "10")
+    _market_snapshot(ledger, "EPL-EVENT", "EPL-EVENT-H", now, "0.45", "0.49", "10")
+    _market_snapshot(ledger, "MLB-EVENT", "MLB-EVENT-H", now, "0.45", "0.49", "10")
+    _market_snapshot(ledger, "NBA-EVENT", "NBA-EVENT-H", now, "0.45", "0.49", "10")
+    ledger.record_feed_pulls({"americanfootball_nfl": 0}, "v3", now - timedelta(hours=2))
+    stats = {
+        "americanfootball_nfl": _stat("americanfootball_nfl", 100),
+        "icehockey_nhl": _stat("icehockey_nhl", 30),
+        "soccer_epl": _stat("soccer_epl", 168),
+        "baseball_mlb": _stat("baseball_mlb", 24),
+        "basketball_nba": _stat("basketball_nba", 100),
+    }
+    scores = rotation_scores(
+        ledger,
+        games,
+        stats,
+        Settings(_env_file=None, rules_version="v3", min_lead_hours=72),
+        now,
+    )
+    assert scores["americanfootball_nfl"].staleness_hours == 2
+    assert scores["icehockey_nhl"].staleness_hours == 24
+    assert scores["icehockey_nhl"].value == 0
+    assert scores["baseball_mlb"].value == 0
+    assert scores["basketball_nba"].value == 0
+    assert scores["americanfootball_nfl"].value == 2
+    assert scores["soccer_epl"].score > scores["americanfootball_nfl"].score
+
+    class Events:
+        events_free = True
+
+        def events(self, *_args, **_kwargs):
+            return [{"commence_time": (now + timedelta(hours=100)).isoformat()}]
+
+    selected, _skips, _scores = select_rotation_feeds(
+        ledger,
+        games,
+        stats,
+        Settings(_env_file=None, rules_version="v3", min_lead_hours=72),
+        Events(),
+        now,
+        1,
+    )
+    assert selected == ["soccer_epl"]
+
+
+def test_rotation_never_selects_feed_without_eligible_window_games(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "rotation-empty-window.sqlite", Decimal("100"))
+    games = {
+        "americanfootball_ncaaf": [
+            PlannedGame(now + timedelta(hours=24), event_ticker="NCAAF-EVENT")
+        ]
+    }
+    _market_snapshot(ledger, "NCAAF-EVENT", "NCAAF-EVENT-H", now, "0.45", "0.49", "10")
+
+    class Events:
+        events_free = True
+
+        def events(self, *_args, **_kwargs):
+            raise AssertionError("zero-value feed must not be checked")
+
+    selected, skips, scores = select_rotation_feeds(
+        ledger,
+        games,
+        {"americanfootball_ncaaf": _stat("americanfootball_ncaaf", 200)},
+        Settings(_env_file=None, rules_version="v3", min_lead_hours=72),
+        Events(),
+        now,
+        1,
+    )
+    assert scores["americanfootball_ncaaf"].value == 0
+    assert selected == []
+    assert skips == {}
+
+
+def test_rotation_skips_no_move_at_under_six_hours_and_allows_exact_boundary(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "rotation-skip.sqlite", Decimal("100"))
+    games = {
+        "americanfootball_nfl": [PlannedGame(now + timedelta(hours=100), event_ticker="NFL-EVENT")]
+    }
+    _market_snapshot(
+        ledger, "NFL-EVENT", "NFL-EVENT-H", now - timedelta(hours=6), "0.45", "0.49", "10"
+    )
+    _market_snapshot(ledger, "NFL-EVENT", "NFL-EVENT-H", now, "0.45", "0.49", "10")
+    ledger.record_feed_pulls({"americanfootball_nfl": 1}, "v3", now - timedelta(hours=6))
+    stats = {"americanfootball_nfl": _stat("americanfootball_nfl", 100)}
+
+    class Events:
+        events_free = True
+
+        def events(self, *_args, **_kwargs):
+            return [{"commence_time": (now + timedelta(hours=100)).isoformat()}]
+
+    settings = Settings(_env_file=None, rules_version="v3", min_lead_hours=72)
+    selected, skips, _scores = select_rotation_feeds(
+        ledger, games, stats, settings, Events(), now, 1
+    )
+    assert selected == ["americanfootball_nfl"]
+    assert skips == {}
+
+    ledger.record_feed_pulls({"americanfootball_nfl": 1}, "v3", now - timedelta(hours=1))
+    selected, skips, _scores = select_rotation_feeds(
+        ledger, games, stats, settings, Events(), now, 1
+    )
+    assert selected == []
+    assert skips == {"americanfootball_nfl": "no_move"}
+    _market_snapshot(ledger, "NFL-EVENT", "NFL-EVENT-H", now, "0.455", "0.49", "10")
+    selected, skips, _scores = select_rotation_feeds(
+        ledger, games, stats, settings, Events(), now, 1
+    )
+    assert selected == []
+    assert skips == {"americanfootball_nfl": "no_move"}
+    _market_snapshot(ledger, "NFL-EVENT", "NFL-EVENT-H", now, "0.46", "0.49", "10")
+    selected, skips, _scores = select_rotation_feeds(
+        ledger, games, stats, settings, Events(), now, 1
+    )
+    assert selected == ["americanfootball_nfl"]
+    assert skips == {}
+
+
+def test_rotation_no_events_is_recorded_and_events_cost_disables_blocking(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "rotation-events.sqlite", Decimal("100"))
+    games = {
+        "americanfootball_nfl": [PlannedGame(now + timedelta(hours=100), event_ticker="NFL-EVENT")]
+    }
+    _market_snapshot(ledger, "NFL-EVENT", "NFL-EVENT-H", now, "0.45", "0.49", "10")
+    stats = {"americanfootball_nfl": _stat("americanfootball_nfl", 100)}
+
+    class Events:
+        events_free = True
+
+        def events(self, *_args, **_kwargs):
+            return []
+
+    selected, skips, _scores = select_rotation_feeds(
+        ledger,
+        games,
+        stats,
+        Settings(_env_file=None, rules_version="v3", min_lead_hours=72),
+        Events(),
+        now,
+        1,
+    )
+    assert selected == []
+    assert skips == {"americanfootball_nfl": "no_events"}
+
+    class ChargedEvents:
+        events_free = True
+
+        def events(self, *_args, **_kwargs):
+            self.events_free = False
+            return []
+
+    selected, skips, _scores = select_rotation_feeds(
+        ledger,
+        games,
+        stats,
+        Settings(_env_file=None, rules_version="v3", min_lead_hours=72),
+        ChargedEvents(),
+        now,
+        1,
+    )
+    assert selected == ["americanfootball_nfl"]
+    assert skips == {}
+
+
+def test_rotation_evaluates_top_feed_on_each_two_hour_slot_in_no_move_day(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    start = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "rotation-day.sqlite", Decimal("100"))
+    games = {
+        "americanfootball_nfl": [
+            PlannedGame(start + timedelta(hours=100), event_ticker="NFL-EVENT")
+        ]
+    }
+    _market_snapshot(
+        ledger, "NFL-EVENT", "NFL-EVENT-H", start - timedelta(minutes=1), "0.45", "0.49", "10"
+    )
+    stats = {"americanfootball_nfl": _stat("americanfootball_nfl", 100)}
+
+    class Events:
+        events_free = True
+
+        def events(self, *_args, **_kwargs):
+            return [{"commence_time": (start + timedelta(hours=100)).isoformat()}]
+
+    checked: list[datetime] = []
+    for slot in range(12):
+        now = start + timedelta(hours=slot * 2)
+        selected, skips, scores = select_rotation_feeds(
+            ledger,
+            games,
+            stats,
+            Settings(_env_file=None, rules_version="v3", min_lead_hours=72),
+            Events(),
+            now,
+            1,
+        )
+        assert scores["americanfootball_nfl"].score > 0
+        assert set(selected).isdisjoint(skips)
+        checked.append(now)
+        if selected:
+            ledger.record_feed_pulls({selected[0]: 1}, "v3", now)
+    assert len(checked) == 12
+    assert all(
+        (right - left) == timedelta(hours=2)
+        for left, right in zip(checked, checked[1:], strict=False)
+    )
+
+
+def test_workflow_uses_twelve_two_hour_sportsbook_slots() -> None:
+    workflow = (Path(__file__).parents[1] / ".github/workflows/paper.yml").read_text()
+    assert '- cron: "17 */2 * * *"' in workflow
+    assert '- cron: "17 1-23/2 * * *"' in workflow
+    assert '- cron: "47 * * * *"' in workflow
+    assert 'PBOT_ODDS_RUNS_PER_DAY: "12"' in workflow
+    assert "github.event.schedule == '17 */2 * * *'" in workflow
+
+
 def test_eligible_uses_lead_buffer_and_v2_disabled_sports() -> None:
     settings = Settings(_env_file=None, rules_version="v3", min_lead_hours=72)
     assert eligible(_stat("americanfootball_nfl", 78), settings)
@@ -411,7 +654,7 @@ def test_compute_feed_stats_from_connection_accepts_empty_feed_list() -> None:
 def test_empty_odds_bookmakers_are_rejected() -> None:
     with pytest.raises(ValueError, match="at least one bookmaker"):
         Settings(_env_file=None, odds_bookmakers=[])
-    assert Settings(_env_file=None).odds_feed_selection == "lead_aware"
+    assert Settings(_env_file=None).odds_feed_selection == "rotation"
 
 
 class _OddsStub:
@@ -487,11 +730,14 @@ def test_feed_plan_does_not_request_odds_or_write_feed_stats(
     monkeypatch.setattr(cli, "_client", lambda _settings: object())
     monkeypatch.setattr(cli, "_fetch", lambda _client, _series: [])
     monkeypatch.setattr(cli, "_planner_games", lambda *args, **kwargs: games)
-    monkeypatch.setattr(
-        cli,
-        "_odds_client",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("Odds API called")),
-    )
+
+    class FreeEventsOnly:
+        events_free = True
+
+        def events(self, *_args, **_kwargs):
+            return []
+
+    monkeypatch.setattr(cli, "_odds_client", lambda *_args, **_kwargs: FreeEventsOnly())
     monkeypatch.setattr(cli, "console", Console(record=True))
 
     cli.feed_plan(budget=1)
@@ -527,6 +773,7 @@ def test_odds_budget_reports_run_feeds_credits_and_reconstructed_useful_pulls(
     add_odds_snapshot(run_times[1], "soccer_uefa_europa_league", "uel-1")
     add_odds_snapshot(run_times[2], "baseball_mlb", "mlb-2")
     add_odds_snapshot(run_times[3], "soccer_uefa_europa_league", "uel-3")
+    ledger.record_feed_skips({"soccer_uefa_europa_league": "no_move"}, run_times[3])
     ledger.conn.execute(
         "INSERT INTO blocks (created_at,event_ticker,reason,rules_version) VALUES (?,?,?,?)",
         (run_times[1].isoformat(), "KXNFLGAME-26OCT01", "net_edge", "v3"),
@@ -571,7 +818,7 @@ def test_odds_budget_reports_run_feeds_credits_and_reconstructed_useful_pulls(
     assert "americanfootball_nfl,1,0,0.000" in report
     assert "soccer_uefa_europa_league,2,1,0.500" in report
     assert "feed stats and eligibility (nearest-rank percentiles; min_lead_hours=72)" in report
-    ledger.record_feed_pulls({"baseball_mlb": 1}, "v3", run_times[2])
+    ledger.record_feed_pulls({"baseball_mlb": 1}, "v3", run_times[2], {"baseball_mlb": 2})
     report_with_feed_pulls = _feed_report_sections(
         path,
         [
@@ -585,6 +832,13 @@ def test_odds_budget_reports_run_feeds_credits_and_reconstructed_useful_pulls(
     assert "americanfootball_nfl,1,0,0.000" in report_with_feed_pulls
     assert "baseball_mlb,1,1,1.000" in report_with_feed_pulls
     assert "soccer_uefa_europa_league,2,1,0.500" in report_with_feed_pulls
+    assert (
+        "credits by feed (SUM(requests_last), fallback to feed attribution)"
+        in report_with_feed_pulls
+    )
+    assert "baseball_mlb,2" in report_with_feed_pulls
+    assert "feed skips by reason:" in report_with_feed_pulls
+    assert "soccer_uefa_europa_league,no_move,1" in report_with_feed_pulls
 
 
 def test_v3_evaluate_counts_net_edge_blocks_and_signals_as_feed_candidates(

@@ -141,12 +141,19 @@ def _feed_report_sections(
         table_names = {
             str(row[0]) for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
-        feed_pulls: list[tuple[datetime, str, int]] = []
+        feed_pulls: list[tuple[datetime, str, int, int | None]] = []
         if "feed_pulls" in table_names:
+            pull_columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(feed_pulls)")}
+            requests_column = "requests_last" if "requests_last" in pull_columns else "NULL"
             feed_pulls = [
-                (_utc(str(created_at)), _canonical_feed(str(feed)), int(candidates))
-                for created_at, feed, candidates in conn.execute(
-                    "SELECT created_at,feed,candidates FROM feed_pulls"
+                (
+                    _utc(str(created_at)),
+                    _canonical_feed(str(feed)),
+                    int(candidates),
+                    None if requests_last is None else int(requests_last),
+                )
+                for created_at, feed, candidates, requests_last in conn.execute(
+                    f"SELECT created_at,feed,candidates,{requests_column} FROM feed_pulls"
                 )
             ]
         blocks = [
@@ -167,6 +174,14 @@ def _feed_report_sections(
                 "SELECT created_at,event_ticker,rules_version FROM signals"
             )
         ]
+        skips = []
+        if "feed_skips" in table_names:
+            skips = [
+                (_utc(str(created_at)), _canonical_feed(str(feed)), str(reason))
+                for created_at, feed, reason in conn.execute(
+                    "SELECT created_at,feed,reason FROM feed_skips"
+                )
+            ]
         report_windows = [window for window in _run_windows(runs) if window[3] >= since]
         feeds_by_run: dict[int, set[str]] = {}
         for run_id, _previous_id, start_at, end_at, _delta, _status in report_windows:
@@ -175,7 +190,7 @@ def _feed_report_sections(
             }
 
         lines = [
-            "credits per run by feed (distinct odds_snapshots.feed in (previous run, current run]):",
+            "credits per run by feed (distinct odds_snapshots.feed in each run window):",
             "run_id,previous_run_id,credits,feeds",
         ]
         for run_id, previous_id, _start_at, _end_at, delta, status in report_windows:
@@ -189,11 +204,11 @@ def _feed_report_sections(
         total_pulls: Counter[str] = Counter()
         source = "feed_pulls per run window; blocks+signals reconstructed when absent"
         series_to_feed = {**KALSHI_SERIES_TO_SPORT, **KALSHI_SERIES_TO_OUTRIGHT}
-        for run_id, _previous_id, start_at, end_at, _delta, _status in report_windows:
+        for _run_id, _previous_id, start_at, end_at, _delta, _status in report_windows:
             window_start = max(start_at, since)
             run_pulls = [
                 (feed, candidates)
-                for created_at, feed, candidates in feed_pulls
+                for created_at, feed, candidates, _requests_last in feed_pulls
                 if window_start < created_at <= end_at
             ]
             if run_pulls:
@@ -205,9 +220,7 @@ def _feed_report_sections(
             entry_window_events = {
                 (event_ticker, rules_version)
                 for created_at, event_ticker, reason, rules_version in blocks
-                if window_start < created_at <= end_at
-                and reason == "entry_window"
-                and event_ticker
+                if window_start < created_at <= end_at and reason == "entry_window" and event_ticker
             }
             candidates: Counter[str] = Counter()
             for created_at, event_ticker, reason, rules_version in blocks:
@@ -232,16 +245,15 @@ def _feed_report_sections(
                 if feed:
                     candidates[feed] += 1
             run_feeds = {
-                feed
-                for created_at, feed in snapshots
-                if window_start < created_at <= end_at
+                feed for created_at, feed in snapshots if window_start < created_at <= end_at
             }
             for feed in run_feeds:
                 total_pulls[feed] += 1
                 useful_pulls[feed] += int(candidates[feed] > 0)
         lines.extend(
             [
-                f"useful-pull ratio per feed (source: {source}; lookback starts {since.isoformat()}):",
+                "useful-pull ratio per feed "
+                f"(source: {source}; lookback starts {since.isoformat()}):",
                 "feed,pulls,useful_pulls,ratio",
             ]
         )
@@ -252,12 +264,55 @@ def _feed_report_sections(
         if not total_pulls:
             lines.append("none")
 
+        credits_by_feed: Counter[str] = Counter()
+        for run_id, _previous_id, start_at, end_at, _delta, _status in report_windows:
+            window_start = max(start_at, since)
+            rows = [
+                (feed, requests_last)
+                for created_at, feed, _candidates, requests_last in feed_pulls
+                if window_start < created_at <= end_at
+            ]
+            if rows:
+                covered: set[str] = set()
+                for feed, requests_last in rows:
+                    covered.add(feed)
+                    credits_by_feed[feed] += (
+                        requests_last
+                        if requests_last is not None
+                        else int(feed in feeds_by_run[run_id])
+                    )
+                for feed in feeds_by_run[run_id] - covered:
+                    credits_by_feed[feed] += 1
+            else:
+                for feed in feeds_by_run[run_id]:
+                    credits_by_feed[feed] += 1
+        lines.extend(
+            [
+                "credits by feed (SUM(requests_last), fallback to feed attribution):",
+                "feed,credits",
+            ]
+        )
+        for feed in sorted(credits_by_feed):
+            lines.append(f"{feed},{credits_by_feed[feed]}")
+        if not credits_by_feed:
+            lines.append("none")
+
+        skip_counts: Counter[tuple[str, str]] = Counter()
+        for created_at, feed, reason in skips:
+            if created_at >= since:
+                skip_counts[(feed, reason)] += 1
+        lines.extend(["feed skips by reason:", "feed,reason,count"])
+        for (feed, reason), count in sorted(skip_counts.items()):
+            lines.append(f"{feed},{reason},{count}")
+        if not skip_counts:
+            lines.append("none")
+
         stats_cutoff = now - timedelta(days=14)
         stat_feeds = sorted(
             {feed for created_at, feed in snapshots if stats_cutoff <= created_at <= now}
             | {
                 feed
-                for created_at, feed, _candidates in feed_pulls
+                for created_at, feed, _candidates, _requests_last in feed_pulls
                 if stats_cutoff <= created_at <= now
             }
         )

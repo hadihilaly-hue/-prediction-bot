@@ -1072,7 +1072,7 @@ def test_odds_client_bypass_cache_for_approved_refetch() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal calls
         calls += 1
-        return httpx.Response(200, json=[])
+        return httpx.Response(200, json=[], headers={"x-requests-last": "1"})
 
     client = OddsClient("test-key", client=httpx.Client(transport=httpx.MockTransport(handler)))
     client.h2h("americanfootball_nfl", ["pinnacle"])

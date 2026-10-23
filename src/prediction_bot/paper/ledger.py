@@ -261,6 +261,19 @@ CREATE TABLE IF NOT EXISTS feed_pulls (
 );
 CREATE INDEX IF NOT EXISTS feed_pulls_feed_created_at
     ON feed_pulls(feed, created_at);
+CREATE TABLE IF NOT EXISTS feed_skips (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    feed TEXT NOT NULL,
+    reason TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS feed_skips_feed_created_at
+    ON feed_skips(feed, created_at);
+CREATE TABLE IF NOT EXISTS odds_pacer_state (
+    id INTEGER PRIMARY KEY CHECK(id=1),
+    carry REAL NOT NULL,
+    updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS blocks (
     id INTEGER PRIMARY KEY,
     created_at TEXT NOT NULL,
@@ -541,6 +554,7 @@ class Ledger:
                 "commence_source": "TEXT",
             },
             "odds_snapshots": {"max_book_update": "TEXT"},
+            "feed_pulls": {"requests_last": "INTEGER"},
             "blocks": {"position_key": "TEXT"},
             "edge_reviews": {"position_key": "TEXT"},
             "runs": {"odds_used": "INTEGER", "odds_remaining": "INTEGER"},
@@ -1427,18 +1441,55 @@ class Ledger:
         pulls: Mapping[str, int],
         rules_version: str,
         at: datetime | None = None,
+        requests_last: Mapping[str, int | None] | None = None,
     ) -> int:
         stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
         rows = [
-            (stamp, feed, rules_version, candidates) for feed, candidates in sorted(pulls.items())
+            (
+                stamp,
+                feed,
+                rules_version,
+                candidates,
+                None if requests_last is None else requests_last.get(feed),
+            )
+            for feed, candidates in sorted(pulls.items())
         ]
         self.conn.executemany(
-            "INSERT INTO feed_pulls (created_at,feed,rules_version,candidates) VALUES (?,?,?,?)",
+            "INSERT INTO feed_pulls "
+            "(created_at,feed,rules_version,candidates,requests_last) VALUES (?,?,?,?,?)",
             rows,
         )
         if rows:
             self.conn.commit()
         return len(rows)
+
+    def record_feed_skips(
+        self,
+        skips: Mapping[str, str],
+        at: datetime | None = None,
+    ) -> int:
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        rows = [(stamp, feed, reason) for feed, reason in sorted(skips.items())]
+        self.conn.executemany(
+            "INSERT INTO feed_skips (created_at,feed,reason) VALUES (?,?,?)",
+            rows,
+        )
+        if rows:
+            self.conn.commit()
+        return len(rows)
+
+    def odds_pacer_carry(self) -> float:
+        row = self.conn.execute("SELECT carry FROM odds_pacer_state WHERE id=1").fetchone()
+        return float(row[0]) if row is not None else 0.0
+
+    def record_odds_pacer_carry(self, carry: float, at: datetime | None = None) -> None:
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        self.conn.execute(
+            "INSERT INTO odds_pacer_state(id,carry,updated_at) VALUES(1,?,?) "
+            "ON CONFLICT(id) DO UPDATE SET carry=excluded.carry,updated_at=excluded.updated_at",
+            (max(0.0, min(float(carry), 1.0)), stamp),
+        )
+        self.conn.commit()
 
     @staticmethod
     def _max_book_update(updates: dict[str, str]) -> str | None:
