@@ -7,6 +7,7 @@ from decimal import Decimal
 import pytest
 
 from prediction_bot.config import Settings
+from prediction_bot.fees import maker_fee
 from prediction_bot.models import Block, Market
 from prediction_bot.odds import OddsClient, consensus
 from prediction_bot.paper.ledger import Ledger
@@ -218,6 +219,38 @@ def test_v3_uses_power_fair_and_defaults_to_no_longshot_haircut(settings) -> Non
     assert signal.fair_prob == signal.fair_pre_haircut
     assert signal.fair_prob == Decimal(json.loads(signal.devig_json)["power"])
     assert Settings(_env_file=None).v3_longshot_haircut == "off"
+
+
+def test_v3_maker_first_prices_from_bid_fair_fee_and_edge(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.max_gross_edge = Decimal("0.20")
+    settings.v3_execution = "maker_first"
+    markets = v3_markets()
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event()]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+    signal = next(
+        signal
+        for signal in strategy.evaluate(markets)
+        if signal.ticker.endswith("-MIA") and signal.side.value == "yes"
+    )
+    market = next(market for market in markets if market.ticker == signal.ticker)
+    assert signal.maker_price is not None
+    per_contract_fee = maker_fee(
+        signal.maker_price,
+        Decimal(1),
+        signal.fee_multiplier or Decimal(0),
+        signal.fee_type or "",
+        settings.fee_rounding,
+    )
+    assert signal.maker_price == min(
+        market.quote.bid_for(signal.side) + Decimal("0.01"),  # type: ignore[operator]
+        signal.fair_prob - per_contract_fee - settings.v2_min_net_edge,
+    )
+    assert signal.maker_price < signal.limit_price
 
 
 def test_v3_large_gap_uses_haircut_fair_for_the_threshold(settings) -> None:  # type: ignore[no-untyped-def]

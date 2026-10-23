@@ -29,7 +29,10 @@ def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: i
         "INSERT INTO settlements (ticker,settled_at,result,pnl) VALUES (?,?,?,?)",
         (ticker, datetime.now(timezone.utc).isoformat(), "yes", "4.90"),
     )
-    ledger.conn.execute("UPDATE fills SET clv_kalshi='5',clv_gameday='3' WHERE ticker=?", (ticker,))
+    ledger.conn.execute(
+        "UPDATE fills SET clv_kalshi='5',clv_gameday='3',clv_exit='7' WHERE ticker=?",
+        (ticker,),
+    )
     ledger.record_maker_shadows(
         [
             MakerShadowCandidate(
@@ -63,6 +66,7 @@ def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: i
     assert position["strategy_tags"] == "sportsbook_v2, underdog, value"
     assert position["clv"] == 5
     assert position["clv_gameday"] == 3
+    assert position["clv_exit"] == 7
     assert measurement["brier_positions"]["n"] == 1
     assert measurement["brier_fills"]["market_value"] == 0.25
     assert measurement["brier_positions"]["market_value"] == 0.25
@@ -80,6 +84,7 @@ def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: i
     assert measurement["quality"]["maker_shadow"] == {"filled": 1}
     assert measurement["quality"]["maker_shadow_pnl"]["value"] == 0.9
     assert measurement["quality"]["maker_shadow_clv"]["mean"] == 4.0
+    assert measurement["quality"]["maker_shadow_scoring"]["trade_through"]["scored"] == 0
     assert measurement["quality"]["odds_used"] == 2
     assert measurement["quality"]["odds_remaining"] == 10
 
@@ -196,10 +201,12 @@ def test_dashboard_data_includes_v3_fills_in_their_own_version(tmp_path) -> None
         "INSERT INTO settlements (ticker,settled_at,result,pnl) VALUES (?,?,?,?)",
         (ticker, datetime.now(timezone.utc).isoformat(), "yes", "1"),
     )
+    ledger.conn.execute("UPDATE fills SET clv_exit='2.5' WHERE ticker=?", (ticker,))
     ledger.conn.commit()
 
     measurement = dashboard_data(ledger)["measurement"]
     assert measurement["positions"][0]["version"] == "v3"
+    assert measurement["positions"][0]["clv_exit"] == 2.5
     assert measurement["by_version"]["v3"]["brier_fills"]["n"] == 1
     assert measurement["by_version"]["v2"]["brier_fills"]["n"] == 0
     assert measurement["by_version"]["v1"]["brier_fills"]["n"] == 0

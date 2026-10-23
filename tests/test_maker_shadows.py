@@ -132,6 +132,55 @@ def test_maker_shadow_cancels_on_negative_edge_and_expires(tmp_path) -> None:
     assert statuses[rows[1].ticker] == "expired"
 
 
+def test_v3_maker_shadow_cancellation_reasons_are_explicit(tmp_path) -> None:
+    ledger = Ledger(tmp_path / "maker-shadow-v3-cancel.sqlite", Decimal("100"))
+    created = datetime(2026, 10, 23, tzinfo=timezone.utc)
+    adverse, edge_gone = [
+        MakerShadowCandidate(
+            created_at=created,
+            ticker=f"KXNFLGAME-26OCT25KCLV-{code}",
+            side=OutcomeSide.yes,
+            event_ticker="KXNFLGAME-26OCT25KCLV",
+            position_key=f"KXNFLGAME-26OCT25KCLV:{code}",
+            price=price,
+            size=Decimal(10),
+            fair=fair,
+            maker_fee=Decimal("0.10"),
+            expires_at=created + timedelta(hours=2),
+            rules_version="v3",
+        )
+        for code, price, fair in (
+            ("KC", Decimal("0.50"), Decimal("0.70")),
+            ("LV", Decimal("0.59"), Decimal("0.60")),
+        )
+    ]
+    ledger.record_maker_shadows([adverse, edge_gone])
+    ledger.update_maker_shadows(
+        [
+            MakerShadowUpdate(
+                at=created + timedelta(minutes=5),
+                ticker=adverse.ticker,
+                side=adverse.side,
+                ask=Decimal("0.55"),
+                last_price=None,
+                fair=Decimal("0.68"),
+            ),
+            MakerShadowUpdate(
+                at=created + timedelta(minutes=5),
+                ticker=edge_gone.ticker,
+                side=edge_gone.side,
+                ask=Decimal("0.60"),
+                last_price=None,
+                fair=Decimal("0.595"),
+            ),
+        ],
+        v3_cancel_move=Decimal("0.01"),
+    )
+
+    reasons = dict(ledger.conn.execute("SELECT ticker,cancel_reason FROM maker_shadow"))
+    assert reasons == {adverse.ticker: "adverse_move", edge_gone.ticker: "edge_gone"}
+
+
 def test_cancelled_maker_shadow_does_not_block_a_new_row_after_migration(tmp_path) -> None:
     path = tmp_path / "maker-shadow-index.sqlite"
     ledger = Ledger(path, Decimal("100"))

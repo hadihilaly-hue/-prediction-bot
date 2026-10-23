@@ -13,9 +13,12 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from prediction_bot.candles import candle_time, candle_value
 from prediction_bot.config import KALSHI_PROD_REST, Settings
 from prediction_bot.devig import longshot_haircut
-from prediction_bot.fees import taker_fee, taker_fee_rate
+from prediction_bot.fees import maker_fee, taker_fee, taker_fee_rate
+from prediction_bot.maker_fill import optimistic_fill, trade_through_fill
+from prediction_bot.models import OutcomeSide
 from prediction_bot.teams import KALSHI_SERIES_TO_SPORT, team_for_code, team_for_odds_name
 from prediction_bot.venues.kalshi import KalshiClient
 
@@ -112,6 +115,7 @@ class ReplaySignal:
     tags: str | None = None
     open_interest: Decimal | None = None
     available_size: Decimal | None = None
+    commence_time: datetime | None = None
 
     @property
     def event_ticker(self) -> str:
@@ -146,6 +150,19 @@ class Decision:
     @property
     def first_reason(self) -> str:
         return self.reasons[0] if self.reasons else ""
+
+
+@dataclass
+class MakerReplayOrder:
+    decision: Decision
+    rules_version: str
+    price: Decimal
+    contracts: int
+    maker_fee: Decimal
+    expires_at: datetime
+    trade_through_at: datetime | None = None
+    optimistic_at: datetime | None = None
+    candles_available: bool = False
 
 
 def _rationale_reference(signal: ReplaySignal) -> tuple[str, Decimal | None] | None:
@@ -418,7 +435,7 @@ def load_database(
 ) -> tuple[
     list[ReplaySignal],
     list[dict[str, Any]],
-    dict[str, str],
+    dict[str, tuple[str, str | None] | str],
     list[dict[str, Any]],
     list[dict[str, Any]],
 ]:
@@ -447,6 +464,7 @@ def load_database(
         "tags",
         "open_interest",
         "available_size",
+        "commence_time",
     )
     signal_select = ",".join(signal_fields) + "," + ",".join(
         field if field in signal_columns else f"NULL AS {field}" for field in optional_fields
@@ -501,6 +519,7 @@ def load_database(
                 None if row["tags"] is None else str(row["tags"]),
                 open_interest,
                 available_size,
+                None if row["commence_time"] is None else parse_datetime(str(row["commence_time"])),
             )
         )
     fills: list[dict[str, Any]] = []
@@ -518,7 +537,7 @@ def load_database(
                 continue
             fills.append(dict(row))
     settled_at_select = "settled_at" if "settled_at" in settlement_columns else "NULL"
-    settlements = (
+    settlements: dict[str, tuple[str, str | None] | str] = (
         {
             str(row[0]): (str(row[1]), None if row[2] is None else str(row[2]))
             for row in conn.execute(f"SELECT ticker,result,{settled_at_select} FROM settlements")
@@ -1189,16 +1208,363 @@ def run_replay(
     }
 
 
+def _stored_side_quote(
+    conn: sqlite3.Connection, signal: ReplaySignal
+) -> tuple[Decimal | None, Decimal | None]:
+    if "quote_snapshots" not in {
+        str(row[0]) for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }:
+        return None, None
+    columns = _table_columns(conn, "quote_snapshots")
+    if not {"ticker", "created_at", "yes_bid", "yes_ask"} <= columns:
+        return None, None
+    id_order = ",id DESC" if "id" in columns else ""
+    row = conn.execute(
+        "SELECT yes_bid,yes_ask FROM quote_snapshots WHERE ticker=? AND created_at<=? "
+        "AND yes_bid IS NOT NULL AND yes_ask IS NOT NULL "
+        f"ORDER BY created_at DESC{id_order} LIMIT 1",
+        (signal.ticker, signal.created_at.isoformat()),
+    ).fetchone()
+    if row is None:
+        return None, None
+    yes_bid, yes_ask = Decimal(str(row[0])), Decimal(str(row[1]))
+    if signal.side == "yes":
+        return yes_bid, yes_ask
+    return Decimal(1) - yes_ask, Decimal(1) - yes_bid
+
+
+def _candle_side_quote(
+    candles: list[dict[str, Any]], signal: ReplaySignal
+) -> tuple[Decimal | None, Decimal | None]:
+    at_or_before = [
+        (at, candle)
+        for candle in candles
+        if (at := candle_time(candle)) is not None and at <= signal.created_at
+    ]
+    if not at_or_before:
+        return None, None
+    _, candle = max(at_or_before, key=lambda item: item[0])
+    yes_bid = candle_value(candle, "yes_bid", "close")
+    yes_ask = candle_value(candle, "yes_ask", "close")
+    if yes_bid is None or yes_ask is None:
+        return None, None
+    if signal.side == "yes":
+        return yes_bid, yes_ask
+    return Decimal(1) - yes_ask, Decimal(1) - yes_bid
+
+
+def _maker_replay_price(
+    fair: Decimal,
+    bid: Decimal,
+    ask: Decimal,
+    fee_type: str,
+    fee_multiplier: Decimal,
+    settings: Settings,
+) -> Decimal | None:
+    price = min(bid + Decimal("0.01"), fair - settings.v2_min_net_edge)
+    for _ in range(4):
+        if price <= 0:
+            return None
+        fee = maker_fee(price, Decimal(1), fee_multiplier, fee_type, settings.fee_rounding)
+        adjusted = min(
+            bid + Decimal("0.01"),
+            fair - fee - settings.v2_min_net_edge,
+        )
+        if adjusted == price:
+            break
+        price = adjusted
+    return price if price > 0 and price < ask else None
+
+
+def _load_maker_candles(
+    signal: ReplaySignal,
+    start: datetime,
+    end: datetime,
+    cache_dir: Path,
+    client: KalshiClient,
+) -> list[dict[str, Any]] | None:
+    cache_path = cache_dir / (
+        f"maker_{signal.ticker.replace('/', '_')}_{int(start.timestamp())}_"
+        f"{int(end.timestamp())}.json"
+    )
+    if cache_path.is_file():
+        try:
+            cached = json.loads(cache_path.read_text())
+            return cached if isinstance(cached, list) else None
+        except (OSError, json.JSONDecodeError):
+            pass
+    try:
+        candles = client.get_candlesticks(
+            signal.series,
+            signal.ticker,
+            int(start.timestamp()),
+            int(end.timestamp()),
+            period_interval=1,
+        )
+    except Exception:
+        return None
+    cache_path.write_text(json.dumps(candles, separators=(",", ":")) + "\n")
+    return candles
+
+
+def run_maker_replay(
+    db_path: Path,
+    since: str,
+    cache_dir: Path,
+    settings: Settings | None = None,
+    fee_map: dict[str, tuple[str, Decimal]] | None = None,
+    kalshi: KalshiClient | None = None,
+) -> tuple[str, dict[str, Any]]:
+    """Replay historical v2/v3 maker candidates using stored data and public candles."""
+    settings = settings or Settings(_env_file=None)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    signals, fills, settlements, runs, _markets = load_database(db_path, since)
+    fees = fee_map if fee_map is not None else load_fee_map(db_path, cache_dir, kalshi)
+    client = kalshi or KalshiClient(KALSHI_PROD_REST)
+    v2_decisions = [evaluate_signal(sig, fees, settings, signals, "v2") for sig in signals]
+    v3_decisions = [evaluate_signal(sig, fees, settings, signals, "v3") for sig in signals]
+    _simulate(v2_decisions, fills, settlements, runs, settings)
+    _simulate(v3_decisions, fills, settlements, runs, settings, "v3")
+
+    allowed_failures = {"net_edge", "wide_spread", "dispersion"}
+    eligible: list[tuple[str, Decision]] = []
+    for rules_version, decisions in (("v2", v2_decisions), ("v3", v3_decisions)):
+        for decision in decisions:
+            reasons = set(decision.reasons)
+            if decision.v2_would_trade or (
+                reasons
+                and reasons <= allowed_failures
+                and bool(reasons & allowed_failures)
+                and "series_fee" not in decision.unknown
+            ):
+                eligible.append((rules_version, decision))
+
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    orders: list[MakerReplayOrder] = []
+    candle_quotes = no_quote = crossed = no_size = 0
+    for rules_version, decision in eligible:
+        signal = decision.signal
+        fee_info = fees.get(signal.series)
+        if fee_info is None:
+            continue
+        fee_type, fee_multiplier = fee_info
+        commence = signal.commence_time or start_time(signal.event_ticker)
+        expires_at = signal.created_at + timedelta(minutes=settings.v3_maker_ttl_minutes)
+        if commence is not None:
+            sport = KALSHI_SERIES_TO_SPORT.get(signal.series, "")
+            buffer = settings.kickoff_buffer_minutes.get(
+                sport, settings.kickoff_buffer_default_minutes
+            )
+            expires_at = min(expires_at, commence - timedelta(minutes=buffer))
+        if expires_at <= signal.created_at:
+            continue
+        bid, ask = _stored_side_quote(conn, signal)
+        if bid is None or ask is None:
+            candles = _load_maker_candles(
+                signal,
+                signal.created_at - timedelta(minutes=1),
+                expires_at,
+                cache_dir,
+                client,
+            )
+            if candles is None:
+                no_quote += 1
+                continue
+            bid, ask = _candle_side_quote(candles, signal)
+            if bid is None or ask is None:
+                no_quote += 1
+                continue
+            candle_quotes += 1
+        fair = decision.fair
+        price = _maker_replay_price(fair, bid, ask, fee_type, fee_multiplier, settings)
+        if price is None:
+            if min(bid + Decimal("0.01"), fair - settings.v2_min_net_edge) >= ask:
+                crossed += 1
+            continue
+        contracts = decision.contracts or int(signal.size.to_integral_value(rounding=ROUND_DOWN))
+        if contracts <= 0:
+            no_size += 1
+            continue
+        fee = maker_fee(price, Decimal(contracts), fee_multiplier, fee_type, settings.fee_rounding)
+        orders.append(
+            MakerReplayOrder(
+                decision=decision,
+                rules_version=rules_version,
+                price=price,
+                contracts=contracts,
+                maker_fee=fee,
+                expires_at=expires_at,
+            )
+        )
+    conn.close()
+
+    resolved = 0
+    for order in orders:
+        signal = order.decision.signal
+        candles = _load_maker_candles(
+            signal,
+            signal.created_at - timedelta(minutes=1),
+            order.expires_at,
+            cache_dir,
+            client,
+        )
+        if candles is None:
+            continue
+        order.candles_available = True
+        resolved += 1
+        order.trade_through_at = trade_through_fill(
+            candles, OutcomeSide(signal.side), order.price, signal.created_at, order.expires_at
+        )
+        order.optimistic_at = optimistic_fill(
+            candles, OutcomeSide(signal.side), order.price, signal.created_at, order.expires_at
+        )
+
+    def result_for(ticker: str) -> str | None:
+        settled = settlements.get(ticker)
+        if isinstance(settled, tuple):
+            return settled[0]
+        if settled in {"yes", "no"}:
+            return str(settled)
+        matching = next((fill.get("result") for fill in fills if fill["ticker"] == ticker), None)
+        return str(matching) if matching in {"yes", "no"} else None
+
+    trade_through_fills = [order for order in orders if order.trade_through_at is not None]
+    optimistic_fills = [order for order in orders if order.optimistic_at is not None]
+    settled_tt = [
+        (order, result_for(order.decision.signal.ticker))
+        for order in trade_through_fills
+        if result_for(order.decision.signal.ticker) is not None
+    ]
+    maker_pnl_total = Decimal(0)
+    taker_pnl_total = Decimal(0)
+    for order, result in settled_tt:
+        signal = order.decision.signal
+        payout = Decimal(order.contracts) if result == signal.side else Decimal(0)
+        maker_pnl_total += payout - order.price * order.contracts - order.maker_fee
+        taker_fee_amount = taker_fee(
+            signal.price,
+            Decimal(order.contracts),
+            order.decision.fee_multiplier,
+            settings.fee_rounding,
+        )
+        taker_pnl_total += payout - signal.price * order.contracts - taker_fee_amount
+    maker_pnl = maker_pnl_total if settled_tt else None
+    taker_pnl = taker_pnl_total if settled_tt else None
+
+    settled_wins_tt: list[bool] = []
+    settled_wins_unfilled: list[bool] = []
+    for order in orders:
+        if not order.candles_available:
+            continue
+        result = result_for(order.decision.signal.ticker)
+        if result is None:
+            continue
+        won = result == order.decision.signal.side
+        (settled_wins_tt if order.trade_through_at is not None else settled_wins_unfilled).append(
+            won
+        )
+
+    def win_rate(values: list[bool]) -> str:
+        return (
+            "—" if not values else f"{sum(values) / len(values):.1%} ({sum(values)}/{len(values)})"
+        )
+
+    placed = len(orders)
+    denom = resolved
+    tt_rate = "—" if not denom else f"{len(trade_through_fills) / denom:.1%}"
+    opt_rate = "—" if not denom else f"{len(optimistic_fills) / denom:.1%}"
+    report = "\n".join(
+        [
+            "# Historical maker replay",
+            "",
+            f"Eligible v2/v3 candidate decisions: {len(eligible)}; placed maker orders: {placed}; "
+            f"orders with candle coverage: {resolved}/{placed}.",
+            f"Candidates without a usable stored/candle quote: {no_quote}; candle-close quote "
+            f"proxies: {candle_quotes}; post-only crossing candidates: {crossed}; candidates "
+            f"with no usable size: {no_size}.",
+            "",
+            f"Trade-through fills: {len(trade_through_fills)}/{denom} resolved "
+            f"({tt_rate}); optimistic fills: {len(optimistic_fills)}/{denom} resolved "
+            f"({opt_rate}).",
+            (
+                f"Settled trade-through maker P&L after maker fees: unavailable "
+                f"({len(settled_tt)} settled fills)."
+                if maker_pnl is None
+                else f"Settled trade-through maker P&L after maker fees: ${maker_pnl:.2f} "
+                f"({len(settled_tt)} settled fills)."
+            ),
+            (
+                "Same-contract taker P&L for those fills: unavailable."
+                if taker_pnl is None
+                else f"Same-contract taker P&L for those fills: ${taker_pnl:.2f}."
+            ),
+            f"Settled win rate, trade-through filled: {win_rate(settled_wins_tt)}; "
+            f"trade-through unfilled: {win_rate(settled_wins_unfilled)}.",
+            "",
+            "Maker prices use the most recent stored side bid/ask at signal time, falling back "
+            "to the last pre-signal 1-minute candle bid/ask close when no snapshot is stored; "
+            "that close is a proxy, not an orderbook snapshot. Orders expire after "
+            f"{settings.v3_maker_ttl_minutes} minutes "
+            "or at commence minus the configured kickoff buffer, whichever comes first. Only "
+            "candidates with no blocking rule other than net-edge/spread checks or that were "
+            "v2/v3 would-trades are included. Missing candle windows are reported as unavailable "
+            "and excluded from fill-rate denominators.",
+            "",
+            "## Orders",
+            _md_table(
+                [
+                    "Rules",
+                    "Ticker",
+                    "Side",
+                    "Maker price",
+                    "Contracts",
+                    "Trade-through",
+                    "Optimistic",
+                ],
+                [
+                    [
+                        order.rules_version,
+                        order.decision.signal.ticker,
+                        order.decision.signal.side,
+                        order.price,
+                        order.contracts,
+                        order.trade_through_at.isoformat() if order.trade_through_at else "—",
+                        order.optimistic_at.isoformat() if order.optimistic_at else "—",
+                    ]
+                    for order in orders
+                ],
+            ),
+            "",
+        ]
+    )
+    return report, {
+        "candidate_signals": len(eligible),
+        "placed": placed,
+        "resolved": resolved,
+        "trade_through_fills": len(trade_through_fills),
+        "optimistic_fills": len(optimistic_fills),
+        "maker_pnl": maker_pnl,
+        "taker_pnl": taker_pnl,
+        "orders": orders,
+    }
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Read-only historical v1/v2/v3 replay.")
+    parser = argparse.ArgumentParser(description="Read-only historical replay.")
     parser.add_argument("--rules", choices=("v1", "v2", "v3", "both"), default="both")
+    parser.add_argument("--maker", action="store_true")
     parser.add_argument("--since", default="2026-09-28")
     parser.add_argument("--db", required=True, type=Path)
     parser.add_argument("--out", choices=("md",), default="md")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--cache-dir", type=Path, default=Path("replay_cache"))
     args = parser.parse_args()
-    report, _headline = run_replay(args.db, args.since, args.cache_dir, args.rules)
+    report, _headline = (
+        run_maker_replay(args.db, args.since, args.cache_dir)
+        if args.maker
+        else run_replay(args.db, args.since, args.cache_dir, args.rules)
+    )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(report)

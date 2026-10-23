@@ -99,6 +99,14 @@ class Settings(BaseSettings):
     v3_max_book_age_hours: Decimal = Decimal("3")
     v3_dq_stop_fraction: Decimal = Decimal("0.5")
     v3_no_reentry: bool = True
+    v3_execution: Literal["taker", "maker_first"] = "taker"
+    v3_maker_cancel_move: Decimal = Decimal("0.01")
+    v3_maker_ttl_minutes: int = Field(
+        default=480,
+        description=(
+            "Maker order TTL; lower to 30-60 minutes if sportsbook reference cadence increases."
+        ),
+    )
     v2_kelly_fraction: Decimal = Decimal("0.25")
     v2_position_bankroll_fraction: Decimal = Decimal("0.02")
     v2_event_bankroll_fraction: Decimal = Decimal("0.02")

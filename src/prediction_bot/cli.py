@@ -14,6 +14,7 @@ from prediction_bot.clv import record_clv
 from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
+from prediction_bot.maker_scoring import score_maker_shadows
 from prediction_bot.models import Market, OutcomeSide, Signal
 from prediction_bot.odds import OddsClient, OddsPacer
 from prediction_bot.paper.ledger import Ledger, Prediction
@@ -180,6 +181,10 @@ def paper(
             pacer.start_run()
         settled = engine.settle_open_positions()
         try:
+            score_maker_shadows(ledger, client, max_calls=50)
+        except Exception:
+            log.exception("Maker-shadow scoring failed; continuing paper cycle")
+        try:
             record_clv(ledger, client, max_calls=50)
         except Exception:
             log.exception("CLV recording failed; continuing paper cycle")
@@ -188,7 +193,7 @@ def paper(
             strategy,
             res.markets_scanned,
             len(res.signals),
-            len(res.acted),
+            len(res.acted) + res.paper_fills_resolved,
             len(settled),
             odds_used=int(odds.requests_used) if odds and odds.requests_used else None,
             odds_remaining=int(odds.requests_remaining)
@@ -197,11 +202,12 @@ def paper(
         )
         console.print(
             f"[cycle {n}] scanned={res.markets_scanned} signals={len(res.signals)}"
-            f" filled={len(res.acted)} settled={len(settled)} cash={ledger.cash:.2f}"
+            f" filled={len(res.acted) + res.paper_fills_resolved}"
+            f" orders_placed={len(res.orders_placed)} settled={len(settled)} cash={ledger.cash:.2f}"
         )
         if res.halted:
             console.print(f"[bold red]HALTED, no entries: {res.halted}[/bold red]")
-        _print_signals(res.acted)
+        _print_signals([*res.acted, *res.orders_placed])
         if cycles and n >= cycles:
             break
         time.sleep(interval)

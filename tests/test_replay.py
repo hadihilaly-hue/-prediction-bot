@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from prediction_bot.config import Settings
@@ -18,6 +18,7 @@ from scripts.replay import (
     load_database,
     load_fee_map,
     render_report,
+    run_maker_replay,
     run_replay,
 )
 
@@ -183,6 +184,90 @@ def test_replay_loads_open_interest_from_quote_snapshots(tmp_path) -> None:
     signals, *_ = load_database(path, "2026-09-28")
     assert signals[0].open_interest == Decimal("250")
     assert signals[0].available_size == Decimal("45")
+
+
+def test_maker_replay_uses_stored_bid_real_candles_and_is_read_only(tmp_path) -> None:
+    path = tmp_path / "maker-replay.sqlite"
+    created = datetime.fromisoformat("2026-10-01T12:00:00+00:00")
+    ticker = "KXNFLGAME-26OCT04KCLV-LV"
+    event = "KXNFLGAME-26OCT04KCLV"
+    ledger = Ledger(path, Decimal("1000"))
+    signal_row = Signal(
+        strategy="sportsbook_v2",
+        ticker=ticker,
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.70"),
+        limit_price=Decimal("0.70"),
+        edge=Decimal("0.00"),
+        size=Decimal(10),
+        rationale="Las Vegas Raiders consensus 0.70 (Kansas City Chiefs vs Las Vegas Raiders)",
+        created_at=created,
+        rules_version="v2",
+        position_key=f"{event}:las-vegas-raiders",
+        event_ticker=event,
+        commence_time=datetime(2026, 10, 4, 20, 25, tzinfo=timezone.utc),
+    )
+    ledger.record_signal(signal_row, acted=False)
+    ledger.record_quote_snapshots(
+        [
+            QuoteSnapshot(
+                ticker=ticker,
+                event_ticker=event,
+                yes_bid=Decimal("0.68"),
+                yes_ask=Decimal("0.72"),
+                last_price=Decimal("0.70"),
+                volume=Decimal(100),
+                open_interest=Decimal(200),
+                created_at=created,
+            )
+        ]
+    )
+    ledger.conn.execute(
+        "INSERT INTO settlements (ticker,settled_at,result,pnl) VALUES (?,?,?,?)",
+        (ticker, "2026-10-05T00:00:00+00:00", "yes", "0"),
+    )
+    ledger.conn.commit()
+    before = path.read_bytes()
+    fill_at = created + timedelta(minutes=10)
+
+    class Candles:
+        def get_candlesticks(self, series, market, start, end, period_interval=1):  # type: ignore[no-untyped-def]
+            assert (series, market, start, period_interval) == (
+                "KXNFLGAME",
+                ticker,
+                int((created - timedelta(minutes=1)).timestamp()),
+                1,
+            )
+            assert end > start
+            return [
+                {
+                    "end_period_ts": int(created.timestamp()),
+                    "yes_bid": {"close_dollars": "0.68"},
+                    "yes_ask": {"close_dollars": "0.72"},
+                    "price": {"low_dollars": "0.70", "high_dollars": "0.73"},
+                },
+                {
+                    "end_period_ts": int(fill_at.timestamp()),
+                    "price": {"low_dollars": "0.66", "high_dollars": "0.75"},
+                    "yes_ask": {"low_dollars": "0.68"},
+                    "yes_bid": {"high_dollars": "0.69"},
+                },
+            ]
+
+    report, headline = run_maker_replay(
+        path,
+        "2026-09-28",
+        tmp_path / "maker-cache",
+        settings=settings(),
+        fee_map=FEES,
+        kalshi=Candles(),  # type: ignore[arg-type]
+    )
+
+    assert headline["candidate_signals"] >= 1
+    assert headline["placed"] >= 1
+    assert headline["trade_through_fills"] >= 1
+    assert "Settled trade-through maker P&L after maker fees" in report
+    assert path.read_bytes() == before
 
 
 def test_v3_replay_uses_stored_depth_or_marks_it_unknown() -> None:

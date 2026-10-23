@@ -6,6 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from prediction_bot.clv import _quote_at, game_day_target, record_clv
+from prediction_bot.maker_scoring import score_maker_shadows
 from prediction_bot.models import MakerShadowCandidate, OutcomeSide, Signal
 from prediction_bot.paper.ledger import Ledger
 
@@ -136,9 +137,12 @@ def test_record_clv_persists_tminus_and_side_adjusted_values(tmp_path: Path) -> 
 
     client = Candles()
     assert record_clv(ledger, client, now=commence + timedelta(hours=1)) == 1  # type: ignore[arg-type]
-    clv, game_day = ledger.conn.execute("SELECT clv_kalshi,clv_gameday FROM fills").fetchone()
+    clv, game_day, exit_clv = ledger.conn.execute(
+        "SELECT clv_kalshi,clv_gameday,clv_exit FROM fills"
+    ).fetchone()
     assert Decimal(clv) == Decimal("5.00")
     assert Decimal(game_day) == Decimal("50.0")
+    assert Decimal(exit_clv) == Decimal("4.00")
     assert Decimal(
         ledger.conn.execute("SELECT line_move_since_entry FROM fills").fetchone()[0]
     ) == Decimal("0.05")
@@ -170,6 +174,124 @@ def test_record_clv_persists_tminus_and_side_adjusted_values(tmp_path: Path) -> 
     assert Decimal(shadow_clv[0]) == Decimal("25.0")
     assert Decimal(shadow_clv[1]) == Decimal("-20.0")
     assert client.calls == 1
+
+
+def test_score_maker_shadows_persists_both_fill_rules(tmp_path: Path) -> None:
+    created = datetime(2026, 10, 20, 12, tzinfo=timezone.utc)
+    expires = created + timedelta(hours=2)
+    ticker = "KXNFLGAME-26OCT20KCLV-KC"
+    ledger = Ledger(tmp_path / "maker-score.sqlite", Decimal("100"))
+    ledger.record_maker_shadows(
+        [
+            MakerShadowCandidate(
+                created_at=created,
+                ticker=ticker,
+                side=OutcomeSide.yes,
+                event_ticker="KXNFLGAME-26OCT20KCLV",
+                position_key="KXNFLGAME-26OCT20KCLV:kansas-city-chiefs",
+                price=Decimal("0.50"),
+                size=Decimal(10),
+                fair=Decimal("0.70"),
+                maker_fee=Decimal("0.03"),
+                expires_at=expires,
+                commence_time=expires + timedelta(hours=1),
+                rules_version="v3",
+            )
+        ]
+    )
+    ledger.conn.execute(
+        "UPDATE maker_shadow SET status='expired',status_at=?",
+        (expires.isoformat(),),
+    )
+    ledger.conn.commit()
+
+    class Candles:
+        def get_candlesticks(self, series, market, start, end, period_interval=1):  # type: ignore[no-untyped-def]
+            assert (series, market, start, end, period_interval) == (
+                "KXNFLGAME",
+                ticker,
+                int(created.timestamp()),
+                int(expires.timestamp()),
+                1,
+            )
+            return [
+                {
+                    "end_period_ts": int((created + timedelta(minutes=1)).timestamp()),
+                    "price": {"low_dollars": "0.49", "high_dollars": "0.55"},
+                    "yes_ask": {"low_dollars": "0.50"},
+                    "yes_bid": {"high_dollars": "0.49"},
+                }
+            ]
+
+    assert (
+        score_maker_shadows(
+            ledger,
+            Candles(),
+            now=expires + timedelta(minutes=1),  # type: ignore[arg-type]
+        )
+        == 1
+    )
+    row = ledger.conn.execute(
+        "SELECT fill_trade_through_at,fill_optimistic_at,score_status,score_attempts "
+        "FROM maker_shadow"
+    ).fetchone()
+    expected_fill = (created + timedelta(minutes=1)).isoformat()
+    assert row == (expected_fill, expected_fill, "scored", 1)
+    assert ledger.maker_shadow_metrics()["trade_through_filled"] == 1
+    assert ledger.maker_shadow_metrics()["optimistic_filled"] == 1
+
+
+def test_maker_shadow_score_marks_unavailable_after_three_fetch_failures(tmp_path: Path) -> None:
+    created = datetime(2026, 10, 20, 12, tzinfo=timezone.utc)
+    expires = created + timedelta(hours=2)
+    ledger = Ledger(tmp_path / "maker-score-retry.sqlite", Decimal("100"))
+    ledger.record_maker_shadows(
+        [
+            MakerShadowCandidate(
+                created_at=created,
+                ticker="KXNFLGAME-26OCT20KCLV-KC",
+                side=OutcomeSide.yes,
+                event_ticker="KXNFLGAME-26OCT20KCLV",
+                position_key="KXNFLGAME-26OCT20KCLV:kansas-city-chiefs",
+                price=Decimal("0.50"),
+                size=Decimal(1),
+                fair=Decimal("0.70"),
+                maker_fee=Decimal("0.01"),
+                expires_at=expires,
+                rules_version="v3",
+            )
+        ]
+    )
+    ledger.conn.execute(
+        "UPDATE maker_shadow SET status='expired',status_at=?",
+        (expires.isoformat(),),
+    )
+    ledger.conn.commit()
+
+    class FailedCandles:
+        def get_candlesticks(self, *_args, **_kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("market data unavailable")
+
+    for attempt in range(3):
+        assert (
+            score_maker_shadows(
+                ledger,
+                FailedCandles(),  # type: ignore[arg-type]
+                now=expires + timedelta(minutes=attempt + 1),
+            )
+            == 1
+        )
+    assert (
+        score_maker_shadows(
+            ledger,
+            FailedCandles(),
+            now=expires + timedelta(minutes=10),  # type: ignore[arg-type]
+        )
+        == 0
+    )
+    assert ledger.conn.execute(
+        "SELECT score_status,score_attempts FROM maker_shadow"
+    ).fetchone() == ("unavailable", 3)
 
 
 def test_record_clv_matches_z_snapshot_to_utc_fill_commence(tmp_path: Path) -> None:
