@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from prediction_bot import cli
 from prediction_bot.config import Settings
-from prediction_bot.dashboard import dashboard_data
+from prediction_bot.dashboard import dashboard_data, render_dashboard
 from prediction_bot.engine import CycleResult, Engine
 from prediction_bot.maker_gate import MakerGate, evaluate_maker_gate
 from prediction_bot.models import OutcomeSide
@@ -286,6 +286,7 @@ def test_dashboard_quality_includes_maker_gate() -> None:
     gate = quality["maker_gate"]
     assert isinstance(gate, dict)
     assert gate["reason"] == "taker_positions"
+    assert gate["configured"] == "taker"
     assert gate["thresholds"] == {
         "min_positions": 50,
         "min_scored": 50,
@@ -293,3 +294,6 @@ def test_dashboard_quality_includes_maker_gate() -> None:
     }
     assert gate["resolved"] is None
     assert gate["requested"] is None
+    assert "G.configured === 'auto' && G.passed" in render_dashboard(
+        Ledger(":memory:", Decimal("100")), _settings()
+    )

@@ -360,6 +360,7 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
             "maker_mean": _num(gate.maker_mean),
             "passed": gate.passed,
             "reason": gate.reason,
+            "configured": settings.v3_execution,
             "thresholds": {
                 "min_positions": settings.v3_maker_gate_min_positions,
                 "min_scored": settings.v3_maker_gate_min_scored,
@@ -1027,7 +1028,9 @@ _TEMPLATE = """<!doctype html>
     });
     const G = rules === 'v3' ? Q.maker_gate : null;
     const gateRows = [];
+    let gateHead = '';
     if (G) {
+      const makerOn = G.configured === 'maker_first' || (G.configured === 'auto' && G.passed);
       const th = G.thresholds || {};
       const step = (label, have, ok) => [label, have, ok ? pill('won', 'Done') : pill('', 'Not yet')];
       gateRows.push(step('Normal bets with a closing price', G.taker_n + ' / ' + th.min_positions, G.taker_n >= th.min_positions));
@@ -1035,10 +1038,15 @@ _TEMPLATE = """<!doctype html>
       gateRows.push(step('Practice resting orders checked', G.maker_scored + ' / ' + th.min_scored, G.maker_scored >= th.min_scored));
       gateRows.push(step('Practice orders filled, with a closing price', G.maker_clv_n + ' / ' + th.min_filled_clv, G.maker_clv_n >= th.min_filled_clv));
       gateRows.push(step('Resting orders gain at least as much as normal bets', num(G.maker_mean) ? signedCents(G.maker_mean) + ' vs ' + (num(G.taker_mean) ? signedCents(G.taker_mean) : '–') : '–', num(G.maker_mean) && num(G.taker_mean) && G.maker_mean >= G.taker_mean));
+      const explanation = G.configured === 'taker'
+        ? 'Switched off by the PBOT_V3_EXECUTION setting, whatever the checks below say.'
+        : G.configured === 'maker_first'
+          ? 'Switched on by the PBOT_V3_EXECUTION setting, whatever the checks below say.'
+          : G.passed
+            ? 'Every check below has passed, so the bot now posts a resting order one cent above the best bid instead of paying the ask. It switches back by itself if a check stops passing.'
+            : 'They switch on by themselves once every check below passes, and switch back off if one stops passing.';
+      gateHead = '<p class="hint" style="margin-top:14px"><b>Resting orders: ' + (makerOn ? 'on' : 'off') + '.</b> ' + explanation + '</p>';
     }
-    const gateHead = G ? '<p class="hint" style="margin-top:14px"><b>Resting orders: ' + (G.passed ? 'on' : 'off') + '.</b> ' + (G.passed
-      ? 'Every check below has passed, so the bot now posts a resting order one cent above the best bid instead of paying the ask. It switches back by itself if a check stops passing.'
-      : 'They switch on by themselves once every check below passes, and switch back off if one stops passing.') + '</p>' : '';
     $('evidence').innerHTML = meter('Bets with a closing price', withClv.length) + meter('Finished bets', done.length) +
       '<div class="tablewrap"><table id="expected"></table></div>' + (windowRows.length ? '<div class="tablewrap"><table id="windows"></table></div>' : '') +
       (G ? gateHead + '<div class="tablewrap"><table id="makergate"></table></div>' : '');
