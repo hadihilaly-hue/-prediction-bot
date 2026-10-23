@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from prediction_bot.dashboard import dashboard_data
+from prediction_bot.dashboard import dashboard_data, render_dashboard
 from prediction_bot.models import MakerShadowCandidate, OutcomeSide
 from prediction_bot.paper.ledger import Ledger
 
@@ -64,6 +64,8 @@ def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: i
     assert position["clv"] == 5
     assert position["clv_gameday"] == 3
     assert measurement["brier_positions"]["n"] == 1
+    assert measurement["brier_fills"]["market_value"] == 0.25
+    assert measurement["brier_positions"]["market_value"] == 0.25
     assert measurement["by_version"]["v2"]["brier_fills"]["n"] == 1
     assert measurement["by_version"]["v1"]["brier_fills"]["n"] == 0
     assert measurement["by_version"]["v2"]["clv"]["league"]["KXNFLGAME"]["n"] == 1
@@ -79,3 +81,35 @@ def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: i
     assert measurement["quality"]["maker_shadow_clv"]["mean"] == 4.0
     assert measurement["quality"]["odds_used"] == 2
     assert measurement["quality"]["odds_remaining"] == 10
+
+
+def test_dashboard_renders_captioned_measurement_tables(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "dashboard-render.sqlite", Decimal("1000"))
+    html = render_dashboard(ledger)
+
+    for caption in (
+        "Calibration by ten-cent bucket",
+        "Brier scores use 2,000 game-bootstrap resamples",
+        "Monte Carlo estimates the chance",
+        "Settled position P&L with all outcomes",
+        "Block reasons show the last seven days",
+        "Maker-shadow counts by status",
+        "Shadow decisions by entry window",
+    ):
+        assert caption in html
+    assert 'data-rules="v2"' in html
+    assert 'data-rules="v1"' in html
+    for heading in (
+        "Expected wins",
+        "Actual wins",
+        "Bot Brier",
+        "Market Brier",
+        "Bot 95% CI",
+        "P(≥ realized)",
+        "Mean simulated P&L",
+        "Last 7 days",
+        "Would trade",
+    ):
+        assert heading in html
+    assert "JSON.stringify(V.calibration" not in html
+    assert "JSON.stringify(M.quality" not in html

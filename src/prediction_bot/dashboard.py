@@ -179,10 +179,21 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
     fill_scores = [
         (fill.event, (fill.fair - (1.0 if fill.won else 0.0)) ** 2) for fill in settled_fills
     ]
+    fill_market_scores = [
+        (fill.event, (fill.price - (1.0 if fill.won else 0.0)) ** 2) for fill in settled_fills
+    ]
     position_scores = [
         (
             str(position["event"]),
             (float(cast(float, position["fair"])) - (1.0 if position["result"] == "W" else 0.0))
+            ** 2,
+        )
+        for position in settled_positions
+    ]
+    position_market_scores = [
+        (
+            str(position["event"]),
+            (float(cast(float, position["price"])) - (1.0 if position["result"] == "W" else 0.0))
             ** 2,
         )
         for position in settled_positions
@@ -317,10 +328,25 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
             (fill.event, (fill.fair - (1.0 if fill.won else 0.0)) ** 2)
             for fill in version_settled_fills
         ]
+        version_fill_market_scores = [
+            (fill.event, (fill.price - (1.0 if fill.won else 0.0)) ** 2)
+            for fill in version_settled_fills
+        ]
         version_position_scores = [
             (
                 str(position["event"]),
                 (float(cast(float, position["fair"])) - (1.0 if position["result"] == "W" else 0.0))
+                ** 2,
+            )
+            for position in version_settled_positions
+        ]
+        version_position_market_scores = [
+            (
+                str(position["event"]),
+                (
+                    float(cast(float, position["price"]))
+                    - (1.0 if position["result"] == "W" else 0.0)
+                )
                 ** 2,
             )
             for position in version_settled_positions
@@ -388,6 +414,13 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
                     else None
                 ),
                 "ci95": brier_interval(version_fill_scores),
+                "market_value": (
+                    sum(score for _, score in version_fill_market_scores)
+                    / len(version_fill_market_scores)
+                    if version_fill_market_scores
+                    else None
+                ),
+                "market_ci95": brier_interval(version_fill_market_scores),
             },
             "brier_positions": {
                 "n": len(version_settled_positions),
@@ -398,6 +431,13 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
                     else None
                 ),
                 "ci95": brier_interval(version_position_scores),
+                "market_value": (
+                    sum(score for _, score in version_position_market_scores)
+                    / len(version_position_market_scores)
+                    if version_position_market_scores
+                    else None
+                ),
+                "market_ci95": brier_interval(version_position_market_scores),
             },
             "monte_carlo": version_monte_carlo,
         }
@@ -411,11 +451,23 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
             "n": len(settled_fills),
             "value": brier_fill,
             "ci95": brier_interval(fill_scores),
+            "market_value": (
+                sum(score for _, score in fill_market_scores) / len(fill_market_scores)
+                if fill_market_scores
+                else None
+            ),
+            "market_ci95": brier_interval(fill_market_scores),
         },
         "brier_positions": {
             "n": len(settled_positions),
             "value": brier_pos,
             "ci95": brier_interval(position_scores),
+            "market_value": (
+                sum(score for _, score in position_market_scores) / len(position_market_scores)
+                if position_market_scores
+                else None
+            ),
+            "market_ci95": brier_interval(position_market_scores),
         },
         "monte_carlo": monte_carlo_result,
         "quality": quality,
@@ -565,6 +617,9 @@ _TEMPLATE = """<!doctype html>
            white-space:nowrap; font-variant-numeric:tabular-nums; }
   th { position:sticky; top:0; background:var(--card); color:var(--muted); font-weight:600;
        cursor:pointer; user-select:none; }
+  table.measurement-table { min-width:600px; }
+  .measurement-table caption { text-align:left; padding:10px; color:var(--muted);
+                               white-space:normal; caption-side:top; }
   td.why { white-space:normal; min-width:260px; max-width:520px; color:var(--muted); }
   td.summary { white-space:normal; min-width:280px; max-width:420px; font-weight:600; }
   tr:hover td { background:#1d2129; }
@@ -588,12 +643,12 @@ _TEMPLATE = """<!doctype html>
   <section class="card">
     <h2>Positions and measurement</h2>
     <div class="tabs" style="margin-bottom:8px">
-      <button class="on" data-rules="v2">v2</button>
+      <button data-rules="v2">v2</button>
       <button data-rules="v1">v1 historical</button>
     </div>
     <div class="tablewrap"><table id="positions"></table></div>
     <div id="clv-summary"></div>
-    <pre id="measurement-summary" style="white-space:pre-wrap;overflow:auto"></pre>
+    <div id="measurement-summary"></div>
   </section>
   <section class="card">
     <h2>Ledger-wide overview (all rules versions)</h2>
@@ -688,8 +743,6 @@ _TEMPLATE = """<!doctype html>
       '</tbody>';
     const bf = V.brier_fills || {n: 0, value: null, ci95: null};
     const bp = V.brier_positions || {n: 0, value: null, ci95: null};
-    const evidenceFill = bf.n < 50 ? ' — too few to be evidence' : '';
-    const evidence = bp.n < 50 ? ' — too few to be evidence' : '';
     const dimensions = V.clv || {};
     const bins = ['<-10c', '-10..-5c', '-5..0c', '0..5c', '5..10c', '10c+'];
     const clvRows = Object.entries(dimensions).flatMap(([dimension, groups]) =>
@@ -714,25 +767,125 @@ _TEMPLATE = """<!doctype html>
       '<th>mean</th><th>median</th><th>histogram (¢)</th><th>evidence</th></tr></thead><tbody>' +
       (clvRows || '<tr><td colspan="7" class="empty">no CLV quotes yet</td></tr>') +
       '</tbody></table></div>';
-    $('measurement-summary').textContent =
-      'Settled position P&L excluding top 3 outcomes: $' + (V.other_pnl || 0).toFixed(2) +
-      '\nTop 3 outcome P&L: $' + (V.top_three_pnl || 0).toFixed(2) +
-      '\nBrier (fills): ' + (bf.value == null ? 'unknown' : bf.value.toFixed(4)) +
-      ', n=' + bf.n + ', 95% game bootstrap CI=' + JSON.stringify(bf.ci95) + evidenceFill +
-      '\nBrier (positions): ' + (bp.value == null ? 'unknown' : bp.value.toFixed(4)) +
-      ', n=' + bp.n + ', 95% game bootstrap CI=' + JSON.stringify(bp.ci95) + evidence +
-      '\n10¢ calibration buckets:\n' + JSON.stringify(V.calibration || {}, null, 2) +
-      '\nMonte Carlo luck test (20,000 correlated game-level runs):\n' +
-      JSON.stringify(V.monte_carlo || 'unknown', null, 2) +
-      '\nData quality, maker shadows, Odds credits, and shadow decisions:\n' +
-      JSON.stringify(M.quality || {}, null, 2);
+    function measurementTable(caption, headers, dataRows, emptyText = 'No data recorded yet.') {
+      const head = '<thead><tr>' + headers.map(value => '<th>' + esc(value) + '</th>').join('') + '</tr></thead>';
+      const body = dataRows.length ?
+        dataRows.map(row => '<tr>' + row.map(value => '<td>' + esc(value == null ? '-' : value) +
+          '</td>').join('') + '</tr>').join('') :
+        '<tr><td colspan="' + headers.length + '" class="empty">' + esc(emptyText) + '</td></tr>';
+      return '<div class="tablewrap"><table class="measurement-table"><caption>' +
+        esc(caption) + '</caption>' + head + '<tbody>' + body + '</tbody></table></div>';
+    }
+    const ciText = ci => ci && ci.length === 2 ?
+      f4(ci[0]) + ' to ' + f4(ci[1]) : 'not available';
+    const brierRows = [
+      ['Fills', bf.n, f4(bf.value), f4(bf.market_value), ciText(bf.ci95),
+        ciText(bf.market_ci95),
+        bf.n < 50 ? 'too few to be evidence' : ''],
+      ['Positions', bp.n, f4(bp.value), f4(bp.market_value), ciText(bp.ci95),
+        ciText(bp.market_ci95),
+        bp.n < 50 ? 'too few to be evidence' : ''],
+    ];
+    const calibrationRows = Object.entries(V.calibration || {})
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([bucket, stats]) => [
+        bucket, stats.n, Number(stats.expected_wins).toFixed(2), stats.wins,
+      ]);
+    const monteCarlo = V.monte_carlo;
+    const monteCarloRows = monteCarlo ? [
+      ['Market prices', f4(monteCarlo.market.p_ge_realized),
+        money(monteCarlo.market.mean_pnl), monteCarlo.runs],
+      ['Bot fair', f4(monteCarlo.bot_fair.p_ge_realized),
+        money(monteCarlo.bot_fair.mean_pnl), monteCarlo.runs],
+    ] : [];
+    const topThree = V.top_three_pnl || 0;
+    const otherPnl = V.other_pnl || 0;
+    const q = M.quality || {};
+    const qualityRows = (q.blocks || []).map(block => [
+      block.reason, block['7d'], block.all,
+    ]);
+    if (!qualityRows.length) qualityRows.push(['No blocks', 0, 0]);
+    qualityRows.push(
+      ['Depth-limited', 'not tracked by day', q.depth_limited_all_time || 0],
+      ['Edge reviews', 'not tracked by day', q.edge_reviews || 0],
+      ['Mapping failures', 'not tracked by day', q.mapping_failures_all_time || 0],
+      ['Odds credits used / remaining', 'not applicable',
+        (q.odds_used == null ? 'unknown' : q.odds_used) + ' / ' +
+          (q.odds_remaining == null ? 'unknown' : q.odds_remaining)],
+    );
+    const makerCounts = q.maker_shadow || {};
+    const makerRows = ['open', 'filled', 'cancelled'].map(status => [
+      status, makerCounts[status] || 0, '-', '-',
+    ]);
+    const makerPnl = q.maker_shadow_pnl || {};
+    const makerClv = q.maker_shadow_clv || {};
+    makerRows.push(
+      ['Settled P&L', 'n=' + (makerPnl.n || 0), money(makerPnl.value), '-'],
+      ['CLV mean / median', 'n=' + (makerClv.n || 0), '-',
+        makerClv.mean == null ? 'unknown' :
+          makerClv.mean.toFixed(1) + '¢ / ' + makerClv.median.toFixed(1) + '¢'],
+    );
+    const shadowRows = (q.shadow_decisions || []).map(decision => [
+      decision.window, decision.version, decision.n, decision.would_trade,
+    ]);
+    $('measurement-summary').innerHTML = [
+      measurementTable(
+        'Calibration by ten-cent bucket compares expected wins with actual wins.',
+        ['Bucket', 'n', 'Expected wins', 'Actual wins'],
+        calibrationRows,
+        'No settled fills are available for calibration.',
+      ),
+      measurementTable(
+        'Brier scores use 2,000 game-bootstrap resamples; samples under 50 are too few to be evidence.',
+        ['Unit', 'n', 'Bot Brier', 'Market Brier', 'Bot 95% CI', 'Market 95% CI', 'Evidence'],
+        brierRows,
+      ),
+      measurementTable(
+        'Monte Carlo estimates the chance of matching realized P&L under market prices and bot fair.',
+        ['Model', 'P(≥ realized)', 'Mean simulated P&L', 'Runs'],
+        monteCarloRows,
+        'No settled fills are available for simulation.',
+      ),
+      measurementTable(
+        'Settled position P&L with all outcomes and after excluding the three largest outcomes.',
+        ['View', 'Realized P&L'],
+        [
+          ['All settled outcomes', money(topThree + otherPnl)],
+          ['Excluding top three', money(otherPnl)],
+          ['Top three contribution', money(topThree)],
+        ],
+      ),
+      measurementTable(
+        'Block reasons show the last seven days and all-time totals; supporting quality checks are all-time or latest.',
+        ['Reason or measure', 'Last 7 days', 'All time / latest'],
+        qualityRows,
+      ),
+      measurementTable(
+        'Maker-shadow counts by status, with settled P&L and available CLV.',
+        ['Status or measure', 'Count / n', 'P&L', 'CLV'],
+        makerRows,
+      ),
+      measurementTable(
+        'Shadow decisions by entry window and rules version, including would-trade counts.',
+        ['Entry window', 'Rules version', 'Decisions', 'Would trade'],
+        shadowRows,
+        'No shadow decisions have been recorded yet.',
+      ),
+    ].join('');
   }
-  document.querySelectorAll('[data-rules]').forEach(b => b.onclick = () => {
-    document.querySelectorAll('[data-rules]').forEach(x => x.classList.remove('on'));
-    b.classList.add('on');
-    renderPositions(b.dataset.rules);
+  const versionHasData = version =>
+    (D.measurement.positions || []).some(position => position.version === version) ||
+    (((D.measurement.by_version || {})[version] || {}).brier_fills || {}).n > 0;
+  const initialVersion = versionHasData('v2') || !versionHasData('v1') ? 'v2' : 'v1';
+  document.querySelectorAll('[data-rules]').forEach(b => {
+    b.classList.toggle('on', b.dataset.rules === initialVersion);
+    b.onclick = () => {
+      document.querySelectorAll('[data-rules]').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      renderPositions(b.dataset.rules);
+    };
   });
-  renderPositions('v2');
+  renderPositions(initialVersion);
 
   function lineChart(svg, pts, opts) {
     const W = 600, H = 180, L = 48, R = 10, T = 10, B = 24;

@@ -49,6 +49,7 @@ def test_appendix_d_game_day_quotes_match_recorded_kalshi_fixtures() -> None:
         assert quote is not None
         assert quote[3] == Decimal(expected)
         assert game_day_target(event) is not None
+        assert (FIXTURES / f"clv_{name}.json").stat().st_size < 30_000
 
 
 def test_quote_at_rejects_missing_crossed_and_impossible_quotes() -> None:
