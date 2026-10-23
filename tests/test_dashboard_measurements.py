@@ -293,6 +293,53 @@ def test_dashboard_data_includes_v3_fills_in_their_own_version(tmp_path) -> None
     assert v3_bucket["mean_clv_kalshi_bid"] == 2.5
 
 
+def test_dashboard_edge_bucket_includes_v3_maker_paper_fill(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "dashboard-v3-maker-fill.sqlite", Decimal("1000"))
+    created = datetime(2026, 10, 23, 12, tzinfo=timezone.utc)
+    ticker = "KXNFLGAME-26OCT27MAKER-HOME"
+    signal = Signal(
+        strategy="sportsbook_v3",
+        ticker=ticker,
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.60"),
+        limit_price=Decimal("0.55"),
+        edge=Decimal("0.04"),
+        size=Decimal("2"),
+        created_at=created,
+        rules_version="v3",
+        position_key="KXNFLGAME-26OCT27MAKER:home",
+        event_ticker="KXNFLGAME-26OCT27MAKER",
+        commence_time=created + timedelta(days=4),
+    )
+    order_id = ledger.record_paper_order(
+        signal,
+        Decimal("0.55"),
+        Decimal("0.04"),
+        created + timedelta(hours=1),
+    )
+
+    assert ledger.fill_paper_order(order_id, created + timedelta(minutes=15))
+    ledger.conn.execute(
+        "UPDATE fills SET clv_status='ok',clv_kalshi_bid='2.5',clv_kalshi='1.5' WHERE ticker=?",
+        (ticker,),
+    )
+    ledger.conn.commit()
+    measurement = cast(dict[str, object], dashboard_data(ledger)["measurement"])
+    quality = cast(dict[str, object], measurement["quality"])
+    clv_by_edge = cast(dict[str, object], quality["clv_by_edge"])
+    buckets = cast(list[dict[str, object]], clv_by_edge["buckets"])
+
+    maker_bucket = next(
+        row for row in buckets if row["edge_bucket"] == "3-5" and row["rules_version"] == "v3"
+    )
+    assert (
+        ledger.conn.execute("SELECT net_edge FROM fills WHERE ticker=?", (ticker,)).fetchone()[0]
+        == "0.03"
+    )
+    assert maker_bucket["n"] == 1
+    assert maker_bucket["mean_clv_kalshi_bid"] == 2.5
+
+
 def test_dashboard_v1_clv_aggregate_excludes_in_game_fill(tmp_path) -> None:  # type: ignore[no-untyped-def]
     ledger = Ledger(tmp_path / "dashboard-clv-hygiene.sqlite", Decimal("1000"))
     for index, (ticker, clv, status) in enumerate(

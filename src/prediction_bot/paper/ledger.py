@@ -1021,6 +1021,9 @@ class Ledger:
         if row is None:
             return False
         order = self._paper_order_from_row(row)
+        net_edge = (
+            order.fair - order.price - order.maker_fee / order.size if order.size > 0 else None
+        )
         cost = order.price * order.size + order.maker_fee
         if cost > self.cash:
             return False
@@ -1029,8 +1032,8 @@ class Ledger:
             self.conn.execute("BEGIN IMMEDIATE")
             self.conn.execute(
                 "INSERT INTO fills (created_at,strategy,ticker,side,price,count,fee,fair_prob,"
-                "rules_version,position_key,event_ticker,tags,commence_time,fee_model_version,"
-                "fee_paid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "net_edge,rules_version,position_key,event_ticker,tags,commence_time,"
+                "fee_model_version,fee_paid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     stamp,
                     order.strategy,
@@ -1040,6 +1043,7 @@ class Ledger:
                     str(order.size),
                     str(order.maker_fee),
                     str(order.fair),
+                    str(net_edge) if net_edge is not None else None,
                     order.rules_version,
                     order.position_key,
                     order.event_ticker,
