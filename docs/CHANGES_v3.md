@@ -17,7 +17,7 @@ v3 is the next step after v2 (`docs/CHANGES_v2.md`). It aims to stop the bot tre
 
 ### v3 pipeline additions (on top of the v2 order)
 1. `settlement_rule_unknown` / `settlement_rule_mismatch`: the series must have a rule, every leg's `rules_primary` must contain its phrases, and soccer needs a Kalshi TIE leg plus an Odds Draw probability.
-2. `stale_book`: the reference book's line is older than `v3_max_book_age_hours`.
+2. `stale_books`: the reference book's line is older than `v3_max_book_age_hours`.
 3. `dispersion`: measured across the sharp books (Pinnacle, Circa, BetOnline). If only a soft reference (DraftKings/FanDuel) is available, the spread across all books is used instead.
 4. `thin_market`: ask depth on the side being bought is below `v3_min_ask_depth`.
 5. Large gaps (7–12¢):
@@ -58,7 +58,7 @@ v3 is the next step after v2 (`docs/CHANGES_v2.md`). It aims to stop the bot tre
   - 24 used candle closes in place of orderbooks, which weren't stored.
   - There is no evidence yet on adverse selection.
 - **Settlement-rule live check (Oct 23):**
-  - 0 mismatches across 1,215 open NFL, NCAAF, NBA, NCAAMB, NHL, MLB and soccer markets, and every soccer event has a TIE leg.
+  - 0 mismatches across 1,115 open NFL, NCAAF (first 200), NBA, NCAAMB, NHL, MLB and soccer markets, and every soccer event has a TIE leg.
   - UFC's phrase was corrected to match the live text.
   - The golf entries are provisional, since no golf markets were open.
 - **Alias coverage:** in all 26 current NCAAF Odds API games that pair uniquely with a Kalshi event, both teams map. 155 NCAAF codes remain unmapped; they are mostly FCS teams with no Odds line, listed in `docs/alias_gaps.md`. The Kalshi codes `LEV` and `CEL` are each reused for two different clubs, so they stay unmapped. NCAAB has 4 Kalshi codes so far, and none map yet (season not started).
