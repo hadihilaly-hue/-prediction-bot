@@ -66,6 +66,49 @@ def test_alias_proposal_requires_both_legs_and_unique_date_pairing() -> None:
     assert "KXNFLGAME-26OCT25KCLV" in ambiguous["americanfootball_nfl"]["unmatched_events"]
 
 
+def test_rules_primary_disambiguates_shared_city_short_names() -> None:
+    kalshi = {
+        "KXNBAGAME": [
+            {
+                "event_ticker": "KXNBAGAME-26OCT25LALCLP",
+                "markets": [
+                    {
+                        "ticker": "KXNBAGAME-26OCT25LALCLP-LAL",
+                        "yes_sub_title": "Los Angeles L",
+                        "rules_primary": (
+                            "If Los Angeles Lakers wins the Los Angeles Lakers vs Los Angeles "
+                            "Clippers NBA game, the market resolves yes."
+                        ),
+                    },
+                    {
+                        "ticker": "KXNBAGAME-26OCT25LALCLP-LAC",
+                        "yes_sub_title": "Los Angeles C",
+                        "rules_primary": (
+                            "If Los Angeles Clippers win the Los Angeles Lakers vs Los Angeles "
+                            "Clippers NBA game, the market resolves yes."
+                        ),
+                    },
+                ],
+            }
+        ]
+    }
+    odds = {
+        "basketball_nba": [
+            {
+                "home_team": "Los Angeles Lakers",
+                "away_team": "Los Angeles Clippers",
+                "commence_time": "2026-10-25T20:00:00Z",
+            }
+        ]
+    }
+
+    proposal, report = build_alias_proposal(kalshi, odds)
+
+    assert proposal["basketball_nba"]["los-angeles-lakers"]["kalshi_codes"] == ["LAL"]
+    assert proposal["basketball_nba"]["los-angeles-clippers"]["kalshi_codes"] == ["LAC"]
+    assert report["basketball_nba"]["codes_unmatched"] == []
+
+
 def test_fetch_events_checks_response_and_headers() -> None:
     class Response:
         status_code = 200

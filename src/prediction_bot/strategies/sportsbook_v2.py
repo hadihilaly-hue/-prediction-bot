@@ -330,6 +330,8 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 created_at=self.clock(),
             )
             for m in markets
+            if KALSHI_SERIES_TO_SPORT.get(m.event_ticker.split("-", 1)[0])
+            not in (None, "mma_mixed_martial_arts")
         ]
         self._reviews.clear()
         by_event: dict[str, list[Market]] = defaultdict(list)
@@ -415,6 +417,10 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             if now >= commence - timedelta(minutes=buffer):
                 gate_reasons.append(("kickoff_guard", f"commence={commence.isoformat()}"))
             gate_reasons.extend(self._in_play_reasons(event_ticker, game, commence, legs, now))
+            if self.settings.min_lead_hours > 0 and commence - now < timedelta(
+                hours=self.settings.min_lead_hours
+            ):
+                gate_reasons.append(("entry_window", f"commence={commence.isoformat()}"))
             if gate_reasons:
                 for reason, detail in gate_reasons:
                     self._block(reason, event_ticker, legs[0].ticker, detail)

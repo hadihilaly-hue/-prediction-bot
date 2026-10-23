@@ -138,6 +138,7 @@ def test_odds_client_bypass_cache_for_approved_refetch() -> None:
 
 def test_v2_deduplicates_two_way_no_and_yes_to_canonical_position(settings) -> None:  # type: ignore[no-untyped-def]
     commence = "2026-10-25T20:25:00Z"
+    settings.min_lead_hours = 0
     game = odds_event(
         "kc-lv",
         "Kansas City Chiefs",
@@ -239,6 +240,7 @@ def test_kickoff_guard_uses_sport_buffer(settings) -> None:  # type: ignore[no-u
 
 def test_big_edge_requires_whitelist_and_both_fresh_quotes(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
     event_ticker = "KXNFLGAME-26OCT25MIAMIN"
+    settings.min_lead_hours = 0
     mia = make_market(f"{event_ticker}-MIA", "0.77", "0.78", subtitle="Miami")
     minnesota = make_market(f"{event_ticker}-MIN", "0.21", "0.22", subtitle="Minnesota")
     game = odds_event(
@@ -300,6 +302,7 @@ def test_big_edge_requires_whitelist_and_both_fresh_quotes(settings, tmp_path) -
 
 def test_mls_mapping_uses_galaxy_fair_not_lafc_fair(settings) -> None:  # type: ignore[no-untyped-def]
     event_ticker = "KXMLSGAME-26OCT25LAFCLAG"
+    settings.min_lead_hours = 0
     game = odds_event(
         "lafc-lag",
         "Los Angeles FC",

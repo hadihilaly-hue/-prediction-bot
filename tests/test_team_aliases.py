@@ -76,8 +76,8 @@ def test_exact_manual_titles_disambiguate_miami_and_los_angeles() -> None:
     assert not kalshi_name_ok("KXMLSGAME", "la-galaxy", "Los Angeles FC")
 
 
-def test_unverified_codes_fail_closed() -> None:
-    assert team_for_code("KXNFLGAME", "LAC") is None
+def test_unverified_mlb_codes_fail_closed() -> None:
+    assert team_for_code("KXNFLGAME", "LAC") == "los-angeles-chargers"
     for code in ("SD", "LAD", "ATL"):
         assert team_for_code("KXMLBGAME", code) is None
 
@@ -87,7 +87,9 @@ def test_series_resolution_and_unknown_aliases() -> None:
     assert _sport_for_series("UNKNOWN") is None
     assert team_for_code("UNKNOWN", "KC") is None
     assert team_for_odds_name("americanfootball_nfl", "los angeles chargers") is None
-    assert team_for_odds_name("americanfootball_nfl", "Los Angeles Chargers") is None
+    assert (
+        team_for_odds_name("americanfootball_nfl", "Los Angeles Chargers") == "los-angeles-chargers"
+    )
 
 
 def test_alias_validation_rejects_code_and_name_collisions() -> None:

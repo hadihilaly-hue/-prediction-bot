@@ -19,6 +19,7 @@ from prediction_bot.venues.kalshi import KalshiClient
 ODDS_API_BASE = "https://api.the-odds-api.com/v4"
 ET = ZoneInfo("America/New_York")
 DRAW_NAMES = {"draw", "tie"}
+RULES_WINNER = re.compile(r"\bif\s+(?:the\s+)?(.+?)\s+wins?\b", re.IGNORECASE)
 SUPPORTED_SERIES = {
     series: sport
     for series, sport in KALSHI_SERIES_TO_SPORT.items()
@@ -45,6 +46,24 @@ def event_market_code(event_ticker: str, market_ticker: str) -> str | None:
 
 def canonical_id(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.casefold()).strip("-")
+
+
+def _market_team(name: str, rules_primary: str, candidates: list[str]) -> str | None:
+    title_match = best_team(name, candidates)
+    rules_match = None
+    winner = RULES_WINNER.search(rules_primary)
+    if winner is not None:
+        winner_name = winner.group(1).strip()
+        rules_match = best_team(winner_name, candidates)
+        if rules_match is None:
+            parts = winner_name.split()
+            for index in range(1, len(parts)):
+                rules_match = best_team(" ".join(parts[index:]), candidates)
+                if rules_match is not None:
+                    break
+    if title_match is not None and rules_match is not None and title_match != rules_match:
+        return None
+    return rules_match or title_match
 
 
 def build_alias_proposal(
@@ -74,7 +93,7 @@ def build_alias_proposal(
             if ticker_day is None:
                 unmatched_events.append(event_ticker or "(missing event ticker)")
                 continue
-            team_markets: list[tuple[str, str]] = []
+            team_markets: list[tuple[str, str, str]] = []
             for market in event.get("markets", []):
                 if not isinstance(market, dict):
                     continue
@@ -89,7 +108,7 @@ def build_alias_proposal(
                 ):
                     continue
                 seen_codes.add(code)
-                team_markets.append((code, name))
+                team_markets.append((code, name, str(market.get("rules_primary") or "")))
             if len(team_markets) < 2:
                 unmatched_events.append(event_ticker)
                 continue
@@ -109,8 +128,8 @@ def build_alias_proposal(
                 if start_day not in (ticker_day, ticker_day + timedelta(days=1)):
                     continue
                 assignment: dict[str, str] = {}
-                for code, name in team_markets:
-                    matched = best_team(name, [home, away])
+                for code, name, rules_primary in team_markets:
+                    matched = _market_team(name, rules_primary, [home, away])
                     if matched is None or matched in assignment.values():
                         assignment = {}
                         break
@@ -124,7 +143,7 @@ def build_alias_proposal(
                 unmatched_events.append(event_ticker)
                 continue
             game, assignment = candidates[0]
-            for code, name in team_markets:
+            for code, name, _ in team_markets:
                 odds_name = assignment[code]
                 team = proposal[sport][canonical_id(odds_name)]
                 team["kalshi_codes"].add(code)
@@ -183,7 +202,7 @@ def render_report(
         "# Team alias build report",
         "",
         "Proposals are generated from public Kalshi events and The Odds API events. "
-        "Only unique team/date pairings accepted by `best_team` are included.",
+        "Only unique team/date pairings accepted by team subtitles and `rules_primary` are included.",
         "",
         "| Sport | Series | Teams mapped / codes seen | Unmatched codes | Unmatched Odds API names |",
         "|---|---|---:|---|---|",

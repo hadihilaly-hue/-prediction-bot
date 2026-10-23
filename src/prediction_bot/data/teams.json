@@ -1388,6 +1388,11 @@
         "Las Vegas Raiders"
       ]
     },
+    "los-angeles-chargers": {
+      "kalshi_codes": ["LAC"],
+      "kalshi_names": ["Los Angeles C"],
+      "odds_names": ["Los Angeles Chargers"]
+    },
     "los-angeles-rams": {
       "kalshi_codes": [
         "LAR"
@@ -3593,6 +3598,17 @@
         "Columbus Crew SC"
       ]
     },
+    "d-c-united": {
+      "kalshi_codes": [
+        "DCU"
+      ],
+      "kalshi_names": [
+        "DC United"
+      ],
+      "odds_names": [
+        "D.C. United"
+      ]
+    },
     "fc-cincinnati": {
       "kalshi_codes": [
         "CIN"
@@ -3800,6 +3816,17 @@
       ],
       "odds_names": [
         "Sporting Kansas City"
+      ]
+    },
+    "st-louis-city-sc": {
+      "kalshi_codes": [
+        "STL"
+      ],
+      "kalshi_names": [
+        "Saint Louis"
+      ],
+      "odds_names": [
+        "St. Louis City SC"
       ]
     },
     "toronto-fc": {
