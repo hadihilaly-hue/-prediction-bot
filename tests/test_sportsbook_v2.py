@@ -9,7 +9,7 @@ import pytest
 
 from prediction_bot.config import Settings
 from prediction_bot.fees import maker_fee
-from prediction_bot.models import Block, Market
+from prediction_bot.models import Block, Market, OutcomeSide, Signal
 from prediction_bot.odds import OddsClient, consensus
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.series import SPORTSBOOK_SERIES
@@ -1163,11 +1163,236 @@ def test_entry_window_candidate_is_shadowed_but_not_traded(settings, tmp_path) -
         for block in strategy.seen_blocks()
     )
     assert strategy.seen_feed_pulls() == {"americanfootball_nfl": 0}
+    near_misses = strategy.seen_near_miss_decisions()
+    assert near_misses
+    near_miss, reason = near_misses[0]
+    assert reason == "entry_window"
+    assert near_miss.strategy == "sportsbook_v2"
+    assert near_miss.size == 0
+    assert near_miss.limit_price == Decimal("0.22")
+    assert near_miss.fair_prob is not None
+    assert near_miss.edge is not None
+    assert near_miss.commence_time == datetime(2026, 10, 25, 20, 25, tzinfo=timezone.utc)
     assert ledger.conn.execute("SELECT COUNT(*) FROM fills").fetchone()[0] == 0
     decision = ledger.conn.execute(
         "SELECT rules_version,window,would_trade,reason FROM shadow_decisions"
     ).fetchone()
     assert decision == ("v2", "24-72h", 1, "entry_window")
+
+
+def test_near_miss_ledger_dedupes_by_day_and_caps_each_run(tmp_path: Path) -> None:
+    created = datetime(2026, 10, 23, 12, tzinfo=timezone.utc)
+    commence = created + timedelta(hours=100)
+    ledger = Ledger(tmp_path / "near-miss-ledger.sqlite", Decimal("1000"))
+    candidates = [
+        (
+            Signal(
+                strategy="sportsbook_v2",
+                ticker=f"KXNCAAFGAME-26OCT27G{index}-H",
+                side=OutcomeSide.yes,
+                fair_prob=Decimal("0.70"),
+                limit_price=Decimal("0.60"),
+                edge=Decimal("-0.01"),
+                size=Decimal(0),
+                created_at=created,
+                rules_version="v2",
+                position_key=f"KXNCAAFGAME-26OCT27G{index}:home",
+                event_ticker=f"KXNCAAFGAME-26OCT27G{index}",
+                commence_time=commence,
+            ),
+            "net_edge" if index < 12 else "entry_window" if index < 17 else None,
+        )
+        for index in range(20)
+    ]
+    decisions = [(signal, reason) for signal, reason in candidates if reason is not None]
+
+    assert len(candidates) == 20
+    assert ledger.record_near_miss_decisions(decisions) == 17
+    assert ledger.record_near_miss_decisions(decisions) == 0
+    rows = ledger.conn.execute(
+        "SELECT would_trade,reason,price,fair,net_edge FROM shadow_decisions ORDER BY id"
+    ).fetchall()
+    assert len(rows) == 17
+    assert rows[0] == (0, "net_edge", "0.60", "0.70", "-0.01")
+    assert rows[-1][1] == "entry_window"
+
+    capped = Ledger(tmp_path / "near-miss-cap.sqlite", Decimal("1000"))
+    capped_decisions = [
+        (
+            Signal(
+                strategy="sportsbook_v2",
+                ticker=f"KXNCAAFGAME-26OCT27C{index}-H",
+                side=OutcomeSide.no,
+                fair_prob=Decimal("0.60"),
+                limit_price=Decimal("0.50"),
+                edge=Decimal("-0.02"),
+                size=Decimal(0),
+                created_at=created,
+                rules_version="v2",
+                position_key=f"KXNCAAFGAME-26OCT27C{index}:away",
+                event_ticker=f"KXNCAAFGAME-26OCT27C{index}",
+                commence_time=commence,
+            ),
+            "net_edge",
+        )
+        for index in range(450)
+    ]
+    assert capped.record_near_miss_decisions(capped_decisions) == 400
+    assert capped.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 400
+
+
+def test_near_miss_cap_round_robins_strategies(tmp_path: Path) -> None:
+    created = datetime(2026, 10, 23, 12, tzinfo=timezone.utc)
+    items: list[tuple[Signal, str]] = []
+    for strategy, rules_version, count in (
+        ("sportsbook_v2", "v2", 450),
+        ("sportsbook_v3", "v3", 50),
+    ):
+        for index in range(count):
+            event_ticker = f"KXNCAAFGAME-26OCT27{strategy}{index}"
+            items.append(
+                (
+                    Signal(
+                        strategy=strategy,
+                        ticker=f"{event_ticker}-HOME",
+                        side=OutcomeSide.yes,
+                        fair_prob=Decimal("0.70"),
+                        limit_price=Decimal("0.60"),
+                        edge=Decimal("-0.01"),
+                        size=Decimal(0),
+                        created_at=created,
+                        rules_version=rules_version,
+                        position_key=f"{event_ticker}:home",
+                        event_ticker=event_ticker,
+                        commence_time=created + timedelta(hours=100),
+                    ),
+                    "net_edge",
+                )
+            )
+    ledger = Ledger(tmp_path / "near-miss-round-robin.sqlite", Decimal("1000"))
+
+    assert ledger.record_near_miss_decisions(items, cap=400) == 400
+    counts = ledger.conn.execute(
+        "SELECT strategy,COUNT(*) FROM shadow_decisions GROUP BY strategy ORDER BY strategy"
+    ).fetchall()
+    assert counts == [("sportsbook_v2", 350), ("sportsbook_v3", 50)]
+
+
+def test_near_miss_batch_keeps_highest_edge_for_duplicate_key(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    created = datetime(2026, 10, 23, 12, tzinfo=timezone.utc)
+    yes_signal = Signal(
+        strategy="sportsbook_v2",
+        ticker="KXNFLGAME-26OCT25KCLV-LV",
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.60"),
+        limit_price=Decimal("0.50"),
+        edge=Decimal("0.005"),
+        size=Decimal(0),
+        created_at=created,
+        rules_version="v2",
+        position_key="KXNFLGAME-26OCT25KCLV:team",
+        event_ticker="KXNFLGAME-26OCT25KCLV",
+        commence_time=created + timedelta(hours=30),
+    )
+    no_signal = replace(
+        yes_signal,
+        ticker="KXNFLGAME-26OCT25KCLV-NO",
+        side=OutcomeSide.no,
+        edge=Decimal("0.015"),
+    )
+    ledger = Ledger(tmp_path / "near-miss-best-edge.sqlite", Decimal("1000"))
+
+    assert (
+        ledger.record_near_miss_decisions(
+            [(yes_signal, "entry_window"), (no_signal, "entry_window")]
+        )
+        == 1
+    )
+    row = ledger.conn.execute("SELECT side,net_edge FROM shadow_decisions").fetchone()
+    assert row == ("no", "0.015")
+
+
+def test_entry_window_would_trade_shadow_is_deduped_per_utc_day(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    created = datetime(2026, 10, 23, 23, 30, tzinfo=timezone.utc)
+    signal = Signal(
+        strategy="sportsbook_v2",
+        ticker="KXNFLGAME-26OCT25KCLV-LV",
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.70"),
+        limit_price=Decimal("0.60"),
+        edge=Decimal("0.10"),
+        size=Decimal(1),
+        created_at=created,
+        rules_version="v2",
+        position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders",
+        event_ticker="KXNFLGAME-26OCT25KCLV",
+        commence_time=created + timedelta(hours=30),
+    )
+    ledger = Ledger(tmp_path / "entry-window-dedupe.sqlite", Decimal("1000"))
+
+    ledger.record_shadow_decision(signal, "v2", reason="entry_window")
+    ledger.record_shadow_decision(
+        replace(signal, created_at=created + timedelta(minutes=30)),
+        "v2",
+        reason="entry_window",
+    )
+    ledger.record_shadow_decision(
+        replace(signal, created_at=created + timedelta(days=1)),
+        "v2",
+        reason="entry_window",
+    )
+
+    assert (
+        ledger.conn.execute(
+            "SELECT COUNT(*) FROM shadow_decisions WHERE reason='entry_window'"
+        ).fetchone()[0]
+        == 2
+    )
+
+
+def test_entry_window_dedupe_separates_would_trade_and_near_miss(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    created = datetime(2026, 10, 23, 12, tzinfo=timezone.utc)
+    signal = Signal(
+        strategy="sportsbook_v2",
+        ticker="KXNFLGAME-26OCT25KCLV-LV",
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.70"),
+        limit_price=Decimal("0.60"),
+        edge=Decimal("0.10"),
+        size=Decimal(1),
+        created_at=created,
+        rules_version="v2",
+        position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders",
+        event_ticker="KXNFLGAME-26OCT25KCLV",
+        commence_time=created + timedelta(hours=30),
+    )
+    near_miss = replace(signal, edge=Decimal("-0.01"), size=Decimal(0))
+
+    near_miss_first = Ledger(tmp_path / "near-miss-first.sqlite", Decimal("1000"))
+    assert near_miss_first.record_near_miss_decisions([(near_miss, "entry_window")]) == 1
+    near_miss_first.record_shadow_decision(signal, "v2", reason="entry_window")
+    near_miss_first.record_shadow_decision(
+        replace(signal, created_at=created + timedelta(minutes=30)),
+        "v2",
+        reason="entry_window",
+    )
+    assert near_miss_first.conn.execute(
+        "SELECT would_trade,reason FROM shadow_decisions ORDER BY id"
+    ).fetchall() == [(0, "entry_window"), (1, "entry_window")]
+
+    would_trade_first = Ledger(tmp_path / "would-trade-first.sqlite", Decimal("1000"))
+    would_trade_first.record_shadow_decision(signal, "v2", reason="entry_window")
+    assert would_trade_first.record_near_miss_decisions([(near_miss, "entry_window")]) == 1
+    assert would_trade_first.record_near_miss_decisions([(near_miss, "entry_window")]) == 0
+    assert would_trade_first.conn.execute(
+        "SELECT would_trade,reason FROM shadow_decisions ORDER BY id"
+    ).fetchall() == [(1, "entry_window"), (0, "entry_window")]
 
 
 def test_kickoff_guard_uses_sport_buffer(settings) -> None:  # type: ignore[no-untyped-def]

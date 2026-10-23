@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -114,6 +115,7 @@ CREATE TABLE IF NOT EXISTS fills (
     count TEXT NOT NULL,
     fee TEXT NOT NULL,
     fair_prob TEXT NOT NULL,
+    net_edge TEXT,
     rules_version TEXT,
     position_key TEXT,
     event_ticker TEXT,
@@ -122,6 +124,7 @@ CREATE TABLE IF NOT EXISTS fills (
     fee_model_version TEXT,
     fee_paid TEXT,
     clv_exit TEXT,
+    clv_kalshi_bid TEXT,
     clv_status TEXT,
     commence_time_backfill TEXT,
     commence_source TEXT
@@ -157,7 +160,8 @@ CREATE TABLE IF NOT EXISTS maker_shadow (
     score_attempts INTEGER NOT NULL DEFAULT 0,
     score_status TEXT NOT NULL DEFAULT 'pending',
     cancel_reason TEXT,
-    clv_exit TEXT
+    clv_exit TEXT,
+    clv_kalshi_bid TEXT
 );
 CREATE TABLE IF NOT EXISTS paper_orders (
     id INTEGER PRIMARY KEY,
@@ -372,6 +376,8 @@ CREATE TABLE IF NOT EXISTS shadow_decisions (
     clv_kalshi TEXT,
     clv_gameday TEXT,
     clv_exit TEXT,
+    net_edge TEXT,
+    clv_kalshi_bid TEXT,
     clv_status TEXT,
     commence_time_backfill TEXT,
     commence_source TEXT
@@ -540,6 +546,7 @@ class Ledger:
                 "fee_multiplier": "TEXT",
             },
             "fills": {
+                "net_edge": "TEXT",
                 "rules_version": "TEXT",
                 "position_key": "TEXT",
                 "event_ticker": "TEXT",
@@ -550,6 +557,7 @@ class Ledger:
                 "clv_kalshi": "TEXT",
                 "clv_gameday": "TEXT",
                 "clv_exit": "TEXT",
+                "clv_kalshi_bid": "TEXT",
                 "line_move_since_entry": "TEXT",
                 "clv_status": "TEXT",
                 "commence_time_backfill": "TEXT",
@@ -564,6 +572,8 @@ class Ledger:
                 "clv_kalshi": "TEXT",
                 "clv_gameday": "TEXT",
                 "clv_exit": "TEXT",
+                "net_edge": "TEXT",
+                "clv_kalshi_bid": "TEXT",
                 "clv_status": "TEXT",
                 "commence_time_backfill": "TEXT",
                 "commence_source": "TEXT",
@@ -580,9 +590,16 @@ class Ledger:
                 "score_status": "TEXT NOT NULL DEFAULT 'pending'",
                 "cancel_reason": "TEXT",
                 "clv_exit": "TEXT",
+                "clv_kalshi_bid": "TEXT",
             },
         }.items():
             self._ensure_columns(self.conn, table, columns)
+        for table in ("fills", "maker_shadow", "shadow_decisions"):
+            self.conn.execute(
+                f"UPDATE {table} SET clv_kalshi_bid=clv_exit "
+                "WHERE clv_kalshi_bid IS NULL AND clv_exit IS NOT NULL"
+            )
+        self.conn.commit()
         self.starting_cash = starting_cash
         row = self.conn.execute("SELECT balance FROM cash WHERE id = 1").fetchone()
         if row is None:
@@ -1004,6 +1021,9 @@ class Ledger:
         if row is None:
             return False
         order = self._paper_order_from_row(row)
+        net_edge = (
+            order.fair - order.price - order.maker_fee / order.size if order.size > 0 else None
+        )
         cost = order.price * order.size + order.maker_fee
         if cost > self.cash:
             return False
@@ -1012,8 +1032,8 @@ class Ledger:
             self.conn.execute("BEGIN IMMEDIATE")
             self.conn.execute(
                 "INSERT INTO fills (created_at,strategy,ticker,side,price,count,fee,fair_prob,"
-                "rules_version,position_key,event_ticker,tags,commence_time,fee_model_version,"
-                "fee_paid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "net_edge,rules_version,position_key,event_ticker,tags,commence_time,"
+                "fee_model_version,fee_paid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     stamp,
                     order.strategy,
@@ -1023,6 +1043,7 @@ class Ledger:
                     str(order.size),
                     str(order.maker_fee),
                     str(order.fair),
+                    str(net_edge) if net_edge is not None else None,
                     order.rules_version,
                     order.position_key,
                     order.event_ticker,
@@ -1193,14 +1214,15 @@ class Ledger:
         tags: tuple[str, ...] | None = None,
         commence_time: datetime | None = None,
         fee_model_version: str | None = None,
+        net_edge: Decimal | None = None,
     ) -> None:
         cost = price * count + fee
         if cost > self.cash:
             raise ValueError(f"insufficient paper cash: need {cost}, have {self.cash}")
         self.conn.execute(
             "INSERT INTO fills (created_at, strategy, ticker, side, price, count, fee, fair_prob,"
-            " rules_version, position_key, event_ticker, tags, commence_time, fee_model_version,"
-            " fee_paid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " net_edge, rules_version, position_key, event_ticker, tags, commence_time,"
+            " fee_model_version, fee_paid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 self._utc(at or datetime.now(timezone.utc)).isoformat(),
                 strategy,
@@ -1210,6 +1232,7 @@ class Ledger:
                 str(count),
                 str(fee),
                 str(fair_prob),
+                str(net_edge) if net_edge is not None else None,
                 rules_version,
                 position_key,
                 event_ticker,
@@ -1845,13 +1868,28 @@ class Ledger:
 
     def record_shadow_decision(self, sig: Signal, rules_version: str, reason: str = "") -> None:
         commence = sig.commence_time
+        created_at = self._utc(sig.created_at)
+        if reason == "entry_window" and sig.position_key is not None:
+            existing = self.conn.execute(
+                "SELECT 1 FROM shadow_decisions WHERE rules_version IS ? "
+                "AND position_key=? AND substr(created_at,1,10)=? "
+                "AND would_trade=1 AND reason=? LIMIT 1",
+                (
+                    rules_version,
+                    sig.position_key,
+                    created_at.date().isoformat(),
+                    reason,
+                ),
+            ).fetchone()
+            if existing is not None:
+                return
         window = decision_window(sig.created_at, commence)
         self.conn.execute(
             "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
             "position_key,would_trade,reason,fair,price,size,commence_time) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
-                self._utc(sig.created_at).isoformat(),
+                created_at.isoformat(),
                 rules_version,
                 window,
                 sig.strategy,
@@ -1867,6 +1905,84 @@ class Ledger:
             ),
         )
         self.conn.commit()
+
+    def record_near_miss_decisions(
+        self, items: Sequence[tuple[Signal, str]], cap: int = 400
+    ) -> int:
+        limit = max(0, cap)
+        if limit == 0:
+            return 0
+
+        deduplicated: dict[
+            tuple[str | None, str | None, str, str], tuple[int, Signal, str, datetime]
+        ] = {}
+        for index, (sig, reason) in enumerate(items):
+            created_at = self._utc(sig.created_at)
+            key = (
+                sig.rules_version,
+                sig.position_key,
+                created_at.date().isoformat(),
+                reason,
+            )
+            previous = deduplicated.get(key)
+            if previous is None or sig.edge > previous[1].edge:
+                deduplicated[key] = (index, sig, reason, created_at)
+
+        by_strategy: dict[str, deque[tuple[Signal, str, datetime]]] = {}
+        for _, sig, reason, created_at in sorted(
+            deduplicated.values(), key=lambda candidate: candidate[0]
+        ):
+            by_strategy.setdefault(sig.strategy, deque()).append((sig, reason, created_at))
+        strategy_order = deque(by_strategy)
+
+        written = 0
+        while strategy_order and written < limit:
+            strategy = strategy_order.popleft()
+            sig, reason, created_at = by_strategy[strategy].popleft()
+            key = (
+                sig.rules_version,
+                sig.position_key,
+                created_at.date().isoformat(),
+                reason,
+            )
+            existing = self.conn.execute(
+                "SELECT 1 FROM shadow_decisions WHERE rules_version IS ? "
+                "AND position_key IS ? AND substr(created_at,1,10)=? "
+                "AND reason=? AND would_trade=0 LIMIT 1",
+                key,
+            ).fetchone()
+            if existing is None:
+                self.conn.execute(
+                    "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,"
+                    "side,position_key,would_trade,reason,fair,price,size,commence_time,net_edge) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        created_at.isoformat(),
+                        sig.rules_version,
+                        decision_window(sig.created_at, sig.commence_time),
+                        sig.strategy,
+                        sig.ticker,
+                        sig.side.value,
+                        sig.position_key,
+                        0,
+                        reason,
+                        str(sig.fair_prob),
+                        str(sig.limit_price),
+                        str(sig.size),
+                        (
+                            self._utc(sig.commence_time).isoformat()
+                            if sig.commence_time is not None
+                            else None
+                        ),
+                        str(sig.edge),
+                    ),
+                )
+                written += 1
+            if by_strategy[strategy]:
+                strategy_order.append(strategy)
+        if written:
+            self.conn.commit()
+        return written
 
     def runs(self) -> list[Run]:
         rows = self.conn.execute(

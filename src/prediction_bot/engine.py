@@ -131,6 +131,15 @@ class Engine:
                             )
             except Exception:
                 log.exception("shadow strategy %s failed", strat.name)
+        try:
+            near_miss_decisions = []
+            for strat in (*self.strategies, *self.shadow_strategies):
+                get = getattr(strat, "seen_near_miss_decisions", None)
+                if get is not None:
+                    near_miss_decisions.extend(get())
+            self.ledger.record_near_miss_decisions(near_miss_decisions)
+        except Exception:
+            log.exception("failed to record near-miss decisions")
         for method_name, write in (
             ("seen_blocks", self.ledger.record_blocks),
             ("seen_quotes", self.ledger.record_quote_snapshots),
@@ -611,6 +620,7 @@ class Engine:
                 fee_model_version=FEE_MODEL_VERSION
                 if sig.rules_version in {"v2", "v3"}
                 else "v1-flat",
+                net_edge=sig.edge,
             )
         except ValueError as e:
             log.warning("skip %s: %s", sig.ticker, e)

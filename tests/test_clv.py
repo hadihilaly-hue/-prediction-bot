@@ -153,6 +153,137 @@ def test_appendix_d_game_day_quotes_match_recorded_kalshi_fixtures() -> None:
         assert (FIXTURES / f"clv_{name}.json").stat().st_size < 30_000
 
 
+def test_record_clv_scores_near_miss_like_fill_from_texokla_fixture(tmp_path: Path) -> None:
+    created = datetime(2026, 10, 7, 14, 5, tzinfo=timezone.utc)
+    commence = datetime(2026, 10, 10, 14, 5, tzinfo=timezone.utc)
+    ticker = "KXNCAAFGAME-26OCT10TEXOKLA"
+    ledger = Ledger(tmp_path / "texokla-near-miss.sqlite", Decimal("1000"))
+    ledger.record_fill(
+        "sportsbook_v2",
+        ticker,
+        OutcomeSide.yes,
+        Decimal("0.20"),
+        Decimal(1),
+        Decimal(0),
+        Decimal("0.70"),
+        created,
+        rules_version="v2",
+        position_key=f"{ticker}:fill",
+        event_ticker=ticker,
+        commence_time=commence,
+    )
+    signal = Signal(
+        strategy="sportsbook_v2",
+        ticker=ticker,
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.70"),
+        limit_price=Decimal("0.20"),
+        edge=Decimal("-0.01"),
+        size=Decimal(0),
+        created_at=created,
+        rules_version="v2",
+        position_key=f"{ticker}:near-miss",
+        event_ticker=ticker,
+        commence_time=commence,
+    )
+    assert ledger.record_near_miss_decisions([(signal, "net_edge")]) == 1
+
+    class FixtureCandles:
+        def get_candlesticks(self, series, market, start, end, period_interval=1):  # type: ignore[no-untyped-def]
+            assert series == "KXNCAAFGAME"
+            assert market == ticker
+            assert period_interval == 1
+            return _response("texokla")
+
+    assert (
+        record_clv(
+            ledger,
+            FixtureCandles(),  # type: ignore[arg-type]
+            now=commence + timedelta(hours=1),
+        )
+        == 1
+    )
+    fill_clv, fill_bid = ledger.conn.execute(
+        "SELECT clv_kalshi,clv_kalshi_bid FROM fills WHERE ticker=?", (ticker,)
+    ).fetchone()
+    shadow_clv, shadow_bid = ledger.conn.execute(
+        "SELECT clv_kalshi,clv_kalshi_bid FROM shadow_decisions WHERE ticker=?", (ticker,)
+    ).fetchone()
+    assert Decimal(fill_clv) == Decimal(shadow_clv)
+    assert Decimal(fill_bid) == Decimal(shadow_bid)
+    assert Decimal(fill_clv) == Decimal("5.5")
+    assert Decimal(fill_bid) == Decimal("5.0")
+
+
+def test_clv_bid_migration_backfills_empty_values_without_rewriting(tmp_path: Path) -> None:
+    path = tmp_path / "clv-bid-migration.sqlite"
+    ledger = Ledger(path, Decimal("1000"))
+    created = datetime(2026, 10, 1, tzinfo=timezone.utc)
+    commence = created + timedelta(days=4)
+    ticker = "KXNFLGAME-26OCT05KCLV-LV"
+    event = "KXNFLGAME-26OCT05KCLV"
+    ledger.record_fill(
+        "sportsbook_v2",
+        ticker,
+        OutcomeSide.yes,
+        Decimal("0.50"),
+        Decimal(1),
+        Decimal(0),
+        Decimal("0.70"),
+        created,
+        rules_version="v2",
+        position_key=f"{event}:fill",
+        event_ticker=event,
+        commence_time=commence,
+    )
+    ledger.record_shadow_decision(
+        Signal(
+            strategy="sportsbook_v2",
+            ticker=ticker,
+            side=OutcomeSide.yes,
+            fair_prob=Decimal("0.70"),
+            limit_price=Decimal("0.50"),
+            edge=Decimal("0.20"),
+            size=Decimal(0),
+            created_at=created,
+            rules_version="v2",
+            position_key=f"{event}:near-miss",
+            event_ticker=event,
+            commence_time=commence,
+        ),
+        "v2",
+        reason="net_edge",
+    )
+    ledger.record_maker_shadows(
+        [
+            MakerShadowCandidate(
+                created_at=created,
+                ticker=ticker,
+                side=OutcomeSide.yes,
+                event_ticker=event,
+                position_key=f"{event}:maker",
+                price=Decimal("0.50"),
+                size=Decimal(1),
+                fair=Decimal("0.70"),
+                maker_fee=Decimal("0.01"),
+                expires_at=commence - timedelta(minutes=10),
+                commence_time=commence,
+            )
+        ]
+    )
+    ledger.conn.execute("UPDATE fills SET clv_exit='4',clv_kalshi_bid='99'")
+    ledger.conn.execute("UPDATE maker_shadow SET clv_exit='5',clv_kalshi_bid=NULL")
+    ledger.conn.execute("UPDATE shadow_decisions SET clv_exit='6',clv_kalshi_bid=NULL")
+    ledger.conn.commit()
+    ledger.conn.close()
+
+    migrated = Ledger(path, Decimal("1000"))
+
+    assert migrated.conn.execute("SELECT clv_kalshi_bid FROM fills").fetchone()[0] == "99"
+    assert migrated.conn.execute("SELECT clv_kalshi_bid FROM maker_shadow").fetchone()[0] == "5"
+    assert migrated.conn.execute("SELECT clv_kalshi_bid FROM shadow_decisions").fetchone()[0] == "6"
+
+
 def test_game_day_target_uses_known_commence_et_date() -> None:
     commence = datetime(2026, 10, 5, 4, 5, tzinfo=timezone.utc)
     target = game_day_target("KXMLBGAME-26OCT042300NYKBOS", commence)
@@ -237,12 +368,13 @@ def test_record_clv_persists_tminus_and_side_adjusted_values(tmp_path: Path) -> 
 
     client = Candles()
     assert record_clv(ledger, client, now=commence + timedelta(hours=1)) == 1  # type: ignore[arg-type]
-    clv, game_day, exit_clv = ledger.conn.execute(
-        "SELECT clv_kalshi,clv_gameday,clv_exit FROM fills"
+    clv, game_day, exit_clv, clv_bid = ledger.conn.execute(
+        "SELECT clv_kalshi,clv_gameday,clv_exit,clv_kalshi_bid FROM fills"
     ).fetchone()
     assert Decimal(clv) == Decimal("5.00")
     assert Decimal(game_day) == Decimal("50.0")
     assert Decimal(exit_clv) == Decimal("4.00")
+    assert Decimal(clv_bid) == Decimal("4.00")
     assert Decimal(
         ledger.conn.execute("SELECT line_move_since_entry FROM fills").fetchone()[0]
     ) == Decimal("0.05")
@@ -270,9 +402,12 @@ def test_record_clv_persists_tminus_and_side_adjusted_values(tmp_path: Path) -> 
     ledger.conn.execute("UPDATE maker_shadow SET status='filled'")
     ledger.conn.commit()
     assert record_clv(ledger, client, now=commence + timedelta(hours=1)) == 0  # type: ignore[arg-type]
-    shadow_clv = ledger.conn.execute("SELECT clv_kalshi,clv_gameday FROM maker_shadow").fetchone()
+    shadow_clv = ledger.conn.execute(
+        "SELECT clv_kalshi,clv_gameday,clv_kalshi_bid FROM maker_shadow"
+    ).fetchone()
     assert Decimal(shadow_clv[0]) == Decimal("25.0")
     assert Decimal(shadow_clv[1]) == Decimal("-20.0")
+    assert Decimal(shadow_clv[2]) == Decimal("24.0")
     assert client.calls == 1
 
 

@@ -54,6 +54,51 @@ def test_v1_paper_does_not_implicitly_add_v2_shadow(tmp_path, monkeypatch) -> No
     assert requested == [["sportsbook_arb"], []]
 
 
+def test_scanner_only_paper_uses_configured_clv_budget(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import prediction_bot.cli as cli
+
+    settings = Settings.model_construct(
+        rules_version="v1",
+        shadow_strategies=[],
+        paper_db_path=tmp_path / "scanner-clv.sqlite",
+        clv_max_calls_scanner=300,
+    )
+    budgets: list[int] = []
+
+    class EngineStub:
+        def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
+            pass
+
+        def settle_open_positions(self):  # type: ignore[no-untyped-def]
+            return {}
+
+        def run_cycle(self, markets):  # type: ignore[no-untyped-def]
+            return CycleResult()
+
+    monkeypatch.setattr(cli, "_settings", lambda: settings)
+    monkeypatch.setattr(cli, "_client", lambda _settings: object())
+    monkeypatch.setattr(cli, "_odds_client", lambda _settings: None)
+
+    def strategies_stub(*_args: object, **_kwargs: object) -> list[object]:
+        return []
+
+    monkeypatch.setattr(cli, "_strategies", strategies_stub)
+    monkeypatch.setattr(cli, "_fetch", lambda _client, _series: [])
+    monkeypatch.setattr(cli, "Engine", EngineStub)
+
+    def record_clv_stub(*_args: object, **kwargs: object) -> int:
+        max_calls = kwargs.get("max_calls")
+        if isinstance(max_calls, int):
+            budgets.append(max_calls)
+        return 0
+
+    monkeypatch.setattr(cli, "record_clv", record_clv_stub)
+
+    cli.paper(strategy=["book_scanner"], cycles=1)
+
+    assert budgets == [300]
+
+
 def test_v3_shadows_reuse_the_same_odds_client(settings) -> None:  # type: ignore[no-untyped-def]
     odds = object()
     strategies = _strategies(

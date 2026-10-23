@@ -1,11 +1,74 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import cast
 
 from prediction_bot.dashboard import dashboard_data, render_dashboard
 from prediction_bot.models import MakerShadowCandidate, OutcomeSide, Signal
 from prediction_bot.paper.ledger import Ledger
+
+
+def test_dashboard_clv_cohorts_report_bucket_verdicts_and_exclusions(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "dashboard-clv-cohorts.sqlite", Decimal("1000"))
+    created = datetime(2026, 10, 1, tzinfo=timezone.utc)
+    commence = created + timedelta(hours=100)
+    decisions: list[tuple[Signal, str]] = []
+    scores: list[tuple[str, str | None, str, str]] = []
+    for label, count, edge, bid, status in (
+        ("supported", 50, "0.005", "1", "ok"),
+        ("rejected", 50, "0.025", "-1", "ok"),
+        ("open", 5, "0.015", "1", "ok"),
+        ("excluded", 1, "0.010", None, "no_commence"),
+    ):
+        for index in range(count):
+            event = f"KXNCAAFGAME-26OCT10{label}{index}"
+            ticker = f"{event}-HOME"
+            decisions.append(
+                (
+                    Signal(
+                        strategy="sportsbook_v2",
+                        ticker=ticker,
+                        side=OutcomeSide.yes,
+                        fair_prob=Decimal("0.70"),
+                        limit_price=Decimal("0.50"),
+                        edge=Decimal(edge),
+                        size=Decimal(0),
+                        created_at=created,
+                        rules_version="v2",
+                        position_key=f"{event}:{index}",
+                        event_ticker=event,
+                        commence_time=commence,
+                    ),
+                    "net_edge",
+                )
+            )
+            scores.append((ticker, bid, "0.5", status))
+    assert ledger.record_near_miss_decisions(decisions) == 106
+    ledger.conn.executemany(
+        "UPDATE shadow_decisions SET clv_kalshi_bid=?,clv_kalshi=?,clv_status=? WHERE ticker=?",
+        [(bid, clv, status, ticker) for ticker, bid, clv, status in scores],
+    )
+    ledger.conn.commit()
+
+    measurement = cast(dict[str, object], dashboard_data(ledger)["measurement"])
+    quality = cast(dict[str, object], measurement["quality"])
+    by_edge = cast(dict[str, object], quality["clv_by_edge"])
+    buckets = cast(list[dict[str, object]], by_edge["buckets"])
+    supported = next(row for row in buckets if row["edge_bucket"] == "0-1")
+    rejected = next(row for row in buckets if row["edge_bucket"] == "2-3")
+    opened = next(row for row in buckets if row["edge_bucket"] == "1-2")
+    assert (supported["n"], supported["verdict"]) == (50, "supported")
+    assert (rejected["n"], rejected["verdict"]) == (50, "rejected")
+    assert (opened["n"], opened["verdict"]) == (5, "open")
+    assert by_edge["excluded_by_status"] == [
+        {"rules_version": "v2", "clv_status": "no_commence", "n": 1}
+    ]
+    by_window = cast(dict[str, object], quality["clv_by_window"])
+    windows = cast(list[dict[str, object]], by_window["windows"])
+    assert windows[0]["window"] == "72h+"
+    assert windows[0]["n"] == 105
+    assert windows[0]["mean_clv_kalshi"] == 0.5
 
 
 def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -202,12 +265,16 @@ def test_dashboard_data_includes_v3_fills_in_their_own_version(tmp_path) -> None
         rules_version="v3",
         position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders",
         event_ticker="KXNFLGAME-26OCT25KCLV",
+        net_edge=Decimal("0.015"),
     )
     ledger.conn.execute(
         "INSERT INTO settlements (ticker,settled_at,result,pnl) VALUES (?,?,?,?)",
         (ticker, datetime.now(timezone.utc).isoformat(), "yes", "1"),
     )
-    ledger.conn.execute("UPDATE fills SET clv_exit='2.5',clv_status='ok' WHERE ticker=?", (ticker,))
+    ledger.conn.execute(
+        "UPDATE fills SET clv_exit='2.5',clv_kalshi_bid='2.5',clv_status='ok' WHERE ticker=?",
+        (ticker,),
+    )
     ledger.conn.commit()
 
     measurement = dashboard_data(ledger)["measurement"]
@@ -216,6 +283,61 @@ def test_dashboard_data_includes_v3_fills_in_their_own_version(tmp_path) -> None
     assert measurement["by_version"]["v3"]["brier_fills"]["n"] == 1
     assert measurement["by_version"]["v2"]["brier_fills"]["n"] == 0
     assert measurement["by_version"]["v1"]["brier_fills"]["n"] == 0
+    quality = cast(dict[str, object], measurement["quality"])
+    clv_by_edge = cast(dict[str, object], quality["clv_by_edge"])
+    edge_buckets = cast(list[dict[str, object]], clv_by_edge["buckets"])
+    v3_bucket = next(
+        row for row in edge_buckets if row["edge_bucket"] == "1-2" and row["rules_version"] == "v3"
+    )
+    assert v3_bucket["n"] == 1
+    assert v3_bucket["mean_clv_kalshi_bid"] == 2.5
+
+
+def test_dashboard_edge_bucket_includes_v3_maker_paper_fill(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "dashboard-v3-maker-fill.sqlite", Decimal("1000"))
+    created = datetime(2026, 10, 23, 12, tzinfo=timezone.utc)
+    ticker = "KXNFLGAME-26OCT27MAKER-HOME"
+    signal = Signal(
+        strategy="sportsbook_v3",
+        ticker=ticker,
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.60"),
+        limit_price=Decimal("0.55"),
+        edge=Decimal("0.04"),
+        size=Decimal("2"),
+        created_at=created,
+        rules_version="v3",
+        position_key="KXNFLGAME-26OCT27MAKER:home",
+        event_ticker="KXNFLGAME-26OCT27MAKER",
+        commence_time=created + timedelta(days=4),
+    )
+    order_id = ledger.record_paper_order(
+        signal,
+        Decimal("0.55"),
+        Decimal("0.04"),
+        created + timedelta(hours=1),
+    )
+
+    assert ledger.fill_paper_order(order_id, created + timedelta(minutes=15))
+    ledger.conn.execute(
+        "UPDATE fills SET clv_status='ok',clv_kalshi_bid='2.5',clv_kalshi='1.5' WHERE ticker=?",
+        (ticker,),
+    )
+    ledger.conn.commit()
+    measurement = cast(dict[str, object], dashboard_data(ledger)["measurement"])
+    quality = cast(dict[str, object], measurement["quality"])
+    clv_by_edge = cast(dict[str, object], quality["clv_by_edge"])
+    buckets = cast(list[dict[str, object]], clv_by_edge["buckets"])
+
+    maker_bucket = next(
+        row for row in buckets if row["edge_bucket"] == "3-5" and row["rules_version"] == "v3"
+    )
+    assert (
+        ledger.conn.execute("SELECT net_edge FROM fills WHERE ticker=?", (ticker,)).fetchone()[0]
+        == "0.03"
+    )
+    assert maker_bucket["n"] == 1
+    assert maker_bucket["mean_clv_kalshi_bid"] == 2.5
 
 
 def test_dashboard_v1_clv_aggregate_excludes_in_game_fill(tmp_path) -> None:  # type: ignore[no-untyped-def]
