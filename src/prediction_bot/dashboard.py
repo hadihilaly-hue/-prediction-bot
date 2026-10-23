@@ -282,7 +282,8 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
     ).fetchone()
     shadow = ledger.conn.execute(
         "SELECT COALESCE(rules_version,'v1'),window,COUNT(*),SUM(would_trade) "
-        "FROM shadow_decisions WHERE would_trade=1 GROUP BY 1,2 ORDER BY 1,2"
+        "FROM shadow_decisions WHERE would_trade=1 AND reason!='single_sharp' "
+        "GROUP BY 1,2 ORDER BY 1,2"
     ).fetchall()
     maker = ledger.conn.execute(
         "SELECT status,COUNT(*) FROM maker_shadow GROUP BY status ORDER BY status"
@@ -393,6 +394,7 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
         }
         for version in ("v3", "v2")
     }
+    quality["clv_single_sharp"] = _single_sharp_clv_data(ledger)
     clv_cohorts = _clv_cohort_data(ledger)
     quality["clv_by_edge"] = clv_cohorts["clv_by_edge"]
     quality["clv_by_window"] = clv_cohorts["clv_by_window"]
@@ -724,6 +726,56 @@ def _entry_window_clv_summary(ledger: Ledger, version: str, window: str) -> dict
         "mean_clv": statistics.mean(clvs) if clvs else None,
         "ci95": None if ci95 is None else [ci95[0], ci95[1]],
         "mean_clv_exit": statistics.mean(exits) if exits else None,
+    }
+
+
+def _single_sharp_clv_data(ledger: Ledger) -> dict[str, object]:
+    rows = ledger.conn.execute(
+        "SELECT ticker,CAST(clv_kalshi_bid AS REAL),CAST(clv_kalshi AS REAL),clv_status "
+        "FROM shadow_decisions WHERE rules_version='v3' AND would_trade=1 "
+        "AND reason='single_sharp'"
+    ).fetchall()
+    grouped: dict[str, list[tuple[float, float | None]]] = {}
+    excluded: dict[str, int] = {}
+    for ticker, raw_bid, raw_clv, raw_status in rows:
+        status = "unclassified" if raw_status is None else str(raw_status)
+        if status != "ok":
+            excluded[status] = excluded.get(status, 0) + 1
+            continue
+        if raw_bid is None:
+            continue
+        league = KALSHI_SERIES_TO_SPORT.get(str(ticker).split("-", 1)[0], "unknown")
+        grouped.setdefault(league, []).append(
+            (float(raw_bid), None if raw_clv is None else float(raw_clv))
+        )
+    all_scores = [score for scores in grouped.values() for score in scores]
+
+    def summarize(scores: list[tuple[float, float | None]]) -> dict[str, object]:
+        bids = [score[0] for score in scores]
+        clvs = [score[1] for score in scores if score[1] is not None]
+        ci95 = _mean_ci95(bids)
+        verdict = "open"
+        if len(bids) >= 50 and ci95 is not None:
+            if ci95[0] > 0:
+                verdict = "supported"
+            elif ci95[1] < 0:
+                verdict = "rejected"
+        return {
+            "n": len(bids),
+            "mean_clv_kalshi_bid": statistics.mean(bids) if bids else None,
+            "ci95": None if ci95 is None else [ci95[0], ci95[1]],
+            "mean_clv_kalshi": statistics.mean(clvs) if clvs else None,
+            "verdict": verdict,
+        }
+
+    return {
+        **summarize(all_scores),
+        "excluded_by_status": [
+            {"clv_status": status, "n": count} for status, count in sorted(excluded.items())
+        ],
+        "per_league": [
+            {"league": league, **summarize(scores)} for league, scores in sorted(grouped.items())
+        ],
     }
 
 
@@ -1199,6 +1251,13 @@ _TEMPLATE = """<!doctype html>
     ];
     const cohortExcluded = ((Q.clv_by_edge || {}).excluded_by_status || []).filter(e => e.rules_version === rules);
     const cohortNote = cohortExcluded.length ? '<p class="hint">Left out of the near-miss tables: ' + cohortExcluded.map(e => String(e.n) + ' ' + ({in_game: 'bought after kickoff', no_commence: 'with no kickoff time', pending: 'still waiting for a closing price'}[e.clv_status] || e.clv_status)).join(', ') + '.</p>' : '';
+    const sharp = Q.clv_single_sharp || {};
+    const sharpInterval = sharp.ci95 ? signedCents(sharp.ci95[0]) + ' to ' + signedCents(sharp.ci95[1]) : 'not available yet';
+    const sharpVerdict = sharp.verdict === 'supported' ? 'supported' : sharp.verdict === 'rejected' ? 'not supported' : 'too few observations to be evidence';
+    const sharpExcluded = (sharp.excluded_by_status || []).map(e => String(e.n) + ' ' + ({in_game: 'after kickoff', no_commence: 'without a kickoff time', pending: 'waiting for a closing price', unclassified: 'not yet classified'}[e.clv_status] || e.clv_status)).join(', ');
+    const sharpPanel = rules === 'v3'
+      ? '<div class="hint"><h4>Games with only one sharp book (watch only, never bet)</h4><p>This is a separate shadow-only cohort. It never places an order or creates a fill.</p><p>' + String(sharp.n || 0) + ' scored games; mean Kalshi bid CLV ' + (num(sharp.mean_clv_kalshi_bid) ? signedCents(sharp.mean_clv_kalshi_bid) : '–') + '; 95% range ' + sharpInterval + '; mean Kalshi CLV ' + (num(sharp.mean_clv_kalshi) ? signedCents(sharp.mean_clv_kalshi) : '–') + '. Verdict: ' + sharpVerdict + '.</p>' + (sharpExcluded ? '<p>Excluded by status: ' + sharpExcluded + '.</p>' : '') + ((sharp.per_league || []).length ? '<details><summary>Single-sharp results by league</summary><div class="tablewrap"><table id="single-sharp-leagues"></table></div></details>' : '') + '</div>'
+      : '';
     const nearMiss = (rules === 'v2' || rules === 'v3')
       ? '<h4 class="evidence-head">Near misses: does a bigger edge beat the close?</h4><p class="hint">Every game the bot priced but skipped because the edge was too small or the game was outside the buying window, plus real bets. Measured against the Kalshi bid 5 minutes before kickoff, the price you could actually sell at. A row counts once it has 50 and the whole 95% range is on one side of zero.</p>' + cohortNote +
         '<div class="tablewrap"><table id="clvedge"></table></div><div class="tablewrap"><table id="clvwindow"></table></div>' +
@@ -1206,13 +1265,23 @@ _TEMPLATE = """<!doctype html>
       : '';
     $('evidence').innerHTML = exclusionNote + meter('Bets with a closing price', withClv.length) + meter('Finished bets', done.length) +
       '<div class="tablewrap"><table id="expected"></table></div>' + (windowRows.length ? '<div class="tablewrap"><table id="windows"></table></div>' : '') + nearMiss +
-      (G ? gateHead + '<div class="tablewrap"><table id="makergate"></table></div>' : '');
+      sharpPanel + (G ? gateHead + '<div class="tablewrap"><table id="makergate"></table></div>' : '');
     table('expected', 'Expected return if the Kalshi closing price is the true chance, before fees on the way out.', ['Measure', '#Bets', '#Average', '95% range', 'Verdict'], rows, '');
     if (windowRows.length) table('windows', 'When to buy: closing-price gain by how far ahead of the game the bot would have bought (shadow test, no real trades).', ['Window', '#Bets', '#Average', '95% range', 'Verdict'], windowRows, '');
     if (nearMiss) {
       table('clvedge', 'Closing-price gain by the edge the bot saw (cents per contract).', ['Edge after fees', '#Cases', '#Average', '95% range', 'Verdict'], edgeRows, 'No near misses with a closing price yet.');
       table('clvwindow', 'Closing-price gain by how far ahead of the game (near misses and real bets).', ['Window', '#Cases', '#Average', '95% range', 'Verdict'], nearWindowRows, 'No near misses with a closing price yet.');
       if (leagueRows.length) table('clvleague', '', ['League', 'Group', '#Cases', '#Average', '95% range', 'Verdict'], leagueRows, '');
+    }
+    if (rules === 'v3' && (sharp.per_league || []).length) {
+      const sharpLeagueRows = sharp.per_league.map(g => [
+        leagueName(g.league),
+        String(g.n || 0),
+        {v: signedCents(g.mean_clv_kalshi_bid), cls: tone(g.mean_clv_kalshi_bid)},
+        g.ci95 ? signedCents(g.ci95[0]) + ' to ' + signedCents(g.ci95[1]) : '–',
+        evidenceVerdict(g.n || 0, g.ci95)
+      ]);
+      table('single-sharp-leagues', 'Single-sharp shadow cohort CLV by league.', ['League', '#Games', '#Mean bid CLV', '95% range', 'Verdict'], sharpLeagueRows, '');
     }
     if (G) table('makergate', 'Checklist for switching on resting (maker) orders. Cents are the average closing-price gain per contract.', ['Check', 'Now', 'Status'], gateRows, '');
   }

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from prediction_bot.config import Settings
+from prediction_bot.engine import Engine
 from prediction_bot.fees import maker_fee
 from prediction_bot.models import Block, Market, OutcomeSide, Signal
 from prediction_bot.odds import OddsClient, consensus
@@ -209,9 +210,272 @@ def v3_markets(
     ]
 
 
+def _run_single_sharp_scenario(
+    settings,
+    monkeypatch,
+    *,
+    series: str = "KXNCAAFGAME",
+    bookmakers: tuple[str, ...] = ("pinnacle",),
+    home_fair: str = "0.5525",
+    home_ask: str = "0.50",
+    spread: str = "0.02",
+    depth: str = "60",
+    cohort: str = "shadow",
+    away_no_ask: str | None = None,
+    reverse_legs: bool = False,
+):  # type: ignore[no-untyped-def]
+    settings.min_lead_hours = 0
+    settings.min_books = 2
+    settings.min_books_by_sport = {}
+    settings.v3_single_sharp_cohort = cohort
+    code_to_id = {"HOME": "home-id", "AWAY": "away-id"}
+    name_to_id = {"Synthetic Home": "home-id", "Synthetic Away": "away-id"}
+    monkeypatch.setattr(
+        sportsbook_v2_module,
+        "team_for_code",
+        lambda current_series, code: code_to_id.get(code),
+    )
+    monkeypatch.setattr(
+        sportsbook_v2_module,
+        "team_for_odds_name",
+        lambda sport, name: name_to_id.get(name),
+    )
+    monkeypatch.setattr(
+        sportsbook_v2_module,
+        "kalshi_name_ok",
+        lambda current_series, team_id, title: (
+            title == ("Synthetic Home" if team_id == "home-id" else "Synthetic Away")
+        ),
+    )
+    is_soccer = series in {"KXEPLGAME", "KXUELGAME", "KXUECLGAME"}
+    home_probability = Decimal(home_fair)
+    probabilities = (
+        {
+            "Synthetic Home": home_probability,
+            "Synthetic Away": Decimal("0.20"),
+            "Draw": Decimal(1) - home_probability - Decimal("0.20"),
+        }
+        if is_soccer
+        else {
+            "Synthetic Home": home_probability,
+            "Synthetic Away": Decimal(1) - home_probability,
+        }
+    )
+    odds = odds_event(
+        f"single-sharp-{series}",
+        "Synthetic Home",
+        "Synthetic Away",
+        "2026-10-27T20:00:00Z",
+        probabilities,
+    )
+    event_books = odds["bookmakers"]
+    assert isinstance(event_books, list)
+    odds["bookmakers"] = [
+        {**book, "last_update": "2026-10-23T00:00:00Z"}
+        for book in event_books
+        if book["key"] in bookmakers
+    ]
+    event_ticker = f"{series}-26OCT27HOMEB"
+    rules_primary = SOCCER_RULES_PRIMARY if is_soccer else "If the team wins the game."
+    home_price = Decimal(home_ask)
+    quote_spread = Decimal(spread)
+    home_bid = home_price - quote_spread
+    away_bid = Decimal(1) - (home_price if away_no_ask is None else Decimal(away_no_ask))
+    away_ask = away_bid + quote_spread
+    markets = [
+        make_market(
+            f"{event_ticker}-HOME",
+            str(home_bid),
+            str(home_price),
+            subtitle="Synthetic Home",
+            raw={"rules_primary": rules_primary},
+            yes_bid_size=Decimal(depth),
+            yes_ask_size=Decimal(depth),
+        ),
+        make_market(
+            f"{event_ticker}-AWAY",
+            str(away_bid),
+            str(away_ask),
+            subtitle="Synthetic Away",
+            raw={"rules_primary": rules_primary},
+            yes_bid_size=Decimal(depth),
+            yes_ask_size=Decimal(depth),
+        ),
+    ]
+    if is_soccer:
+        markets.append(
+            make_market(
+                f"{event_ticker}-TIE",
+                "0.14",
+                "0.16",
+                subtitle="Tie",
+                raw={"rules_primary": rules_primary},
+                yes_bid_size=Decimal(depth),
+                yes_ask_size=Decimal(depth),
+            )
+        )
+    if reverse_legs:
+        markets.reverse()
+    ledger = Ledger(":memory:", Decimal("1000"))
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([odds]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=ledger,
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+    result = Engine(settings, object(), [strategy], ledger).run_cycle(markets)  # type: ignore[arg-type]
+    return ledger, strategy, result
+
+
 SOCCER_RULES_PRIMARY = (
     "After 90 minutes plus stoppage time (does not include extra time or penalties)."
 )
+
+
+def test_v3_pinnacle_single_sharp_is_persisted_as_shadow_only(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    assert Settings(_env_file=None).v3_single_sharp_cohort == "shadow"
+    ledger, strategy, result = _run_single_sharp_scenario(settings, monkeypatch, away_no_ask="0.52")
+
+    row = ledger.conn.execute(
+        "SELECT rules_version,reason,would_trade,fair,price,side,net_edge,tags,commence_time "
+        "FROM shadow_decisions"
+    ).fetchone()
+    assert result.signals == []
+    assert result.acted == []
+    assert row is not None
+    assert row[:3] == ("v3", "single_sharp", 1)
+    assert abs(Decimal(row[3]) - Decimal("0.5525")) < Decimal("0.0001")
+    assert row[4] == "0.50"
+    assert row[5] == "yes"
+    assert abs(Decimal(row[6]) - Decimal("0.035")) < Decimal("0.0001")
+    assert row[7] == "single_sharp"
+    assert row[8] == "2026-10-27T20:00:00+00:00"
+    assert (
+        ledger.conn.execute("SELECT COUNT(*) FROM blocks WHERE reason='few_books'").fetchone()[0]
+        == 1
+    )
+    assert ledger.conn.execute("SELECT COUNT(*) FROM fills").fetchone()[0] == 0
+    assert ledger.conn.execute("SELECT COUNT(*) FROM paper_orders").fetchone()[0] == 0
+    ledger.record_shadow_decision(strategy.seen_single_sharp_decisions()[0], "v3", "single_sharp")
+    assert ledger.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 1
+
+
+def test_v3_circa_only_single_sharp_qualifies(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    ledger, _strategy, _result = _run_single_sharp_scenario(
+        settings, monkeypatch, bookmakers=("circa",)
+    )
+
+    assert ledger.conn.execute(
+        "SELECT reason,COUNT(*) FROM shadow_decisions GROUP BY reason"
+    ).fetchall() == [("single_sharp", 1)]
+
+
+def test_v3_single_sharp_worst_case_uses_pessimistic_fair_for_no(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    settings.v3_devig_method = "worst_case"
+
+    def differing_methods(_odds):  # type: ignore[no-untyped-def]
+        return {
+            "multiplicative": {
+                "Synthetic Home": Decimal("0.60"),
+                "Synthetic Away": Decimal("0.40"),
+            },
+            "power": {
+                "Synthetic Home": Decimal("0.70"),
+                "Synthetic Away": Decimal("0.30"),
+            },
+        }
+
+    monkeypatch.setattr(sportsbook_v2_module, "devig_all", differing_methods)
+    ledger, _strategy, _result = _run_single_sharp_scenario(
+        settings,
+        monkeypatch,
+        home_ask="0.72",
+        spread="0.03",
+    )
+
+    assert ledger.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 0
+
+
+def test_v3_single_sharp_keeps_highest_edge_equivalent_side_independent_of_leg_order(
+    settings, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    persisted = []
+    for reverse_legs in (False, True):
+        ledger, _strategy, result = _run_single_sharp_scenario(
+            settings,
+            monkeypatch,
+            away_no_ask="0.45",
+            reverse_legs=reverse_legs,
+        )
+        assert result.signals == []
+        rows = ledger.conn.execute(
+            "SELECT ticker,side,net_edge FROM shadow_decisions WHERE reason='single_sharp'"
+        ).fetchall()
+        assert len(rows) == 1
+        persisted.append(rows[0])
+
+    assert persisted[0] == persisted[1]
+    assert persisted[0][0].endswith("-AWAY")
+    assert persisted[0][1] == "no"
+    assert Decimal(persisted[0][2]) > Decimal("0.06")
+
+
+def test_v3_soccer_single_sharp_qualifies(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    ledger, _strategy, _result = _run_single_sharp_scenario(
+        settings,
+        monkeypatch,
+        series="KXUELGAME",
+        home_fair="0.65",
+    )
+
+    assert (
+        ledger.conn.execute(
+            "SELECT COUNT(*) FROM shadow_decisions WHERE reason='single_sharp'"
+        ).fetchone()[0]
+        >= 1
+    )
+
+
+def test_v3_draftkings_only_remains_few_books(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    ledger, _strategy, _result = _run_single_sharp_scenario(
+        settings, monkeypatch, bookmakers=("draftkings",)
+    )
+
+    assert ledger.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 0
+    assert (
+        ledger.conn.execute("SELECT COUNT(*) FROM blocks WHERE reason='few_books'").fetchone()[0]
+        == 1
+    )
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        {"spread": "0.04"},
+        {"depth": "40"},
+        {"home_fair": "0.5425"},
+    ],
+    ids=["wide-spread", "thin-ask", "net-edge-below-three-cents"],
+)
+def test_v3_single_sharp_requires_spread_depth_and_fee_plus_three_cents(
+    settings, monkeypatch, scenario: dict[str, str]
+) -> None:  # type: ignore[no-untyped-def]
+    ledger, _strategy, _result = _run_single_sharp_scenario(settings, monkeypatch, **scenario)
+
+    assert ledger.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 0
+
+
+def test_v3_single_sharp_never_qualifies_nhl_or_when_disabled(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    nhl_ledger, _strategy, _result = _run_single_sharp_scenario(
+        settings, monkeypatch, series="KXNHLGAME"
+    )
+    assert nhl_ledger.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 0
+
+    disabled_ledger, _strategy, _result = _run_single_sharp_scenario(
+        settings, monkeypatch, cohort="off"
+    )
+    assert disabled_ledger.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 0
 
 
 def _settlement_test_markets(

@@ -71,6 +71,71 @@ def test_dashboard_clv_cohorts_report_bucket_verdicts_and_exclusions(tmp_path) -
     assert windows[0]["mean_clv_kalshi"] == 0.5
 
 
+def test_dashboard_keeps_single_sharp_clv_out_of_other_cohorts(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "dashboard-single-sharp.sqlite", Decimal("1000"))
+    created = datetime(2026, 10, 1, tzinfo=timezone.utc)
+    commence = created + timedelta(hours=100)
+    for label, reason, bid, clv, status in (
+        ("scored", "single_sharp", "4", "5", "ok"),
+        ("pending", "single_sharp", None, None, "pending"),
+        ("entry", "entry_window", "2", "3", "ok"),
+    ):
+        event = f"KXNCAAFGAME-26OCT05{label.upper()}"
+        ticker = f"{event}-HOME"
+        ledger.record_shadow_decision(
+            Signal(
+                strategy="sportsbook_v3",
+                ticker=ticker,
+                side=OutcomeSide.yes,
+                fair_prob=Decimal("0.65"),
+                limit_price=Decimal("0.50"),
+                edge=Decimal("0.04"),
+                size=Decimal(1),
+                created_at=created,
+                rules_version="v3",
+                position_key=f"{event}:home",
+                event_ticker=event,
+                tags=("single_sharp",) if reason == "single_sharp" else (),
+                commence_time=commence,
+            ),
+            "v3",
+            reason=reason,
+        )
+        ledger.conn.execute(
+            "UPDATE shadow_decisions SET clv_kalshi_bid=?,clv_kalshi=?,clv_status=? WHERE ticker=?",
+            (bid, clv, status, ticker),
+        )
+    ledger.conn.commit()
+
+    measurement = cast(dict[str, object], dashboard_data(ledger)["measurement"])
+    quality = cast(dict[str, object], measurement["quality"])
+    single_sharp = cast(dict[str, object], quality["clv_single_sharp"])
+    assert single_sharp["n"] == 1
+    assert single_sharp["mean_clv_kalshi_bid"] == 4
+    assert single_sharp["mean_clv_kalshi"] == 5
+    assert single_sharp["ci95"] is None
+    assert single_sharp["verdict"] == "open"
+    assert single_sharp["excluded_by_status"] == [{"clv_status": "pending", "n": 1}]
+    per_league = cast(list[dict[str, object]], single_sharp["per_league"])
+    assert per_league[0]["league"] == "americanfootball_ncaaf"
+    assert per_league[0]["n"] == 1
+
+    shadow = cast(list[dict[str, object]], quality["shadow_decisions"])
+    assert [(row["n"], row["would_trade"]) for row in shadow] == [(1, 1)]
+    by_edge = cast(dict[str, object], quality["clv_by_edge"])
+    assert by_edge["buckets"] == []
+    by_window = cast(dict[str, object], quality["clv_by_window"])
+    windows = cast(list[dict[str, object]], by_window["windows"])
+    assert {row["league"]: row["n"] for row in windows} == {
+        "all": 1,
+        "americanfootball_ncaaf": 1,
+    }
+    entry_window = cast(dict[str, object], quality["entry_window_clv"])
+    assert entry_window["v3"]["72h+"]["n"] == 1  # type: ignore[index]
+    assert entry_window["v3"]["72h+"]["mean_clv"] == 3  # type: ignore[index]
+    assert "Games with only one sharp book (watch only, never bet)" in render_dashboard(ledger)
+
+
 def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: ignore[no-untyped-def]
     ledger = Ledger(tmp_path / "dashboard.sqlite", Decimal("1000"))
     ticker = "KXNFLGAME-26OCT25KCLV-LV"

@@ -394,7 +394,8 @@ CREATE TABLE IF NOT EXISTS shadow_decisions (
     clv_kalshi_bid TEXT,
     clv_status TEXT,
     commence_time_backfill TEXT,
-    commence_source TEXT
+    commence_source TEXT,
+    tags TEXT
 );
 """
 
@@ -599,6 +600,7 @@ class Ledger:
                 "clv_status": "TEXT",
                 "commence_time_backfill": "TEXT",
                 "commence_source": "TEXT",
+                "tags": "TEXT",
             },
             "maker_shadow": {
                 "commence_time": "TEXT",
@@ -1992,7 +1994,7 @@ class Ledger:
     def record_shadow_decision(self, sig: Signal, rules_version: str, reason: str = "") -> None:
         commence = sig.commence_time
         created_at = self._utc(sig.created_at)
-        if reason == "entry_window" and sig.position_key is not None:
+        if reason in {"entry_window", "single_sharp"} and sig.position_key is not None:
             existing = self.conn.execute(
                 "SELECT 1 FROM shadow_decisions WHERE rules_version IS ? "
                 "AND position_key=? AND substr(created_at,1,10)=? "
@@ -2009,8 +2011,8 @@ class Ledger:
         window = decision_window(sig.created_at, commence)
         self.conn.execute(
             "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
-            "position_key,would_trade,reason,fair,price,size,commence_time) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "position_key,would_trade,reason,fair,price,size,commence_time,net_edge,tags) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 created_at.isoformat(),
                 rules_version,
@@ -2025,6 +2027,8 @@ class Ledger:
                 str(sig.limit_price),
                 str(sig.size),
                 self._utc(commence).isoformat() if commence else None,
+                str(sig.edge) if reason == "single_sharp" else None,
+                ",".join(sig.tags) if sig.tags else None,
             ),
         )
         self.conn.commit()
