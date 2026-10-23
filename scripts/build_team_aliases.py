@@ -13,7 +13,14 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from prediction_bot.config import KALSHI_PROD_REST
-from prediction_bot.odds import KALSHI_SERIES_TO_SPORT, _tokens, best_team, team_match_score
+from prediction_bot.odds import (
+    _ALIASES,
+    KALSHI_SERIES_TO_SPORT,
+    _normalise,
+    _tokens,
+    best_team,
+    team_match_score,
+)
 from prediction_bot.teams import kalshi_name_ok, team_for_code, team_for_odds_name
 from prediction_bot.venues.kalshi import KalshiClient
 
@@ -88,6 +95,38 @@ def _participant_team(
     if len(common) == 1 and all(len(match) == 1 for match in matches):
         return next(iter(common)), sorted(common)
     return None, sorted(set.union(*matches))
+
+
+def _prefix_tokens(name: str) -> list[str]:
+    expanded = re.sub(r"\bst\.(?=\s|$)", "State", name, flags=re.IGNORECASE)
+    normalized = _normalise(expanded)
+    normalized = _ALIASES.get(normalized, normalized)
+    return re.findall(r"[a-z0-9]+", normalized)
+
+
+def _participant_prefix_candidates(
+    name: str, rules_primary: str, candidates: list[str]
+) -> set[str]:
+    winner = RULES_WINNER.search(rules_primary)
+    queries = [name]
+    if winner is not None:
+        queries.append(winner.group(1).strip())
+    query_matches: list[set[str]] = []
+    normalized_candidates = {candidate: _prefix_tokens(candidate) for candidate in candidates}
+    for query in queries:
+        tokens = _prefix_tokens(query)
+        if not tokens:
+            continue
+        query_matches.append(
+            {
+                candidate
+                for candidate, candidate_tokens in normalized_candidates.items()
+                if candidate_tokens[: len(tokens)] == tokens
+            }
+        )
+    if not query_matches or any(not matches for matches in query_matches):
+        return set()
+    return set.intersection(*query_matches)
 
 
 def _participant_suggestions(
@@ -226,6 +265,8 @@ def build_alias_proposal(
                 if isinstance(item.get("full_name"), str) and item["full_name"]
             }
         )
+        prefix_candidates_by_code: dict[str, set[str]] = defaultdict(set)
+        prefix_paired_events: set[str] = set()
         for team_markets in codes_by_event.values():
             for code, name, rules_primary in team_markets:
                 matched, _ = _participant_team(name, rules_primary, participant_names)
@@ -238,6 +279,64 @@ def build_alias_proposal(
                     market_names_by_code[code].add(name)
                     paired_codes.add(code)
                     paired_names.add(matched)
+        for event_ticker, team_markets in codes_by_event.items():
+            if len(team_markets) != 2 or len({code for code, _, _ in team_markets}) != 2:
+                continue
+            ticker_day = event_date(event_ticker)
+            if ticker_day is None:
+                continue
+            code_a, name_a, rules_a = team_markets[0]
+            code_b, name_b, rules_b = team_markets[1]
+            candidates_a = _participant_prefix_candidates(name_a, rules_a, participant_names)
+            candidates_b = _participant_prefix_candidates(name_b, rules_b, participant_names)
+            prefix_candidates_by_code[code_a].update(candidates_a)
+            prefix_candidates_by_code[code_b].update(candidates_b)
+            if not candidates_a or not candidates_b:
+                continue
+            matching_pairs: list[tuple[str, str]] = []
+            for game in games:
+                home, away = game.get("home_team"), game.get("away_team")
+                commence = game.get("commence_time")
+                if not isinstance(home, str) or not isinstance(away, str):
+                    continue
+                if not isinstance(commence, str):
+                    continue
+                try:
+                    start_day = (
+                        datetime.fromisoformat(commence.replace("Z", "+00:00"))
+                        .astimezone(ET)
+                        .date()
+                    )
+                except ValueError:
+                    continue
+                if start_day != ticker_day:
+                    continue
+                if home in candidates_a and away in candidates_b:
+                    matching_pairs.append((home, away))
+                if away in candidates_a and home in candidates_b:
+                    matching_pairs.append((away, home))
+            if len(matching_pairs) != 1:
+                unmatched_events.append(event_ticker)
+                continue
+            owner_a, owner_b = matching_pairs[0]
+            for code, name, odds_name in (
+                (code_a, name_a, owner_a),
+                (code_b, name_b, owner_b),
+            ):
+                team = proposal[sport][canonical_id(odds_name)]
+                team["kalshi_codes"].add(code)
+                team["kalshi_names"].add(name)
+                team["odds_names"].add(odds_name)
+                owners_by_code[code].add(odds_name)
+                market_names_by_code[code].add(name)
+                paired_codes.add(code)
+                paired_names.add(odds_name)
+            prefix_paired_events.add(event_ticker)
+        unmatched_events = [
+            event_ticker
+            for event_ticker in unmatched_events
+            if event_ticker not in prefix_paired_events
+        ]
         conflicting_codes = {
             code: sorted(owners) for code, owners in owners_by_code.items() if len(owners) > 1
         }
@@ -279,6 +378,7 @@ def build_alias_proposal(
             "unmatched_candidates": {
                 code: {
                     "market_names": sorted({name for name, _rules in code_markets[code]}),
+                    "prefix_candidates": sorted(prefix_candidates_by_code.get(code, set())),
                     "candidates": [
                         {"name": candidate, "score": round(score, 3)}
                         for market_name, rules_primary in code_markets[code]
@@ -359,9 +459,11 @@ def render_report(report: dict[str, dict[str, Any]], headers: list[dict[str, str
                 candidates = ", ".join(
                     f"{item['name']} (score {item['score']:.3f})" for item in details["candidates"]
                 )
+                prefix_candidates = ", ".join(details.get("prefix_candidates", []))
                 lines.append(
                     f"- `{code}` — market names: "
                     f"{', '.join(details['market_names']) or 'unknown'}; "
+                    f"prefix candidates: {prefix_candidates or 'none'}; "
                     f"candidates: {candidates or 'none'}; "
                     f"{details['reason']}."
                 )
