@@ -265,12 +265,16 @@ def test_dashboard_data_includes_v3_fills_in_their_own_version(tmp_path) -> None
         rules_version="v3",
         position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders",
         event_ticker="KXNFLGAME-26OCT25KCLV",
+        net_edge=Decimal("0.015"),
     )
     ledger.conn.execute(
         "INSERT INTO settlements (ticker,settled_at,result,pnl) VALUES (?,?,?,?)",
         (ticker, datetime.now(timezone.utc).isoformat(), "yes", "1"),
     )
-    ledger.conn.execute("UPDATE fills SET clv_exit='2.5',clv_status='ok' WHERE ticker=?", (ticker,))
+    ledger.conn.execute(
+        "UPDATE fills SET clv_exit='2.5',clv_kalshi_bid='2.5',clv_status='ok' WHERE ticker=?",
+        (ticker,),
+    )
     ledger.conn.commit()
 
     measurement = dashboard_data(ledger)["measurement"]
@@ -279,6 +283,14 @@ def test_dashboard_data_includes_v3_fills_in_their_own_version(tmp_path) -> None
     assert measurement["by_version"]["v3"]["brier_fills"]["n"] == 1
     assert measurement["by_version"]["v2"]["brier_fills"]["n"] == 0
     assert measurement["by_version"]["v1"]["brier_fills"]["n"] == 0
+    quality = cast(dict[str, object], measurement["quality"])
+    clv_by_edge = cast(dict[str, object], quality["clv_by_edge"])
+    edge_buckets = cast(list[dict[str, object]], clv_by_edge["buckets"])
+    v3_bucket = next(
+        row for row in edge_buckets if row["edge_bucket"] == "1-2" and row["rules_version"] == "v3"
+    )
+    assert v3_bucket["n"] == 1
+    assert v3_bucket["mean_clv_kalshi_bid"] == 2.5
 
 
 def test_dashboard_v1_clv_aggregate_excludes_in_game_fill(tmp_path) -> None:  # type: ignore[no-untyped-def]

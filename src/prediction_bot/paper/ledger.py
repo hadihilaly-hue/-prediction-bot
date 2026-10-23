@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -114,6 +115,7 @@ CREATE TABLE IF NOT EXISTS fills (
     count TEXT NOT NULL,
     fee TEXT NOT NULL,
     fair_prob TEXT NOT NULL,
+    net_edge TEXT,
     rules_version TEXT,
     position_key TEXT,
     event_ticker TEXT,
@@ -544,6 +546,7 @@ class Ledger:
                 "fee_multiplier": "TEXT",
             },
             "fills": {
+                "net_edge": "TEXT",
                 "rules_version": "TEXT",
                 "position_key": "TEXT",
                 "event_ticker": "TEXT",
@@ -1207,14 +1210,15 @@ class Ledger:
         tags: tuple[str, ...] | None = None,
         commence_time: datetime | None = None,
         fee_model_version: str | None = None,
+        net_edge: Decimal | None = None,
     ) -> None:
         cost = price * count + fee
         if cost > self.cash:
             raise ValueError(f"insufficient paper cash: need {cost}, have {self.cash}")
         self.conn.execute(
             "INSERT INTO fills (created_at, strategy, ticker, side, price, count, fee, fair_prob,"
-            " rules_version, position_key, event_ticker, tags, commence_time, fee_model_version,"
-            " fee_paid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " net_edge, rules_version, position_key, event_ticker, tags, commence_time,"
+            " fee_model_version, fee_paid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 self._utc(at or datetime.now(timezone.utc)).isoformat(),
                 strategy,
@@ -1224,6 +1228,7 @@ class Ledger:
                 str(count),
                 str(fee),
                 str(fair_prob),
+                str(net_edge) if net_edge is not None else None,
                 rules_version,
                 position_key,
                 event_ticker,
@@ -1900,11 +1905,14 @@ class Ledger:
     def record_near_miss_decisions(
         self, items: Sequence[tuple[Signal, str]], cap: int = 400
     ) -> int:
-        written = 0
-        seen: set[tuple[str | None, str | None, str, str]] = set()
-        for sig, reason in items:
-            if written >= max(0, cap):
-                break
+        limit = max(0, cap)
+        if limit == 0:
+            return 0
+
+        deduplicated: dict[
+            tuple[str | None, str | None, str, str], tuple[int, Signal, str, datetime]
+        ] = {}
+        for index, (sig, reason) in enumerate(items):
             created_at = self._utc(sig.created_at)
             key = (
                 sig.rules_version,
@@ -1912,43 +1920,62 @@ class Ledger:
                 created_at.date().isoformat(),
                 reason,
             )
-            if key in seen:
-                continue
-            seen.add(key)
+            previous = deduplicated.get(key)
+            if previous is None or sig.edge > previous[1].edge:
+                deduplicated[key] = (index, sig, reason, created_at)
+
+        by_strategy: dict[str, deque[tuple[Signal, str, datetime]]] = {}
+        for _, sig, reason, created_at in sorted(
+            deduplicated.values(), key=lambda candidate: candidate[0]
+        ):
+            by_strategy.setdefault(sig.strategy, deque()).append((sig, reason, created_at))
+        strategy_order = deque(by_strategy)
+
+        written = 0
+        while strategy_order and written < limit:
+            strategy = strategy_order.popleft()
+            sig, reason, created_at = by_strategy[strategy].popleft()
+            key = (
+                sig.rules_version,
+                sig.position_key,
+                created_at.date().isoformat(),
+                reason,
+            )
             existing = self.conn.execute(
                 "SELECT 1 FROM shadow_decisions WHERE rules_version IS ? "
                 "AND position_key IS ? AND substr(created_at,1,10)=? "
                 "AND reason=? AND would_trade=0 LIMIT 1",
                 key,
             ).fetchone()
-            if existing is not None:
-                continue
-            self.conn.execute(
-                "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,"
-                "side,position_key,would_trade,reason,fair,price,size,commence_time,net_edge) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (
-                    created_at.isoformat(),
-                    sig.rules_version,
-                    decision_window(sig.created_at, sig.commence_time),
-                    sig.strategy,
-                    sig.ticker,
-                    sig.side.value,
-                    sig.position_key,
-                    0,
-                    reason,
-                    str(sig.fair_prob),
-                    str(sig.limit_price),
-                    str(sig.size),
+            if existing is None:
+                self.conn.execute(
+                    "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,"
+                    "side,position_key,would_trade,reason,fair,price,size,commence_time,net_edge) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
-                        self._utc(sig.commence_time).isoformat()
-                        if sig.commence_time is not None
-                        else None
+                        created_at.isoformat(),
+                        sig.rules_version,
+                        decision_window(sig.created_at, sig.commence_time),
+                        sig.strategy,
+                        sig.ticker,
+                        sig.side.value,
+                        sig.position_key,
+                        0,
+                        reason,
+                        str(sig.fair_prob),
+                        str(sig.limit_price),
+                        str(sig.size),
+                        (
+                            self._utc(sig.commence_time).isoformat()
+                            if sig.commence_time is not None
+                            else None
+                        ),
+                        str(sig.edge),
                     ),
-                    str(sig.edge),
-                ),
-            )
-            written += 1
+                )
+                written += 1
+            if by_strategy[strategy]:
+                strategy_order.append(strategy)
         if written:
             self.conn.commit()
         return written

@@ -620,6 +620,7 @@ class Engine:
                 fee_model_version=FEE_MODEL_VERSION
                 if sig.rules_version in {"v2", "v3"}
                 else "v1-flat",
+                net_edge=sig.edge,
             )
         except ValueError as e:
             log.warning("skip %s: %s", sig.ticker, e)
