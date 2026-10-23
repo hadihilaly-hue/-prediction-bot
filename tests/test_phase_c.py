@@ -13,6 +13,7 @@ from prediction_bot.models import Market, OutcomeSide, Quote, Signal
 from prediction_bot.odds_planner import PlannedGame, plan_odds_pulls
 from prediction_bot.paper.ledger import Ledger, decision_window
 from prediction_bot.strategies.base import Strategy
+from scripts.odds_budget import _cumulative_deltas
 
 
 def _market(
@@ -71,6 +72,23 @@ def test_snapshot_markets_only_fetches_series_missing_from_scanner_data() -> Non
     )
     assert calls == [["KXNBAGAME"]]
     assert {market.ticker for market in markets} == {nfl.ticker, nba.ticker}
+
+
+def test_odds_budget_turns_cumulative_usage_into_non_reset_deltas() -> None:
+    runs = [
+        (382, datetime(2026, 10, 1, 8, tzinfo=timezone.utc), 100),
+        (383, datetime(2026, 10, 2, 8, tzinfo=timezone.utc), 105),
+        (384, datetime(2026, 10, 3, 8, tzinfo=timezone.utc), 4),
+        (385, datetime(2026, 10, 4, 8, tzinfo=timezone.utc), 11),
+        (386, datetime(2026, 11, 1, 8, tzinfo=timezone.utc), 20),
+        (387, datetime(2026, 11, 2, 8, tzinfo=timezone.utc), 25),
+    ]
+
+    assert _cumulative_deltas(runs) == [
+        (383, 382, runs[1][1], 5),
+        (385, 384, runs[3][1], 7),
+        (387, 386, runs[5][1], 5),
+    ]
 
 
 def test_market_snapshots_write_changes_and_six_hour_heartbeat(tmp_path: Path) -> None:
