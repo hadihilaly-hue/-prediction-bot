@@ -1863,7 +1863,8 @@ class Ledger:
         if reason == "entry_window" and sig.position_key is not None:
             existing = self.conn.execute(
                 "SELECT 1 FROM shadow_decisions WHERE rules_version IS ? "
-                "AND position_key=? AND substr(created_at,1,10)=? AND reason=? LIMIT 1",
+                "AND position_key=? AND substr(created_at,1,10)=? "
+                "AND would_trade=1 AND reason=? LIMIT 1",
                 (
                     rules_version,
                     sig.position_key,
@@ -1916,7 +1917,8 @@ class Ledger:
             seen.add(key)
             existing = self.conn.execute(
                 "SELECT 1 FROM shadow_decisions WHERE rules_version IS ? "
-                "AND position_key IS ? AND substr(created_at,1,10)=? AND reason=? LIMIT 1",
+                "AND position_key IS ? AND substr(created_at,1,10)=? "
+                "AND reason=? AND would_trade=0 LIMIT 1",
                 key,
             ).fetchone()
             if existing is not None:

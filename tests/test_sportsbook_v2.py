@@ -1281,6 +1281,47 @@ def test_entry_window_would_trade_shadow_is_deduped_per_utc_day(tmp_path: Path) 
     )
 
 
+def test_entry_window_dedupe_separates_would_trade_and_near_miss(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    created = datetime(2026, 10, 23, 12, tzinfo=timezone.utc)
+    signal = Signal(
+        strategy="sportsbook_v2",
+        ticker="KXNFLGAME-26OCT25KCLV-LV",
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.70"),
+        limit_price=Decimal("0.60"),
+        edge=Decimal("0.10"),
+        size=Decimal(1),
+        created_at=created,
+        rules_version="v2",
+        position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders",
+        event_ticker="KXNFLGAME-26OCT25KCLV",
+        commence_time=created + timedelta(hours=30),
+    )
+    near_miss = replace(signal, edge=Decimal("-0.01"), size=Decimal(0))
+
+    near_miss_first = Ledger(tmp_path / "near-miss-first.sqlite", Decimal("1000"))
+    assert near_miss_first.record_near_miss_decisions([(near_miss, "entry_window")]) == 1
+    near_miss_first.record_shadow_decision(signal, "v2", reason="entry_window")
+    near_miss_first.record_shadow_decision(
+        replace(signal, created_at=created + timedelta(minutes=30)),
+        "v2",
+        reason="entry_window",
+    )
+    assert near_miss_first.conn.execute(
+        "SELECT would_trade,reason FROM shadow_decisions ORDER BY id"
+    ).fetchall() == [(0, "entry_window"), (1, "entry_window")]
+
+    would_trade_first = Ledger(tmp_path / "would-trade-first.sqlite", Decimal("1000"))
+    would_trade_first.record_shadow_decision(signal, "v2", reason="entry_window")
+    assert would_trade_first.record_near_miss_decisions([(near_miss, "entry_window")]) == 1
+    assert would_trade_first.record_near_miss_decisions([(near_miss, "entry_window")]) == 0
+    assert would_trade_first.conn.execute(
+        "SELECT would_trade,reason FROM shadow_decisions ORDER BY id"
+    ).fetchall() == [(1, "entry_window"), (0, "entry_window")]
+
+
 def test_kickoff_guard_uses_sport_buffer(settings) -> None:  # type: ignore[no-untyped-def]
     cases = [
         (
