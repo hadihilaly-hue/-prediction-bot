@@ -30,6 +30,9 @@ pbot = "prediction_bot.cli:app"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+prediction_bot = ["data/*.json"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"

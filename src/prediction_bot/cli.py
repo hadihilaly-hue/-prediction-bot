@@ -16,7 +16,12 @@ from prediction_bot.engine import Engine
 from prediction_bot.models import Market, OutcomeSide, Signal
 from prediction_bot.odds import OddsClient, OddsPacer
 from prediction_bot.paper.ledger import Ledger, Prediction
-from prediction_bot.strategies import STRATEGIES, SportsbookArbStrategy, Strategy
+from prediction_bot.strategies import (
+    STRATEGIES,
+    SportsbookArbStrategy,
+    SportsbookV2Strategy,
+    Strategy,
+)
 from prediction_bot.venues.kalshi import KalshiClient
 from prediction_bot.venues.kalshi_auth import KalshiSigner
 
@@ -57,7 +62,11 @@ def _odds_client(settings: Settings) -> OddsClient | None:
 
 
 def _strategies(
-    settings: Settings, names: list[str], odds: OddsClient | None = None
+    settings: Settings,
+    names: list[str],
+    odds: OddsClient | None = None,
+    kalshi: KalshiClient | None = None,
+    ledger: Ledger | None = None,
 ) -> list[Strategy]:
     unknown = set(names) - set(STRATEGIES)
     if unknown:
@@ -66,7 +75,9 @@ def _strategies(
     out: list[Strategy] = []
     for n in names:
         cls = STRATEGIES[n]
-        if issubclass(cls, SportsbookArbStrategy):
+        if cls is SportsbookV2Strategy:
+            out.append(cls(settings, odds_client=odds, kalshi_client=kalshi, ledger=ledger))
+        elif issubclass(cls, SportsbookArbStrategy):
             out.append(cls(settings, odds_client=odds))  # one client: odds fetched once per cycle
         else:
             out.append(cls(settings))
@@ -122,7 +133,7 @@ def scan(
     s = _settings()
     client = _client(s)
     ms = _fetch(client, series)
-    signals = [sig for st in _strategies(s, strategy) for sig in st.evaluate(ms)]
+    signals = [sig for st in _strategies(s, strategy, kalshi=client) for sig in st.evaluate(ms)]
     console.print(f"scanned {len(ms)} markets, {len(signals)} signals")
     _print_signals(signals)
 
@@ -139,7 +150,7 @@ def paper(
     client = _client(s)
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
     odds = _odds_client(s)
-    strats = _strategies(s, strategy, odds)
+    strats = _strategies(s, strategy, odds, kalshi=client, ledger=ledger)
     pacer = None
     uses_odds = any(isinstance(st, SportsbookArbStrategy) for st in strats)
     if odds is not None and s.odds_runs_per_day > 0 and uses_odds:

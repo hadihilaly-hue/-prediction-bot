@@ -72,6 +72,7 @@ def parse_market(m: JSON) -> Market:
         result=str(m.get("result") or ""),
         category=str(m.get("category") or ""),
         raw=m,
+        last_price=_opt_dec(m.get("last_price_dollars")),
     )
 
 

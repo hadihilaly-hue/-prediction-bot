@@ -1,0 +1,3828 @@
+{
+  "americanfootball_ncaaf": {
+    "air-force-falcons": {
+      "kalshi_codes": [
+        "AFA"
+      ],
+      "kalshi_names": [
+        "Air Force"
+      ],
+      "odds_names": [
+        "Air Force Falcons"
+      ]
+    },
+    "akron-zips": {
+      "kalshi_codes": [
+        "AKR"
+      ],
+      "kalshi_names": [
+        "Akron"
+      ],
+      "odds_names": [
+        "Akron Zips"
+      ]
+    },
+    "alabama-crimson-tide": {
+      "kalshi_codes": [
+        "ALA"
+      ],
+      "kalshi_names": [
+        "Alabama"
+      ],
+      "odds_names": [
+        "Alabama Crimson Tide"
+      ]
+    },
+    "arizona-state-sun-devils": {
+      "kalshi_codes": [
+        "ASU"
+      ],
+      "kalshi_names": [
+        "Arizona St."
+      ],
+      "odds_names": [
+        "Arizona State Sun Devils"
+      ]
+    },
+    "arizona-wildcats": {
+      "kalshi_codes": [
+        "ARIZ"
+      ],
+      "kalshi_names": [
+        "Arizona"
+      ],
+      "odds_names": [
+        "Arizona Wildcats"
+      ]
+    },
+    "arkansas-razorbacks": {
+      "kalshi_codes": [
+        "ARK"
+      ],
+      "kalshi_names": [
+        "Arkansas"
+      ],
+      "odds_names": [
+        "Arkansas Razorbacks"
+      ]
+    },
+    "arkansas-state-red-wolves": {
+      "kalshi_codes": [
+        "ARST"
+      ],
+      "kalshi_names": [
+        "Arkansas St."
+      ],
+      "odds_names": [
+        "Arkansas State Red Wolves"
+      ]
+    },
+    "army-black-knights": {
+      "kalshi_codes": [
+        "ARMY"
+      ],
+      "kalshi_names": [
+        "Army"
+      ],
+      "odds_names": [
+        "Army Black Knights"
+      ]
+    },
+    "auburn-tigers": {
+      "kalshi_codes": [
+        "AUB"
+      ],
+      "kalshi_names": [
+        "Auburn"
+      ],
+      "odds_names": [
+        "Auburn Tigers"
+      ]
+    },
+    "ball-state-cardinals": {
+      "kalshi_codes": [
+        "BALL"
+      ],
+      "kalshi_names": [
+        "Ball St."
+      ],
+      "odds_names": [
+        "Ball State Cardinals"
+      ]
+    },
+    "baylor-bears": {
+      "kalshi_codes": [
+        "BAY"
+      ],
+      "kalshi_names": [
+        "Baylor"
+      ],
+      "odds_names": [
+        "Baylor Bears"
+      ]
+    },
+    "boise-state-broncos": {
+      "kalshi_codes": [
+        "BSU"
+      ],
+      "kalshi_names": [
+        "Boise St."
+      ],
+      "odds_names": [
+        "Boise State Broncos"
+      ]
+    },
+    "boston-college-eagles": {
+      "kalshi_codes": [
+        "BC"
+      ],
+      "kalshi_names": [
+        "Boston College"
+      ],
+      "odds_names": [
+        "Boston College Eagles"
+      ]
+    },
+    "bowling-green-falcons": {
+      "kalshi_codes": [
+        "BGSU"
+      ],
+      "kalshi_names": [
+        "Bowling Green"
+      ],
+      "odds_names": [
+        "Bowling Green Falcons"
+      ]
+    },
+    "buffalo-bulls": {
+      "kalshi_codes": [
+        "BUFF"
+      ],
+      "kalshi_names": [
+        "Buffalo"
+      ],
+      "odds_names": [
+        "Buffalo Bulls"
+      ]
+    },
+    "byu-cougars": {
+      "kalshi_codes": [
+        "BYU"
+      ],
+      "kalshi_names": [
+        "BYU"
+      ],
+      "odds_names": [
+        "BYU Cougars"
+      ]
+    },
+    "california-golden-bears": {
+      "kalshi_codes": [
+        "CAL"
+      ],
+      "kalshi_names": [
+        "California"
+      ],
+      "odds_names": [
+        "California Golden Bears"
+      ]
+    },
+    "central-michigan-chippewas": {
+      "kalshi_codes": [
+        "CMU"
+      ],
+      "kalshi_names": [
+        "Central Michigan"
+      ],
+      "odds_names": [
+        "Central Michigan Chippewas"
+      ]
+    },
+    "cincinnati-bearcats": {
+      "kalshi_codes": [
+        "CIN"
+      ],
+      "kalshi_names": [
+        "Cincinnati"
+      ],
+      "odds_names": [
+        "Cincinnati Bearcats"
+      ]
+    },
+    "clemson-tigers": {
+      "kalshi_codes": [
+        "CLEM"
+      ],
+      "kalshi_names": [
+        "Clemson"
+      ],
+      "odds_names": [
+        "Clemson Tigers"
+      ]
+    },
+    "colorado-buffaloes": {
+      "kalshi_codes": [
+        "COLO"
+      ],
+      "kalshi_names": [
+        "Colorado"
+      ],
+      "odds_names": [
+        "Colorado Buffaloes"
+      ]
+    },
+    "colorado-state-rams": {
+      "kalshi_codes": [
+        "CSU"
+      ],
+      "kalshi_names": [
+        "Colorado St."
+      ],
+      "odds_names": [
+        "Colorado State Rams"
+      ]
+    },
+    "delaware-blue-hens": {
+      "kalshi_codes": [
+        "DEL"
+      ],
+      "kalshi_names": [
+        "Delaware"
+      ],
+      "odds_names": [
+        "Delaware Blue Hens"
+      ]
+    },
+    "duke-blue-devils": {
+      "kalshi_codes": [
+        "DUKE"
+      ],
+      "kalshi_names": [
+        "Duke"
+      ],
+      "odds_names": [
+        "Duke Blue Devils"
+      ]
+    },
+    "eastern-michigan-eagles": {
+      "kalshi_codes": [
+        "EMU"
+      ],
+      "kalshi_names": [
+        "Eastern Michigan"
+      ],
+      "odds_names": [
+        "Eastern Michigan Eagles"
+      ]
+    },
+    "florida-atlantic-owls": {
+      "kalshi_codes": [
+        "FAU"
+      ],
+      "kalshi_names": [
+        "Florida Atlantic"
+      ],
+      "odds_names": [
+        "Florida Atlantic Owls"
+      ]
+    },
+    "florida-gators": {
+      "kalshi_codes": [
+        "FLA"
+      ],
+      "kalshi_names": [
+        "Florida"
+      ],
+      "odds_names": [
+        "Florida Gators"
+      ]
+    },
+    "fresno-state-bulldogs": {
+      "kalshi_codes": [
+        "FRES"
+      ],
+      "kalshi_names": [
+        "Fresno St."
+      ],
+      "odds_names": [
+        "Fresno State Bulldogs"
+      ]
+    },
+    "georgia-bulldogs": {
+      "kalshi_codes": [
+        "UGA"
+      ],
+      "kalshi_names": [
+        "Georgia"
+      ],
+      "odds_names": [
+        "Georgia Bulldogs"
+      ]
+    },
+    "georgia-state-panthers": {
+      "kalshi_codes": [
+        "GAST"
+      ],
+      "kalshi_names": [
+        "Georgia St."
+      ],
+      "odds_names": [
+        "Georgia State Panthers"
+      ]
+    },
+    "georgia-tech-yellow-jackets": {
+      "kalshi_codes": [
+        "GT"
+      ],
+      "kalshi_names": [
+        "Georgia Tech"
+      ],
+      "odds_names": [
+        "Georgia Tech Yellow Jackets"
+      ]
+    },
+    "hawaii-rainbow-warriors": {
+      "kalshi_codes": [
+        "HAW"
+      ],
+      "kalshi_names": [
+        "Hawai'i"
+      ],
+      "odds_names": [
+        "Hawaii Rainbow Warriors"
+      ]
+    },
+    "houston-cougars": {
+      "kalshi_codes": [
+        "HOU"
+      ],
+      "kalshi_names": [
+        "Houston"
+      ],
+      "odds_names": [
+        "Houston Cougars"
+      ]
+    },
+    "illinois-fighting-illini": {
+      "kalshi_codes": [
+        "ILL"
+      ],
+      "kalshi_names": [
+        "Illinois"
+      ],
+      "odds_names": [
+        "Illinois Fighting Illini"
+      ]
+    },
+    "indiana-hoosiers": {
+      "kalshi_codes": [
+        "IND"
+      ],
+      "kalshi_names": [
+        "Indiana"
+      ],
+      "odds_names": [
+        "Indiana Hoosiers"
+      ]
+    },
+    "iowa-hawkeyes": {
+      "kalshi_codes": [
+        "IOWA"
+      ],
+      "kalshi_names": [
+        "Iowa"
+      ],
+      "odds_names": [
+        "Iowa Hawkeyes"
+      ]
+    },
+    "iowa-state-cyclones": {
+      "kalshi_codes": [
+        "ISU"
+      ],
+      "kalshi_names": [
+        "Iowa St."
+      ],
+      "odds_names": [
+        "Iowa State Cyclones"
+      ]
+    },
+    "jacksonville-state-gamecocks": {
+      "kalshi_codes": [
+        "JVST"
+      ],
+      "kalshi_names": [
+        "Jacksonville St."
+      ],
+      "odds_names": [
+        "Jacksonville State Gamecocks"
+      ]
+    },
+    "kansas-jayhawks": {
+      "kalshi_codes": [
+        "KU"
+      ],
+      "kalshi_names": [
+        "Kansas"
+      ],
+      "odds_names": [
+        "Kansas Jayhawks"
+      ]
+    },
+    "kansas-state-wildcats": {
+      "kalshi_codes": [
+        "KSU"
+      ],
+      "kalshi_names": [
+        "Kansas St."
+      ],
+      "odds_names": [
+        "Kansas State Wildcats"
+      ]
+    },
+    "kent-state-golden-flashes": {
+      "kalshi_codes": [
+        "KENT"
+      ],
+      "kalshi_names": [
+        "Kent St."
+      ],
+      "odds_names": [
+        "Kent State Golden Flashes"
+      ]
+    },
+    "kentucky-wildcats": {
+      "kalshi_codes": [
+        "UK"
+      ],
+      "kalshi_names": [
+        "Kentucky"
+      ],
+      "odds_names": [
+        "Kentucky Wildcats"
+      ]
+    },
+    "louisiana-tech-bulldogs": {
+      "kalshi_codes": [
+        "LT"
+      ],
+      "kalshi_names": [
+        "Louisiana Tech"
+      ],
+      "odds_names": [
+        "Louisiana Tech Bulldogs"
+      ]
+    },
+    "lsu-tigers": {
+      "kalshi_codes": [
+        "LSU"
+      ],
+      "kalshi_names": [
+        "LSU"
+      ],
+      "odds_names": [
+        "LSU Tigers"
+      ]
+    },
+    "miami-oh-redhawks": {
+      "kalshi_codes": [
+        "MOH"
+      ],
+      "kalshi_names": [
+        "Miami (OH)"
+      ],
+      "odds_names": [
+        "Miami (OH) RedHawks"
+      ]
+    },
+    "miami-hurricanes": {
+      "kalshi_codes": [
+        "MIA"
+      ],
+      "kalshi_names": [
+        "Miami (FL)"
+      ],
+      "odds_names": [
+        "Miami Hurricanes"
+      ]
+    },
+    "michigan-state-spartans": {
+      "kalshi_codes": [
+        "MSU"
+      ],
+      "kalshi_names": [
+        "Michigan St."
+      ],
+      "odds_names": [
+        "Michigan State Spartans"
+      ]
+    },
+    "michigan-wolverines": {
+      "kalshi_codes": [
+        "MICH"
+      ],
+      "kalshi_names": [
+        "Michigan"
+      ],
+      "odds_names": [
+        "Michigan Wolverines"
+      ]
+    },
+    "minnesota-golden-gophers": {
+      "kalshi_codes": [
+        "MINN"
+      ],
+      "kalshi_names": [
+        "Minnesota"
+      ],
+      "odds_names": [
+        "Minnesota Golden Gophers"
+      ]
+    },
+    "mississippi-state-bulldogs": {
+      "kalshi_codes": [
+        "MSST"
+      ],
+      "kalshi_names": [
+        "Mississippi St."
+      ],
+      "odds_names": [
+        "Mississippi State Bulldogs"
+      ]
+    },
+    "missouri-state-bears": {
+      "kalshi_codes": [
+        "MOSU"
+      ],
+      "kalshi_names": [
+        "Missouri St."
+      ],
+      "odds_names": [
+        "Missouri State Bears"
+      ]
+    },
+    "missouri-tigers": {
+      "kalshi_codes": [
+        "MIZZ"
+      ],
+      "kalshi_names": [
+        "Missouri"
+      ],
+      "odds_names": [
+        "Missouri Tigers"
+      ]
+    },
+    "navy-midshipmen": {
+      "kalshi_codes": [
+        "NAVY"
+      ],
+      "kalshi_names": [
+        "Navy"
+      ],
+      "odds_names": [
+        "Navy Midshipmen"
+      ]
+    },
+    "nc-state-wolfpack": {
+      "kalshi_codes": [
+        "NCST"
+      ],
+      "kalshi_names": [
+        "NC St."
+      ],
+      "odds_names": [
+        "NC State Wolfpack"
+      ]
+    },
+    "nebraska-cornhuskers": {
+      "kalshi_codes": [
+        "NEB"
+      ],
+      "kalshi_names": [
+        "Nebraska"
+      ],
+      "odds_names": [
+        "Nebraska Cornhuskers"
+      ]
+    },
+    "nevada-wolf-pack": {
+      "kalshi_codes": [
+        "NEV"
+      ],
+      "kalshi_names": [
+        "Nevada"
+      ],
+      "odds_names": [
+        "Nevada Wolf Pack"
+      ]
+    },
+    "new-mexico-lobos": {
+      "kalshi_codes": [
+        "UNM"
+      ],
+      "kalshi_names": [
+        "New Mexico"
+      ],
+      "odds_names": [
+        "New Mexico Lobos"
+      ]
+    },
+    "new-mexico-state-aggies": {
+      "kalshi_codes": [
+        "NMSU"
+      ],
+      "kalshi_names": [
+        "New Mexico St."
+      ],
+      "odds_names": [
+        "New Mexico State Aggies"
+      ]
+    },
+    "north-carolina-tar-heels": {
+      "kalshi_codes": [
+        "UNC"
+      ],
+      "kalshi_names": [
+        "North Carolina"
+      ],
+      "odds_names": [
+        "North Carolina Tar Heels"
+      ]
+    },
+    "north-dakota-state-bison": {
+      "kalshi_codes": [
+        "NDSU"
+      ],
+      "kalshi_names": [
+        "North Dakota St."
+      ],
+      "odds_names": [
+        "North Dakota State Bison"
+      ]
+    },
+    "north-texas-mean-green": {
+      "kalshi_codes": [
+        "UNT"
+      ],
+      "kalshi_names": [
+        "North Texas"
+      ],
+      "odds_names": [
+        "North Texas Mean Green"
+      ]
+    },
+    "northern-illinois-huskies": {
+      "kalshi_codes": [
+        "NIU"
+      ],
+      "kalshi_names": [
+        "Northern Illinois"
+      ],
+      "odds_names": [
+        "Northern Illinois Huskies"
+      ]
+    },
+    "northwestern-wildcats": {
+      "kalshi_codes": [
+        "NW"
+      ],
+      "kalshi_names": [
+        "Northwestern"
+      ],
+      "odds_names": [
+        "Northwestern Wildcats"
+      ]
+    },
+    "notre-dame-fighting-irish": {
+      "kalshi_codes": [
+        "ND"
+      ],
+      "kalshi_names": [
+        "Notre Dame"
+      ],
+      "odds_names": [
+        "Notre Dame Fighting Irish"
+      ]
+    },
+    "ohio-bobcats": {
+      "kalshi_codes": [
+        "OHIO"
+      ],
+      "kalshi_names": [
+        "Ohio"
+      ],
+      "odds_names": [
+        "Ohio Bobcats"
+      ]
+    },
+    "ohio-state-buckeyes": {
+      "kalshi_codes": [
+        "OSU"
+      ],
+      "kalshi_names": [
+        "Ohio St."
+      ],
+      "odds_names": [
+        "Ohio State Buckeyes"
+      ]
+    },
+    "oklahoma-sooners": {
+      "kalshi_codes": [
+        "OKLA"
+      ],
+      "kalshi_names": [
+        "Oklahoma"
+      ],
+      "odds_names": [
+        "Oklahoma Sooners"
+      ]
+    },
+    "oklahoma-state-cowboys": {
+      "kalshi_codes": [
+        "OKST"
+      ],
+      "kalshi_names": [
+        "Oklahoma St."
+      ],
+      "odds_names": [
+        "Oklahoma State Cowboys"
+      ]
+    },
+    "old-dominion-monarchs": {
+      "kalshi_codes": [
+        "ODU"
+      ],
+      "kalshi_names": [
+        "Old Dominion"
+      ],
+      "odds_names": [
+        "Old Dominion Monarchs"
+      ]
+    },
+    "ole-miss-rebels": {
+      "kalshi_codes": [
+        "MISS"
+      ],
+      "kalshi_names": [
+        "Ole Miss"
+      ],
+      "odds_names": [
+        "Ole Miss Rebels"
+      ]
+    },
+    "oregon-ducks": {
+      "kalshi_codes": [
+        "ORE"
+      ],
+      "kalshi_names": [
+        "Oregon"
+      ],
+      "odds_names": [
+        "Oregon Ducks"
+      ]
+    },
+    "oregon-state-beavers": {
+      "kalshi_codes": [
+        "ORST"
+      ],
+      "kalshi_names": [
+        "Oregon St."
+      ],
+      "odds_names": [
+        "Oregon State Beavers"
+      ]
+    },
+    "rice-owls": {
+      "kalshi_codes": [
+        "RICE"
+      ],
+      "kalshi_names": [
+        "Rice"
+      ],
+      "odds_names": [
+        "Rice Owls"
+      ]
+    },
+    "rutgers-scarlet-knights": {
+      "kalshi_codes": [
+        "RUTG"
+      ],
+      "kalshi_names": [
+        "Rutgers"
+      ],
+      "odds_names": [
+        "Rutgers Scarlet Knights"
+      ]
+    },
+    "sacramento-state-hornets": {
+      "kalshi_codes": [
+        "SAC"
+      ],
+      "kalshi_names": [
+        "Sacramento St."
+      ],
+      "odds_names": [
+        "Sacramento State Hornets"
+      ]
+    },
+    "sam-houston-state-bearkats": {
+      "kalshi_codes": [
+        "SHSU"
+      ],
+      "kalshi_names": [
+        "Sam Houston"
+      ],
+      "odds_names": [
+        "Sam Houston State Bearkats"
+      ]
+    },
+    "san-diego-state-aztecs": {
+      "kalshi_codes": [
+        "SDSU"
+      ],
+      "kalshi_names": [
+        "San Diego St."
+      ],
+      "odds_names": [
+        "San Diego State Aztecs"
+      ]
+    },
+    "san-jose-state-spartans": {
+      "kalshi_codes": [
+        "SJSU"
+      ],
+      "kalshi_names": [
+        "San Jose St."
+      ],
+      "odds_names": [
+        "San Jose State Spartans"
+      ]
+    },
+    "smu-mustangs": {
+      "kalshi_codes": [
+        "SMU"
+      ],
+      "kalshi_names": [
+        "SMU"
+      ],
+      "odds_names": [
+        "SMU Mustangs"
+      ]
+    },
+    "south-carolina-gamecocks": {
+      "kalshi_codes": [
+        "SCAR"
+      ],
+      "kalshi_names": [
+        "South Carolina"
+      ],
+      "odds_names": [
+        "South Carolina Gamecocks"
+      ]
+    },
+    "stanford-cardinal": {
+      "kalshi_codes": [
+        "STAN"
+      ],
+      "kalshi_names": [
+        "Stanford"
+      ],
+      "odds_names": [
+        "Stanford Cardinal"
+      ]
+    },
+    "syracuse-orange": {
+      "kalshi_codes": [
+        "SYR"
+      ],
+      "kalshi_names": [
+        "Syracuse"
+      ],
+      "odds_names": [
+        "Syracuse Orange"
+      ]
+    },
+    "tcu-horned-frogs": {
+      "kalshi_codes": [
+        "TCU"
+      ],
+      "kalshi_names": [
+        "TCU"
+      ],
+      "odds_names": [
+        "TCU Horned Frogs"
+      ]
+    },
+    "tennessee-volunteers": {
+      "kalshi_codes": [
+        "TENN"
+      ],
+      "kalshi_names": [
+        "Tennessee"
+      ],
+      "odds_names": [
+        "Tennessee Volunteers"
+      ]
+    },
+    "texas-a-m-aggies": {
+      "kalshi_codes": [
+        "TXAM"
+      ],
+      "kalshi_names": [
+        "Texas A&M"
+      ],
+      "odds_names": [
+        "Texas A&M Aggies"
+      ]
+    },
+    "texas-longhorns": {
+      "kalshi_codes": [
+        "TEX"
+      ],
+      "kalshi_names": [
+        "Texas"
+      ],
+      "odds_names": [
+        "Texas Longhorns"
+      ]
+    },
+    "texas-state-bobcats": {
+      "kalshi_codes": [
+        "TXST"
+      ],
+      "kalshi_names": [
+        "Texas St."
+      ],
+      "odds_names": [
+        "Texas State Bobcats"
+      ]
+    },
+    "texas-tech-red-raiders": {
+      "kalshi_codes": [
+        "TTU"
+      ],
+      "kalshi_names": [
+        "Texas Tech"
+      ],
+      "odds_names": [
+        "Texas Tech Red Raiders"
+      ]
+    },
+    "toledo-rockets": {
+      "kalshi_codes": [
+        "TOL"
+      ],
+      "kalshi_names": [
+        "Toledo"
+      ],
+      "odds_names": [
+        "Toledo Rockets"
+      ]
+    },
+    "tulane-green-wave": {
+      "kalshi_codes": [
+        "TULN"
+      ],
+      "kalshi_names": [
+        "Tulane"
+      ],
+      "odds_names": [
+        "Tulane Green Wave"
+      ]
+    },
+    "tulsa-golden-hurricane": {
+      "kalshi_codes": [
+        "TLSA"
+      ],
+      "kalshi_names": [
+        "Tulsa"
+      ],
+      "odds_names": [
+        "Tulsa Golden Hurricane"
+      ]
+    },
+    "ucf-knights": {
+      "kalshi_codes": [
+        "UCF"
+      ],
+      "kalshi_names": [
+        "UCF"
+      ],
+      "odds_names": [
+        "UCF Knights"
+      ]
+    },
+    "ucla-bruins": {
+      "kalshi_codes": [
+        "UCLA"
+      ],
+      "kalshi_names": [
+        "UCLA"
+      ],
+      "odds_names": [
+        "UCLA Bruins"
+      ]
+    },
+    "uconn-huskies": {
+      "kalshi_codes": [
+        "CONN"
+      ],
+      "kalshi_names": [
+        "UConn"
+      ],
+      "odds_names": [
+        "UConn Huskies"
+      ]
+    },
+    "umass-minutemen": {
+      "kalshi_codes": [
+        "MASS"
+      ],
+      "kalshi_names": [
+        "UMass"
+      ],
+      "odds_names": [
+        "UMass Minutemen"
+      ]
+    },
+    "usc-trojans": {
+      "kalshi_codes": [
+        "USC"
+      ],
+      "kalshi_names": [
+        "USC"
+      ],
+      "odds_names": [
+        "USC Trojans"
+      ]
+    },
+    "utah-state-aggies": {
+      "kalshi_codes": [
+        "USU"
+      ],
+      "kalshi_names": [
+        "Utah St."
+      ],
+      "odds_names": [
+        "Utah State Aggies"
+      ]
+    },
+    "utah-utes": {
+      "kalshi_codes": [
+        "UTAH"
+      ],
+      "kalshi_names": [
+        "Utah"
+      ],
+      "odds_names": [
+        "Utah Utes"
+      ]
+    },
+    "utsa-roadrunners": {
+      "kalshi_codes": [
+        "UTSA"
+      ],
+      "kalshi_names": [
+        "UTSA"
+      ],
+      "odds_names": [
+        "UTSA Roadrunners"
+      ]
+    },
+    "vanderbilt-commodores": {
+      "kalshi_codes": [
+        "VAN"
+      ],
+      "kalshi_names": [
+        "Vanderbilt"
+      ],
+      "odds_names": [
+        "Vanderbilt Commodores"
+      ]
+    },
+    "virginia-cavaliers": {
+      "kalshi_codes": [
+        "UVA"
+      ],
+      "kalshi_names": [
+        "Virginia"
+      ],
+      "odds_names": [
+        "Virginia Cavaliers"
+      ]
+    },
+    "virginia-tech-hokies": {
+      "kalshi_codes": [
+        "VT"
+      ],
+      "kalshi_names": [
+        "Virginia Tech"
+      ],
+      "odds_names": [
+        "Virginia Tech Hokies"
+      ]
+    },
+    "washington-huskies": {
+      "kalshi_codes": [
+        "WASH"
+      ],
+      "kalshi_names": [
+        "Washington"
+      ],
+      "odds_names": [
+        "Washington Huskies"
+      ]
+    },
+    "washington-state-cougars": {
+      "kalshi_codes": [
+        "WSU"
+      ],
+      "kalshi_names": [
+        "Washington St."
+      ],
+      "odds_names": [
+        "Washington State Cougars"
+      ]
+    },
+    "west-virginia-mountaineers": {
+      "kalshi_codes": [
+        "WVU"
+      ],
+      "kalshi_names": [
+        "West Virginia"
+      ],
+      "odds_names": [
+        "West Virginia Mountaineers"
+      ]
+    },
+    "western-kentucky-hilltoppers": {
+      "kalshi_codes": [
+        "WKU"
+      ],
+      "kalshi_names": [
+        "Western Kentucky"
+      ],
+      "odds_names": [
+        "Western Kentucky Hilltoppers"
+      ]
+    },
+    "western-michigan-broncos": {
+      "kalshi_codes": [
+        "WMU"
+      ],
+      "kalshi_names": [
+        "Western Michigan"
+      ],
+      "odds_names": [
+        "Western Michigan Broncos"
+      ]
+    },
+    "wisconsin-badgers": {
+      "kalshi_codes": [
+        "WIS"
+      ],
+      "kalshi_names": [
+        "Wisconsin"
+      ],
+      "odds_names": [
+        "Wisconsin Badgers"
+      ]
+    },
+    "wyoming-cowboys": {
+      "kalshi_codes": [
+        "WYO"
+      ],
+      "kalshi_names": [
+        "Wyoming"
+      ],
+      "odds_names": [
+        "Wyoming Cowboys"
+      ]
+    }
+  },
+  "americanfootball_nfl": {
+    "arizona-cardinals": {
+      "kalshi_codes": [
+        "ARI"
+      ],
+      "kalshi_names": [
+        "Arizona"
+      ],
+      "odds_names": [
+        "Arizona Cardinals"
+      ]
+    },
+    "atlanta-falcons": {
+      "kalshi_codes": [
+        "ATL"
+      ],
+      "kalshi_names": [
+        "Atlanta"
+      ],
+      "odds_names": [
+        "Atlanta Falcons"
+      ]
+    },
+    "baltimore-ravens": {
+      "kalshi_codes": [
+        "BAL"
+      ],
+      "kalshi_names": [
+        "Baltimore"
+      ],
+      "odds_names": [
+        "Baltimore Ravens"
+      ]
+    },
+    "buffalo-bills": {
+      "kalshi_codes": [
+        "BUF"
+      ],
+      "kalshi_names": [
+        "Buffalo"
+      ],
+      "odds_names": [
+        "Buffalo Bills"
+      ]
+    },
+    "carolina-panthers": {
+      "kalshi_codes": [
+        "CAR"
+      ],
+      "kalshi_names": [
+        "Carolina"
+      ],
+      "odds_names": [
+        "Carolina Panthers"
+      ]
+    },
+    "chicago-bears": {
+      "kalshi_codes": [
+        "CHI"
+      ],
+      "kalshi_names": [
+        "Chicago"
+      ],
+      "odds_names": [
+        "Chicago Bears"
+      ]
+    },
+    "cincinnati-bengals": {
+      "kalshi_codes": [
+        "CIN"
+      ],
+      "kalshi_names": [
+        "Cincinnati"
+      ],
+      "odds_names": [
+        "Cincinnati Bengals"
+      ]
+    },
+    "cleveland-browns": {
+      "kalshi_codes": [
+        "CLE"
+      ],
+      "kalshi_names": [
+        "Cleveland"
+      ],
+      "odds_names": [
+        "Cleveland Browns"
+      ]
+    },
+    "dallas-cowboys": {
+      "kalshi_codes": [
+        "DAL"
+      ],
+      "kalshi_names": [
+        "Dallas"
+      ],
+      "odds_names": [
+        "Dallas Cowboys"
+      ]
+    },
+    "denver-broncos": {
+      "kalshi_codes": [
+        "DEN"
+      ],
+      "kalshi_names": [
+        "Denver"
+      ],
+      "odds_names": [
+        "Denver Broncos"
+      ]
+    },
+    "detroit-lions": {
+      "kalshi_codes": [
+        "DET"
+      ],
+      "kalshi_names": [
+        "Detroit"
+      ],
+      "odds_names": [
+        "Detroit Lions"
+      ]
+    },
+    "green-bay-packers": {
+      "kalshi_codes": [
+        "GB"
+      ],
+      "kalshi_names": [
+        "Green Bay"
+      ],
+      "odds_names": [
+        "Green Bay Packers"
+      ]
+    },
+    "houston-texans": {
+      "kalshi_codes": [
+        "HOU"
+      ],
+      "kalshi_names": [
+        "Houston"
+      ],
+      "odds_names": [
+        "Houston Texans"
+      ]
+    },
+    "indianapolis-colts": {
+      "kalshi_codes": [
+        "IND"
+      ],
+      "kalshi_names": [
+        "Indianapolis"
+      ],
+      "odds_names": [
+        "Indianapolis Colts"
+      ]
+    },
+    "jacksonville-jaguars": {
+      "kalshi_codes": [
+        "JAC"
+      ],
+      "kalshi_names": [
+        "Jacksonville"
+      ],
+      "odds_names": [
+        "Jacksonville Jaguars"
+      ]
+    },
+    "kansas-city-chiefs": {
+      "kalshi_codes": [
+        "KC"
+      ],
+      "kalshi_names": [
+        "Kansas City"
+      ],
+      "odds_names": [
+        "Kansas City Chiefs"
+      ]
+    },
+    "las-vegas-raiders": {
+      "kalshi_codes": [
+        "LV"
+      ],
+      "kalshi_names": [
+        "Las Vegas"
+      ],
+      "odds_names": [
+        "Las Vegas Raiders"
+      ]
+    },
+    "los-angeles-rams": {
+      "kalshi_codes": [
+        "LAR"
+      ],
+      "kalshi_names": [
+        "Los Angeles R"
+      ],
+      "odds_names": [
+        "Los Angeles Rams"
+      ]
+    },
+    "miami-dolphins": {
+      "kalshi_codes": [
+        "MIA"
+      ],
+      "kalshi_names": [
+        "Miami"
+      ],
+      "odds_names": [
+        "Miami Dolphins"
+      ]
+    },
+    "minnesota-vikings": {
+      "kalshi_codes": [
+        "MIN"
+      ],
+      "kalshi_names": [
+        "Minnesota"
+      ],
+      "odds_names": [
+        "Minnesota Vikings"
+      ]
+    },
+    "new-england-patriots": {
+      "kalshi_codes": [
+        "NE"
+      ],
+      "kalshi_names": [
+        "New England"
+      ],
+      "odds_names": [
+        "New England Patriots"
+      ]
+    },
+    "new-orleans-saints": {
+      "kalshi_codes": [
+        "NO"
+      ],
+      "kalshi_names": [
+        "New Orleans"
+      ],
+      "odds_names": [
+        "New Orleans Saints"
+      ]
+    },
+    "new-york-giants": {
+      "kalshi_codes": [
+        "NYG"
+      ],
+      "kalshi_names": [
+        "New York G"
+      ],
+      "odds_names": [
+        "New York Giants"
+      ]
+    },
+    "new-york-jets": {
+      "kalshi_codes": [
+        "NYJ"
+      ],
+      "kalshi_names": [
+        "New York J"
+      ],
+      "odds_names": [
+        "New York Jets"
+      ]
+    },
+    "philadelphia-eagles": {
+      "kalshi_codes": [
+        "PHI"
+      ],
+      "kalshi_names": [
+        "Philadelphia"
+      ],
+      "odds_names": [
+        "Philadelphia Eagles"
+      ]
+    },
+    "pittsburgh-steelers": {
+      "kalshi_codes": [
+        "PIT"
+      ],
+      "kalshi_names": [
+        "Pittsburgh"
+      ],
+      "odds_names": [
+        "Pittsburgh Steelers"
+      ]
+    },
+    "san-francisco-49ers": {
+      "kalshi_codes": [
+        "SF"
+      ],
+      "kalshi_names": [
+        "San Francisco"
+      ],
+      "odds_names": [
+        "San Francisco 49ers"
+      ]
+    },
+    "seattle-seahawks": {
+      "kalshi_codes": [
+        "SEA"
+      ],
+      "kalshi_names": [
+        "Seattle"
+      ],
+      "odds_names": [
+        "Seattle Seahawks"
+      ]
+    },
+    "tampa-bay-buccaneers": {
+      "kalshi_codes": [
+        "TB"
+      ],
+      "kalshi_names": [
+        "Tampa Bay"
+      ],
+      "odds_names": [
+        "Tampa Bay Buccaneers"
+      ]
+    },
+    "tennessee-titans": {
+      "kalshi_codes": [
+        "TEN"
+      ],
+      "kalshi_names": [
+        "Tennessee"
+      ],
+      "odds_names": [
+        "Tennessee Titans"
+      ]
+    },
+    "washington-commanders": {
+      "kalshi_codes": [
+        "WAS"
+      ],
+      "kalshi_names": [
+        "Washington"
+      ],
+      "odds_names": [
+        "Washington Commanders"
+      ]
+    }
+  },
+  "baseball_mlb": {
+    "milwaukee-brewers": {
+      "kalshi_codes": [
+        "MIL"
+      ],
+      "kalshi_names": [
+        "Milwaukee"
+      ],
+      "odds_names": [
+        "Milwaukee Brewers"
+      ]
+    },
+    "tampa-bay-rays": {
+      "kalshi_codes": [
+        "TB"
+      ],
+      "kalshi_names": [
+        "Tampa Bay"
+      ],
+      "odds_names": [
+        "Tampa Bay Rays"
+      ]
+    }
+  },
+  "basketball_nba": {
+    "atlanta-hawks": {
+      "kalshi_codes": [
+        "ATL"
+      ],
+      "kalshi_names": [
+        "Atlanta"
+      ],
+      "odds_names": [
+        "Atlanta Hawks"
+      ]
+    },
+    "boston-celtics": {
+      "kalshi_codes": [
+        "BOS"
+      ],
+      "kalshi_names": [
+        "Boston"
+      ],
+      "odds_names": [
+        "Boston Celtics"
+      ]
+    },
+    "charlotte-hornets": {
+      "kalshi_codes": [
+        "CHA"
+      ],
+      "kalshi_names": [
+        "Charlotte"
+      ],
+      "odds_names": [
+        "Charlotte Hornets"
+      ]
+    },
+    "chicago-bulls": {
+      "kalshi_codes": [
+        "CHI"
+      ],
+      "kalshi_names": [
+        "Chicago"
+      ],
+      "odds_names": [
+        "Chicago Bulls"
+      ]
+    },
+    "dallas-mavericks": {
+      "kalshi_codes": [
+        "DAL"
+      ],
+      "kalshi_names": [
+        "Dallas"
+      ],
+      "odds_names": [
+        "Dallas Mavericks"
+      ]
+    },
+    "detroit-pistons": {
+      "kalshi_codes": [
+        "DET"
+      ],
+      "kalshi_names": [
+        "Detroit"
+      ],
+      "odds_names": [
+        "Detroit Pistons"
+      ]
+    },
+    "golden-state-warriors": {
+      "kalshi_codes": [
+        "GSW"
+      ],
+      "kalshi_names": [
+        "Golden State"
+      ],
+      "odds_names": [
+        "Golden State Warriors"
+      ]
+    },
+    "houston-rockets": {
+      "kalshi_codes": [
+        "HOU"
+      ],
+      "kalshi_names": [
+        "Houston"
+      ],
+      "odds_names": [
+        "Houston Rockets"
+      ]
+    },
+    "indiana-pacers": {
+      "kalshi_codes": [
+        "IND"
+      ],
+      "kalshi_names": [
+        "Indiana"
+      ],
+      "odds_names": [
+        "Indiana Pacers"
+      ]
+    },
+    "memphis-grizzlies": {
+      "kalshi_codes": [
+        "MEM"
+      ],
+      "kalshi_names": [
+        "Memphis"
+      ],
+      "odds_names": [
+        "Memphis Grizzlies"
+      ]
+    },
+    "miami-heat": {
+      "kalshi_codes": [
+        "MIA"
+      ],
+      "kalshi_names": [
+        "Miami"
+      ],
+      "odds_names": [
+        "Miami Heat"
+      ]
+    },
+    "milwaukee-bucks": {
+      "kalshi_codes": [
+        "MIL"
+      ],
+      "kalshi_names": [
+        "Milwaukee"
+      ],
+      "odds_names": [
+        "Milwaukee Bucks"
+      ]
+    },
+    "minnesota-timberwolves": {
+      "kalshi_codes": [
+        "MIN"
+      ],
+      "kalshi_names": [
+        "Minnesota"
+      ],
+      "odds_names": [
+        "Minnesota Timberwolves"
+      ]
+    },
+    "new-orleans-pelicans": {
+      "kalshi_codes": [
+        "NOP"
+      ],
+      "kalshi_names": [
+        "New Orleans"
+      ],
+      "odds_names": [
+        "New Orleans Pelicans"
+      ]
+    },
+    "new-york-knicks": {
+      "kalshi_codes": [
+        "NYK"
+      ],
+      "kalshi_names": [
+        "New York"
+      ],
+      "odds_names": [
+        "New York Knicks"
+      ]
+    },
+    "orlando-magic": {
+      "kalshi_codes": [
+        "ORL"
+      ],
+      "kalshi_names": [
+        "Orlando"
+      ],
+      "odds_names": [
+        "Orlando Magic"
+      ]
+    },
+    "portland-trail-blazers": {
+      "kalshi_codes": [
+        "POR"
+      ],
+      "kalshi_names": [
+        "Portland"
+      ],
+      "odds_names": [
+        "Portland Trail Blazers"
+      ]
+    },
+    "sacramento-kings": {
+      "kalshi_codes": [
+        "SAC"
+      ],
+      "kalshi_names": [
+        "Sacramento"
+      ],
+      "odds_names": [
+        "Sacramento Kings"
+      ]
+    },
+    "san-antonio-spurs": {
+      "kalshi_codes": [
+        "SAS"
+      ],
+      "kalshi_names": [
+        "San Antonio"
+      ],
+      "odds_names": [
+        "San Antonio Spurs"
+      ]
+    },
+    "toronto-raptors": {
+      "kalshi_codes": [
+        "TOR"
+      ],
+      "kalshi_names": [
+        "Toronto"
+      ],
+      "odds_names": [
+        "Toronto Raptors"
+      ]
+    },
+    "utah-jazz": {
+      "kalshi_codes": [
+        "UTA"
+      ],
+      "kalshi_names": [
+        "Utah"
+      ],
+      "odds_names": [
+        "Utah Jazz"
+      ]
+    },
+    "washington-wizards": {
+      "kalshi_codes": [
+        "WAS"
+      ],
+      "kalshi_names": [
+        "Washington"
+      ],
+      "odds_names": [
+        "Washington Wizards"
+      ]
+    }
+  },
+  "basketball_ncaab": {},
+  "basketball_wnba": {
+    "atlanta-dream": {
+      "kalshi_codes": [
+        "ATL"
+      ],
+      "kalshi_names": [
+        "Atlanta"
+      ],
+      "odds_names": [
+        "Atlanta Dream"
+      ]
+    },
+    "golden-state-valkyries": {
+      "kalshi_codes": [
+        "GS"
+      ],
+      "kalshi_names": [
+        "Golden State"
+      ],
+      "odds_names": [
+        "Golden State Valkyries"
+      ]
+    }
+  },
+  "icehockey_nhl": {
+    "chicago-blackhawks": {
+      "kalshi_codes": [
+        "CHI"
+      ],
+      "kalshi_names": [
+        "Chicago"
+      ],
+      "odds_names": [
+        "Chicago Blackhawks"
+      ]
+    },
+    "colorado-avalanche": {
+      "kalshi_codes": [
+        "COL"
+      ],
+      "kalshi_names": [
+        "Colorado"
+      ],
+      "odds_names": [
+        "Colorado Avalanche"
+      ]
+    },
+    "montr-al-canadiens": {
+      "kalshi_codes": [
+        "MTL"
+      ],
+      "kalshi_names": [
+        "Montreal"
+      ],
+      "odds_names": [
+        "Montr\u00e9al Canadiens"
+      ]
+    },
+    "tampa-bay-lightning": {
+      "kalshi_codes": [
+        "TB"
+      ],
+      "kalshi_names": [
+        "Tampa Bay"
+      ],
+      "odds_names": [
+        "Tampa Bay Lightning"
+      ]
+    }
+  },
+  "soccer_epl": {
+    "arsenal": {
+      "kalshi_codes": [
+        "ARS"
+      ],
+      "kalshi_names": [
+        "Arsenal"
+      ],
+      "odds_names": [
+        "Arsenal"
+      ]
+    },
+    "aston-villa": {
+      "kalshi_codes": [
+        "AVL"
+      ],
+      "kalshi_names": [
+        "Aston Villa"
+      ],
+      "odds_names": [
+        "Aston Villa"
+      ]
+    },
+    "bournemouth": {
+      "kalshi_codes": [
+        "BOU"
+      ],
+      "kalshi_names": [
+        "Bournemouth"
+      ],
+      "odds_names": [
+        "Bournemouth"
+      ]
+    },
+    "brentford": {
+      "kalshi_codes": [
+        "BRE"
+      ],
+      "kalshi_names": [
+        "Brentford"
+      ],
+      "odds_names": [
+        "Brentford"
+      ]
+    },
+    "brighton-and-hove-albion": {
+      "kalshi_codes": [
+        "BRI"
+      ],
+      "kalshi_names": [
+        "Brighton"
+      ],
+      "odds_names": [
+        "Brighton and Hove Albion"
+      ]
+    },
+    "chelsea": {
+      "kalshi_codes": [
+        "CFC"
+      ],
+      "kalshi_names": [
+        "Chelsea"
+      ],
+      "odds_names": [
+        "Chelsea"
+      ]
+    },
+    "coventry-city": {
+      "kalshi_codes": [
+        "COV"
+      ],
+      "kalshi_names": [
+        "Coventry"
+      ],
+      "odds_names": [
+        "Coventry City"
+      ]
+    },
+    "crystal-palace": {
+      "kalshi_codes": [
+        "CRY"
+      ],
+      "kalshi_names": [
+        "Crystal Palace"
+      ],
+      "odds_names": [
+        "Crystal Palace"
+      ]
+    },
+    "everton": {
+      "kalshi_codes": [
+        "EVE"
+      ],
+      "kalshi_names": [
+        "Everton"
+      ],
+      "odds_names": [
+        "Everton"
+      ]
+    },
+    "fulham": {
+      "kalshi_codes": [
+        "FUL"
+      ],
+      "kalshi_names": [
+        "Fulham"
+      ],
+      "odds_names": [
+        "Fulham"
+      ]
+    },
+    "hull-city": {
+      "kalshi_codes": [
+        "HUL"
+      ],
+      "kalshi_names": [
+        "Hull City"
+      ],
+      "odds_names": [
+        "Hull City"
+      ]
+    },
+    "ipswich-town": {
+      "kalshi_codes": [
+        "IPS"
+      ],
+      "kalshi_names": [
+        "Ipswich Town"
+      ],
+      "odds_names": [
+        "Ipswich Town"
+      ]
+    },
+    "leeds-united": {
+      "kalshi_codes": [
+        "LEE"
+      ],
+      "kalshi_names": [
+        "Leeds United"
+      ],
+      "odds_names": [
+        "Leeds United"
+      ]
+    },
+    "liverpool": {
+      "kalshi_codes": [
+        "LFC"
+      ],
+      "kalshi_names": [
+        "Liverpool"
+      ],
+      "odds_names": [
+        "Liverpool"
+      ]
+    },
+    "manchester-city": {
+      "kalshi_codes": [
+        "MCI"
+      ],
+      "kalshi_names": [
+        "Manchester City"
+      ],
+      "odds_names": [
+        "Manchester City"
+      ]
+    },
+    "manchester-united": {
+      "kalshi_codes": [
+        "MUN"
+      ],
+      "kalshi_names": [
+        "Manchester United"
+      ],
+      "odds_names": [
+        "Manchester United"
+      ]
+    },
+    "newcastle-united": {
+      "kalshi_codes": [
+        "NEW"
+      ],
+      "kalshi_names": [
+        "Newcastle"
+      ],
+      "odds_names": [
+        "Newcastle United"
+      ]
+    },
+    "nottingham-forest": {
+      "kalshi_codes": [
+        "NFO"
+      ],
+      "kalshi_names": [
+        "Nottingham Forest"
+      ],
+      "odds_names": [
+        "Nottingham Forest"
+      ]
+    },
+    "sunderland": {
+      "kalshi_codes": [
+        "SUN"
+      ],
+      "kalshi_names": [
+        "Sunderland"
+      ],
+      "odds_names": [
+        "Sunderland"
+      ]
+    },
+    "tottenham-hotspur": {
+      "kalshi_codes": [
+        "TOT"
+      ],
+      "kalshi_names": [
+        "Tottenham"
+      ],
+      "odds_names": [
+        "Tottenham Hotspur"
+      ]
+    }
+  },
+  "soccer_france_ligue_one": {
+    "angers": {
+      "kalshi_codes": [
+        "ANG"
+      ],
+      "kalshi_names": [
+        "Angers"
+      ],
+      "odds_names": [
+        "Angers"
+      ]
+    },
+    "as-monaco": {
+      "kalshi_codes": [
+        "ASM"
+      ],
+      "kalshi_names": [
+        "Monaco"
+      ],
+      "odds_names": [
+        "AS Monaco"
+      ]
+    },
+    "auxerre": {
+      "kalshi_codes": [
+        "AUX"
+      ],
+      "kalshi_names": [
+        "Auxerre"
+      ],
+      "odds_names": [
+        "Auxerre"
+      ]
+    },
+    "brest": {
+      "kalshi_codes": [
+        "STB"
+      ],
+      "kalshi_names": [
+        "Stade Brest 29"
+      ],
+      "odds_names": [
+        "Brest"
+      ]
+    },
+    "le-havre": {
+      "kalshi_codes": [
+        "HAC"
+      ],
+      "kalshi_names": [
+        "Le Havre"
+      ],
+      "odds_names": [
+        "Le Havre"
+      ]
+    },
+    "le-mans-fc": {
+      "kalshi_codes": [
+        "MAN"
+      ],
+      "kalshi_names": [
+        "Le Mans"
+      ],
+      "odds_names": [
+        "Le Mans FC"
+      ]
+    },
+    "lille": {
+      "kalshi_codes": [
+        "LIL"
+      ],
+      "kalshi_names": [
+        "Lille"
+      ],
+      "odds_names": [
+        "Lille"
+      ]
+    },
+    "lorient": {
+      "kalshi_codes": [
+        "FCL"
+      ],
+      "kalshi_names": [
+        "Lorient"
+      ],
+      "odds_names": [
+        "Lorient"
+      ]
+    },
+    "lyon": {
+      "kalshi_codes": [
+        "OL"
+      ],
+      "kalshi_names": [
+        "Lyon"
+      ],
+      "odds_names": [
+        "Lyon"
+      ]
+    },
+    "marseille": {
+      "kalshi_codes": [
+        "OLM"
+      ],
+      "kalshi_names": [
+        "Marseille"
+      ],
+      "odds_names": [
+        "Marseille"
+      ]
+    },
+    "nice": {
+      "kalshi_codes": [
+        "NIC"
+      ],
+      "kalshi_names": [
+        "Nice"
+      ],
+      "odds_names": [
+        "Nice"
+      ]
+    },
+    "paris-fc": {
+      "kalshi_codes": [
+        "PAR"
+      ],
+      "kalshi_names": [
+        "Paris FC"
+      ],
+      "odds_names": [
+        "Paris FC"
+      ]
+    },
+    "paris-saint-germain": {
+      "kalshi_codes": [
+        "PSG"
+      ],
+      "kalshi_names": [
+        "PSG"
+      ],
+      "odds_names": [
+        "Paris Saint Germain"
+      ]
+    },
+    "rc-lens": {
+      "kalshi_codes": [
+        "RCL"
+      ],
+      "kalshi_names": [
+        "Lens"
+      ],
+      "odds_names": [
+        "RC Lens"
+      ]
+    },
+    "rennes": {
+      "kalshi_codes": [
+        "REN"
+      ],
+      "kalshi_names": [
+        "Stade Rennais"
+      ],
+      "odds_names": [
+        "Rennes"
+      ]
+    },
+    "strasbourg": {
+      "kalshi_codes": [
+        "RCS"
+      ],
+      "kalshi_names": [
+        "Strasbourg Alsace"
+      ],
+      "odds_names": [
+        "Strasbourg"
+      ]
+    },
+    "toulouse": {
+      "kalshi_codes": [
+        "TFC"
+      ],
+      "kalshi_names": [
+        "Toulouse"
+      ],
+      "odds_names": [
+        "Toulouse"
+      ]
+    },
+    "troyes": {
+      "kalshi_codes": [
+        "EST"
+      ],
+      "kalshi_names": [
+        "Troyes"
+      ],
+      "odds_names": [
+        "Troyes"
+      ]
+    }
+  },
+  "soccer_germany_bundesliga": {
+    "1-fc-k-ln": {
+      "kalshi_codes": [
+        "KOE"
+      ],
+      "kalshi_names": [
+        "FC K\u00f6ln"
+      ],
+      "odds_names": [
+        "1. FC K\u00f6ln"
+      ]
+    },
+    "augsburg": {
+      "kalshi_codes": [
+        "FCA"
+      ],
+      "kalshi_names": [
+        "Augsburg"
+      ],
+      "odds_names": [
+        "Augsburg"
+      ]
+    },
+    "bayer-leverkusen": {
+      "kalshi_codes": [
+        "LEV"
+      ],
+      "kalshi_names": [
+        "Leverkusen"
+      ],
+      "odds_names": [
+        "Bayer Leverkusen"
+      ]
+    },
+    "bayern-munich": {
+      "kalshi_codes": [
+        "BMU"
+      ],
+      "kalshi_names": [
+        "Bayern Munich"
+      ],
+      "odds_names": [
+        "Bayern Munich"
+      ]
+    },
+    "borussia-dortmund": {
+      "kalshi_codes": [
+        "BVB"
+      ],
+      "kalshi_names": [
+        "Dortmund"
+      ],
+      "odds_names": [
+        "Borussia Dortmund"
+      ]
+    },
+    "eintracht-frankfurt": {
+      "kalshi_codes": [
+        "SGE"
+      ],
+      "kalshi_names": [
+        "Frankfurt"
+      ],
+      "odds_names": [
+        "Eintracht Frankfurt"
+      ]
+    },
+    "elversberg": {
+      "kalshi_codes": [
+        "SVE"
+      ],
+      "kalshi_names": [
+        "Elversberg"
+      ],
+      "odds_names": [
+        "Elversberg"
+      ]
+    },
+    "fc-schalke-04": {
+      "kalshi_codes": [
+        "SCH"
+      ],
+      "kalshi_names": [
+        "Schalke"
+      ],
+      "odds_names": [
+        "FC Schalke 04"
+      ]
+    },
+    "fsv-mainz-05": {
+      "kalshi_codes": [
+        "M05"
+      ],
+      "kalshi_names": [
+        "Mainz"
+      ],
+      "odds_names": [
+        "FSV Mainz 05"
+      ]
+    },
+    "rb-leipzig": {
+      "kalshi_codes": [
+        "RBL"
+      ],
+      "kalshi_names": [
+        "Leipzig"
+      ],
+      "odds_names": [
+        "RB Leipzig"
+      ]
+    },
+    "sc-freiburg": {
+      "kalshi_codes": [
+        "SCF"
+      ],
+      "kalshi_names": [
+        "Freiburg"
+      ],
+      "odds_names": [
+        "SC Freiburg"
+      ]
+    },
+    "tsg-hoffenheim": {
+      "kalshi_codes": [
+        "TSG"
+      ],
+      "kalshi_names": [
+        "Hoffenheim"
+      ],
+      "odds_names": [
+        "TSG Hoffenheim"
+      ]
+    },
+    "union-berlin": {
+      "kalshi_codes": [
+        "UNI"
+      ],
+      "kalshi_names": [
+        "Union Berlin"
+      ],
+      "odds_names": [
+        "Union Berlin"
+      ]
+    },
+    "vfb-stuttgart": {
+      "kalshi_codes": [
+        "VFB"
+      ],
+      "kalshi_names": [
+        "Stuttgart"
+      ],
+      "odds_names": [
+        "VfB Stuttgart"
+      ]
+    },
+    "werder-bremen": {
+      "kalshi_codes": [
+        "SVW"
+      ],
+      "kalshi_names": [
+        "Bremen"
+      ],
+      "odds_names": [
+        "Werder Bremen"
+      ]
+    }
+  },
+  "soccer_italy_serie_a": {
+    "ac-milan": {
+      "kalshi_codes": [
+        "ACM"
+      ],
+      "kalshi_names": [
+        "Milan"
+      ],
+      "odds_names": [
+        "AC Milan"
+      ]
+    },
+    "as-roma": {
+      "kalshi_codes": [
+        "ROM"
+      ],
+      "kalshi_names": [
+        "Roma"
+      ],
+      "odds_names": [
+        "AS Roma"
+      ]
+    },
+    "atalanta-bc": {
+      "kalshi_codes": [
+        "ATA"
+      ],
+      "kalshi_names": [
+        "Atalanta"
+      ],
+      "odds_names": [
+        "Atalanta BC"
+      ]
+    },
+    "bologna": {
+      "kalshi_codes": [
+        "BFC"
+      ],
+      "kalshi_names": [
+        "Bologna"
+      ],
+      "odds_names": [
+        "Bologna"
+      ]
+    },
+    "cagliari": {
+      "kalshi_codes": [
+        "CAG"
+      ],
+      "kalshi_names": [
+        "Cagliari"
+      ],
+      "odds_names": [
+        "Cagliari"
+      ]
+    },
+    "como": {
+      "kalshi_codes": [
+        "COM"
+      ],
+      "kalshi_names": [
+        "Como"
+      ],
+      "odds_names": [
+        "Como"
+      ]
+    },
+    "fiorentina": {
+      "kalshi_codes": [
+        "FIO"
+      ],
+      "kalshi_names": [
+        "Fiorentina"
+      ],
+      "odds_names": [
+        "Fiorentina"
+      ]
+    },
+    "frosinone": {
+      "kalshi_codes": [
+        "FRO"
+      ],
+      "kalshi_names": [
+        "Frosinone"
+      ],
+      "odds_names": [
+        "Frosinone"
+      ]
+    },
+    "genoa": {
+      "kalshi_codes": [
+        "GEN"
+      ],
+      "kalshi_names": [
+        "Genoa"
+      ],
+      "odds_names": [
+        "Genoa"
+      ]
+    },
+    "inter-milan": {
+      "kalshi_codes": [
+        "INT"
+      ],
+      "kalshi_names": [
+        "Inter"
+      ],
+      "odds_names": [
+        "Inter Milan"
+      ]
+    },
+    "juventus": {
+      "kalshi_codes": [
+        "JUV"
+      ],
+      "kalshi_names": [
+        "Juventus"
+      ],
+      "odds_names": [
+        "Juventus"
+      ]
+    },
+    "lazio": {
+      "kalshi_codes": [
+        "LAZ"
+      ],
+      "kalshi_names": [
+        "Lazio"
+      ],
+      "odds_names": [
+        "Lazio"
+      ]
+    },
+    "lecce": {
+      "kalshi_codes": [
+        "LEC"
+      ],
+      "kalshi_names": [
+        "Lecce"
+      ],
+      "odds_names": [
+        "Lecce"
+      ]
+    },
+    "monza": {
+      "kalshi_codes": [
+        "MON"
+      ],
+      "kalshi_names": [
+        "Monza"
+      ],
+      "odds_names": [
+        "Monza"
+      ]
+    },
+    "napoli": {
+      "kalshi_codes": [
+        "NAP"
+      ],
+      "kalshi_names": [
+        "Napoli"
+      ],
+      "odds_names": [
+        "Napoli"
+      ]
+    },
+    "parma": {
+      "kalshi_codes": [
+        "PAR"
+      ],
+      "kalshi_names": [
+        "Parma Calcio"
+      ],
+      "odds_names": [
+        "Parma"
+      ]
+    },
+    "sassuolo": {
+      "kalshi_codes": [
+        "SAS"
+      ],
+      "kalshi_names": [
+        "Sassuolo"
+      ],
+      "odds_names": [
+        "Sassuolo"
+      ]
+    },
+    "torino": {
+      "kalshi_codes": [
+        "TOR"
+      ],
+      "kalshi_names": [
+        "Torino"
+      ],
+      "odds_names": [
+        "Torino"
+      ]
+    },
+    "udinese": {
+      "kalshi_codes": [
+        "UDI"
+      ],
+      "kalshi_names": [
+        "Udinese"
+      ],
+      "odds_names": [
+        "Udinese"
+      ]
+    },
+    "venezia": {
+      "kalshi_codes": [
+        "VEN"
+      ],
+      "kalshi_names": [
+        "Venezia"
+      ],
+      "odds_names": [
+        "Venezia"
+      ]
+    }
+  },
+  "soccer_mexico_ligamx": {
+    "am-rica": {
+      "kalshi_codes": [
+        "AME"
+      ],
+      "kalshi_names": [
+        "America"
+      ],
+      "odds_names": [
+        "Am\u00e9rica"
+      ]
+    },
+    "atl-tico-san-luis": {
+      "kalshi_codes": [
+        "ASL"
+      ],
+      "kalshi_names": [
+        "San Luis"
+      ],
+      "odds_names": [
+        "Atl\u00e9tico San Luis"
+      ]
+    },
+    "atlante-fc": {
+      "kalshi_codes": [
+        "ALA"
+      ],
+      "kalshi_names": [
+        "Atlante"
+      ],
+      "odds_names": [
+        "Atlante FC"
+      ]
+    },
+    "atlas": {
+      "kalshi_codes": [
+        "ATL"
+      ],
+      "kalshi_names": [
+        "Atlas"
+      ],
+      "odds_names": [
+        "Atlas"
+      ]
+    },
+    "cruz-azul": {
+      "kalshi_codes": [
+        "CRA"
+      ],
+      "kalshi_names": [
+        "Cruz Azul"
+      ],
+      "odds_names": [
+        "Cruz Azul"
+      ]
+    },
+    "fc-ju-rez": {
+      "kalshi_codes": [
+        "JUA"
+      ],
+      "kalshi_names": [
+        "Juarez"
+      ],
+      "odds_names": [
+        "FC Ju\u00e1rez"
+      ]
+    },
+    "guadalajara": {
+      "kalshi_codes": [
+        "CDG"
+      ],
+      "kalshi_names": [
+        "Guadalajara"
+      ],
+      "odds_names": [
+        "Guadalajara"
+      ]
+    },
+    "le-n": {
+      "kalshi_codes": [
+        "LEO"
+      ],
+      "kalshi_names": [
+        "Leon"
+      ],
+      "odds_names": [
+        "Le\u00f3n"
+      ]
+    },
+    "monterrey": {
+      "kalshi_codes": [
+        "MON"
+      ],
+      "kalshi_names": [
+        "Monterrey"
+      ],
+      "odds_names": [
+        "Monterrey"
+      ]
+    },
+    "necaxa": {
+      "kalshi_codes": [
+        "NCX"
+      ],
+      "kalshi_names": [
+        "Necaxa"
+      ],
+      "odds_names": [
+        "Necaxa"
+      ]
+    },
+    "pachuca": {
+      "kalshi_codes": [
+        "PAC"
+      ],
+      "kalshi_names": [
+        "Pachuca"
+      ],
+      "odds_names": [
+        "Pachuca"
+      ]
+    },
+    "puebla": {
+      "kalshi_codes": [
+        "PUE"
+      ],
+      "kalshi_names": [
+        "Puebla"
+      ],
+      "odds_names": [
+        "Puebla"
+      ]
+    },
+    "pumas": {
+      "kalshi_codes": [
+        "PUM"
+      ],
+      "kalshi_names": [
+        "Pumas UNAM"
+      ],
+      "odds_names": [
+        "Pumas"
+      ]
+    },
+    "quer-taro": {
+      "kalshi_codes": [
+        "QUE"
+      ],
+      "kalshi_names": [
+        "Queretaro"
+      ],
+      "odds_names": [
+        "Quer\u00e9taro"
+      ]
+    },
+    "santos-laguna": {
+      "kalshi_codes": [
+        "SLA"
+      ],
+      "kalshi_names": [
+        "Santos Laguna"
+      ],
+      "odds_names": [
+        "Santos Laguna"
+      ]
+    },
+    "tigres": {
+      "kalshi_codes": [
+        "TIG"
+      ],
+      "kalshi_names": [
+        "Tigres"
+      ],
+      "odds_names": [
+        "Tigres"
+      ]
+    },
+    "tijuana": {
+      "kalshi_codes": [
+        "TIJ"
+      ],
+      "kalshi_names": [
+        "Tijuana"
+      ],
+      "odds_names": [
+        "Tijuana"
+      ]
+    },
+    "toluca": {
+      "kalshi_codes": [
+        "TOL"
+      ],
+      "kalshi_names": [
+        "Toluca"
+      ],
+      "odds_names": [
+        "Toluca"
+      ]
+    }
+  },
+  "soccer_spain_la_liga": {
+    "alav-s": {
+      "kalshi_codes": [
+        "ALA"
+      ],
+      "kalshi_names": [
+        "Alaves"
+      ],
+      "odds_names": [
+        "Alav\u00e9s"
+      ]
+    },
+    "athletic-bilbao": {
+      "kalshi_codes": [
+        "ATH"
+      ],
+      "kalshi_names": [
+        "Bilbao"
+      ],
+      "odds_names": [
+        "Athletic Bilbao"
+      ]
+    },
+    "atl-tico-madrid": {
+      "kalshi_codes": [
+        "ATM"
+      ],
+      "kalshi_names": [
+        "Atletico"
+      ],
+      "odds_names": [
+        "Atl\u00e9tico Madrid"
+      ]
+    },
+    "barcelona": {
+      "kalshi_codes": [
+        "BAR"
+      ],
+      "kalshi_names": [
+        "Barcelona"
+      ],
+      "odds_names": [
+        "Barcelona"
+      ]
+    },
+    "ca-osasuna": {
+      "kalshi_codes": [
+        "OSA"
+      ],
+      "kalshi_names": [
+        "Osasuna"
+      ],
+      "odds_names": [
+        "CA Osasuna"
+      ]
+    },
+    "celta-vigo": {
+      "kalshi_codes": [
+        "RCC"
+      ],
+      "kalshi_names": [
+        "Celta Vigo"
+      ],
+      "odds_names": [
+        "Celta Vigo"
+      ]
+    },
+    "deportivo-la-coru-a": {
+      "kalshi_codes": [
+        "DEP"
+      ],
+      "kalshi_names": [
+        "Deportivo De La Coruna"
+      ],
+      "odds_names": [
+        "Deportivo La Coru\u00f1a"
+      ]
+    },
+    "elche-cf": {
+      "kalshi_codes": [
+        "ELC"
+      ],
+      "kalshi_names": [
+        "Elche"
+      ],
+      "odds_names": [
+        "Elche CF"
+      ]
+    },
+    "espanyol": {
+      "kalshi_codes": [
+        "ESP"
+      ],
+      "kalshi_names": [
+        "Espanyol"
+      ],
+      "odds_names": [
+        "Espanyol"
+      ]
+    },
+    "getafe": {
+      "kalshi_codes": [
+        "GET"
+      ],
+      "kalshi_names": [
+        "Getafe"
+      ],
+      "odds_names": [
+        "Getafe"
+      ]
+    },
+    "levante": {
+      "kalshi_codes": [
+        "LEV"
+      ],
+      "kalshi_names": [
+        "Levante"
+      ],
+      "odds_names": [
+        "Levante"
+      ]
+    },
+    "m-laga": {
+      "kalshi_codes": [
+        "MCF"
+      ],
+      "kalshi_names": [
+        "Malaga"
+      ],
+      "odds_names": [
+        "M\u00e1laga"
+      ]
+    },
+    "rayo-vallecano": {
+      "kalshi_codes": [
+        "RVC"
+      ],
+      "kalshi_names": [
+        "Vallecano"
+      ],
+      "odds_names": [
+        "Rayo Vallecano"
+      ]
+    },
+    "real-betis": {
+      "kalshi_codes": [
+        "RBB"
+      ],
+      "kalshi_names": [
+        "Real Betis"
+      ],
+      "odds_names": [
+        "Real Betis"
+      ]
+    },
+    "real-madrid": {
+      "kalshi_codes": [
+        "RMA"
+      ],
+      "kalshi_names": [
+        "Real Madrid"
+      ],
+      "odds_names": [
+        "Real Madrid"
+      ]
+    },
+    "real-racing-club-de-santander": {
+      "kalshi_codes": [
+        "SAN"
+      ],
+      "kalshi_names": [
+        "Santander"
+      ],
+      "odds_names": [
+        "Real Racing Club de Santander"
+      ]
+    },
+    "real-sociedad": {
+      "kalshi_codes": [
+        "RSO"
+      ],
+      "kalshi_names": [
+        "Real Sociedad"
+      ],
+      "odds_names": [
+        "Real Sociedad"
+      ]
+    },
+    "sevilla": {
+      "kalshi_codes": [
+        "SEV"
+      ],
+      "kalshi_names": [
+        "Sevilla"
+      ],
+      "odds_names": [
+        "Sevilla"
+      ]
+    },
+    "valencia": {
+      "kalshi_codes": [
+        "VCF"
+      ],
+      "kalshi_names": [
+        "Valencia"
+      ],
+      "odds_names": [
+        "Valencia"
+      ]
+    },
+    "villarreal": {
+      "kalshi_codes": [
+        "VIL"
+      ],
+      "kalshi_names": [
+        "Villarreal"
+      ],
+      "odds_names": [
+        "Villarreal"
+      ]
+    }
+  },
+  "soccer_uefa_champs_league": {
+    "aek-athens": {
+      "kalshi_codes": [
+        "AEK"
+      ],
+      "kalshi_names": [
+        "AEK Athens"
+      ],
+      "odds_names": [
+        "AEK Athens"
+      ]
+    },
+    "arsenal": {
+      "kalshi_codes": [
+        "ARS"
+      ],
+      "kalshi_names": [
+        "Arsenal"
+      ],
+      "odds_names": [
+        "Arsenal"
+      ]
+    },
+    "as-roma": {
+      "kalshi_codes": [
+        "ROM"
+      ],
+      "kalshi_names": [
+        "Roma"
+      ],
+      "odds_names": [
+        "AS Roma"
+      ]
+    },
+    "aston-villa": {
+      "kalshi_codes": [
+        "AVL"
+      ],
+      "kalshi_names": [
+        "Aston Villa"
+      ],
+      "odds_names": [
+        "Aston Villa"
+      ]
+    },
+    "atl-tico-madrid": {
+      "kalshi_codes": [
+        "ATM"
+      ],
+      "kalshi_names": [
+        "Atletico"
+      ],
+      "odds_names": [
+        "Atl\u00e9tico Madrid"
+      ]
+    },
+    "barcelona": {
+      "kalshi_codes": [
+        "BAR"
+      ],
+      "kalshi_names": [
+        "Barcelona"
+      ],
+      "odds_names": [
+        "Barcelona"
+      ]
+    },
+    "bayern-munich": {
+      "kalshi_codes": [
+        "BMU"
+      ],
+      "kalshi_names": [
+        "Bayern Munich"
+      ],
+      "odds_names": [
+        "Bayern Munich"
+      ]
+    },
+    "bod-glimt": {
+      "kalshi_codes": [
+        "BOG"
+      ],
+      "kalshi_names": [
+        "Bodoe/Glimt"
+      ],
+      "odds_names": [
+        "Bod\u00f8/Glimt"
+      ]
+    },
+    "borussia-dortmund": {
+      "kalshi_codes": [
+        "BVB"
+      ],
+      "kalshi_names": [
+        "Dortmund"
+      ],
+      "odds_names": [
+        "Borussia Dortmund"
+      ]
+    },
+    "club-brugge": {
+      "kalshi_codes": [
+        "BRU"
+      ],
+      "kalshi_names": [
+        "Club Brugge"
+      ],
+      "odds_names": [
+        "Club Brugge"
+      ]
+    },
+    "como": {
+      "kalshi_codes": [
+        "COM"
+      ],
+      "kalshi_names": [
+        "Como"
+      ],
+      "odds_names": [
+        "Como"
+      ]
+    },
+    "fenerbahce": {
+      "kalshi_codes": [
+        "FEN"
+      ],
+      "kalshi_names": [
+        "Fenerbahce"
+      ],
+      "odds_names": [
+        "Fenerbahce"
+      ]
+    },
+    "feyenoord": {
+      "kalshi_codes": [
+        "FEY"
+      ],
+      "kalshi_names": [
+        "Feyenoord"
+      ],
+      "odds_names": [
+        "Feyenoord"
+      ]
+    },
+    "galatasaray": {
+      "kalshi_codes": [
+        "GAL"
+      ],
+      "kalshi_names": [
+        "Galatasaray"
+      ],
+      "odds_names": [
+        "Galatasaray"
+      ]
+    },
+    "inter-milan": {
+      "kalshi_codes": [
+        "INT"
+      ],
+      "kalshi_names": [
+        "Inter"
+      ],
+      "odds_names": [
+        "Inter Milan"
+      ]
+    },
+    "k-slovan-bratislava": {
+      "kalshi_codes": [
+        "SLO"
+      ],
+      "kalshi_names": [
+        "Slovan Bratislava"
+      ],
+      "odds_names": [
+        "\u0160K Slovan Bratislava"
+      ]
+    },
+    "lask": {
+      "kalshi_codes": [
+        "ASK"
+      ],
+      "kalshi_names": [
+        "LASK"
+      ],
+      "odds_names": [
+        "LASK"
+      ]
+    },
+    "lille": {
+      "kalshi_codes": [
+        "LIL"
+      ],
+      "kalshi_names": [
+        "Lille"
+      ],
+      "odds_names": [
+        "Lille"
+      ]
+    },
+    "liverpool": {
+      "kalshi_codes": [
+        "LFC"
+      ],
+      "kalshi_names": [
+        "Liverpool"
+      ],
+      "odds_names": [
+        "Liverpool"
+      ]
+    },
+    "manchester-city": {
+      "kalshi_codes": [
+        "MCI"
+      ],
+      "kalshi_names": [
+        "Manchester City"
+      ],
+      "odds_names": [
+        "Manchester City"
+      ]
+    },
+    "manchester-united": {
+      "kalshi_codes": [
+        "MUN"
+      ],
+      "kalshi_names": [
+        "Manchester United"
+      ],
+      "odds_names": [
+        "Manchester United"
+      ]
+    },
+    "napoli": {
+      "kalshi_codes": [
+        "NAP"
+      ],
+      "kalshi_names": [
+        "Napoli"
+      ],
+      "odds_names": [
+        "Napoli"
+      ]
+    },
+    "paris-saint-germain": {
+      "kalshi_codes": [
+        "PSG"
+      ],
+      "kalshi_names": [
+        "PSG"
+      ],
+      "odds_names": [
+        "Paris Saint Germain"
+      ]
+    },
+    "porto": {
+      "kalshi_codes": [
+        "FCP"
+      ],
+      "kalshi_names": [
+        "Porto"
+      ],
+      "odds_names": [
+        "Porto"
+      ]
+    },
+    "psv-eindhoven": {
+      "kalshi_codes": [
+        "PSV"
+      ],
+      "kalshi_names": [
+        "Eindhoven"
+      ],
+      "odds_names": [
+        "PSV Eindhoven"
+      ]
+    },
+    "rb-leipzig": {
+      "kalshi_codes": [
+        "RBL"
+      ],
+      "kalshi_names": [
+        "Leipzig"
+      ],
+      "odds_names": [
+        "RB Leipzig"
+      ]
+    },
+    "rc-lens": {
+      "kalshi_codes": [
+        "RCL"
+      ],
+      "kalshi_names": [
+        "Lens"
+      ],
+      "odds_names": [
+        "RC Lens"
+      ]
+    },
+    "real-betis": {
+      "kalshi_codes": [
+        "RBB"
+      ],
+      "kalshi_names": [
+        "Real Betis"
+      ],
+      "odds_names": [
+        "Real Betis"
+      ]
+    },
+    "real-madrid": {
+      "kalshi_codes": [
+        "RMA"
+      ],
+      "kalshi_names": [
+        "Real Madrid"
+      ],
+      "odds_names": [
+        "Real Madrid"
+      ]
+    },
+    "sabah-fk": {
+      "kalshi_codes": [
+        "SBH"
+      ],
+      "kalshi_names": [
+        "Sabah Masazir"
+      ],
+      "odds_names": [
+        "Sabah FK"
+      ]
+    },
+    "shakhtar-donetsk": {
+      "kalshi_codes": [
+        "SHA"
+      ],
+      "kalshi_names": [
+        "Shakhtar"
+      ],
+      "odds_names": [
+        "Shakhtar Donetsk"
+      ]
+    },
+    "slavia-praha": {
+      "kalshi_codes": [
+        "SLA"
+      ],
+      "kalshi_names": [
+        "Slavia Prague"
+      ],
+      "odds_names": [
+        "Slavia Praha"
+      ]
+    },
+    "sporting-lisbon": {
+      "kalshi_codes": [
+        "SPO"
+      ],
+      "kalshi_names": [
+        "Sporting CP"
+      ],
+      "odds_names": [
+        "Sporting Lisbon"
+      ]
+    },
+    "vfb-stuttgart": {
+      "kalshi_codes": [
+        "VFB"
+      ],
+      "kalshi_names": [
+        "Stuttgart"
+      ],
+      "odds_names": [
+        "VfB Stuttgart"
+      ]
+    },
+    "viking-fk": {
+      "kalshi_codes": [
+        "VIK"
+      ],
+      "kalshi_names": [
+        "Viking"
+      ],
+      "odds_names": [
+        "Viking FK"
+      ]
+    },
+    "villarreal": {
+      "kalshi_codes": [
+        "VIL"
+      ],
+      "kalshi_names": [
+        "Villarreal"
+      ],
+      "odds_names": [
+        "Villarreal"
+      ]
+    }
+  },
+  "soccer_uefa_europa_conference_league": {},
+  "soccer_uefa_europa_league": {},
+  "soccer_usa_mls": {
+    "atlanta-united-fc": {
+      "kalshi_codes": [
+        "ATL"
+      ],
+      "kalshi_names": [
+        "Atlanta"
+      ],
+      "odds_names": [
+        "Atlanta United FC"
+      ]
+    },
+    "austin-fc": {
+      "kalshi_codes": [
+        "ATX"
+      ],
+      "kalshi_names": [
+        "Austin"
+      ],
+      "odds_names": [
+        "Austin FC"
+      ]
+    },
+    "cf-montreal": {
+      "kalshi_codes": [
+        "MTL"
+      ],
+      "kalshi_names": [
+        "Montreal"
+      ],
+      "odds_names": [
+        "CF Montreal"
+      ]
+    },
+    "charlotte-fc": {
+      "kalshi_codes": [
+        "CLT"
+      ],
+      "kalshi_names": [
+        "Charlotte"
+      ],
+      "odds_names": [
+        "Charlotte FC"
+      ]
+    },
+    "chicago-fire": {
+      "kalshi_codes": [
+        "CHI"
+      ],
+      "kalshi_names": [
+        "Chicago Fire"
+      ],
+      "odds_names": [
+        "Chicago Fire"
+      ]
+    },
+    "colorado-rapids": {
+      "kalshi_codes": [
+        "COL"
+      ],
+      "kalshi_names": [
+        "Colorado"
+      ],
+      "odds_names": [
+        "Colorado Rapids"
+      ]
+    },
+    "columbus-crew-sc": {
+      "kalshi_codes": [
+        "CLB"
+      ],
+      "kalshi_names": [
+        "Columbus"
+      ],
+      "odds_names": [
+        "Columbus Crew SC"
+      ]
+    },
+    "fc-cincinnati": {
+      "kalshi_codes": [
+        "CIN"
+      ],
+      "kalshi_names": [
+        "Cincinnati"
+      ],
+      "odds_names": [
+        "FC Cincinnati"
+      ]
+    },
+    "fc-dallas": {
+      "kalshi_codes": [
+        "DAL"
+      ],
+      "kalshi_names": [
+        "Dallas"
+      ],
+      "odds_names": [
+        "FC Dallas"
+      ]
+    },
+    "houston-dynamo": {
+      "kalshi_codes": [
+        "HOU"
+      ],
+      "kalshi_names": [
+        "Houston"
+      ],
+      "odds_names": [
+        "Houston Dynamo"
+      ]
+    },
+    "inter-miami-cf": {
+      "kalshi_codes": [
+        "MIA"
+      ],
+      "kalshi_names": [
+        "Miami"
+      ],
+      "odds_names": [
+        "Inter Miami CF"
+      ]
+    },
+    "la-galaxy": {
+      "kalshi_codes": [
+        "LAG"
+      ],
+      "kalshi_names": [
+        "Los Angeles G"
+      ],
+      "odds_names": [
+        "LA Galaxy"
+      ]
+    },
+    "los-angeles-fc": {
+      "kalshi_codes": [
+        "LAFC"
+      ],
+      "kalshi_names": [
+        "Los Angeles F"
+      ],
+      "odds_names": [
+        "Los Angeles FC"
+      ]
+    },
+    "minnesota-united-fc": {
+      "kalshi_codes": [
+        "MIN"
+      ],
+      "kalshi_names": [
+        "Minnesota"
+      ],
+      "odds_names": [
+        "Minnesota United FC"
+      ]
+    },
+    "nashville-sc": {
+      "kalshi_codes": [
+        "NSH"
+      ],
+      "kalshi_names": [
+        "Nashville"
+      ],
+      "odds_names": [
+        "Nashville SC"
+      ]
+    },
+    "new-england-revolution": {
+      "kalshi_codes": [
+        "NE"
+      ],
+      "kalshi_names": [
+        "New England"
+      ],
+      "odds_names": [
+        "New England Revolution"
+      ]
+    },
+    "new-york-city-fc": {
+      "kalshi_codes": [
+        "NYC"
+      ],
+      "kalshi_names": [
+        "New York City"
+      ],
+      "odds_names": [
+        "New York City FC"
+      ]
+    },
+    "new-york-red-bulls": {
+      "kalshi_codes": [
+        "NYRB"
+      ],
+      "kalshi_names": [
+        "New York RB"
+      ],
+      "odds_names": [
+        "New York Red Bulls"
+      ]
+    },
+    "orlando-city-sc": {
+      "kalshi_codes": [
+        "ORL"
+      ],
+      "kalshi_names": [
+        "Orlando"
+      ],
+      "odds_names": [
+        "Orlando City SC"
+      ]
+    },
+    "philadelphia-union": {
+      "kalshi_codes": [
+        "PHI"
+      ],
+      "kalshi_names": [
+        "Philadelphia"
+      ],
+      "odds_names": [
+        "Philadelphia Union"
+      ]
+    },
+    "portland-timbers": {
+      "kalshi_codes": [
+        "POR"
+      ],
+      "kalshi_names": [
+        "Portland"
+      ],
+      "odds_names": [
+        "Portland Timbers"
+      ]
+    },
+    "real-salt-lake": {
+      "kalshi_codes": [
+        "RSL"
+      ],
+      "kalshi_names": [
+        "Salt Lake"
+      ],
+      "odds_names": [
+        "Real Salt Lake"
+      ]
+    },
+    "san-diego-fc": {
+      "kalshi_codes": [
+        "SD"
+      ],
+      "kalshi_names": [
+        "San Diego FC"
+      ],
+      "odds_names": [
+        "San Diego FC"
+      ]
+    },
+    "san-jose-earthquakes": {
+      "kalshi_codes": [
+        "SJ"
+      ],
+      "kalshi_names": [
+        "San Jose"
+      ],
+      "odds_names": [
+        "San Jose Earthquakes"
+      ]
+    },
+    "seattle-sounders-fc": {
+      "kalshi_codes": [
+        "SEA"
+      ],
+      "kalshi_names": [
+        "Seattle"
+      ],
+      "odds_names": [
+        "Seattle Sounders FC"
+      ]
+    },
+    "sporting-kansas-city": {
+      "kalshi_codes": [
+        "SKC"
+      ],
+      "kalshi_names": [
+        "Kansas City"
+      ],
+      "odds_names": [
+        "Sporting Kansas City"
+      ]
+    },
+    "toronto-fc": {
+      "kalshi_codes": [
+        "TOR"
+      ],
+      "kalshi_names": [
+        "Toronto"
+      ],
+      "odds_names": [
+        "Toronto FC"
+      ]
+    },
+    "vancouver-whitecaps-fc": {
+      "kalshi_codes": [
+        "VAN"
+      ],
+      "kalshi_names": [
+        "Vancouver"
+      ],
+      "odds_names": [
+        "Vancouver Whitecaps FC"
+      ]
+    }
+  }
+}
