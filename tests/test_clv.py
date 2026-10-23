@@ -11,6 +11,7 @@ from prediction_bot.clv import (
     clv_status,
     game_day_target,
     record_clv,
+    refresh_clv_statuses,
 )
 from prediction_bot.config import Settings
 from prediction_bot.maker_scoring import score_maker_shadows
@@ -707,6 +708,7 @@ def test_record_clv_scores_single_sharp_shadow_decision(tmp_path: Path) -> None:
                 }
             ]
 
+    settings = Settings()
     assert (
         record_clv(
             ledger,
@@ -715,6 +717,7 @@ def test_record_clv_scores_single_sharp_shadow_decision(tmp_path: Path) -> None:
         )
         == 1
     )
+    refresh_clv_statuses(ledger, settings)
     clv, bid_clv, status = ledger.conn.execute(
         "SELECT clv_kalshi,clv_kalshi_bid,clv_status "
         "FROM shadow_decisions WHERE reason='single_sharp'"

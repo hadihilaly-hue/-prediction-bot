@@ -543,5 +543,4 @@ def record_clv(
                 )
                 ledger.conn.commit()
             log.exception("Failed to record CLV for ticker %s; it will be retried next run", ticker)
-    refresh_clv_statuses(ledger, Settings())
     return calls
