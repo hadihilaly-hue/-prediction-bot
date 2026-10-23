@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import ROUND_UP, Decimal
 from enum import Enum
 
@@ -78,6 +78,7 @@ class Market:
     result: str = ""  # "yes" / "no" / "" when unsettled
     category: str = ""
     raw: dict[str, object] = field(default_factory=dict, repr=False, compare=False)
+    last_price: Decimal | None = None
 
     @property
     def is_settled(self) -> bool:
@@ -102,7 +103,50 @@ class Signal:
     # False when limit_price is a resting (maker) quote inside the spread: fees are
     # charged at the maker rate and the order only fills when someone trades into it.
     taker: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    rules_version: str | None = None
+    position_key: str | None = None
+    event_ticker: str | None = None
+    tags: tuple[str, ...] | None = None
+    commence_time: datetime | None = None
+
+
+@dataclass(frozen=True)
+class Block:
+    reason: str
+    strategy: str
+    ticker: str
+    event_ticker: str
+    detail: str = ""
+    rules_version: str = "v2"
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(frozen=True)
+class QuoteSnapshot:
+    ticker: str
+    event_ticker: str
+    yes_bid: Decimal | None
+    yes_ask: Decimal | None
+    last_price: Decimal | None
+    volume: Decimal
+    open_interest: Decimal
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(frozen=True)
+class EdgeReview:
+    ticker: str
+    side: OutcomeSide
+    fair_prob: Decimal
+    price: Decimal
+    gross_edge: Decimal
+    refetched_price: Decimal | None
+    refetched_fair: Decimal | None
+    confirmed: bool
+    whitelisted: bool
+    traded: bool = False
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 def fee_for(price: Decimal, count: Decimal, multiplier: Decimal) -> Decimal:

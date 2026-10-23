@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from prediction_bot.config import Settings
-from prediction_bot.models import Market, OutcomeSide, Signal, fee_for
+from prediction_bot.models import Block, Market, OutcomeSide, Signal, fee_for
 from prediction_bot.odds import ConsensusOdds
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.base import Strategy
@@ -78,6 +78,22 @@ class Engine:
                 res.signals.extend(strat.evaluate(markets))
             except Exception:  # keep other strategies alive
                 log.exception("strategy %s failed", strat.name)
+        for method_name, write in (
+            ("seen_blocks", self.ledger.record_blocks),
+            ("seen_quotes", self.ledger.record_quote_snapshots),
+            ("seen_edge_reviews", self.ledger.record_edge_reviews),
+        ):
+            items = [
+                item
+                for strat in self.strategies
+                if (get := getattr(strat, method_name, None)) is not None
+                for item in get()
+            ]
+            if items:
+                try:
+                    write(items)
+                except Exception:
+                    log.exception("failed to record %s", method_name)
         # Snapshot every sportsbook consensus the strategies fetched this cycle, once
         # per (feed, event) — strategies sharing one odds client report the same data.
         seen: dict[str, dict[str, ConsensusOdds]] = {}
@@ -152,6 +168,56 @@ class Engine:
         Live exposure is per venue position; paper exposure is per strategy so that
         strategies run together keep independent, comparable books.
         """
+        if sig.rules_version == "v2":
+            reason = ""
+            if self.live:
+                reason = "paper_only"
+            elif not sig.position_key or not sig.event_ticker:
+                reason = "missing_position_key"
+            elif any(held != sig.position_key for held in self.ledger.held_keys(sig.event_ticker)):
+                reason = "opposite_position"
+            else:
+                cost = sig.limit_price * sig.size + fee_for(
+                    sig.limit_price, sig.size, self.settings.taker_fee_multiplier
+                )
+                if (
+                    self.ledger.position_cost(sig.position_key) + cost
+                    > self.settings.v2_max_position_cost
+                ):
+                    reason = "cap_position"
+                elif (
+                    self.ledger.event_cost(sig.event_ticker) + cost
+                    > self.settings.v2_max_event_cost
+                ):
+                    reason = "cap_event"
+            if reason:
+                self.ledger.record_blocks(
+                    [
+                        Block(
+                            reason=reason,
+                            strategy=sig.strategy,
+                            ticker=sig.ticker,
+                            event_ticker=sig.event_ticker or "",
+                            detail=sig.position_key or "",
+                            created_at=sig.created_at,
+                        )
+                    ]
+                )
+                log.info(
+                    "BLOCK %s %s %s: %s",
+                    sig.strategy,
+                    sig.event_ticker,
+                    reason,
+                    sig.position_key,
+                )
+                return False
+            if not self.live:
+                cost = sig.limit_price * sig.size + fee_for(
+                    sig.limit_price, sig.size, self.settings.taker_fee_multiplier
+                )
+                if cost > self.ledger.cash:
+                    return False
+            return True
         legs = {(sig.ticker, sig.side), *sig.equivalents}
         same = [
             s
@@ -210,13 +276,25 @@ class Engine:
         fee = fee_for(sig.limit_price, sig.size, self._fee_multiplier(sig))
         try:
             self.ledger.record_fill(
-                sig.strategy, sig.ticker, sig.side, sig.limit_price, sig.size, fee, sig.fair_prob
+                sig.strategy,
+                sig.ticker,
+                sig.side,
+                sig.limit_price,
+                sig.size,
+                fee,
+                sig.fair_prob,
+                rules_version=sig.rules_version,
+                position_key=sig.position_key,
+                event_ticker=sig.event_ticker,
+                tags=sig.tags,
+                commence_time=sig.commence_time,
             )
         except ValueError as e:
             log.warning("skip %s: %s", sig.ticker, e)
             self.ledger.record_signal(sig, acted=False)
             return False
         self.ledger.record_signal(sig, acted=True)
+        self.ledger.mark_edge_review_traded(sig)
         return True
 
     def settle_open_positions(self) -> dict[str, Decimal]:

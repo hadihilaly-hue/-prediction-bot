@@ -8,6 +8,7 @@ import re
 import time
 import unicodedata
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import datetime, timezone
 from decimal import Decimal
 from difflib import SequenceMatcher
@@ -70,6 +71,7 @@ class ConsensusOdds:
     commence_time: str
     probs: dict[str, Decimal]  # team/player name -> probability (plus "Draw" for soccer)
     books_used: int
+    book_updates: dict[str, str] = dataclass_field(default_factory=dict)
 
     @property
     def names(self) -> list[str]:
@@ -101,12 +103,15 @@ def consensus(
     used = 0
     quotes: list[dict[str, Decimal]] = []
     weights: list[Decimal] = []
+    book_updates: dict[str, str] = {}
     for book in event.get("bookmakers", []):
         if bookmakers and book.get("key") not in bookmakers:
             continue
         mkt = next((m for m in book.get("markets", []) if m.get("key") == market), None)
         if not mkt:
             continue
+        if isinstance(book.get("last_update"), str):
+            book_updates[str(book.get("key", ""))] = str(book["last_update"])
         quotes.append({o["name"]: Decimal(str(o["price"])) for o in mkt.get("outcomes", [])})
         weights.append(BOOK_WEIGHTS.get(str(book.get("key")), Decimal(1)))
     # The feed never says how big the real field is; the widest book is the best proxy,
@@ -134,6 +139,7 @@ def consensus(
         commence_time=str(event.get("commence_time", "")),
         probs=probs,
         books_used=used,
+        book_updates=book_updates,
     )
 
 
@@ -252,14 +258,25 @@ class OddsClient:
     # spending another quota request; later cycles (minutes apart) refetch.
     MEMO_TTL_S = 60.0
 
-    def h2h(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
-        return self.odds(sport, "h2h", bookmakers)
+    def h2h(
+        self,
+        sport: str,
+        bookmakers: list[str] | None = None,
+        *,
+        bypass_cache: bool = False,
+    ) -> list[dict[str, Any]]:
+        return self.odds(sport, "h2h", bookmakers, bypass_cache=bypass_cache)
 
     def outrights(self, sport: str, bookmakers: list[str] | None = None) -> list[dict[str, Any]]:
         return self.odds(sport, "outrights", bookmakers)
 
     def odds(
-        self, sport: str, market: str, bookmakers: list[str] | None = None
+        self,
+        sport: str,
+        market: str,
+        bookmakers: list[str] | None = None,
+        *,
+        bypass_cache: bool = False,
     ) -> list[dict[str, Any]]:
         params: dict[str, str] = {
             "apiKey": self.api_key,
@@ -270,7 +287,7 @@ class OddsClient:
         if bookmakers:
             params["bookmakers"] = ",".join(bookmakers)
         key = (sport, market, params.get("bookmakers", ""))
-        hit = self._memo.get(key)
+        hit = None if bypass_cache else self._memo.get(key)
         if hit and time.monotonic() - hit[0] < self.MEMO_TTL_S:
             return hit[1]
         if self.budget is not None and self.requests_made >= self.budget:

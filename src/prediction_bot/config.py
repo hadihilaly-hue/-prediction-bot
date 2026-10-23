@@ -24,6 +24,28 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PBOT_", env_file=".env", extra="ignore")
 
     mode: Mode = Mode.paper
+    rules_version: Literal["v1", "v2"] = "v1"
+
+    # V2 correctness gates
+    kickoff_buffer_minutes: dict[str, int] = Field(
+        default_factory=lambda: {
+            "americanfootball_nfl": 30,
+            "americanfootball_ncaaf": 30,
+            "basketball_nba": 30,
+        }
+    )
+    kickoff_buffer_default_minutes: int = 15
+    max_gross_edge: Decimal = Decimal("0.07")
+    big_edge_whitelist: list[str] = Field(default_factory=list)
+    in_play_consensus_high: Decimal = Decimal("0.93")
+    in_play_consensus_low: Decimal = Decimal("0.07")
+    in_play_first_consensus_min: Decimal = Decimal("0.25")
+    in_play_first_consensus_max: Decimal = Decimal("0.75")
+    in_play_kalshi_price_min: Decimal = Decimal("0.03")
+    in_play_kalshi_price_max: Decimal = Decimal("0.97")
+    in_play_consensus_jump: Decimal = Decimal("0.15")
+    v2_max_position_cost: Decimal = Decimal("25")
+    v2_max_event_cost: Decimal = Decimal("25")
 
     # Kalshi
     kalshi_api_base: str = KALSHI_DEMO_REST

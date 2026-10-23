@@ -3,12 +3,12 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from prediction_bot.models import Market, OutcomeSide, Signal
+from prediction_bot.models import Block, EdgeReview, Market, OutcomeSide, QuoteSnapshot, Signal
 
 if TYPE_CHECKING:
     from prediction_bot.odds import ConsensusOdds
@@ -53,7 +53,12 @@ CREATE TABLE IF NOT EXISTS signals (
     edge TEXT NOT NULL,
     size TEXT NOT NULL,
     rationale TEXT NOT NULL,
-    acted INTEGER NOT NULL DEFAULT 0
+    acted INTEGER NOT NULL DEFAULT 0,
+    rules_version TEXT,
+    position_key TEXT,
+    event_ticker TEXT,
+    tags TEXT,
+    commence_time TEXT
 );
 CREATE TABLE IF NOT EXISTS fills (
     id INTEGER PRIMARY KEY,
@@ -64,7 +69,13 @@ CREATE TABLE IF NOT EXISTS fills (
     price TEXT NOT NULL,
     count TEXT NOT NULL,
     fee TEXT NOT NULL,
-    fair_prob TEXT NOT NULL
+    fair_prob TEXT NOT NULL,
+    rules_version TEXT,
+    position_key TEXT,
+    event_ticker TEXT,
+    tags TEXT,
+    commence_time TEXT,
+    fee_model_version TEXT
 );
 CREATE TABLE IF NOT EXISTS settlements (
     ticker TEXT PRIMARY KEY,
@@ -106,7 +117,43 @@ CREATE TABLE IF NOT EXISTS odds_snapshots (
     commence_time TEXT NOT NULL,
     team TEXT NOT NULL,
     prob TEXT NOT NULL,
-    books_used INTEGER NOT NULL
+    books_used INTEGER NOT NULL,
+    max_book_update TEXT
+);
+CREATE TABLE IF NOT EXISTS blocks (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    rules_version TEXT,
+    strategy TEXT,
+    ticker TEXT,
+    event_ticker TEXT,
+    reason TEXT NOT NULL,
+    detail TEXT
+);
+CREATE TABLE IF NOT EXISTS edge_reviews (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    side TEXT NOT NULL,
+    fair_prob TEXT NOT NULL,
+    price TEXT NOT NULL,
+    gross_edge TEXT NOT NULL,
+    refetched_price TEXT,
+    refetched_fair TEXT,
+    confirmed INTEGER NOT NULL,
+    whitelisted INTEGER NOT NULL,
+    traded INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS quote_snapshots (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    event_ticker TEXT NOT NULL,
+    yes_bid TEXT,
+    yes_ask TEXT,
+    last_price TEXT,
+    volume TEXT NOT NULL,
+    open_interest TEXT NOT NULL
 );
 """
 
@@ -223,11 +270,50 @@ class Ledger:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(self.path))
         self.conn.executescript(SCHEMA)
+        for table, columns in {
+            "signals": {
+                "rules_version": "TEXT",
+                "position_key": "TEXT",
+                "event_ticker": "TEXT",
+                "tags": "TEXT",
+                "commence_time": "TEXT",
+            },
+            "fills": {
+                "rules_version": "TEXT",
+                "position_key": "TEXT",
+                "event_ticker": "TEXT",
+                "tags": "TEXT",
+                "commence_time": "TEXT",
+                "fee_model_version": "TEXT",
+            },
+            "odds_snapshots": {"max_book_update": "TEXT"},
+        }.items():
+            self._ensure_columns(self.conn, table, columns)
         self.starting_cash = starting_cash
         row = self.conn.execute("SELECT balance FROM cash WHERE id = 1").fetchone()
         if row is None:
             self.conn.execute("INSERT INTO cash (id, balance) VALUES (1, ?)", (str(starting_cash),))
             self.conn.commit()
+
+    @staticmethod
+    def _ensure_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
+        existing = {str(row[1]) for row in conn.execute(f"PRAGMA table_info({table})")}
+        for name, column_type in columns.items():
+            if name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}")
+        conn.commit()
+
+    @staticmethod
+    def _utc(value: datetime) -> datetime:
+        return (
+            value.replace(tzinfo=timezone.utc)
+            if value.tzinfo is None
+            else value.astimezone(timezone.utc)
+        )
+
+    @classmethod
+    def _timestamp_param(cls, value: datetime) -> str:
+        return cls._utc(value).replace(tzinfo=None).isoformat()
 
     # ---- cash ---------------------------------------------------------------
 
@@ -252,9 +338,10 @@ class Ledger:
     def record_signal(self, sig: Signal, acted: bool) -> int:
         cur = self.conn.execute(
             "INSERT INTO signals (created_at, strategy, ticker, side, fair_prob, limit_price,"
-            " edge, size, rationale, acted) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            " edge, size, rationale, acted, rules_version, position_key, event_ticker, tags,"
+            " commence_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
-                sig.created_at.isoformat(),
+                self._utc(sig.created_at).isoformat(),
                 sig.strategy,
                 sig.ticker,
                 sig.side.value,
@@ -264,6 +351,11 @@ class Ledger:
                 str(sig.size),
                 sig.rationale,
                 int(acted),
+                sig.rules_version,
+                sig.position_key,
+                sig.event_ticker,
+                ",".join(sorted(sig.tags)) if sig.tags is not None else None,
+                self._utc(sig.commence_time).isoformat() if sig.commence_time else None,
             ),
         )
         self.conn.commit()
@@ -279,15 +371,23 @@ class Ledger:
         fee: Decimal,
         fair_prob: Decimal,
         at: datetime | None = None,
+        *,
+        rules_version: str | None = None,
+        position_key: str | None = None,
+        event_ticker: str | None = None,
+        tags: tuple[str, ...] | None = None,
+        commence_time: datetime | None = None,
+        fee_model_version: str | None = None,
     ) -> None:
         cost = price * count + fee
         if cost > self.cash:
             raise ValueError(f"insufficient paper cash: need {cost}, have {self.cash}")
         self.conn.execute(
-            "INSERT INTO fills (created_at, strategy, ticker, side, price, count, fee, fair_prob)"
-            " VALUES (?,?,?,?,?,?,?,?)",
+            "INSERT INTO fills (created_at, strategy, ticker, side, price, count, fee, fair_prob,"
+            " rules_version, position_key, event_ticker, tags, commence_time, fee_model_version)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
-                (at or datetime.utcnow()).isoformat(),
+                self._utc(at or datetime.now(timezone.utc)).isoformat(),
                 strategy,
                 ticker,
                 side.value,
@@ -295,6 +395,12 @@ class Ledger:
                 str(count),
                 str(fee),
                 str(fair_prob),
+                rules_version,
+                position_key,
+                event_ticker,
+                ",".join(sorted(tags)) if tags is not None else None,
+                self._utc(commence_time).isoformat() if commence_time else None,
+                fee_model_version,
             ),
         )
         self._set_cash(self.cash - cost)
@@ -379,7 +485,12 @@ class Ledger:
         pnl = payout - cost
         self.conn.execute(
             "INSERT INTO settlements (ticker, settled_at, result, pnl) VALUES (?,?,?,?)",
-            (ticker, (at or datetime.utcnow()).isoformat(), result.value, str(pnl)),
+            (
+                ticker,
+                self._utc(at or datetime.now(timezone.utc)).isoformat(),
+                result.value,
+                str(pnl),
+            ),
         )
         self._set_cash(self.cash + payout)
         self.conn.commit()
@@ -454,7 +565,7 @@ class Ledger:
         caller across co-running strategies sharing one odds client. These snapshots are
         the raw material for per-league calibration and line-movement signals.
         """
-        stamp = (at or datetime.utcnow()).isoformat()
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
         rows = [
             (
                 stamp,
@@ -466,6 +577,7 @@ class Ledger:
                 team,
                 str(prob),
                 game.books_used,
+                self._max_book_update(game.book_updates),
             )
             for feed, events in seen.items()
             for game in events.values()
@@ -473,11 +585,174 @@ class Ledger:
         ]
         self.conn.executemany(
             "INSERT INTO odds_snapshots (created_at, feed, event_id, home_team, away_team,"
-            " commence_time, team, prob, books_used) VALUES (?,?,?,?,?,?,?,?,?)",
+            " commence_time, team, prob, books_used, max_book_update)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?)",
             rows,
         )
         self.conn.commit()
         return len(rows)
+
+    @staticmethod
+    def _max_book_update(updates: dict[str, str]) -> str | None:
+        parsed: list[datetime] = []
+        for value in updates.values():
+            try:
+                dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            parsed.append(
+                dt.replace(tzinfo=timezone.utc)
+                if dt.tzinfo is None
+                else dt.astimezone(timezone.utc)
+            )
+        return max(parsed).isoformat() if parsed else None
+
+    def first_consensus(self, event_id: str) -> dict[str, Decimal]:
+        row = self.conn.execute(
+            "SELECT created_at FROM odds_snapshots WHERE event_id=? "
+            "ORDER BY created_at, id LIMIT 1",
+            (event_id,),
+        ).fetchone()
+        if row is None:
+            return {}
+        rows = self.conn.execute(
+            "SELECT team, prob FROM odds_snapshots WHERE event_id=? AND created_at=? ORDER BY id",
+            (event_id, row[0]),
+        )
+        return {str(team): Decimal(prob) for team, prob in rows}
+
+    def previous_consensus(self, event_id: str, before: datetime) -> dict[str, Decimal]:
+        row = self.conn.execute(
+            "SELECT created_at FROM odds_snapshots WHERE event_id=? AND created_at < ?"
+            " ORDER BY created_at DESC, id DESC LIMIT 1",
+            (event_id, self._timestamp_param(before)),
+        ).fetchone()
+        if row is None:
+            return {}
+        rows = self.conn.execute(
+            "SELECT team, prob FROM odds_snapshots WHERE event_id=? AND created_at=? ORDER BY id",
+            (event_id, row[0]),
+        )
+        return {str(team): Decimal(prob) for team, prob in rows}
+
+    def first_quote(self, ticker: str) -> tuple[Decimal | None, Decimal | None] | None:
+        row = self.conn.execute(
+            "SELECT yes_bid, yes_ask FROM quote_snapshots WHERE ticker=?"
+            " ORDER BY created_at, id LIMIT 1",
+            (ticker,),
+        ).fetchone()
+        if row is None:
+            return None
+        return (
+            Decimal(row[0]) if row[0] is not None else None,
+            Decimal(row[1]) if row[1] is not None else None,
+        )
+
+    def record_blocks(self, blocks: Sequence[Block]) -> int:
+        self.conn.executemany(
+            "INSERT INTO blocks (created_at, rules_version, strategy, ticker, event_ticker,"
+            " reason, detail) VALUES (?,?,?,?,?,?,?)",
+            [
+                (
+                    self._utc(block.created_at).isoformat(),
+                    block.rules_version,
+                    block.strategy,
+                    block.ticker,
+                    block.event_ticker,
+                    block.reason,
+                    block.detail,
+                )
+                for block in blocks
+            ],
+        )
+        self.conn.commit()
+        return len(blocks)
+
+    def record_quote_snapshots(self, snapshots: Sequence[QuoteSnapshot]) -> int:
+        self.conn.executemany(
+            "INSERT INTO quote_snapshots (created_at, ticker, event_ticker, yes_bid, yes_ask,"
+            " last_price, volume, open_interest) VALUES (?,?,?,?,?,?,?,?)",
+            [
+                (
+                    self._utc(snapshot.created_at).isoformat(),
+                    snapshot.ticker,
+                    snapshot.event_ticker,
+                    str(snapshot.yes_bid) if snapshot.yes_bid is not None else None,
+                    str(snapshot.yes_ask) if snapshot.yes_ask is not None else None,
+                    str(snapshot.last_price) if snapshot.last_price is not None else None,
+                    str(snapshot.volume),
+                    str(snapshot.open_interest),
+                )
+                for snapshot in snapshots
+            ],
+        )
+        self.conn.commit()
+        return len(snapshots)
+
+    def record_edge_reviews(self, reviews: Sequence[EdgeReview]) -> int:
+        self.conn.executemany(
+            "INSERT INTO edge_reviews (created_at, ticker, side, fair_prob, price, gross_edge,"
+            " refetched_price, refetched_fair, confirmed, whitelisted, traded)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                (
+                    self._utc(review.created_at).isoformat(),
+                    review.ticker,
+                    review.side.value,
+                    str(review.fair_prob),
+                    str(review.price),
+                    str(review.gross_edge),
+                    str(review.refetched_price) if review.refetched_price is not None else None,
+                    str(review.refetched_fair) if review.refetched_fair is not None else None,
+                    int(review.confirmed),
+                    int(review.whitelisted),
+                    int(review.traded),
+                )
+                for review in reviews
+            ],
+        )
+        self.conn.commit()
+        return len(reviews)
+
+    def mark_edge_review_traded(self, sig: Signal) -> None:
+        self.conn.execute(
+            "UPDATE edge_reviews SET traded=1 WHERE ticker=? AND side=? AND created_at=?",
+            (sig.ticker, sig.side.value, self._utc(sig.created_at).isoformat()),
+        )
+        self.conn.commit()
+
+    def _v2_open_cost(
+        self, *, position_key: str | None = None, event_ticker: str | None = None
+    ) -> Decimal:
+        if position_key is None and event_ticker is None:
+            raise ValueError("position_key or event_ticker is required")
+        field = "position_key" if position_key is not None else "event_ticker"
+        value = position_key if position_key is not None else event_ticker
+        rows = self.conn.execute(
+            f"SELECT f.price, f.count, f.fee FROM fills f LEFT JOIN settlements s"
+            f" ON s.ticker=f.ticker WHERE s.ticker IS NULL AND f.rules_version='v2'"
+            f" AND f.{field}=?",
+            (value,),
+        )
+        return sum(
+            (Decimal(price) * Decimal(count) + Decimal(fee) for price, count, fee in rows),
+            Decimal(0),
+        )
+
+    def position_cost(self, position_key: str) -> Decimal:
+        return self._v2_open_cost(position_key=position_key)
+
+    def event_cost(self, event_ticker: str) -> Decimal:
+        return self._v2_open_cost(event_ticker=event_ticker)
+
+    def held_keys(self, event_ticker: str) -> set[str]:
+        rows = self.conn.execute(
+            "SELECT DISTINCT f.position_key FROM fills f LEFT JOIN settlements s"
+            " ON s.ticker=f.ticker WHERE s.ticker IS NULL AND f.rules_version='v2'"
+            " AND f.event_ticker=? AND f.position_key IS NOT NULL",
+            (event_ticker,),
+        )
+        return {str(row[0]) for row in rows}
 
     def record_run(
         self,
@@ -494,7 +769,7 @@ class Ledger:
             "INSERT INTO runs (ran_at, strategies, scanned, signals, filled, settled, cash,"
             " open_cost) VALUES (?,?,?,?,?,?,?,?)",
             (
-                (at or datetime.utcnow()).isoformat(),
+                self._utc(at or datetime.now(timezone.utc)).isoformat(),
                 ",".join(strategies),
                 scanned,
                 signals,
@@ -516,7 +791,7 @@ class Ledger:
     def realized_pnl_since(self, since: datetime) -> Decimal:
         """Sum of settlement PnL booked at or after `since`."""
         rows = self.conn.execute(
-            "SELECT pnl FROM settlements WHERE settled_at >= ?", (since.isoformat(),)
+            "SELECT pnl FROM settlements WHERE settled_at >= ?", (self._timestamp_param(since),)
         )
         return sum((Decimal(r[0]) for r in rows), Decimal(0))
 
@@ -528,7 +803,7 @@ class Ledger:
         """
         rows = self.conn.execute(
             "SELECT pnl FROM settlements WHERE settled_at >= ? ORDER BY settled_at, rowid",
-            (since.isoformat(),),
+            (self._timestamp_param(since),),
         )
         total = low = Decimal(0)
         for (pnl,) in rows:
