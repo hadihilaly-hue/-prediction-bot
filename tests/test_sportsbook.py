@@ -893,6 +893,57 @@ def test_ledger_pacer_carry_persists_and_caps(monkeypatch, tmp_path) -> None:  #
     assert ledger.odds_pacer_carry() == 1.0
 
 
+def test_trigger_pacer_spends_carry_and_scheduled_run_recovers_debt(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import httpx
+
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        headers = {"x-requests-used": "10", "x-requests-remaining": "100"}
+        if request.url.path.endswith("/odds"):
+            headers["x-requests-last"] = "1"
+        return httpx.Response(200, json=[], headers=headers)
+
+    now = datetime(2026, 10, 1, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "trigger-pacer.sqlite", Decimal("100"))
+    ledger.record_odds_pacer_carry(0.5, now)
+    trigger = OddsPacer(
+        OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler))),
+        runs_per_day=12,
+        ledger=ledger,
+        trigger_mode=True,
+    )
+    assert trigger.start_run(now) == 1
+    trigger.client.h2h("americanfootball_nfl")
+    trigger.finish_run(now)
+    assert ledger.odds_pacer_carry() == pytest.approx(-0.5)
+
+    monkeypatch.setattr("prediction_bot.odds.run_share", lambda *_args, **_kwargs: 1.33)
+    scheduled = OddsPacer(
+        OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler))),
+        runs_per_day=12,
+        ledger=ledger,
+    )
+    assert scheduled.start_run(now + timedelta(hours=2)) == 0
+    scheduled.finish_run(now + timedelta(hours=2))
+    assert ledger.odds_pacer_carry() == pytest.approx(0.83)
+
+    ledger.record_odds_pacer_carry(-0.2, now)
+    refused = OddsPacer(
+        OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler))),
+        runs_per_day=12,
+        ledger=ledger,
+        trigger_mode=True,
+    )
+    assert refused.start_run(now) == 0
+    assert sum(request.url.path.endswith("/odds") for request in requests) == 1
+    ledger.record_odds_pacer_carry(2, now)
+    assert ledger.odds_pacer_carry() == 1
+    ledger.record_odds_pacer_carry(-2, now)
+    assert ledger.odds_pacer_carry() == -1
+
+
 def test_requests_last_other_than_one_halts_additional_odds_pulls() -> None:
     import httpx
 

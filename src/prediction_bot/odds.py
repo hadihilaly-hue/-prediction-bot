@@ -275,6 +275,7 @@ class OddsClient:
         # Max quota-costing requests this client may make; None = unlimited.
         self.budget = budget
         self.requests_made = 0
+        self.odds_requests_made = 0
         self.requests_last_by_sport: dict[str, int | None] = {}
         self.events_free = True
         self._events_requests_used_baseline: int | None = None
@@ -322,6 +323,7 @@ class OddsClient:
         if self.budget is not None and self.requests_made >= self.budget:
             raise OddsBudgetExhausted(f"odds budget of {self.budget} requests spent")
         self.requests_made += 1
+        self.odds_requests_made += 1
         resp = self._client.get(f"{self.base_url}/sports/{sport}/odds", params=params)
         resp.raise_for_status()
         self.requests_remaining = resp.headers.get("x-requests-remaining")
@@ -418,10 +420,12 @@ class OddsPacer:
         client: OddsClient,
         runs_per_day: float,
         ledger: Ledger | None = None,
+        trigger_mode: bool = False,
     ) -> None:
         self.client = client
         self.runs_per_day = runs_per_day
         self.ledger = ledger
+        self.trigger_mode = trigger_mode
         self.credit = 0.0
 
     def start_run(self, now: datetime | None = None) -> int:
@@ -430,8 +434,13 @@ class OddsPacer:
         else:
             self.credit = self.ledger.odds_pacer_carry()
         self.client.requests_made = 0
+        self.client.odds_requests_made = 0
         self.client.requests_last_by_sport.clear()
         self.client.events_free = True
+        if self.trigger_mode and self.credit < 0:
+            self.client.budget = 0
+            self.client._events_requests_used_baseline = None
+            return 0
         try:
             left = self.client.quota_remaining()
         except httpx.HTTPError as e:
@@ -440,6 +449,13 @@ class OddsPacer:
         if left is None:
             self.client.budget = 0
             return 0
+        if self.trigger_mode:
+            self.client.budget = min(1, max(0, left))
+            self.client._events_requests_used_baseline = (
+                int(self.client.requests_used) if self.client.requests_used else None
+            )
+            log.info("odds api: trigger run budget %d", self.client.budget)
+            return self.client.budget
         share = run_share(left, self.runs_per_day, now)
         self.credit = min(self.credit + share, float(max(0, left)))
         self.client.budget = max(0, math.floor(self.credit + 1e-9))
@@ -452,5 +468,5 @@ class OddsPacer:
     def finish_run(self, now: datetime | None = None) -> None:
         if self.ledger is None:
             return
-        carry = max(0.0, min(self.credit - self.client.requests_made, 1.0))
+        carry = max(-1.0, min(self.credit - self.client.requests_made, 1.0))
         self.ledger.record_odds_pacer_carry(carry, now)

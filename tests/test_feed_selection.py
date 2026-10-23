@@ -238,6 +238,24 @@ def test_rotation_value_requires_eligible_games_and_uses_staleness(tmp_path) -> 
     )
     _market_snapshot(ledger, "NFL-EVENT", "NFL-EVENT-H", now, "0.45", "0.49", "10")
     _market_snapshot(ledger, "NFL-EVENT-2", "NFL-EVENT-2-H", now, "0.45", "0.49", "10")
+    _market_snapshot(
+        ledger,
+        "NFL-EVENT",
+        "NFL-EVENT-H",
+        now - timedelta(hours=2),
+        "0.45",
+        "0.49",
+        "10",
+    )
+    _market_snapshot(
+        ledger,
+        "NFL-EVENT-2",
+        "NFL-EVENT-2-H",
+        now - timedelta(hours=2),
+        "0.45",
+        "0.49",
+        "10",
+    )
     _market_snapshot(ledger, "NHL-EVENT", "NHL-EVENT-H", now, "0.45", "0.49", "10")
     _market_snapshot(ledger, "EPL-EVENT", "EPL-EVENT-H", now, "0.45", "0.49", "10")
     _market_snapshot(ledger, "MLB-EVENT", "MLB-EVENT-H", now, "0.45", "0.49", "10")
@@ -367,6 +385,128 @@ def test_rotation_treats_newly_listed_market_as_moved(tmp_path: Path) -> None:
     _market_snapshot(ledger, "NFL-EVENT", "NFL-EVENT-NEW-H", now, "0.45", "0.49", "10")
 
     assert _market_moved_since(ledger, "NFL-EVENT", now - timedelta(hours=1), now)
+
+
+def test_rotation_prioritizes_gaps_moves_and_entries_before_measurement_windows(
+    tmp_path: Path,
+) -> None:
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "rotation-priorities.sqlite", Decimal("100"))
+    feeds = {
+        "americanfootball_nfl": [PlannedGame(now + timedelta(hours=100), True, "GAP-EVENT")],
+        "soccer_epl": [PlannedGame(now + timedelta(hours=100), event_ticker="MOVED-EVENT")],
+        "soccer_usa_mls": [
+            PlannedGame(now + timedelta(hours=100), event_ticker="ENTRY-BEST-1"),
+            PlannedGame(now + timedelta(hours=120), event_ticker="ENTRY-BEST-2"),
+        ],
+        "soccer_spain_la_liga": [
+            PlannedGame(now + timedelta(hours=100), event_ticker="ENTRY-OTHER")
+        ],
+        "soccer_italy_serie_a": [PlannedGame(now + timedelta(hours=1.5), event_ticker="MEASURE-1")],
+        "soccer_germany_bundesliga": [
+            PlannedGame(now + timedelta(hours=6), event_ticker="MEASURE-2")
+        ],
+        "soccer_france_ligue_one": [
+            PlannedGame(now + timedelta(hours=24), event_ticker="MEASURE-3")
+        ],
+    }
+    for event_ticker in ("GAP-EVENT", "ENTRY-BEST-1", "ENTRY-BEST-2", "ENTRY-OTHER"):
+        _market_snapshot(
+            ledger,
+            event_ticker,
+            f"{event_ticker}-H",
+            now,
+            "0.45",
+            "0.49",
+            "10",
+        )
+    for event_ticker in ("MEASURE-1", "MEASURE-2", "MEASURE-3"):
+        _market_snapshot(
+            ledger,
+            event_ticker,
+            f"{event_ticker}-H",
+            now,
+            "0.45",
+            "0.49",
+            "10",
+        )
+    _market_snapshot(
+        ledger,
+        "MOVED-EVENT",
+        "MOVED-EVENT-H",
+        now - timedelta(hours=1),
+        "0.45",
+        "0.49",
+        "10",
+    )
+    _market_snapshot(ledger, "MOVED-EVENT", "MOVED-EVENT-H", now, "0.46", "0.50", "10")
+    ledger.record_feed_pulls({"americanfootball_nfl": 1}, "v3", now - timedelta(hours=1))
+    ledger.record_feed_pulls({"soccer_epl": 1}, "v3", now - timedelta(hours=1))
+    stats = {feed: _stat(feed, 100) for feed in feeds}
+
+    class Events:
+        events_free = True
+
+        def events(self, feed, *_args, **_kwargs):
+            return [{"commence_time": feeds[feed][0].kickoff.isoformat()}]
+
+    settings = Settings(_env_file=None, rules_version="v3", min_lead_hours=72)
+    selected, _skips, _scores = select_rotation_feeds(
+        ledger, feeds, stats, settings, Events(), now, 3
+    )
+    assert selected == ["americanfootball_nfl", "soccer_epl", "soccer_usa_mls"]
+    assert all("MEASURE" not in feed for feed in selected)
+
+
+def test_rotation_appends_measurement_windows_only_with_remaining_budget(
+    tmp_path: Path,
+) -> None:
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "rotation-measurements.sqlite", Decimal("100"))
+    feeds = {
+        "americanfootball_nfl": [PlannedGame(now + timedelta(hours=100), event_ticker="ENTRY-NFL")],
+        "soccer_epl": [PlannedGame(now + timedelta(hours=100), event_ticker="ENTRY-EPL")],
+        "soccer_italy_serie_a": [PlannedGame(now + timedelta(hours=1.5), event_ticker="MEASURE-1")],
+        "soccer_germany_bundesliga": [
+            PlannedGame(now + timedelta(hours=6), event_ticker="MEASURE-2")
+        ],
+        "soccer_france_ligue_one": [
+            PlannedGame(now + timedelta(hours=24), event_ticker="MEASURE-3")
+        ],
+    }
+    for event_ticker in ("ENTRY-NFL", "ENTRY-EPL", "MEASURE-1", "MEASURE-2", "MEASURE-3"):
+        _market_snapshot(
+            ledger,
+            event_ticker,
+            f"{event_ticker}-H",
+            now,
+            "0.45",
+            "0.49",
+            "10",
+        )
+    stats = {feed: _stat(feed, 100) for feed in feeds}
+
+    class Events:
+        events_free = True
+
+        def events(self, feed, *_args, **_kwargs):
+            return [{"commence_time": feeds[feed][0].kickoff.isoformat()}]
+
+    settings = Settings(
+        _env_file=None,
+        rules_version="v3",
+        min_lead_hours=72,
+        odds_measurement_windows=True,
+    )
+    without_leftover, _skips, _scores = select_rotation_feeds(
+        ledger, feeds, stats, settings, Events(), now, 2
+    )
+    with_leftover, _skips, scores = select_rotation_feeds(
+        ledger, feeds, stats, settings, Events(), now, 3
+    )
+    assert without_leftover == ["americanfootball_nfl", "soccer_epl"]
+    assert with_leftover == ["americanfootball_nfl", "soccer_epl", "soccer_italy_serie_a"]
+    assert scores["soccer_italy_serie_a"].value > 0
 
 
 def test_rotation_no_events_is_recorded_and_events_cost_disables_blocking(
@@ -505,6 +645,12 @@ def test_workflow_uses_twelve_two_hour_sportsbook_slots() -> None:
     assert '- cron: "47 * * * *"' in workflow
     assert 'PBOT_ODDS_RUNS_PER_DAY: "12"' in workflow
     assert "github.event.schedule == '17 */2 * * *'" in workflow
+    assert 'FEED="$(pbot odds-trigger $SPORTSBOOK_SERIES_ARGS)" || FEED=""' in workflow
+    assert (
+        "pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \\\n"
+        '                --trigger "$FEED" | tee -a ledger/last_run.txt || true'
+    ) in workflow
+    assert 'if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" != true ]' in workflow
 
 
 def test_eligible_uses_lead_buffer_and_v2_disabled_sports() -> None:

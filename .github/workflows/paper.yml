@@ -77,6 +77,13 @@ jobs:
                 | tee -a ledger/last_run.txt
             fi
           fi
+          if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" != true ]; then
+            FEED="$(pbot odds-trigger $SPORTSBOOK_SERIES_ARGS)" || FEED=""
+            if [ -n "$FEED" ]; then
+              pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \
+                --trigger "$FEED" | tee -a ledger/last_run.txt || true
+            fi
+          fi
           pbot report | tee ledger/REPORT.txt
           pbot predictions --limit 0 --markdown ledger/PREDICTIONS.md >/dev/null
           pbot dashboard --out ledger/index.html >/dev/null

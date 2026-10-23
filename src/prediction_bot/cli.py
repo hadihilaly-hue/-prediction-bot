@@ -24,6 +24,7 @@ from prediction_bot.feed_selection import (
     eligible,
     feed_scores,
     liquidity_weights,
+    market_ask_moves_since,
     rotation_scores,
     select_entry_feeds,
     select_rotation_feeds,
@@ -267,13 +268,89 @@ def scan(
 
 
 @app.command()
+def odds_trigger(
+    series: list[str] = typer.Option([], "--series", help="Restrict to these series tickers"),
+) -> None:
+    """Print one sportsbook feed whose eligible Kalshi ask moved since its last pull."""
+    s = _settings()
+    client = _client(s)
+    ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+    now = datetime.now(timezone.utc)
+    requested_series = series or list(SPORTSBOOK_SERIES)
+    markets = _fetch(client, requested_series)
+    ledger.record_market_snapshots(markets)
+    games_by_sport = _planner_games(client, markets, ledger, now)
+    feeds = sorted(games_by_sport)
+    stats = compute_feed_stats(ledger, feeds, now)
+    scores = rotation_scores(ledger, games_by_sport, stats, s, now)
+    ledger.record_feed_stats(
+        stats,
+        {feed: eligible(stat, s) for feed, stat in stats.items()},
+        now,
+    )
+    if ledger.odds_triggers_pulled_today(now) >= s.odds_trigger_daily_cap:
+        return
+
+    candidates: list[tuple[Decimal, datetime, str, str, Decimal]] = []
+    for feed, games in games_by_sport.items():
+        score = scores[feed]
+        if score.value <= 0:
+            continue
+        last_row = ledger.conn.execute(
+            "SELECT created_at FROM feed_pulls "
+            "WHERE feed=? ORDER BY created_at DESC,id DESC LIMIT 1",
+            (feed,),
+        ).fetchone()
+        if last_row is None:
+            continue
+        try:
+            last_pull = datetime.fromisoformat(str(last_row[0]).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if last_pull.tzinfo is None:
+            last_pull = last_pull.replace(tzinfo=timezone.utc)
+        else:
+            last_pull = last_pull.astimezone(timezone.utc)
+        for game in games:
+            for ticker, ask in market_ask_moves_since(
+                ledger,
+                game.event_ticker,
+                last_pull,
+                now,
+                spread_gate=s.v2_max_spread,
+            ):
+                if not ledger.has_odds_trigger(feed, ticker, ask):
+                    candidates.append(
+                        (
+                            score.score,
+                            score.soonest_kickoff or datetime.max.replace(tzinfo=timezone.utc),
+                            feed,
+                            ticker,
+                            ask,
+                        )
+                    )
+    if not candidates:
+        return
+    _score, _kickoff, feed, ticker, ask = min(
+        candidates,
+        key=lambda item: (-item[0], item[1], item[2], item[3], item[4]),
+    )
+    if ledger.record_odds_trigger(feed, ticker, ask, now) is not None:
+        typer.echo(feed)
+
+
+@app.command()
 def paper(
     strategy: list[str] = typer.Option(["book_scanner"], "--strategy", "-s"),
     series: list[str] = typer.Option([], "--series"),
     interval: int = typer.Option(60, help="Seconds between cycles"),
     cycles: int = typer.Option(0, help="Stop after N cycles (0 = run forever)"),
+    trigger: str | None = typer.Option(
+        None, "--trigger", help="Restrict this run to one moved feed"
+    ),
 ) -> None:
     """Paper-trade: fill signals at the ask in the local ledger, settle when Kalshi resolves."""
+    trigger = trigger if isinstance(trigger, str) else None
     s = _settings()
     client = _client(s)
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
@@ -283,10 +360,17 @@ def paper(
         raise typer.BadParameter(f"unknown strategies {sorted(unknown)}; have {sorted(STRATEGIES)}")
     pacer = None
     uses_odds = any(issubclass(STRATEGIES[name], SportsbookArbStrategy) for name in strategy)
+    if trigger is not None and trigger not in {
+        *KALSHI_SERIES_TO_SPORT.values(),
+        *KALSHI_SERIES_TO_OUTRIGHT.values(),
+    }:
+        raise typer.BadParameter(f"unknown sportsbook feed {trigger!r}")
+    if trigger is not None and not uses_odds:
+        raise typer.BadParameter("--trigger requires a sportsbook strategy")
     if (
         odds is not None
         and uses_odds
-        and (s.odds_runs_per_day > 0 or s.odds_planner == "event_driven")
+        and (trigger is not None or s.odds_runs_per_day > 0 or s.odds_planner == "event_driven")
     ):
         # A one-shot run is one of the scheduled runs; a loop paces per cycle.
         per_day = (
@@ -296,7 +380,12 @@ def paper(
             if s.odds_planner == "event_driven"
             else 86400 / max(interval, 1)
         )
-        pacer = OddsPacer(odds, max(per_day, s.odds_runs_per_day), ledger=ledger)
+        pacer = OddsPacer(
+            odds,
+            max(per_day, s.odds_runs_per_day),
+            ledger=ledger,
+            trigger_mode=trigger is not None,
+        )
     shadow_names = list(s.shadow_strategies)
     if s.rules_version == "v3" and "sportsbook_v3" in strategy:
         shadow_names = list(
@@ -384,7 +473,38 @@ def paper(
                 datetime.now(timezone.utc),
             )
         ledger.record_market_snapshots(snapshot_markets)
-        if odds is not None and s.odds_planner == "event_driven" and uses_odds:
+        if trigger is not None:
+            now = datetime.now(timezone.utc)
+            if odds is not None:
+                odds.allowed_sports = {trigger}
+            try:
+                if odds is not None and pacer is not None and odds.budget:
+                    games_by_sport = _planner_games(client, markets, ledger, now)
+                    games = {trigger: games_by_sport.get(trigger, [])}
+                    stats = compute_feed_stats(ledger, [trigger], now)
+                    planned, skips, _rotation = select_rotation_feeds(
+                        ledger,
+                        games,
+                        stats,
+                        run_settings,
+                        odds,
+                        now,
+                        1,
+                    )
+                    ledger.record_feed_skips(skips, now)
+                    ledger.record_feed_stats(
+                        stats,
+                        {feed: eligible(stat, run_settings) for feed, stat in stats.items()},
+                        now,
+                    )
+                    odds.allowed_sports = set(planned[:1])
+                elif odds is not None:
+                    odds.allowed_sports = set()
+            except Exception:
+                if odds is not None:
+                    odds.allowed_sports = set()
+                log.exception("Move-trigger odds selection failed; no odds feeds selected")
+        elif odds is not None and s.odds_planner == "event_driven" and uses_odds:
             now = datetime.now(timezone.utc)
             try:
                 planned = plan_odds_pulls(
@@ -439,6 +559,9 @@ def paper(
         elif odds is not None:
             odds.allowed_sports = None
         res = engine.run_cycle(markets)
+        if trigger is not None:
+            status = "pulled" if odds is not None and odds.odds_requests_made > 0 else "skipped"
+            ledger.finish_odds_trigger(trigger, status)
         if pacer is not None:
             pacer.finish_run()
         ledger.record_run(
@@ -451,6 +574,7 @@ def paper(
             odds_remaining=int(odds.requests_remaining)
             if odds and odds.requests_remaining
             else None,
+            trigger_reason=f"move:{trigger}" if trigger is not None else None,
         )
         console.print(
             f"[cycle {n}] scanned={res.markets_scanned} signals={len(res.signals)}"
@@ -460,7 +584,7 @@ def paper(
         if res.halted:
             console.print(f"[bold red]HALTED, no entries: {res.halted}[/bold red]")
         _print_signals([*res.acted, *res.orders_placed])
-        if cycles and n >= cycles:
+        if trigger is not None or (cycles and n >= cycles):
             break
         time.sleep(interval)
 
