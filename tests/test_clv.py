@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from prediction_bot.clv import _quote_at, game_day_target, record_clv
-from prediction_bot.models import MakerShadowCandidate, OutcomeSide
+from prediction_bot.models import MakerShadowCandidate, OutcomeSide, Signal
 from prediction_bot.paper.ledger import Ledger
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -259,3 +259,63 @@ def test_record_clv_skips_failed_ticker_and_retries_it(tmp_path: Path) -> None:
         tickers[0][0],
         tickers[2][0],
     ]
+
+
+def test_record_clv_persists_settled_line_move_shadow_clv(tmp_path: Path) -> None:
+    commence = datetime(2026, 10, 20, 20, tzinfo=timezone.utc)
+    ticker = "KXNFLGAME-26OCT20KCLV-LV"
+    event = "KXNFLGAME-26OCT20KCLV"
+    ledger = Ledger(tmp_path / "line-move-clv.sqlite", Decimal("1000"))
+    ledger.record_shadow_decision(
+        Signal(
+            strategy="line_move_follower",
+            ticker=ticker,
+            side=OutcomeSide.yes,
+            fair_prob=Decimal("0.60"),
+            limit_price=Decimal("0.50"),
+            edge=Decimal("0.10"),
+            size=Decimal(1),
+            created_at=commence - timedelta(hours=3),
+            rules_version="v2",
+            position_key=f"{event}:LV",
+            event_ticker=event,
+            commence_time=commence,
+        ),
+        "v2",
+        reason="line_move_follower",
+    )
+    ledger.conn.execute(
+        "INSERT INTO settlements (ticker,settled_at,result,pnl) VALUES (?,?,?,?)",
+        (ticker, commence.isoformat(), "yes", "0.50"),
+    )
+    ledger.conn.commit()
+
+    class Candles:
+        calls = 0
+
+        def get_candlesticks(self, series, market, start, end, period_interval=1):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            assert series == "KXNFLGAME"
+            assert market == ticker
+            assert period_interval == 1
+
+            def candle(at: datetime, bid: str, ask: str) -> dict[str, object]:
+                return {
+                    "end_period_ts": int(at.timestamp()),
+                    "yes_bid": {"close_dollars": bid},
+                    "yes_ask": {"close_dollars": ask},
+                }
+
+            return [
+                candle(datetime(2026, 10, 20, 14, tzinfo=timezone.utc), "0.51", "0.53"),
+                candle(commence - timedelta(minutes=5), "0.61", "0.63"),
+            ]
+
+    client = Candles()
+    assert record_clv(ledger, client, now=commence + timedelta(hours=1)) == 1  # type: ignore[arg-type]
+    clv, game_day = ledger.conn.execute(
+        "SELECT clv_kalshi,clv_gameday FROM shadow_decisions WHERE strategy='line_move_follower'"
+    ).fetchone()
+    assert Decimal(clv) == Decimal("12.00")
+    assert Decimal(game_day) == Decimal("2.00")
+    assert client.calls == 1

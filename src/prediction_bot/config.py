@@ -26,12 +26,36 @@ class Settings(BaseSettings):
     mode: Mode = Mode.paper
     rules_version: Literal["v1", "v2"] = "v1"
     shadow_strategies: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    v2_disabled_sports: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["basketball_nba"],
+        description=(
+            "Enable NBA v2 only after a game-day run following the 11 AM-1 PM local injury "
+            "report, or with an injury feed, and a same-day kickoff guard."
+        ),
+    )
+    exp_line_move_points: Decimal = Decimal("0.03")
+    exp_road_dog_enabled: bool = True
+    exp_road_dog_position_bankroll_fraction: Decimal = Decimal("0.01")
+    exp_road_dog_high_attention_events: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    exp_road_dog_rivalries: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
     @field_validator("shadow_strategies", mode="before")
     @classmethod
     def parse_shadow_strategies(cls, value: object) -> object:
         if isinstance(value, str):
             return [name.strip() for name in value.split(",") if name.strip()]
+        return value
+
+    @field_validator(
+        "v2_disabled_sports",
+        "exp_road_dog_high_attention_events",
+        "exp_road_dog_rivalries",
+        mode="before",
+    )
+    @classmethod
+    def parse_phase_four_lists(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
     # V2 correctness gates

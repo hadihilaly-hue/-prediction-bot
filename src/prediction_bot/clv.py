@@ -71,8 +71,19 @@ def record_clv(
         "FROM maker_shadow m LEFT JOIN settlements s ON s.ticker=m.ticker "
         "WHERE m.status='filled' AND m.clv_kalshi IS NULL ORDER BY m.id"
     ).fetchall()
+    line_move_rows = ledger.conn.execute(
+        "SELECT d.id,d.ticker,d.side,d.price,d.size,d.commence_time,"
+        "'',s.ticker,d.fair "
+        "FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
+        "WHERE d.strategy='line_move_follower' AND s.ticker IS NOT NULL "
+        "AND d.clv_kalshi IS NULL ORDER BY d.id"
+    ).fetchall()
     candidates: dict[str, list[tuple[Any, ...]]] = {}
-    entries = [("fills", row) for row in fill_rows] + [("maker_shadow", row) for row in shadow_rows]
+    entries = (
+        [("fills", row) for row in fill_rows]
+        + [("maker_shadow", row) for row in shadow_rows]
+        + [("shadow_decisions", row) for row in line_move_rows]
+    )
     for table, row in entries:
         if table == "fills":
             (
@@ -249,9 +260,18 @@ def record_clv(
                             fill_id,
                         ),
                     )
-                else:
+                elif table == "maker_shadow":
                     ledger.conn.execute(
                         "UPDATE maker_shadow SET clv_kalshi=?,clv_gameday=? WHERE id=?",
+                        (
+                            None if clv is None else str(clv),
+                            None if day_clv is None else str(day_clv),
+                            fill_id,
+                        ),
+                    )
+                else:
+                    ledger.conn.execute(
+                        "UPDATE shadow_decisions SET clv_kalshi=?,clv_gameday=? WHERE id=?",
                         (
                             None if clv is None else str(clv),
                             None if day_clv is None else str(day_clv),

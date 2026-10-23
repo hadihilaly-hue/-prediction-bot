@@ -304,6 +304,34 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
             {"version": v, "window": w, "n": n, "would_trade": traded} for v, w, n, traded in shadow
         ],
     }
+    road_dog_positions = [
+        position for position in positions if "exp_road_dog" in str(position["strategy_tags"])
+    ]
+    road_dog_settled = [position for position in road_dog_positions if position["result"] != "open"]
+    road_dog_clv = [
+        float(cast(float, position["clv"]))
+        for position in road_dog_positions
+        if position["clv"] is not None
+    ]
+    quality["exp_road_dog"] = {
+        "positions": len(road_dog_positions),
+        "settled": len(road_dog_settled),
+        "pnl": sum(float(cast(float, position["pnl"])) for position in road_dog_settled),
+        "clv_n": len(road_dog_clv),
+        "clv_mean": statistics.mean(road_dog_clv) if road_dog_clv else None,
+        "evaluation_note": "Evaluate at 50 and 100 positions; rankings and neutral-site data are absent.",
+    }
+    line_move = ledger.conn.execute(
+        "SELECT COUNT(*),SUM(would_trade),COUNT(clv_kalshi),AVG(CAST(clv_kalshi AS REAL)) "
+        "FROM shadow_decisions WHERE strategy='line_move_follower'"
+    ).fetchone()
+    quality["line_move_follower"] = {
+        "observations": int(line_move[0] or 0),
+        "would_trade": int(line_move[1] or 0),
+        "settled_clv_n": int(line_move[2] or 0),
+        "settled_clv_mean": None if line_move[3] is None else float(line_move[3]),
+        "note": "No trading until at least 50 observations.",
+    }
     monte_carlo_result = None
     if settled_fills:
         p_market, mean_market = monte_carlo(
@@ -828,6 +856,8 @@ _TEMPLATE = """<!doctype html>
     const shadowRows = (q.shadow_decisions || []).map(decision => [
       decision.window, decision.version, decision.n, decision.would_trade,
     ]);
+    const lineMove = q.line_move_follower || {};
+    const roadDog = q.exp_road_dog || {};
     $('measurement-summary').innerHTML = [
       measurementTable(
         'Calibration by ten-cent bucket compares expected wins with actual wins.',
@@ -870,6 +900,23 @@ _TEMPLATE = """<!doctype html>
         ['Entry window', 'Rules version', 'Decisions', 'Would trade'],
         shadowRows,
         'No shadow decisions have been recorded yet.',
+      ),
+      measurementTable(
+        'Line-move follower is shadow-only; no trading until at least 50 observations.',
+        ['Observations', 'Would trade', 'Settled CLV n', 'Mean settled CLV', 'Status'],
+        [[lineMove.observations || 0, lineMove.would_trade || 0,
+          lineMove.settled_clv_n || 0,
+          lineMove.settled_clv_mean == null ? 'unknown' :
+            lineMove.settled_clv_mean.toFixed(1) + '¢',
+          lineMove.note || 'No trading until at least 50 observations.']],
+      ),
+      measurementTable(
+        'Road-dog experiment evaluation at 50 and 100 positions; rankings and neutral-site data are absent.',
+        ['Positions', 'Settled', 'Settled P&L', 'CLV n', 'Mean CLV', 'Evaluation note'],
+        [[roadDog.positions || 0, roadDog.settled || 0, money(roadDog.pnl || 0),
+          roadDog.clv_n || 0,
+          roadDog.clv_mean == null ? 'unknown' : roadDog.clv_mean.toFixed(1) + '¢',
+          roadDog.evaluation_note || 'Evaluate at 50 and 100 positions.']],
       ),
     ].join('');
   }
