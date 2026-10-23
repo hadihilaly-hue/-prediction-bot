@@ -139,26 +139,78 @@ class Decision:
         return self.reasons[0] if self.reasons else ""
 
 
-def _rationale_team(signal: ReplaySignal) -> str | None:
-    match = re.match(r"^\s*(.+?)\s+consensus\s+", signal.rationale, re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-    match = re.match(r"^\s*(.+?)\s+(?:Pinnacle|Circa|BetOnline)\s+reference", signal.rationale)
-    return match.group(1).strip() if match else None
+def _rationale_reference(signal: ReplaySignal) -> tuple[str, Decimal | None] | None:
+    match = re.search(
+        r"([^;()]+?)\s+consensus(?:\s+([0-9]+(?:\.[0-9]+)?))?",
+        signal.rationale,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    probability = Decimal(match.group(2)) if match.group(2) is not None else None
+    return match.group(1).strip(), probability
+
+
+def _event_team_ids(signal: ReplaySignal, sport: str) -> set[str] | None:
+    event_code = signal.event_ticker.split("-", 1)[1] if "-" in signal.event_ticker else ""
+    match = EVENT_RE.match(event_code)
+    if match is None:
+        return None
+    encoded_teams = match.group(5)
+    pairs: set[frozenset[str]] = set()
+    for split in range(1, len(encoded_teams)):
+        first = team_for_code(signal.series, encoded_teams[:split])
+        second = team_for_code(signal.series, encoded_teams[split:])
+        if first is not None and second is not None and first != second:
+            pairs.add(frozenset((first, second)))
+    if len(pairs) == 1:
+        return set(next(iter(pairs)))
+    for match in re.finditer(r"\(([^()]*)\)", signal.rationale):
+        teams = re.split(r"\s+vs\.?\s+", match.group(1), flags=re.IGNORECASE)
+        if len(teams) == 2:
+            ids = [team_for_odds_name(sport, team.strip()) for team in teams]
+            if ids[0] is not None and ids[1] is not None:
+                return set(ids)
+    return None
 
 
 def _mapping_reason(signal: ReplaySignal) -> str | None:
     sport = KALSHI_SERIES_TO_SPORT.get(signal.series)
-    if sport is None:
+    reference = _rationale_reference(signal)
+    if sport is None or reference is None:
         return "mapping_failed"
-    if signal.code in {"TIE", "DRAW"}:
-        return None if "draw" in signal.rationale.lower() else "title_mismatch"
-    code_team = team_for_code(signal.series, signal.code)
-    name = _rationale_team(signal)
-    odds_team = team_for_odds_name(sport, name) if name else None
-    if code_team is None or odds_team is None:
+    rationale_name, probability = reference
+    ticker_team = team_for_code(signal.series, signal.code)
+    rationale_team = team_for_odds_name(sport, rationale_name)
+    if signal.code in {"TIE", "DRAW"} and "draw" in rationale_name.casefold():
+        return None
+    if ticker_team is None or rationale_team is None:
         return "mapping_failed"
-    return "title_mismatch" if code_team != odds_team else None
+    event_teams = _event_team_ids(signal, sport)
+    if event_teams is not None and (
+        ticker_team not in event_teams or rationale_team not in event_teams
+    ):
+        return "mapping_mismatch"
+    if rationale_team == ticker_team:
+        if probability is None:
+            return None
+        expected_yes = probability
+        expected_side = expected_yes if signal.side == "yes" else Decimal(1) - expected_yes
+        return "mapping_mismatch" if abs(signal.fair - expected_side) > Decimal("0.02") else None
+    if probability is None:
+        return None
+    if event_teams is None:
+        return "mapping_mismatch"
+    if signal.series in THREE_WAY_SERIES:
+        observed_yes = signal.fair if signal.side == "yes" else Decimal(1) - signal.fair
+        return (
+            "mapping_mismatch"
+            if observed_yes > Decimal(1) - probability + Decimal("0.02")
+            else None
+        )
+    expected_yes = Decimal(1) - probability
+    expected_side = expected_yes if signal.side == "yes" else Decimal(1) - expected_yes
+    return "mapping_mismatch" if abs(signal.fair - expected_side) > Decimal("0.02") else None
 
 
 def evaluate_signal(
@@ -666,6 +718,10 @@ def render_report(
             reasons = decision.reasons if decision else ["unmatched_signal"]
             first_histogram[reasons[0]] += 1
             histogram.update(reasons)
+    blocked_by_other_rule = sum(
+        decision is None or any(reason != "mapping_failed" for reason in decision.reasons)
+        for _fill, decision in blocked
+    )
     positions = [decision for decision in decisions if decision.v2_would_trade]
     reason_rows = [[reason, count] for reason, count in sorted(histogram.items())]
     first_rows = [[reason, count] for reason, count in sorted(first_histogram.items())]
@@ -687,7 +743,8 @@ def render_report(
         f"# Historical replay ({rules})",
         "",
         f"Signals since {since}: {len(signals)}; historical fills: {len(fills)}; "
-        f"v2-blocked fills: {len(blocked)} / {len(fills)}.",
+        f"v2-blocked fills: {len(blocked)} / {len(fills)}; fills blocked by a rule "
+        f"other than alias coverage (mapping_failed): {blocked_by_other_rule}.",
         "",
         "Replay uses stored v1 weighted multiplicative fair values. Dispersion, few books, "
         "wide spread, displayed depth, and worst-case devig are unknown; because alternative "

@@ -8,10 +8,12 @@ from prediction_bot.paper.ledger import Ledger
 from scripts.replay import (
     Decision,
     ReplaySignal,
+    _mapping_reason,
     _simulate,
     canonical_key,
     evaluate_signal,
     load_database,
+    render_report,
 )
 
 
@@ -23,7 +25,7 @@ def signal(
     fair: str = "0.60",
     price: str = "0.50",
     at: str = "2026-10-03T12:00:00Z",
-    rationale: str = "Las Vegas Raiders consensus reference",
+    rationale: str | None = None,
 ) -> ReplaySignal:
     return ReplaySignal(
         id=id,
@@ -35,7 +37,8 @@ def signal(
         price=Decimal(price),
         edge=Decimal(fair) - Decimal(price),
         size=Decimal(1),
-        rationale=rationale,
+        rationale=rationale
+        or f"Las Vegas Raiders consensus {fair} (Kansas City Chiefs vs Las Vegas Raiders)",
         acted=True,
     )
 
@@ -166,6 +169,67 @@ def test_replay_big_edge_and_mapping_rules() -> None:
     )
     assert "big_edge" in big.reasons
     assert "mapping_failed" in unmapped.reasons
+
+
+def test_replay_mapping_distinguishes_aliases_from_fair_orientation() -> None:
+    scar = signal(
+        ticker="KXNCAAFGAME-26OCT10SCARFLA-SCAR",
+        fair="0.163",
+        rationale=(
+            "Florida Gators consensus 0.837 from 1 books "
+            "(Florida Gators vs South Carolina Gamecocks)"
+        ),
+    )
+    lafc_lag = signal(
+        ticker="KXMLSGAME-26OCT25LAFCLAG-LAG",
+        fair="0.614",
+        rationale="Los Angeles FC consensus 0.614 from 3 books (Los Angeles FC vs LA Galaxy)",
+    )
+    tampa_no = signal(
+        ticker="KXNHLGAME-26OCT17VANTB-TB",
+        side="no",
+        fair="0.335",
+        rationale="Tampa Bay Lightning consensus 0.665 from 3 books",
+    )
+    unc = signal(
+        ticker="KXNCAAFGAME-26OCT10UNCPITT-UNC",
+        fair="0.359",
+        rationale=(
+            "North Carolina Tar Heels consensus 0.359 from 3 books "
+            "(Pittsburgh Panthers vs North Carolina Tar Heels)"
+        ),
+    )
+    outsider = signal(
+        ticker="KXNCAAFGAME-26OCT10SCARFLA-SCAR",
+        fair="0.163",
+        rationale=(
+            "Alabama Crimson Tide consensus 0.837 from 1 books "
+            "(Florida Gators vs South Carolina Gamecocks)"
+        ),
+    )
+
+    assert _mapping_reason(scar) is None
+    assert _mapping_reason(lafc_lag) == "mapping_mismatch"
+    assert _mapping_reason(tampa_no) is None
+    assert _mapping_reason(unc) is None
+    assert _mapping_reason(outsider) == "mapping_mismatch"
+
+
+def test_replay_report_counts_blocks_beyond_alias_coverage() -> None:
+    item = signal(rationale="unknown consensus")
+    decision = Decision(signal=item, fair=item.fair, reasons=["mapping_failed"])
+    fill = {
+        "id": item.id,
+        "ticker": item.ticker,
+        "side": item.side,
+        "created_at": item.created_at.isoformat(),
+    }
+    report = render_report("both", "2026-09-28", [item], [decision], [fill])
+    assert "fills blocked by a rule other than alias coverage (mapping_failed): 0." in report
+
+    decision.reasons.append("net_edge")
+    report = render_report("both", "2026-09-28", [item], [decision], [fill])
+    assert "fills blocked by a rule other than alias coverage (mapping_failed): 1." in report
 
 
 def test_replay_kickoff_entry_window_and_in_play_rules() -> None:
