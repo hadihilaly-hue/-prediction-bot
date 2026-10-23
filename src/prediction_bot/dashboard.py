@@ -653,9 +653,13 @@ def _clv_cohort_data(ledger: Ledger) -> dict[str, object]:
                 edge_bucket = edge_labels[4]
             else:
                 edge_bucket = edge_labels[5]
-            edge_groups.setdefault((edge_bucket, version, league), []).append((bid, clv))
+            for group_league in (league, "all"):
+                edge_groups.setdefault((edge_bucket, version, group_league), []).append((bid, clv))
         if window in windows:
-            window_groups.setdefault((str(window), version, league), []).append((bid, clv))
+            for group_league in (league, "all"):
+                window_groups.setdefault((str(window), version, group_league), []).append(
+                    (bid, clv)
+                )
 
     def summarize(
         groups: dict[tuple[str, str, str], list[tuple[float, float | None]]],
@@ -1017,6 +1021,7 @@ _TEMPLATE = """<!doctype html>
     const d = new Date(iso);
     return isNaN(d) ? s : d.toLocaleString(undefined, {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'});
   };
+  const leagueName = k => ({americanfootball_nfl: 'NFL', americanfootball_ncaaf: 'College football', baseball_mlb: 'MLB', basketball_nba: 'NBA', icehockey_nhl: 'NHL', soccer_usa_mls: 'MLS', soccer_epl: 'Premier League', soccer_spain_la_liga: 'La Liga', soccer_italy_serie_a: 'Serie A', soccer_germany_bundesliga: 'Bundesliga', soccer_france_ligue_one: 'Ligue 1', soccer_mexico_ligamx: 'Liga MX', soccer_uefa_champs_league: 'Champions League', basketball_ncaab: 'College basketball'}[k] || String(k || 'unknown').replace(/_/g, ' '));
   const league = t => {
     const s = String(t || '').split('-')[0].replace('GAME', '').replace(/^KX/, '');
     const names = {NFL: 'NFL', NCAAF: 'College football', MLB: 'MLB', NBA: 'NBA', NHL: 'NHL', MLS: 'MLS', EPL: 'Premier League', LALIGA: 'La Liga', UCL: 'Champions League', WNBA: 'WNBA', NCAAB: 'College basketball', SERIEA: 'Serie A', BUNDESLIGA: 'Bundesliga', LIGUE1: 'Ligue 1', UFCFIGHT: 'UFC'};
@@ -1182,11 +1187,33 @@ _TEMPLATE = """<!doctype html>
             : 'They switch on by themselves once every check below passes, and switch back off if one stops passing.';
       gateHead = '<p class="hint" style="margin-top:14px"><b>Resting orders: ' + (makerOn ? 'on' : 'off') + '.</b> ' + explanation + '</p>';
     }
+    const edgeNames = {'<0': 'Below 0¢', '0-1': '0 to 1¢', '1-2': '1 to 2¢', '2-3': '2 to 3¢', '3-5': '3 to 5¢', '5+': '5¢ and up'};
+    const cohortRow = (label, g) => [label, String(g.n || 0), {v: signedCents(g.mean_clv_kalshi_bid), cls: tone(g.mean_clv_kalshi_bid)}, g.ci95 ? signedCents(g.ci95[0]) + ' to ' + signedCents(g.ci95[1]) : '–', evidenceVerdict(g.n || 0, g.ci95)];
+    const byEdge = ((Q.clv_by_edge || {}).buckets || []).filter(g => g.rules_version === rules);
+    const byWindow = ((Q.clv_by_window || {}).windows || []).filter(g => g.rules_version === rules);
+    const edgeRows = byEdge.filter(g => g.league === 'all').map(g => cohortRow(edgeNames[g.edge_bucket] || g.edge_bucket, g));
+    const nearWindowRows = byWindow.filter(g => g.league === 'all').map(g => cohortRow(windowNames[g.window] || g.window, g));
+    const leagueRows = [
+      ...byEdge.filter(g => g.league !== 'all').map(g => [leagueName(g.league), 'Edge ' + (edgeNames[g.edge_bucket] || g.edge_bucket), ...cohortRow('', g).slice(1)]),
+      ...byWindow.filter(g => g.league !== 'all').map(g => [leagueName(g.league), windowNames[g.window] || g.window, ...cohortRow('', g).slice(1)])
+    ];
+    const cohortExcluded = ((Q.clv_by_edge || {}).excluded_by_status || []).filter(e => e.rules_version === rules);
+    const cohortNote = cohortExcluded.length ? '<p class="hint">Left out of the near-miss tables: ' + cohortExcluded.map(e => String(e.n) + ' ' + ({in_game: 'bought after kickoff', no_commence: 'with no kickoff time', pending: 'still waiting for a closing price'}[e.clv_status] || e.clv_status)).join(', ') + '.</p>' : '';
+    const nearMiss = (rules === 'v2' || rules === 'v3')
+      ? '<h4 class="evidence-head">Near misses: does a bigger edge beat the close?</h4><p class="hint">Every game the bot priced but skipped because the edge was too small or the game was outside the buying window, plus real bets. Measured against the Kalshi bid 5 minutes before kickoff, the price you could actually sell at. A row counts once it has 50 and the whole 95% range is on one side of zero.</p>' + cohortNote +
+        '<div class="tablewrap"><table id="clvedge"></table></div><div class="tablewrap"><table id="clvwindow"></table></div>' +
+        (leagueRows.length ? '<details><summary>By league</summary><div class="tablewrap"><table id="clvleague"></table></div></details>' : '')
+      : '';
     $('evidence').innerHTML = exclusionNote + meter('Bets with a closing price', withClv.length) + meter('Finished bets', done.length) +
-      '<div class="tablewrap"><table id="expected"></table></div>' + (windowRows.length ? '<div class="tablewrap"><table id="windows"></table></div>' : '') +
+      '<div class="tablewrap"><table id="expected"></table></div>' + (windowRows.length ? '<div class="tablewrap"><table id="windows"></table></div>' : '') + nearMiss +
       (G ? gateHead + '<div class="tablewrap"><table id="makergate"></table></div>' : '');
     table('expected', 'Expected return if the Kalshi closing price is the true chance, before fees on the way out.', ['Measure', '#Bets', '#Average', '95% range', 'Verdict'], rows, '');
     if (windowRows.length) table('windows', 'When to buy: closing-price gain by how far ahead of the game the bot would have bought (shadow test, no real trades).', ['Window', '#Bets', '#Average', '95% range', 'Verdict'], windowRows, '');
+    if (nearMiss) {
+      table('clvedge', 'Closing-price gain by the edge the bot saw (cents per contract).', ['Edge after fees', '#Cases', '#Average', '95% range', 'Verdict'], edgeRows, 'No near misses with a closing price yet.');
+      table('clvwindow', 'Closing-price gain by how far ahead of the game (near misses and real bets).', ['Window', '#Cases', '#Average', '95% range', 'Verdict'], nearWindowRows, 'No near misses with a closing price yet.');
+      if (leagueRows.length) table('clvleague', '', ['League', 'Group', '#Cases', '#Average', '95% range', 'Verdict'], leagueRows, '');
+    }
     if (G) table('makergate', 'Checklist for switching on resting (maker) orders. Cents are the average closing-price gain per contract.', ['Check', 'Now', 'Status'], gateRows, '');
   }
 
