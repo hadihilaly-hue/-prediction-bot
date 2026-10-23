@@ -51,7 +51,6 @@ class Settings(BaseSettings):
     v2_price_floor: Decimal = Decimal("0.10")
     v2_price_ceiling: Decimal = Decimal("0.90")
     v2_max_spread: Decimal = Decimal("0.04")
-    v2_thin_market_extra_edge: Decimal = Decimal("0.01")
     min_books: int = 2
     min_books_by_sport: dict[str, int] = Field(
         default_factory=lambda: {"americanfootball_ncaaf": 3}

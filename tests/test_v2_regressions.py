@@ -633,3 +633,33 @@ def test_kclv_opposite_legs_collapse_and_engine_caps_across_cycles(settings, tmp
     )  # type: ignore[arg-type]
     assert engine.run_cycle([market]).acted == []
     assert ledger.conn.execute("SELECT reason FROM blocks").fetchone()[0] == "cap_position"
+
+
+def test_utep_price_floor_candidate_fails_closed_on_unmapped_team(settings) -> None:  # type: ignore[no-untyped-def]
+    event_ticker = "KXNCAAFGAME-26OCT03UTEPUNM"
+    settings.min_lead_hours = 0
+    game = odds_event(
+        "utep-unm",
+        "UTEP Miners",
+        "New Mexico Lobos",
+        "2026-10-03T20:00:00Z",
+        {"UTEP Miners": Decimal("0.5"), "New Mexico Lobos": Decimal("0.5")},
+    )
+    strategy = SportsbookV2Strategy(
+        settings,
+        FakeOdds([game]),
+        clock=fixed_clock("2026-10-03T16:00:00Z"),
+    )
+
+    # UTEP is unmapped, so this 6¢ market is blocked at mapping_failed, not price_floor.
+    strategy.evaluate(
+        [
+            make_market(f"{event_ticker}-UTEP", "0.05", "0.06", subtitle="UTEP"),
+            make_market(f"{event_ticker}-UNM", "0.49", "0.50", subtitle="New Mexico"),
+        ]
+    )
+
+    assert any(
+        block.reason == "mapping_failed" and block.ticker.startswith(event_ticker)
+        for block in strategy.seen_blocks()
+    )

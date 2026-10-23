@@ -675,15 +675,6 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     gross_edge = fair - price
                     net_edge = gross_edge - taker_fee_rate(price, fee_multiplier)
                     threshold = self.settings.v2_min_net_edge
-                    if (
-                        sport.startswith("soccer_")
-                        or sport
-                        in {
-                            "mma_mixed_martial_arts",
-                        }
-                        or sport.startswith("golf_")
-                    ):
-                        threshold += self.settings.v2_thin_market_extra_edge
                     if price < self.settings.v2_price_floor:
                         self._block("price_floor", event_ticker, market.ticker, str(price))
                         continue
