@@ -82,7 +82,7 @@ class Engine:
 
     def run_cycle(self, markets: Sequence[Market]) -> CycleResult:
         res = CycleResult(markets_scanned=len(markets))
-        if self._maker_first_enabled():
+        if self._maker_first_enabled() or (not self.live and bool(self.ledger.open_paper_orders())):
             res.paper_fills_resolved = self._resolve_paper_orders(self.clock())
         for strat in self.strategies:
             try:
@@ -158,7 +158,9 @@ class Engine:
                 self.ledger.update_maker_shadows(
                     shadow_updates, v3_cancel_move=self.settings.v3_maker_cancel_move
                 )
-                if self._maker_first_enabled():
+                if self._maker_first_enabled() or (
+                    not self.live and bool(self.ledger.open_paper_orders())
+                ):
                     self.ledger.update_paper_orders_for_fair(
                         shadow_updates, self.settings.v3_maker_cancel_move
                     )
@@ -256,13 +258,15 @@ class Engine:
         return filled
 
     def _v3_paper_action(self, sig: Signal, grouped: bool = False) -> str:
-        if self.live or sig.rules_version != "v3" or self.settings.v3_execution != "maker_first":
+        if self.live or sig.rules_version != "v3":
             return "taker"
         if sig.position_key is None:
             return "none"
         latest = self.ledger.latest_paper_order(sig.position_key)
         if latest is not None and latest.status == "open":
             return "resting"
+        if self.settings.v3_execution != "maker_first":
+            return "taker"
         if latest is not None and latest.status == "filled" and self.settings.v3_no_reentry:
             return "held"
         taker_edge_holds = sig.edge >= self.settings.v2_min_net_edge

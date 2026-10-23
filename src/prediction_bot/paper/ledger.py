@@ -176,6 +176,20 @@ CREATE TABLE IF NOT EXISTS paper_orders (
     fill_rule TEXT,
     cancel_reason TEXT
 );
+CREATE TABLE IF NOT EXISTS execution_mode_log (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    rules_version TEXT NOT NULL,
+    requested TEXT NOT NULL,
+    resolved TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    taker_n INTEGER NOT NULL,
+    taker_mean TEXT,
+    taker_ci_low TEXT,
+    maker_scored INTEGER NOT NULL,
+    maker_clv_n INTEGER NOT NULL,
+    maker_mean TEXT
+);
 CREATE TABLE IF NOT EXISTS settlements (
     ticker TEXT PRIMARY KEY,
     settled_at TEXT NOT NULL,
@@ -793,6 +807,64 @@ class Ledger:
             "ORDER BY created_at,id"
         ).fetchall()
         return [self._paper_order_from_row(row) for row in rows]
+
+    def record_execution_mode(
+        self,
+        *,
+        rules_version: str,
+        requested: str,
+        resolved: str,
+        reason: str,
+        taker_n: int,
+        taker_mean: Decimal | None,
+        taker_ci_low: Decimal | None,
+        maker_scored: int,
+        maker_clv_n: int,
+        maker_mean: Decimal | None,
+        created_at: datetime | None = None,
+    ) -> None:
+        self.conn.execute(
+            "INSERT INTO execution_mode_log (created_at,rules_version,requested,resolved,reason,"
+            "taker_n,taker_mean,taker_ci_low,maker_scored,maker_clv_n,maker_mean) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                self._utc(created_at or datetime.now(timezone.utc)).isoformat(),
+                rules_version,
+                requested,
+                resolved,
+                reason,
+                taker_n,
+                None if taker_mean is None else str(taker_mean),
+                None if taker_ci_low is None else str(taker_ci_low),
+                maker_scored,
+                maker_clv_n,
+                None if maker_mean is None else str(maker_mean),
+            ),
+        )
+        self.conn.commit()
+
+    def latest_execution_mode(self) -> dict[str, object] | None:
+        row = self.conn.execute(
+            "SELECT id,created_at,rules_version,requested,resolved,reason,taker_n,taker_mean,"
+            "taker_ci_low,maker_scored,maker_clv_n,maker_mean "
+            "FROM execution_mode_log ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": row[0],
+            "created_at": row[1],
+            "rules_version": row[2],
+            "requested": row[3],
+            "resolved": row[4],
+            "reason": row[5],
+            "taker_n": row[6],
+            "taker_mean": row[7],
+            "taker_ci_low": row[8],
+            "maker_scored": row[9],
+            "maker_clv_n": row[10],
+            "maker_mean": row[11],
+        }
 
     def latest_paper_order(self, position_key: str) -> PaperOrder | None:
         row = self.conn.execute(

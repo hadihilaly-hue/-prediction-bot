@@ -17,6 +17,7 @@ from prediction_bot.clv import record_clv
 from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
+from prediction_bot.maker_gate import MakerGate, evaluate_maker_gate
 from prediction_bot.maker_scoring import score_maker_shadows
 from prediction_bot.models import Market, OutcomeSide, Signal
 from prediction_bot.odds import (
@@ -101,6 +102,20 @@ def _fmt(d: Decimal | None) -> str:
     return "-" if d is None else f"{d:.4f}"
 
 
+def _resolve_v3_execution(
+    settings: Settings, ledger: Ledger, strategy_names: list[str]
+) -> tuple[Settings, MakerGate | None]:
+    if settings.v3_execution != "auto":
+        return settings, None
+    if settings.is_live or settings.rules_version != "v3" or "sportsbook_v3" not in strategy_names:
+        return settings.model_copy(update={"v3_execution": "taker"}), None
+    gate = evaluate_maker_gate(ledger, settings)
+    return (
+        settings.model_copy(update={"v3_execution": "maker_first" if gate.passed else "taker"}),
+        gate,
+    )
+
+
 @app.callback()
 def _main(verbose: bool = typer.Option(False, "-v", help="Debug logging")) -> None:
     logging.basicConfig(
@@ -144,9 +159,30 @@ def scan(
 ) -> None:
     """Evaluate strategies once and print signals without trading."""
     s = _settings()
+    run_settings = s
+    if s.v3_execution == "auto" and "sportsbook_v3" in strategy:
+        ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+        run_settings, gate = _resolve_v3_execution(s, ledger, strategy)
+        if gate is not None:
+            resolved = run_settings.v3_execution
+            console.print(f"v3 execution: auto -> {resolved} ({gate.reason})")
+            ledger.record_execution_mode(
+                rules_version="v3",
+                requested="auto",
+                resolved=resolved,
+                reason=gate.reason,
+                taker_n=gate.taker_n,
+                taker_mean=gate.taker_mean,
+                taker_ci_low=gate.taker_ci_low,
+                maker_scored=gate.maker_scored,
+                maker_clv_n=gate.maker_clv_n,
+                maker_mean=gate.maker_mean,
+            )
     client = _client(s)
     ms = _fetch(client, series)
-    signals = [sig for st in _strategies(s, strategy, kalshi=client) for sig in st.evaluate(ms)]
+    signals = [
+        sig for st in _strategies(run_settings, strategy, kalshi=client) for sig in st.evaluate(ms)
+    ]
     console.print(f"scanned {len(ms)} markets, {len(signals)} signals")
     _print_signals(signals)
 
@@ -163,9 +199,11 @@ def paper(
     client = _client(s)
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
     odds = _odds_client(s)
-    strats = _strategies(s, strategy, odds, kalshi=client, ledger=ledger)
+    unknown = set(strategy) - set(STRATEGIES)
+    if unknown:
+        raise typer.BadParameter(f"unknown strategies {sorted(unknown)}; have {sorted(STRATEGIES)}")
     pacer = None
-    uses_odds = any(isinstance(st, SportsbookArbStrategy) for st in strats)
+    uses_odds = any(issubclass(STRATEGIES[name], SportsbookArbStrategy) for name in strategy)
     if (
         odds is not None
         and uses_odds
@@ -185,18 +223,42 @@ def paper(
         shadow_names = list(
             dict.fromkeys(["sportsbook_v2", "sportsbook_arb", "underdog_value", *shadow_names])
         )
-    shadow_strategies = _strategies(s, shadow_names, odds, client, ledger)
-    engine = Engine(
-        s,
-        client,
-        strats,
-        ledger,
-        allow_live=False,
-        shadow_strategies=shadow_strategies,
-    )
     n = 0
     while True:
         n += 1
+        run_settings, gate = _resolve_v3_execution(s, ledger, strategy)
+        if gate is not None:
+            resolved = run_settings.v3_execution
+            detail = gate.reason
+            if gate.reason == "taker_positions":
+                detail = f"taker_positions: {gate.taker_n}/{s.v3_maker_gate_min_positions}"
+            elif gate.reason == "maker_scored":
+                detail = f"maker_scored: {gate.maker_scored}/{s.v3_maker_gate_min_scored}"
+            elif gate.reason == "maker_filled_clv":
+                detail = f"maker_filled_clv: {gate.maker_clv_n}/{s.v3_maker_gate_min_filled_clv}"
+            console.print(f"v3 execution: auto -> {resolved} ({detail})")
+            ledger.record_execution_mode(
+                rules_version="v3",
+                requested="auto",
+                resolved=resolved,
+                reason=gate.reason,
+                taker_n=gate.taker_n,
+                taker_mean=gate.taker_mean,
+                taker_ci_low=gate.taker_ci_low,
+                maker_scored=gate.maker_scored,
+                maker_clv_n=gate.maker_clv_n,
+                maker_mean=gate.maker_mean,
+            )
+        strats = _strategies(run_settings, strategy, odds, kalshi=client, ledger=ledger)
+        shadow_strategies = _strategies(run_settings, shadow_names, odds, client, ledger)
+        engine = Engine(
+            run_settings,
+            client,
+            strats,
+            ledger,
+            allow_live=False,
+            shadow_strategies=shadow_strategies,
+        )
         if pacer is not None:
             pacer.start_run()
         settled = engine.settle_open_positions()
@@ -438,7 +500,7 @@ def dashboard(
     s = _settings()
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_dashboard(ledger))
+    out.write_text(render_dashboard(ledger, s))
     console.print(f"wrote {out}")
 
 

@@ -15,7 +15,10 @@ from decimal import Decimal
 from typing import cast
 
 from prediction_bot.analysis import Fill, band, monte_carlo, outcome_key
+from prediction_bot.config import Settings
+from prediction_bot.maker_gate import evaluate_maker_gate
 from prediction_bot.paper.ledger import Ledger
+from prediction_bot.position_clv import weighted_position_clv
 from prediction_bot.teams import team_name_for_code
 
 
@@ -31,7 +34,7 @@ def _mean_ci95(values: list[float]) -> tuple[float, float] | None:
     return mean - margin, mean + margin
 
 
-def _measurement_data(ledger: Ledger) -> dict[str, object]:
+def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[str, object]:
     rows = ledger.conn.execute(
         "SELECT f.id,f.created_at,f.strategy,f.ticker,f.side,f.price,f.count,f.fee,"
         "f.fair_prob,s.result,f.rules_version,f.position_key,f.event_ticker,f.tags,"
@@ -105,7 +108,8 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
                 if hours >= 2
                 else "<2h"
             )
-        pos_clv = sum(value * n for value, n in clvs) / sum(n for _, n in clvs) if clvs else None
+        pos_clv_value = weighted_position_clv(clvs)
+        pos_clv = None if pos_clv_value is None else float(pos_clv_value)
         pos_day = (
             sum(value * n for value, n in day_clvs) / sum(n for _, n in day_clvs)
             if day_clvs
@@ -294,6 +298,9 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
         for side, price, size, fee, result in maker_settled
     )
     maker_metrics = ledger.maker_shadow_metrics()
+    settings = settings or Settings()
+    gate = evaluate_maker_gate(ledger, settings)
+    latest_execution = ledger.latest_execution_mode()
 
     def maker_metric_float(name: str) -> float | None:
         value = maker_metrics[name]
@@ -343,6 +350,24 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
         "shadow_decisions": [
             {"version": v, "window": w, "n": n, "would_trade": traded} for v, w, n, traded in shadow
         ],
+        "maker_gate": {
+            "taker_n": gate.taker_n,
+            "taker_mean": _num(gate.taker_mean),
+            "taker_ci_low": _num(gate.taker_ci_low),
+            "taker_ci_high": _num(gate.taker_ci_high),
+            "maker_scored": gate.maker_scored,
+            "maker_clv_n": gate.maker_clv_n,
+            "maker_mean": _num(gate.maker_mean),
+            "passed": gate.passed,
+            "reason": gate.reason,
+            "thresholds": {
+                "min_positions": settings.v3_maker_gate_min_positions,
+                "min_scored": settings.v3_maker_gate_min_scored,
+                "min_filled_clv": settings.v3_maker_gate_min_filled_clv,
+            },
+            "resolved": None if latest_execution is None else latest_execution["resolved"],
+            "requested": None if latest_execution is None else latest_execution["requested"],
+        },
     }
     quality["entry_window_clv"] = {
         version: {
@@ -567,11 +592,11 @@ def _entry_window_clv_summary(ledger: Ledger, version: str, window: str) -> dict
     }
 
 
-def dashboard_data(ledger: Ledger) -> dict[str, object]:
+def dashboard_data(ledger: Ledger, settings: Settings | None = None) -> dict[str, object]:
     perf = ledger.performance()
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "measurement": _measurement_data(ledger),
+        "measurement": _measurement_data(ledger, settings),
         "performance": {
             "cash": _num(perf.cash),
             "starting_cash": _num(perf.starting_cash),
@@ -662,8 +687,8 @@ def dashboard_data(ledger: Ledger) -> dict[str, object]:
     }
 
 
-def render_dashboard(ledger: Ledger) -> str:
-    payload = json.dumps(dashboard_data(ledger), separators=(",", ":"))
+def render_dashboard(ledger: Ledger, settings: Settings | None = None) -> str:
+    payload = json.dumps(dashboard_data(ledger, settings), separators=(",", ":"))
     # A closing </script> inside market text must not terminate the data block.
     payload = payload.replace("</", "<\\/")
     return _TEMPLATE.replace("__DATA__", payload).replace(
