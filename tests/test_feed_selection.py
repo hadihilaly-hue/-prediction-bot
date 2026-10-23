@@ -13,6 +13,7 @@ from prediction_bot.config import Settings
 from prediction_bot.engine import CycleResult
 from prediction_bot.feed_selection import (
     FeedStat,
+    RotationScore,
     _market_moved_since,
     compute_feed_stats,
     compute_feed_stats_from_connection,
@@ -23,6 +24,7 @@ from prediction_bot.feed_selection import (
     rotation_scores,
     select_entry_feeds,
     select_rotation_feeds,
+    weekday_prior,
 )
 from prediction_bot.odds_planner import PlannedGame
 from prediction_bot.paper.ledger import Ledger
@@ -578,6 +580,7 @@ def test_rotation_appends_measurement_windows_only_with_remaining_budget(
         rules_version="v3",
         min_lead_hours=72,
         odds_measurement_windows=True,
+        odds_weekday_prior=False,
     )
     without_leftover, _skips, _scores = select_rotation_feeds(
         ledger, feeds, stats, settings, Events(), now, 2
@@ -735,6 +738,85 @@ def test_workflow_uses_twelve_two_hour_sportsbook_slots() -> None:
         'if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" != true ] \\\n'
         '            && [ "$PBOT_RULES_VERSION" = "v3" ]; then'
     ) in workflow
+
+
+def test_weekday_prior_reorders_only_within_rotation_tiers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import prediction_bot.feed_selection as selection
+
+    monday = datetime(2026, 10, 26, 12, tzinfo=timezone.utc)
+    friday = datetime(2026, 10, 30, 12, tzinfo=timezone.utc)
+    assert weekday_prior("americanfootball_nfl", monday) == Decimal("1.5")
+    assert weekday_prior("soccer_epl", monday) == Decimal(1)
+    assert weekday_prior("soccer_epl", friday) == Decimal("1.5")
+    assert weekday_prior("mma_mixed_martial_arts", friday) == Decimal("1.5")
+
+    def choose(
+        now: datetime,
+        *,
+        prior: bool = True,
+        large_gap: bool = False,
+        nfl_value: Decimal = Decimal(2),
+    ) -> list[str]:
+        games = {
+            "americanfootball_nfl": [
+                PlannedGame(now + timedelta(hours=100), event_ticker="NFL-EVENT")
+            ],
+            "soccer_epl": [
+                PlannedGame(
+                    now + timedelta(hours=100),
+                    event_ticker="EPL-EVENT",
+                    large_gap_pending=large_gap,
+                )
+            ],
+        }
+        scores = {
+            "americanfootball_nfl": RotationScore(
+                nfl_value, Decimal(10), nfl_value * 10, now + timedelta(hours=100), nfl_value
+            ),
+            "soccer_epl": RotationScore(
+                Decimal("2.5"),
+                Decimal(10),
+                Decimal(25),
+                now + timedelta(hours=100),
+                Decimal("2.5"),
+            ),
+        }
+        monkeypatch.setattr(selection, "rotation_scores", lambda *_args: scores)
+
+        class Events:
+            events_free = True
+
+            def events(self, *_args: object, **_kwargs: object) -> list[dict[str, str]]:
+                return [{"commence_time": (now + timedelta(hours=100)).isoformat()}]
+
+        selected, _skips, returned_scores = select_rotation_feeds(
+            Ledger(
+                tmp_path / f"weekday-{now.date()}-{prior}-{large_gap}-{nfl_value}.sqlite",
+                Decimal(100),
+            ),
+            games,
+            {feed: _stat(feed, 100) for feed in games},
+            Settings(
+                _env_file=None,
+                rules_version="v3",
+                min_lead_hours=72,
+                odds_weekday_prior=prior,
+            ),
+            Events(),
+            now,
+            1,
+        )
+        assert returned_scores["americanfootball_nfl"].score == nfl_value * 10
+        return selected
+
+    assert choose(monday) == ["americanfootball_nfl"]
+    assert choose(friday) == ["soccer_epl"]
+    assert choose(monday, prior=False) == ["soccer_epl"]
+    assert choose(friday, prior=False) == ["soccer_epl"]
+    assert choose(monday, large_gap=True) == ["soccer_epl"]
+    assert choose(monday, nfl_value=Decimal(0)) == ["soccer_epl"]
 
 
 def test_eligible_uses_lead_buffer_and_v2_disabled_sports() -> None:
@@ -1131,12 +1213,14 @@ def test_odds_budget_sums_feed_request_costs_and_skip_reasons(tmp_path: Path) ->
         run_times[0] - timedelta(minutes=1),
         {"soccer_epl": 1},
     )
+    ledger.record_feed_pull_gate_candidates({"soccer_epl": 2}, run_times[0] - timedelta(minutes=2))
     ledger.record_feed_pulls(
         {"soccer_epl": 1},
         "v3",
         run_times[1] - timedelta(minutes=1),
         {"soccer_epl": 2},
     )
+    ledger.record_feed_pull_gate_candidates({"soccer_epl": 4}, run_times[1] - timedelta(minutes=2))
     ledger.record_feed_skips({"soccer_epl": "no_move"}, run_times[0] - timedelta(minutes=2))
     ledger.record_feed_skips({"soccer_epl": "no_move"}, run_times[1] - timedelta(minutes=2))
     ledger.record_feed_skips({"soccer_epl": "no_events"}, run_times[1] - timedelta(minutes=3))
@@ -1157,6 +1241,8 @@ def test_odds_budget_sums_feed_request_costs_and_skip_reasons(tmp_path: Path) ->
     assert "feed skips by reason:" in report
     assert "soccer_epl,no_move,2" in report
     assert "soccer_epl,no_events,1" in report
+    assert "mean gate candidates per feed pull:" in report
+    assert "soccer_epl,3.000" in report
 
 
 def test_v3_evaluate_counts_net_edge_blocks_and_signals_as_feed_candidates(

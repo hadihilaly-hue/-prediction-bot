@@ -262,7 +262,8 @@ CREATE TABLE IF NOT EXISTS feed_pulls (
     created_at TEXT NOT NULL,
     feed TEXT NOT NULL,
     rules_version TEXT NOT NULL,
-    candidates INTEGER NOT NULL
+    candidates INTEGER NOT NULL,
+    gate_candidates INTEGER
 );
 CREATE INDEX IF NOT EXISTS feed_pulls_feed_created_at
     ON feed_pulls(feed, created_at);
@@ -578,7 +579,10 @@ class Ledger:
                 "commence_source": "TEXT",
             },
             "odds_snapshots": {"max_book_update": "TEXT"},
-            "feed_pulls": {"requests_last": "INTEGER"},
+            "feed_pulls": {
+                "requests_last": "INTEGER",
+                "gate_candidates": "INTEGER",
+            },
             "blocks": {"position_key": "TEXT"},
             "edge_reviews": {"position_key": "TEXT"},
             "runs": {
@@ -1501,6 +1505,24 @@ class Ledger:
             "INSERT INTO feed_pulls "
             "(created_at,feed,rules_version,candidates,requests_last) VALUES (?,?,?,?,?)",
             rows,
+        )
+        if rows:
+            self.conn.commit()
+        return len(rows)
+
+    def record_feed_pull_gate_candidates(
+        self,
+        candidates: Mapping[str, int],
+        since: datetime,
+    ) -> int:
+        cutoff = self._utc(since).isoformat()
+        rows = self.conn.execute(
+            "SELECT id,feed FROM feed_pulls WHERE created_at>=?",
+            (cutoff,),
+        ).fetchall()
+        self.conn.executemany(
+            "UPDATE feed_pulls SET gate_candidates=? WHERE id=?",
+            [(int(candidates.get(str(feed), 0)), int(row_id)) for row_id, feed in rows],
         )
         if rows:
             self.conn.commit()
