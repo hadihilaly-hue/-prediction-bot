@@ -164,20 +164,7 @@ def scan(
         ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
         run_settings, gate = _resolve_v3_execution(s, ledger, strategy)
         if gate is not None:
-            resolved = run_settings.v3_execution
-            console.print(f"v3 execution: auto -> {resolved} ({gate.reason})")
-            ledger.record_execution_mode(
-                rules_version="v3",
-                requested="auto",
-                resolved=resolved,
-                reason=gate.reason,
-                taker_n=gate.taker_n,
-                taker_mean=gate.taker_mean,
-                taker_ci_low=gate.taker_ci_low,
-                maker_scored=gate.maker_scored,
-                maker_clv_n=gate.maker_clv_n,
-                maker_mean=gate.maker_mean,
-            )
+            console.print(f"v3 execution: auto -> {run_settings.v3_execution} ({gate.reason})")
     client = _client(s)
     ms = _fetch(client, series)
     signals = [

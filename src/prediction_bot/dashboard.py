@@ -1025,10 +1025,26 @@ _TEMPLATE = """<!doctype html>
       const g = windows[w]; const n = g.n || 0;
       return [windowNames[w], String(n), {v: signedCents(g.mean_clv), cls: tone(g.mean_clv)}, g.ci95 ? signedCents(g.ci95[0]) + ' to ' + signedCents(g.ci95[1]) : '–', evidenceVerdict(n, g.ci95)];
     });
+    const G = rules === 'v3' ? Q.maker_gate : null;
+    const gateRows = [];
+    if (G) {
+      const th = G.thresholds || {};
+      const step = (label, have, ok) => [label, have, ok ? pill('won', 'Done') : pill('', 'Not yet')];
+      gateRows.push(step('Normal bets with a closing price', G.taker_n + ' / ' + th.min_positions, G.taker_n >= th.min_positions));
+      gateRows.push(step('Normal bets beat the close (whole 95% range above 0)', num(G.taker_ci_low) ? signedCents(G.taker_ci_low) + ' to ' + signedCents(G.taker_ci_high) : '–', num(G.taker_ci_low) && G.taker_ci_low > 0));
+      gateRows.push(step('Practice resting orders checked', G.maker_scored + ' / ' + th.min_scored, G.maker_scored >= th.min_scored));
+      gateRows.push(step('Practice orders filled, with a closing price', G.maker_clv_n + ' / ' + th.min_filled_clv, G.maker_clv_n >= th.min_filled_clv));
+      gateRows.push(step('Resting orders gain at least as much as normal bets', num(G.maker_mean) ? signedCents(G.maker_mean) + ' vs ' + (num(G.taker_mean) ? signedCents(G.taker_mean) : '–') : '–', num(G.maker_mean) && num(G.taker_mean) && G.maker_mean >= G.taker_mean));
+    }
+    const gateHead = G ? '<p class="hint" style="margin-top:14px"><b>Resting orders: ' + (G.passed ? 'on' : 'off') + '.</b> ' + (G.passed
+      ? 'Every check below has passed, so the bot now posts a resting order one cent above the best bid instead of paying the ask. It switches back by itself if a check stops passing.'
+      : 'They switch on by themselves once every check below passes, and switch back off if one stops passing.') + '</p>' : '';
     $('evidence').innerHTML = meter('Bets with a closing price', withClv.length) + meter('Finished bets', done.length) +
-      '<div class="tablewrap"><table id="expected"></table></div>' + (windowRows.length ? '<div class="tablewrap"><table id="windows"></table></div>' : '');
+      '<div class="tablewrap"><table id="expected"></table></div>' + (windowRows.length ? '<div class="tablewrap"><table id="windows"></table></div>' : '') +
+      (G ? gateHead + '<div class="tablewrap"><table id="makergate"></table></div>' : '');
     table('expected', 'Expected return if the Kalshi closing price is the true chance, before fees on the way out.', ['Measure', '#Bets', '#Average', '95% range', 'Verdict'], rows, '');
     if (windowRows.length) table('windows', 'When to buy: closing-price gain by how far ahead of the game the bot would have bought (shadow test, no real trades).', ['Window', '#Bets', '#Average', '95% range', 'Verdict'], windowRows, '');
+    if (G) table('makergate', 'Checklist for switching on resting (maker) orders. Cents are the average closing-price gain per contract.', ['Check', 'Now', 'Status'], gateRows, '');
   }
 
   document.querySelectorAll('#rules-tabs button').forEach(b => b.addEventListener('click', () => { rules = b.dataset.rules; renderVerdicts(); }));
