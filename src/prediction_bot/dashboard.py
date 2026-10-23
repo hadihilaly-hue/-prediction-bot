@@ -696,7 +696,8 @@ _TEMPLATE = """<!doctype html>
     <h2>Is it actually working?</h2>
     <p class="hint">Profit alone can be luck. These checks ask whether the bot is better than Kalshi's own prices.</p>
     <div class="tabs" id="rules-tabs">
-      <button data-rules="v2">New rules (v2, trading now)</button>
+      <button data-rules="v3">Newest rules (v3, trading now)</button>
+      <button data-rules="v2">v2 rules (Oct 23 on, now in shadow)</button>
       <button data-rules="v1">Old rules (v1, before Oct 23)</button>
     </div>
     <div class="note" id="rules-note" hidden></div>
@@ -836,7 +837,7 @@ _TEMPLATE = """<!doctype html>
 
   const versions = M.by_version || {};
   const hasSettled = v => positions.some(p => p.version === v && (p.result === 'W' || p.result === 'L'));
-  let rules = hasSettled('v2') ? 'v2' : 'v1';
+  let rules = hasSettled('v3') ? 'v3' : hasSettled('v2') ? 'v2' : 'v1';
 
   const verdict = (cls, title, big, text) => '<div class="verdict ' + cls + '"><h3>' + esc(title) + '</h3><div class="big">' + esc(big) + '</div><p>' + esc(text) + '</p></div>';
 
@@ -856,9 +857,9 @@ _TEMPLATE = """<!doctype html>
     const mine = positions.filter(p => p.version === rules);
     const done = mine.filter(p => p.result === 'W' || p.result === 'L');
     const note = $('rules-note');
-    if (rules === 'v2' && !done.length) {
+    if ((rules === 'v2' || rules === 'v3') && !done.length) {
       note.hidden = false;
-      note.textContent = 'The new rules started trading on Oct 23 and no bets have finished yet. These checks fill in as games end; they need about 50 finished bets to mean much.';
+      note.textContent = (rules === 'v3' ? 'The v3 rules' : 'The v2 rules') + ' have no finished bets yet. These checks fill in as games end; they need about 50 finished bets to mean much.';
     } else { note.hidden = true; }
     const out = [];
     const mc = V.monte_carlo;
