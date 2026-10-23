@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -21,6 +21,7 @@ from prediction_bot.models import (
 )
 
 if TYPE_CHECKING:
+    from prediction_bot.feed_selection import FeedStat
     from prediction_bot.odds import ConsensusOdds
 
 
@@ -235,6 +236,28 @@ CREATE TABLE IF NOT EXISTS odds_snapshots (
     books_used INTEGER NOT NULL,
     max_book_update TEXT
 );
+CREATE TABLE IF NOT EXISTS feed_stats (
+    id INTEGER PRIMARY KEY,
+    computed_at TEXT NOT NULL,
+    feed TEXT NOT NULL,
+    lead_p50_h REAL NOT NULL,
+    lead_p90_h REAL NOT NULL,
+    pulls_14d INTEGER NOT NULL,
+    useful_pulls_14d INTEGER NOT NULL,
+    provisional INTEGER NOT NULL,
+    eligible INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS feed_stats_computed_at_feed
+    ON feed_stats(computed_at, feed);
+CREATE TABLE IF NOT EXISTS feed_pulls (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    feed TEXT NOT NULL,
+    rules_version TEXT NOT NULL,
+    candidates INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS feed_pulls_feed_created_at
+    ON feed_pulls(feed, created_at);
 CREATE TABLE IF NOT EXISTS blocks (
     id INTEGER PRIMARY KEY,
     created_at TEXT NOT NULL,
@@ -1349,6 +1372,53 @@ class Ledger:
             rows,
         )
         self.conn.commit()
+        return len(rows)
+
+    def record_feed_stats(
+        self,
+        stats: Mapping[str, FeedStat],
+        eligibility: Mapping[str, bool],
+        at: datetime | None = None,
+    ) -> int:
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        rows = [
+            (
+                stamp,
+                feed,
+                stat.lead_p50_h,
+                stat.lead_p90_h,
+                stat.pulls_14d,
+                stat.useful_pulls_14d,
+                int(stat.provisional),
+                int(eligibility[feed]),
+            )
+            for feed, stat in stats.items()
+        ]
+        self.conn.executemany(
+            "INSERT INTO feed_stats (computed_at,feed,lead_p50_h,lead_p90_h,pulls_14d,"
+            "useful_pulls_14d,provisional,eligible) VALUES (?,?,?,?,?,?,?,?)",
+            rows,
+        )
+        if rows:
+            self.conn.commit()
+        return len(rows)
+
+    def record_feed_pulls(
+        self,
+        pulls: Mapping[str, int],
+        rules_version: str,
+        at: datetime | None = None,
+    ) -> int:
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        rows = [
+            (stamp, feed, rules_version, candidates) for feed, candidates in sorted(pulls.items())
+        ]
+        self.conn.executemany(
+            "INSERT INTO feed_pulls (created_at,feed,rules_version,candidates) VALUES (?,?,?,?)",
+            rows,
+        )
+        if rows:
+            self.conn.commit()
         return len(rows)
 
     @staticmethod

@@ -60,6 +60,7 @@ class SportsbookArbStrategy(Strategy):
             odds_client = OddsClient(settings.odds_api_key, settings.odds_api_base)
         self.odds = odds_client
         self._cache: dict[str, list[ConsensusOdds]] = {}
+        self._fetched_feeds: set[str] = set()
 
     def seen_consensus(self) -> dict[str, dict[str, ConsensusOdds]]:
         """Consensuses fetched during the last `evaluate`, keyed by feed then event_id.
@@ -75,11 +76,17 @@ class SportsbookArbStrategy(Strategy):
         if sport not in self._cache:
             if self.odds is None:
                 return []
-            try:
-                events = self.odds.h2h(sport, self.settings.odds_bookmakers)
-            except OddsBudgetExhausted:
-                log.info("%s: odds budget spent; skipping %s this run", self.name, sport)
+            allowed_sports = getattr(self.odds, "allowed_sports", None)
+            if allowed_sports is not None and sport not in allowed_sports:
                 events = []
+            else:
+                try:
+                    events = self.odds.h2h(sport, self.settings.odds_bookmakers)
+                except OddsBudgetExhausted:
+                    log.info("%s: odds budget spent; skipping %s this run", self.name, sport)
+                    events = []
+                else:
+                    self._fetched_feeds.add(sport)
             self._cache[sport] = [
                 c for e in events if (c := consensus(e, self.settings.odds_bookmakers))
             ]
@@ -91,11 +98,17 @@ class SportsbookArbStrategy(Strategy):
             if self.odds is None:
                 return []
             books = self.settings.odds_bookmakers
-            try:
-                events = self.odds.outrights(sport, books)
-            except OddsBudgetExhausted:
-                log.info("%s: odds budget spent; skipping %s outrights", self.name, sport)
+            allowed_sports = getattr(self.odds, "allowed_sports", None)
+            if allowed_sports is not None and sport not in allowed_sports:
                 events = []
+            else:
+                try:
+                    events = self.odds.outrights(sport, books)
+                except OddsBudgetExhausted:
+                    log.info("%s: odds budget spent; skipping %s outrights", self.name, sport)
+                    events = []
+                else:
+                    self._fetched_feeds.add(sport)
             self._cache[key] = [c for e in events if (c := consensus(e, books, "outrights"))]
         return self._cache[key]
 
@@ -104,6 +117,7 @@ class SportsbookArbStrategy(Strategy):
             log.warning("sportsbook_arb: PBOT_ODDS_API_KEY not set; no signals")
             return []
         self._cache.clear()
+        self._fetched_feeds.clear()
         by_event: dict[str, list[Market]] = defaultdict(list)
         for m in markets:
             series = m.event_ticker.split("-")[0]

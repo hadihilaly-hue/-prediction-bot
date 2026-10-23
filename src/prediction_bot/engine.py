@@ -147,6 +147,17 @@ class Engine:
                     write(items)
                 except Exception:
                     log.exception("failed to record %s", method_name)
+        feed_pulls: dict[str, int] = {}
+        for strat in self.strategies:
+            get = getattr(strat, "seen_feed_pulls", None)
+            if get is not None:
+                for feed, candidates in get().items():
+                    feed_pulls[feed] = feed_pulls.get(feed, 0) + candidates
+        if feed_pulls:
+            try:
+                self.ledger.record_feed_pulls(feed_pulls, self.settings.rules_version)
+            except Exception:
+                log.exception("failed to record feed pulls")
         shadow_updates = [
             update
             for strat in self.strategies

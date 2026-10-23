@@ -17,6 +17,14 @@ from prediction_bot.clv import record_clv
 from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
+from prediction_bot.feed_selection import (
+    compute_feed_stats,
+    eligible,
+    feed_scores,
+    learning_rule_demoted,
+    liquidity_weights,
+    select_entry_feeds,
+)
 from prediction_bot.maker_gate import MakerGate, evaluate_maker_gate
 from prediction_bot.maker_scoring import score_maker_shadows
 from prediction_bot.models import Market, OutcomeSide, Signal
@@ -150,6 +158,56 @@ def markets(
             f"{m.volume:.0f}",
         )
     console.print(t)
+
+
+@app.command("feed-plan")
+def feed_plan(
+    budget: int | None = typer.Option(None, min=0, help="Limit the displayed plan"),
+) -> None:
+    """Show the lead-aware feed plan using public Kalshi data and the local ledger."""
+    settings = _settings()
+    client = _client(settings)
+    ledger = Ledger(settings.paper_db_path, settings.paper_starting_cash)
+    now = datetime.now(timezone.utc)
+    markets = _fetch(client, list(SPORTSBOOK_SERIES))
+    games_by_sport = _planner_games(client, markets, ledger, now)
+    feeds = sorted(games_by_sport)
+    stats = compute_feed_stats(ledger, feeds, now)
+    weights = liquidity_weights(ledger, games_by_sport, settings)
+    scores = feed_scores(games_by_sport, weights, settings, now)
+    ranked = select_entry_feeds(games_by_sport, stats, weights, settings, ledger, now)
+
+    table = Table(title="Lead-aware odds feed plan")
+    for column in (
+        "feed",
+        "lead p50 (h)",
+        "lead p90 (h)",
+        "provisional",
+        "eligible",
+        "weighted games",
+        "zero-pull demotion",
+        "rank",
+        "within budget",
+    ):
+        table.add_column(column)
+    for feed, stat in sorted(stats.items()):
+        rank = ranked.index(feed) + 1 if feed in ranked else None
+        within_budget = rank is not None and (budget is None or rank <= budget)
+        score = scores.get(feed)
+        table.add_row(
+            feed,
+            f"{stat.lead_p50_h:.1f}",
+            f"{stat.lead_p90_h:.1f}",
+            "yes" if stat.provisional else "no",
+            "yes" if eligible(stat, settings) else "no",
+            str(score.weighted_game_count if score is not None else Decimal(0)),
+            "yes" if learning_rule_demoted(ledger, feed, now) else "no",
+            str(rank) if rank is not None else "-",
+            "yes" if within_budget else "no",
+        )
+    console.print(table)
+    if budget is not None:
+        console.print(f"Budget: {budget} feeds")
 
 
 @app.command()
@@ -292,6 +350,30 @@ def paper(
             except Exception:
                 odds.allowed_sports = set()
                 log.exception("Event-driven odds planning failed; no odds feeds selected")
+        elif (
+            odds is not None
+            and uses_odds
+            and s.odds_planner == "fixed"
+            and s.odds_feed_selection == "lead_aware"
+        ):
+            now = datetime.now(timezone.utc)
+            try:
+                games_by_sport = _planner_games(client, markets, ledger, now)
+                feeds = sorted(games_by_sport)
+                stats = compute_feed_stats(ledger, feeds, now)
+                weights = liquidity_weights(ledger, games_by_sport, s)
+                planned = select_entry_feeds(games_by_sport, stats, weights, s, ledger, now)
+                ledger.record_feed_stats(
+                    stats,
+                    {feed: eligible(stat, s) for feed, stat in stats.items()},
+                    now,
+                )
+                if odds.budget is not None:
+                    planned = planned[: odds.budget]
+                odds.allowed_sports = set(planned)
+            except Exception:
+                odds.allowed_sports = set()
+                log.exception("Lead-aware odds planning failed; no odds feeds selected")
         elif odds is not None:
             odds.allowed_sports = None
         res = engine.run_cycle(markets)
@@ -674,7 +756,11 @@ def _planner_games(
         if kickoff is None:
             continue
         games_by_sport.setdefault(sport, []).append(
-            PlannedGame(kickoff, any(market.ticker in pending for market in legs))
+            PlannedGame(
+                kickoff,
+                any(market.ticker in pending for market in legs),
+                event_ticker,
+            )
         )
     return games_by_sport
 
