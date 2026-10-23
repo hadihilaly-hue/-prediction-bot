@@ -731,7 +731,10 @@ def test_workflow_uses_twelve_two_hour_sportsbook_slots() -> None:
         "pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \\\n"
         '                --trigger "$FEED" | tee -a ledger/last_run.txt || true'
     ) in workflow
-    assert 'if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" != true ]' in workflow
+    assert (
+        'if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" != true ] \\\n'
+        '            && [ "$PBOT_RULES_VERSION" = "v3" ]; then'
+    ) in workflow
 
 
 def test_eligible_uses_lead_buffer_and_v2_disabled_sports() -> None:

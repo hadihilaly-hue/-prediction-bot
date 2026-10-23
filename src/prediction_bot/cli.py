@@ -19,7 +19,9 @@ from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
 from prediction_bot.feed_selection import (
+    ENTRY_LOOKAHEAD,
     RotationScore,
+    _utc,
     compute_feed_stats,
     eligible,
     feed_scores,
@@ -275,10 +277,10 @@ def odds_trigger(
     s = _settings()
     client = _client(s)
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
-    now = datetime.now(timezone.utc)
     requested_series = series or list(SPORTSBOOK_SERIES)
     markets = _fetch(client, requested_series)
     ledger.record_market_snapshots(markets)
+    now = datetime.now(timezone.utc)
     games_by_sport = _planner_games(client, markets, ledger, now)
     feeds = sorted(games_by_sport)
     stats = compute_feed_stats(ledger, feeds, now)
@@ -304,14 +306,14 @@ def odds_trigger(
         if last_row is None:
             continue
         try:
-            last_pull = datetime.fromisoformat(str(last_row[0]).replace("Z", "+00:00"))
+            last_pull = _utc(datetime.fromisoformat(str(last_row[0]).replace("Z", "+00:00")))
         except ValueError:
             continue
-        if last_pull.tzinfo is None:
-            last_pull = last_pull.replace(tzinfo=timezone.utc)
-        else:
-            last_pull = last_pull.astimezone(timezone.utc)
+        entry_start = now + timedelta(hours=s.min_lead_hours)
+        entry_end = now + ENTRY_LOOKAHEAD
         for game in games:
+            if not entry_start <= _utc(game.kickoff) <= entry_end:
+                continue
             for ticker, ask in market_ask_moves_since(
                 ledger,
                 game.event_ticker,
@@ -319,7 +321,7 @@ def odds_trigger(
                 now,
                 spread_gate=s.v2_max_spread,
             ):
-                if not ledger.has_odds_trigger(feed, ticker, ask):
+                if not ledger.has_odds_trigger(feed, ticker, ask, since=last_pull):
                     candidates.append(
                         (
                             score.score,
@@ -335,7 +337,7 @@ def odds_trigger(
         candidates,
         key=lambda item: (-item[0], item[1], item[2], item[3], item[4]),
     )
-    if ledger.record_odds_trigger(feed, ticker, ask, now) is not None:
+    if ledger.record_odds_trigger(feed, ticker, ask, now, since=last_pull) is not None:
         typer.echo(feed)
 
 

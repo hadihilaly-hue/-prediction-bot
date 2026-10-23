@@ -287,8 +287,8 @@ CREATE TABLE IF NOT EXISTS odds_triggers (
     ask TEXT NOT NULL,
     status TEXT NOT NULL CHECK(status IN ('planned','pulled','skipped'))
 );
-CREATE UNIQUE INDEX IF NOT EXISTS odds_triggers_move_unique
-    ON odds_triggers(feed, ticker, ask);
+CREATE INDEX IF NOT EXISTS odds_triggers_move_lookup
+    ON odds_triggers(feed, ticker, ask, created_at);
 CREATE INDEX IF NOT EXISTS odds_triggers_created_status
     ON odds_triggers(created_at, status);
 CREATE TABLE IF NOT EXISTS blocks (
@@ -533,6 +533,7 @@ class Ledger:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(self.path))
         self.conn.executescript(SCHEMA)
+        self.conn.execute("DROP INDEX IF EXISTS odds_triggers_move_unique")
         self.conn.execute("DROP INDEX IF EXISTS maker_shadow_position_key")
         self.conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS maker_shadow_position_key "
@@ -1537,10 +1538,30 @@ class Ledger:
     def _odds_trigger_ask(ask: Decimal | str) -> str:
         return format(Decimal(str(ask)).normalize(), "f")
 
-    def has_odds_trigger(self, feed: str, ticker: str, ask: Decimal | str) -> bool:
+    def has_odds_trigger(
+        self,
+        feed: str,
+        ticker: str,
+        ask: Decimal | str,
+        since: datetime | None = None,
+    ) -> bool:
+        if since is not None:
+            return (
+                self.conn.execute(
+                    "SELECT 1 FROM odds_triggers "
+                    "WHERE feed=? AND ticker=? AND ask=? AND created_at>? LIMIT 1",
+                    (
+                        feed,
+                        ticker,
+                        self._odds_trigger_ask(ask),
+                        self._utc(since).isoformat(),
+                    ),
+                ).fetchone()
+                is not None
+            )
         return (
             self.conn.execute(
-                "SELECT 1 FROM odds_triggers WHERE feed=? AND ticker=? AND ask=?",
+                "SELECT 1 FROM odds_triggers WHERE feed=? AND ticker=? AND ask=? LIMIT 1",
                 (feed, ticker, self._odds_trigger_ask(ask)),
             ).fetchone()
             is not None
@@ -1552,9 +1573,11 @@ class Ledger:
         ticker: str,
         ask: Decimal | str,
         at: datetime | None = None,
+        *,
+        since: datetime | None = None,
     ) -> int | None:
         ask_text = self._odds_trigger_ask(ask)
-        if self.has_odds_trigger(feed, ticker, ask_text):
+        if self.has_odds_trigger(feed, ticker, ask_text, since=since):
             return None
         cursor = self.conn.execute(
             "INSERT INTO odds_triggers(created_at,feed,ticker,ask,status) VALUES(?,?,?,?,?)",
