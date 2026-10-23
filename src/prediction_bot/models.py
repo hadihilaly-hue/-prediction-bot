@@ -119,6 +119,7 @@ class Signal:
     book_count: int | None = None
     book_spread: Decimal | None = None
     book_probs_json: str | None = None
+    maker_price: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -134,6 +135,7 @@ class MakerShadowCandidate:
     maker_fee: Decimal
     expires_at: datetime
     commence_time: datetime | None = None
+    rules_version: str = "v2"
 
 
 @dataclass(frozen=True)

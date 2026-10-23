@@ -94,7 +94,8 @@ CREATE TABLE IF NOT EXISTS fills (
     tags TEXT,
     commence_time TEXT,
     fee_model_version TEXT,
-    fee_paid TEXT
+    fee_paid TEXT,
+    clv_exit TEXT
 );
 CREATE TABLE IF NOT EXISTS series_fees (
     series_ticker TEXT PRIMARY KEY,
@@ -119,7 +120,36 @@ CREATE TABLE IF NOT EXISTS maker_shadow (
     expires_at TEXT NOT NULL,
     commence_time TEXT,
     clv_kalshi TEXT,
-    clv_gameday TEXT
+    clv_gameday TEXT,
+    rules_version TEXT,
+    fill_trade_through_at TEXT,
+    fill_optimistic_at TEXT,
+    scored_at TEXT,
+    score_attempts INTEGER NOT NULL DEFAULT 0,
+    score_status TEXT NOT NULL DEFAULT 'pending',
+    cancel_reason TEXT,
+    clv_exit TEXT
+);
+CREATE TABLE IF NOT EXISTS paper_orders (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    strategy TEXT NOT NULL,
+    rules_version TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    side TEXT NOT NULL,
+    position_key TEXT NOT NULL,
+    event_ticker TEXT NOT NULL,
+    price TEXT NOT NULL,
+    size TEXT NOT NULL,
+    fair TEXT NOT NULL,
+    maker_fee TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    commence_time TEXT,
+    status TEXT NOT NULL,
+    status_at TEXT NOT NULL,
+    filled_at TEXT,
+    fill_rule TEXT,
+    cancel_reason TEXT
 );
 CREATE TABLE IF NOT EXISTS settlements (
     ticker TEXT PRIMARY KEY,
@@ -236,7 +266,8 @@ CREATE TABLE IF NOT EXISTS shadow_decisions (
     size TEXT,
     commence_time TEXT,
     clv_kalshi TEXT,
-    clv_gameday TEXT
+    clv_gameday TEXT,
+    clv_exit TEXT
 );
 """
 
@@ -248,6 +279,29 @@ class Position:
     count: Decimal
     cost: Decimal  # dollars paid incl. fees
     fair_prob_avg: Decimal
+
+
+@dataclass(frozen=True)
+class PaperOrder:
+    id: int
+    created_at: datetime
+    strategy: str
+    rules_version: str
+    ticker: str
+    side: OutcomeSide
+    position_key: str
+    event_ticker: str
+    price: Decimal
+    size: Decimal
+    fair: Decimal
+    maker_fee: Decimal
+    expires_at: datetime
+    commence_time: datetime | None
+    status: str
+    status_at: datetime
+    filled_at: datetime | None
+    fill_rule: str | None
+    cancel_reason: str | None
 
 
 @dataclass(frozen=True)
@@ -358,6 +412,10 @@ class Ledger:
             "CREATE UNIQUE INDEX IF NOT EXISTS maker_shadow_position_key "
             "ON maker_shadow(position_key) WHERE status='open'"
         )
+        self.conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS paper_orders_position_key_open "
+            "ON paper_orders(position_key) WHERE status='open'"
+        )
         for table, columns in {
             "signals": {
                 "rules_version": "TEXT",
@@ -384,17 +442,30 @@ class Ledger:
                 "fee_paid": "TEXT",
                 "clv_kalshi": "TEXT",
                 "clv_gameday": "TEXT",
+                "clv_exit": "TEXT",
                 "line_move_since_entry": "TEXT",
             },
             "odds_snapshots": {"max_book_update": "TEXT"},
             "blocks": {"position_key": "TEXT"},
             "edge_reviews": {"position_key": "TEXT"},
             "runs": {"odds_used": "INTEGER", "odds_remaining": "INTEGER"},
-            "shadow_decisions": {"clv_kalshi": "TEXT", "clv_gameday": "TEXT"},
+            "shadow_decisions": {
+                "clv_kalshi": "TEXT",
+                "clv_gameday": "TEXT",
+                "clv_exit": "TEXT",
+            },
             "maker_shadow": {
                 "commence_time": "TEXT",
                 "clv_kalshi": "TEXT",
                 "clv_gameday": "TEXT",
+                "rules_version": "TEXT",
+                "fill_trade_through_at": "TEXT",
+                "fill_optimistic_at": "TEXT",
+                "scored_at": "TEXT",
+                "score_attempts": "INTEGER NOT NULL DEFAULT 0",
+                "score_status": "TEXT NOT NULL DEFAULT 'pending'",
+                "cancel_reason": "TEXT",
+                "clv_exit": "TEXT",
             },
         }.items():
             self._ensure_columns(self.conn, table, columns)
@@ -450,10 +521,13 @@ class Ledger:
             "SELECT f.price, f.count, f.fee FROM fills f LEFT JOIN settlements s"
             f" ON s.ticker=f.ticker WHERE s.ticker IS NULL AND f.rules_version {versions}"
         )
-        return sum(
+        fills_cost = sum(
             (Decimal(price) * Decimal(count) + Decimal(fee) for price, count, fee in rows),
             Decimal(0),
         )
+        if not include_v3:
+            return fills_cost
+        return fills_cost + self.paper_order_reserved_cost()
 
     def v2_new_risk_since(self, since: datetime, include_v3: bool = False) -> Decimal:
         versions = "IN ('v2','v3')" if include_v3 else "='v2'"
@@ -462,8 +536,19 @@ class Ledger:
             " AND created_at >= ?",
             (self._utc(since).isoformat(),),
         )
-        return sum(
+        fills_cost = sum(
             (Decimal(price) * Decimal(count) + Decimal(fee) for price, count, fee in rows),
+            Decimal(0),
+        )
+        if not include_v3:
+            return fills_cost
+        orders = self.conn.execute(
+            "SELECT price,size,maker_fee FROM paper_orders WHERE status='open' "
+            "AND rules_version='v3' AND created_at>=?",
+            (self._utc(since).isoformat(),),
+        )
+        return fills_cost + sum(
+            (Decimal(price) * Decimal(size) + Decimal(fee) for price, size, fee in orders),
             Decimal(0),
         )
 
@@ -474,7 +559,8 @@ class Ledger:
                 self.conn.execute(
                     "INSERT INTO maker_shadow (created_at, ticker, side, position_key, price,"
                     " size, fair, maker_fee, status, status_at, trade_through_at, event_ticker,"
-                    " expires_at, commence_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    " expires_at, commence_time, rules_version) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         self._utc(shadow.created_at).isoformat(),
                         shadow.ticker,
@@ -492,6 +578,7 @@ class Ledger:
                         self._utc(shadow.commence_time).isoformat()
                         if shadow.commence_time
                         else None,
+                        shadow.rules_version,
                     ),
                 )
             except sqlite3.IntegrityError:
@@ -500,11 +587,15 @@ class Ledger:
         self.conn.commit()
         return inserted
 
-    def update_maker_shadows(self, updates: Sequence[MakerShadowUpdate]) -> int:
+    def update_maker_shadows(
+        self,
+        updates: Sequence[MakerShadowUpdate],
+        v3_cancel_move: Decimal = Decimal("0.01"),
+    ) -> int:
         by_contract = {(update.ticker, update.side): update for update in updates}
         rows = self.conn.execute(
             "SELECT id, ticker, side, price, size, maker_fee, status_at, expires_at,"
-            " trade_through_at"
+            " trade_through_at, fair, rules_version"
             " FROM maker_shadow WHERE status='open'"
         ).fetchall()
         changed = 0
@@ -519,6 +610,8 @@ class Ledger:
                 previous_status_at,
                 expires_text,
                 through,
+                previous_fair_text,
+                rules_version,
             ) = row
             side = OutcomeSide(side_text)
             update = by_contract.get((str(ticker), side))
@@ -526,6 +619,7 @@ class Ledger:
                 continue
             price = Decimal(price_text)
             status = "open"
+            cancel_reason: str | None = None
             if update.at >= self._utc(datetime.fromisoformat(str(expires_text))):
                 status = "expired"
             elif update.ask is not None and update.ask <= price:
@@ -533,8 +627,16 @@ class Ledger:
             elif update.fair is not None:
                 size = Decimal(size_text)
                 per_contract_fee = Decimal(fee_text) / size if size else Decimal(0)
-                if update.fair - price - per_contract_fee < 0:
+                if (
+                    rules_version == "v3"
+                    and previous_fair_text is not None
+                    and Decimal(str(previous_fair_text)) - update.fair > v3_cancel_move
+                ):
                     status = "cancelled"
+                    cancel_reason = "adverse_move"
+                elif update.fair - price - per_contract_fee < 0:
+                    status = "cancelled"
+                    cancel_reason = "edge_gone"
             side_last = (
                 update.last_price
                 if side is OutcomeSide.yes or update.last_price is None
@@ -545,17 +647,230 @@ class Ledger:
                 trade_through_at = self._utc(update.at).isoformat()
             status_at = self._utc(update.at).isoformat()
             self.conn.execute(
-                "UPDATE maker_shadow SET status=?, status_at=?, trade_through_at=? WHERE id=?",
+                "UPDATE maker_shadow SET status=?, status_at=?, trade_through_at=?,"
+                "cancel_reason=? WHERE id=?",
                 (
                     status,
                     status_at if status != "open" else previous_status_at,
                     trade_through_at,
+                    cancel_reason,
                     shadow_id,
                 ),
             )
             changed += 1
         self.conn.commit()
         return changed
+
+    def record_maker_shadow_score(
+        self,
+        shadow_id: int,
+        *,
+        scored_at: datetime,
+        trade_through_at: datetime | None,
+        optimistic_at: datetime | None,
+        status: str,
+    ) -> None:
+        self.conn.execute(
+            "UPDATE maker_shadow SET fill_trade_through_at=?,fill_optimistic_at=?,"
+            "scored_at=?,score_attempts=score_attempts+1,score_status=? WHERE id=?",
+            (
+                None if trade_through_at is None else self._utc(trade_through_at).isoformat(),
+                None if optimistic_at is None else self._utc(optimistic_at).isoformat(),
+                self._utc(scored_at).isoformat(),
+                status,
+                shadow_id,
+            ),
+        )
+        self.conn.commit()
+
+    @staticmethod
+    def _paper_order_from_row(row: tuple[object, ...]) -> PaperOrder:
+        return PaperOrder(
+            id=int(str(row[0])),
+            created_at=datetime.fromisoformat(str(row[1])),
+            strategy=str(row[2]),
+            rules_version=str(row[3]),
+            ticker=str(row[4]),
+            side=OutcomeSide(str(row[5])),
+            position_key=str(row[6]),
+            event_ticker=str(row[7]),
+            price=Decimal(str(row[8])),
+            size=Decimal(str(row[9])),
+            fair=Decimal(str(row[10])),
+            maker_fee=Decimal(str(row[11])),
+            expires_at=datetime.fromisoformat(str(row[12])),
+            commence_time=datetime.fromisoformat(str(row[13])) if row[13] else None,
+            status=str(row[14]),
+            status_at=datetime.fromisoformat(str(row[15])),
+            filled_at=datetime.fromisoformat(str(row[16])) if row[16] else None,
+            fill_rule=None if row[17] is None else str(row[17]),
+            cancel_reason=None if row[18] is None else str(row[18]),
+        )
+
+    @staticmethod
+    def _paper_order_select() -> str:
+        return (
+            "id,created_at,strategy,rules_version,ticker,side,position_key,event_ticker,"
+            "price,size,fair,maker_fee,expires_at,commence_time,status,status_at,filled_at,"
+            "fill_rule,cancel_reason"
+        )
+
+    def record_paper_order(
+        self, signal: Signal, price: Decimal, maker_fee: Decimal, expires_at: datetime
+    ) -> int:
+        if signal.position_key is None or signal.event_ticker is None:
+            raise ValueError("paper maker orders require position_key and event_ticker")
+        now = self._utc(signal.created_at).isoformat()
+        cur = self.conn.execute(
+            "INSERT INTO paper_orders (created_at,strategy,rules_version,ticker,side,position_key,"
+            "event_ticker,price,size,fair,maker_fee,expires_at,commence_time,status,status_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?)",
+            (
+                now,
+                signal.strategy,
+                signal.rules_version or "v3",
+                signal.ticker,
+                signal.side.value,
+                signal.position_key,
+                signal.event_ticker,
+                str(price),
+                str(signal.size),
+                str(signal.fair_prob),
+                str(maker_fee),
+                self._utc(expires_at).isoformat(),
+                self._utc(signal.commence_time).isoformat() if signal.commence_time else None,
+                now,
+            ),
+        )
+        self.conn.commit()
+        return int(cur.lastrowid or 0)
+
+    def open_paper_orders(self) -> list[PaperOrder]:
+        rows = self.conn.execute(
+            f"SELECT {self._paper_order_select()} FROM paper_orders WHERE status='open' "
+            "ORDER BY created_at,id"
+        ).fetchall()
+        return [self._paper_order_from_row(row) for row in rows]
+
+    def latest_paper_order(self, position_key: str) -> PaperOrder | None:
+        row = self.conn.execute(
+            f"SELECT {self._paper_order_select()} FROM paper_orders "
+            "WHERE position_key=? ORDER BY id DESC LIMIT 1",
+            (position_key,),
+        ).fetchone()
+        return None if row is None else self._paper_order_from_row(row)
+
+    def has_open_paper_order(self, position_key: str) -> bool:
+        return (
+            self.conn.execute(
+                "SELECT 1 FROM paper_orders WHERE position_key=? AND status='open' LIMIT 1",
+                (position_key,),
+            ).fetchone()
+            is not None
+        )
+
+    def paper_order_reserved_cost(self) -> Decimal:
+        rows = self.conn.execute(
+            "SELECT price,size,maker_fee FROM paper_orders WHERE status='open'"
+        ).fetchall()
+        return sum(
+            (Decimal(price) * Decimal(size) + Decimal(fee) for price, size, fee in rows),
+            Decimal(0),
+        )
+
+    def available_cash(self, include_v3: bool = False) -> Decimal:
+        reserved = self.paper_order_reserved_cost() if include_v3 else Decimal(0)
+        return max(Decimal(0), self.cash - reserved)
+
+    def cancel_paper_order(self, order_id: int, at: datetime, reason: str) -> bool:
+        cursor = self.conn.execute(
+            "UPDATE paper_orders SET status='cancelled',status_at=?,cancel_reason=? "
+            "WHERE id=? AND status='open'",
+            (self._utc(at).isoformat(), reason, order_id),
+        )
+        self.conn.commit()
+        return cursor.rowcount > 0
+
+    def expire_paper_order(self, order_id: int, at: datetime) -> bool:
+        cursor = self.conn.execute(
+            "UPDATE paper_orders SET status='expired',status_at=? WHERE id=? AND status='open'",
+            (self._utc(at).isoformat(), order_id),
+        )
+        self.conn.commit()
+        return cursor.rowcount > 0
+
+    def update_paper_orders_for_fair(
+        self,
+        updates: Sequence[MakerShadowUpdate],
+        cancel_move: Decimal,
+    ) -> int:
+        by_contract = {(update.ticker, update.side): update for update in updates}
+        changed = 0
+        for order in self.open_paper_orders():
+            update = by_contract.get((order.ticker, order.side))
+            if update is None or update.fair is None:
+                continue
+            reason: str | None = None
+            if order.fair - update.fair > cancel_move:
+                reason = "adverse_move"
+            elif update.fair - order.price - order.maker_fee / order.size < 0:
+                reason = "edge_gone"
+            if reason is not None and self.cancel_paper_order(order.id, update.at, reason):
+                changed += 1
+        return changed
+
+    def fill_paper_order(
+        self,
+        order_id: int,
+        filled_at: datetime,
+        fill_rule: str = "trade_through",
+    ) -> bool:
+        row = self.conn.execute(
+            f"SELECT {self._paper_order_select()} FROM paper_orders WHERE id=? AND status='open'",
+            (order_id,),
+        ).fetchone()
+        if row is None:
+            return False
+        order = self._paper_order_from_row(row)
+        cost = order.price * order.size + order.maker_fee
+        if cost > self.cash:
+            return False
+        stamp = self._utc(filled_at).isoformat()
+        try:
+            self.conn.execute("BEGIN IMMEDIATE")
+            self.conn.execute(
+                "INSERT INTO fills (created_at,strategy,ticker,side,price,count,fee,fair_prob,"
+                "rules_version,position_key,event_ticker,tags,commence_time,fee_model_version,"
+                "fee_paid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    stamp,
+                    order.strategy,
+                    order.ticker,
+                    order.side.value,
+                    str(order.price),
+                    str(order.size),
+                    str(order.maker_fee),
+                    str(order.fair),
+                    order.rules_version,
+                    order.position_key,
+                    order.event_ticker,
+                    "maker",
+                    self._utc(order.commence_time).isoformat() if order.commence_time else None,
+                    "kalshi-series-v1",
+                    str(order.maker_fee),
+                ),
+            )
+            self._set_cash(self.cash - cost)
+            self.conn.execute(
+                "UPDATE paper_orders SET status='filled',status_at=?,filled_at=?,fill_rule=? "
+                "WHERE id=? AND status='open'",
+                (stamp, stamp, fill_rule, order.id),
+            )
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        return True
 
     def maker_shadow_metrics(self) -> dict[str, Decimal | int | None]:
         filled = int(
@@ -593,6 +908,43 @@ class Ledger:
             "pnl": pnl,
             "clv_count": len(clvs),
             "mean_clv": sum(clvs, Decimal(0)) / len(clvs) if clvs else None,
+            **self._maker_rule_metrics("fill_trade_through_at", "trade_through"),
+            **self._maker_rule_metrics("fill_optimistic_at", "optimistic"),
+        }
+
+    def _maker_rule_metrics(self, fill_column: str, prefix: str) -> dict[str, Decimal | int | None]:
+        rows = self.conn.execute(
+            f"SELECT m.ticker,m.side,m.price,m.size,m.maker_fee,m.{fill_column},m.clv_kalshi,"
+            "m.clv_exit,s.result FROM maker_shadow m LEFT JOIN settlements s ON s.ticker=m.ticker "
+            "WHERE m.score_status='scored'"
+        ).fetchall()
+        total = len(rows)
+        filled_rows = [row for row in rows if row[5] is not None]
+        settled = 0
+        pnl = Decimal(0)
+        clvs: list[Decimal] = []
+        exit_clvs: list[Decimal] = []
+        for _ticker, side, price, size, fee, _fill_at, clv, clv_exit, result in filled_rows:
+            if result is not None:
+                settled += 1
+                payout = Decimal(size) if result == side else Decimal(0)
+                pnl += payout - Decimal(price) * Decimal(size) - Decimal(fee)
+            if clv is not None:
+                clvs.append(Decimal(clv))
+            if clv_exit is not None:
+                exit_clvs.append(Decimal(clv_exit))
+        return {
+            f"{prefix}_scored": total,
+            f"{prefix}_filled": len(filled_rows),
+            f"{prefix}_fill_rate": Decimal(len(filled_rows)) / Decimal(total) if total else None,
+            f"{prefix}_settled": settled,
+            f"{prefix}_pnl": pnl,
+            f"{prefix}_clv_count": len(clvs),
+            f"{prefix}_mean_clv": sum(clvs, Decimal(0)) / len(clvs) if clvs else None,
+            f"{prefix}_exit_clv_count": len(exit_clvs),
+            f"{prefix}_mean_exit_clv": (
+                sum(exit_clvs, Decimal(0)) / len(exit_clvs) if exit_clvs else None
+            ),
         }
 
     # ---- cash ---------------------------------------------------------------
@@ -1049,8 +1401,19 @@ class Ledger:
             f" AND f.{field}=?",
             (value,),
         )
-        return sum(
+        fills_cost = sum(
             (Decimal(price) * Decimal(count) + Decimal(fee) for price, count, fee in rows),
+            Decimal(0),
+        )
+        if not include_v3:
+            return fills_cost
+        order_rows = self.conn.execute(
+            f"SELECT price,size,maker_fee FROM paper_orders WHERE status='open' "
+            f"AND rules_version='v3' AND {field}=?",
+            (value,),
+        )
+        return fills_cost + sum(
+            (Decimal(price) * Decimal(size) + Decimal(fee) for price, size, fee in order_rows),
             Decimal(0),
         )
 
@@ -1068,7 +1431,15 @@ class Ledger:
             " AND f.event_ticker=? AND f.position_key IS NOT NULL",
             (event_ticker,),
         )
-        return {str(row[0]) for row in rows}
+        keys = {str(row[0]) for row in rows}
+        if include_v3:
+            orders = self.conn.execute(
+                "SELECT DISTINCT position_key FROM paper_orders WHERE status='open' "
+                "AND rules_version='v3' AND event_ticker=?",
+                (event_ticker,),
+            )
+            keys.update(str(row[0]) for row in orders)
+        return keys
 
     def has_recent_large_gap_record(self, position_key: str, now: datetime) -> bool:
         end = self._utc(now) - timedelta(hours=2)

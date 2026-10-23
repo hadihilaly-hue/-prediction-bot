@@ -7,6 +7,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from prediction_bot.analysis import parse_event, start_time
+from prediction_bot.candles import candle_time, candle_value, fetch_candles
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.teams import team_for_code, team_for_odds_name
@@ -21,23 +22,22 @@ log = logging.getLogger(__name__)
 def _quote_at(
     candles: list[dict[str, Any]], target: datetime
 ) -> tuple[datetime, Decimal, Decimal, Decimal] | None:
-    eligible = [
-        candle
-        for candle in candles
-        if int(candle.get("end_period_ts", 0)) <= int(target.timestamp())
-    ]
+    eligible = []
+    for candle in candles:
+        at = candle_time(candle)
+        if at is not None and at <= target:
+            eligible.append((at, candle))
     if not eligible:
         return None
-    candle = max(eligible, key=lambda item: int(item["end_period_ts"]))
-    bid = (candle.get("yes_bid") or {}).get("close_dollars")
-    ask = (candle.get("yes_ask") or {}).get("close_dollars")
-    if bid in (None, "") or ask in (None, ""):
+    at, candle = max(eligible, key=lambda item: item[0])
+    bid_d = candle_value(candle, "yes_bid", "close")
+    ask_d = candle_value(candle, "yes_ask", "close")
+    if bid_d is None or ask_d is None:
         return None
-    bid_d, ask_d = Decimal(str(bid)), Decimal(str(ask))
     if bid_d <= 0 or ask_d >= 1 or bid_d > ask_d:
         return None
     return (
-        datetime.fromtimestamp(int(candle["end_period_ts"]), timezone.utc),
+        at,
         bid_d,
         ask_d,
         (bid_d + ask_d) / 2,
@@ -73,7 +73,9 @@ def record_clv(
     shadow_rows = ledger.conn.execute(
         "SELECT m.id,m.ticker,m.side,m.price,m.size,m.commence_time,m.event_ticker,s.ticker,m.fair "
         "FROM maker_shadow m LEFT JOIN settlements s ON s.ticker=m.ticker "
-        "WHERE m.status='filled' AND m.clv_kalshi IS NULL ORDER BY m.id"
+        "WHERE m.clv_kalshi IS NULL AND "
+        "(m.status='filled' OR m.fill_trade_through_at IS NOT NULL "
+        "OR m.fill_optimistic_at IS NOT NULL) ORDER BY m.id"
     ).fetchall()
     line_move_rows = ledger.conn.execute(
         "SELECT d.id,d.ticker,d.side,d.price,d.size,d.commence_time,"
@@ -198,7 +200,6 @@ def record_clv(
                 else:
                     start = min(targets) - timedelta(minutes=2)
                     end = max(targets) + timedelta(minutes=1)
-                series = event.split("-", 1)[0]
                 calls += 1
                 attempt_number = attempts + 1
                 ledger.conn.execute(
@@ -209,13 +210,7 @@ def record_clv(
                     (ticker, attempt_number, now.astimezone(timezone.utc).isoformat()),
                 )
                 ledger.conn.commit()
-                candles = kalshi.get_candlesticks(
-                    series,
-                    ticker,
-                    int(start.timestamp()),
-                    int(end.timestamp()),
-                    period_interval=1,
-                )
+                candles = fetch_candles(kalshi, ticker, start, end)
                 fetched = now.astimezone(timezone.utc).isoformat()
                 quote_targets = (
                     [(n, commence - timedelta(minutes=n)) for n in T_MINUS] if commence else []
@@ -288,6 +283,15 @@ def record_clv(
                     if fill_start
                     else None
                 )
+                exit_quote = (
+                    ledger.conn.execute(
+                        "SELECT yes_bid,yes_ask FROM closing_quotes WHERE ticker=? "
+                        "AND commence_time=? AND t_minus_min=5",
+                        (ticker, fill_start.isoformat()),
+                    ).fetchone()
+                    if fill_start
+                    else None
+                )
                 game_row = ledger.conn.execute(
                     "SELECT mid FROM closing_quotes WHERE ticker=? AND commence_time=? "
                     "AND t_minus_min=-1",
@@ -298,34 +302,46 @@ def record_clv(
                 if side == "no":
                     side_t5 = None if side_t5 is None else Decimal(1) - side_t5
                     side_day = None if side_day is None else Decimal(1) - side_day
+                side_bid_t5 = (
+                    None
+                    if exit_quote is None
+                    else Decimal(str(exit_quote[0]))
+                    if side == "yes"
+                    else Decimal(1) - Decimal(str(exit_quote[1]))
+                )
                 clv = None if side_t5 is None else (side_t5 - price) * 100
                 day_clv = None if side_day is None else (side_day - price) * 100
+                exit_clv = None if side_bid_t5 is None else (side_bid_t5 - price) * 100
                 if table == "fills":
                     ledger.conn.execute(
-                        "UPDATE fills SET clv_kalshi=?, clv_gameday=?,"
+                        "UPDATE fills SET clv_kalshi=?, clv_gameday=?,clv_exit=?,"
                         " line_move_since_entry=? WHERE id=?",
                         (
                             None if clv is None else str(clv),
                             None if day_clv is None else str(day_clv),
+                            None if exit_clv is None else str(exit_clv),
                             None if line_move is None else str(line_move),
                             fill_id,
                         ),
                     )
                 elif table == "maker_shadow":
                     ledger.conn.execute(
-                        "UPDATE maker_shadow SET clv_kalshi=?,clv_gameday=? WHERE id=?",
+                        "UPDATE maker_shadow SET clv_kalshi=?,clv_gameday=?,clv_exit=? WHERE id=?",
                         (
                             None if clv is None else str(clv),
                             None if day_clv is None else str(day_clv),
+                            None if exit_clv is None else str(exit_clv),
                             fill_id,
                         ),
                     )
                 else:
                     ledger.conn.execute(
-                        "UPDATE shadow_decisions SET clv_kalshi=?,clv_gameday=? WHERE id=?",
+                        "UPDATE shadow_decisions SET clv_kalshi=?,clv_gameday=?,clv_exit=? "
+                        "WHERE id=?",
                         (
                             None if clv is None else str(clv),
                             None if day_clv is None else str(day_clv),
+                            None if exit_clv is None else str(exit_clv),
                             fill_id,
                         ),
                     )

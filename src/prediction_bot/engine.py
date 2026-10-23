@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+from prediction_bot.candles import fetch_candles
 from prediction_bot.config import Settings
 from prediction_bot.fees import FEE_MODEL_VERSION, maker_fee, taker_fee
+from prediction_bot.maker_fill import trade_through_fill
 from prediction_bot.models import Block, Market, OutcomeSide, Signal, fee_for
-from prediction_bot.odds import ConsensusOdds
+from prediction_bot.odds import KALSHI_SERIES_TO_SPORT, ConsensusOdds
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.base import Strategy
 from prediction_bot.venues.kalshi import KalshiClient, KalshiError
@@ -22,6 +24,8 @@ class CycleResult:
     markets_scanned: int = 0
     signals: list[Signal] = field(default_factory=list)
     acted: list[Signal] = field(default_factory=list)
+    orders_placed: list[Signal] = field(default_factory=list)
+    paper_fills_resolved: int = 0
     settled: dict[str, Decimal] = field(default_factory=dict)
     live_orders: list[dict[str, object]] = field(default_factory=list)
     halted: str | None = None  # reason no entries were taken this cycle, if any
@@ -39,6 +43,7 @@ class Engine:
         ledger: Ledger,
         allow_live: bool = False,
         shadow_strategies: Sequence[Strategy] = (),
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.settings = settings
         self.kalshi = kalshi
@@ -46,6 +51,7 @@ class Engine:
         self.ledger = ledger
         self.allow_live = allow_live
         self.shadow_strategies = list(shadow_strategies)
+        self.clock = clock or (lambda: datetime.now(timezone.utc))
 
     @property
     def live(self) -> bool:
@@ -76,6 +82,8 @@ class Engine:
 
     def run_cycle(self, markets: Sequence[Market]) -> CycleResult:
         res = CycleResult(markets_scanned=len(markets))
+        if self._maker_first_enabled():
+            res.paper_fills_resolved = self._resolve_paper_orders(self.clock())
         for strat in self.strategies:
             try:
                 res.signals.extend(strat.evaluate(markets))
@@ -141,7 +149,13 @@ class Engine:
         ]
         if shadow_updates:
             try:
-                self.ledger.update_maker_shadows(shadow_updates)
+                self.ledger.update_maker_shadows(
+                    shadow_updates, v3_cancel_move=self.settings.v3_maker_cancel_move
+                )
+                if self._maker_first_enabled():
+                    self.ledger.update_paper_orders_for_fair(
+                        shadow_updates, self.settings.v3_maker_cancel_move
+                    )
             except Exception:
                 log.exception("failed to update maker shadows")
         maker_shadows = [
@@ -187,7 +201,8 @@ class Engine:
                 continue
             for sig in batch:
                 if self._act(sig, res, grouped=len(batch) > 1):
-                    res.acted.append(sig)
+                    if sig not in res.orders_placed:
+                        res.acted.append(sig)
                 elif self.live and len(batch) > 1:
                     done = [s for s in batch if s in res.acted]
                     if done:
@@ -200,6 +215,74 @@ class Engine:
                         )
                     break
         return res
+
+    def _maker_first_enabled(self) -> bool:
+        return (
+            not self.live
+            and self.settings.v3_execution == "maker_first"
+            and any(
+                getattr(strategy, "rules_version", None) == "v3" for strategy in self.strategies
+            )
+        )
+
+    def _resolve_paper_orders(self, now: datetime) -> int:
+        now_utc = (
+            now.replace(tzinfo=timezone.utc) if now.tzinfo is None else now.astimezone(timezone.utc)
+        )
+        filled = 0
+        for order in self.ledger.open_paper_orders():
+            end = min(now_utc, order.expires_at)
+            if end <= order.created_at:
+                if now_utc >= order.expires_at:
+                    self.ledger.expire_paper_order(order.id, order.expires_at)
+                continue
+            try:
+                candles = fetch_candles(self.kalshi, order.ticker, order.created_at, end)
+            except Exception:
+                log.exception("maker candle fetch failed for %s; leaving order open", order.ticker)
+                continue
+            fill_at = trade_through_fill(candles, order.side, order.price, order.created_at, end)
+            if fill_at is not None:
+                if self.ledger.fill_paper_order(order.id, fill_at):
+                    filled += 1
+            elif now_utc >= order.expires_at:
+                self.ledger.expire_paper_order(order.id, order.expires_at)
+        return filled
+
+    def _v3_paper_action(self, sig: Signal, grouped: bool = False) -> str:
+        if self.live or sig.rules_version != "v3" or self.settings.v3_execution != "maker_first":
+            return "taker"
+        if sig.position_key is None:
+            return "none"
+        latest = self.ledger.latest_paper_order(sig.position_key)
+        if latest is not None and latest.status == "open":
+            return "resting"
+        if latest is not None and latest.status == "filled" and self.settings.v3_no_reentry:
+            return "held"
+        taker_edge_holds = sig.edge >= self.settings.v2_min_net_edge
+        maker_is_post_only = (
+            not grouped and sig.maker_price is not None and sig.maker_price < sig.limit_price
+        )
+        if latest is not None and latest.status in {"expired", "cancelled"}:
+            if taker_edge_holds:
+                return "taker"
+            return "maker" if maker_is_post_only else "none"
+        if latest is not None and latest.status == "filled":
+            return "maker" if maker_is_post_only else "taker" if taker_edge_holds else "none"
+        if maker_is_post_only:
+            return "maker"
+        return "taker" if taker_edge_holds else "none"
+
+    def _paper_order_expiry(self, sig: Signal) -> datetime:
+        expires_at = sig.created_at + timedelta(minutes=self.settings.v3_maker_ttl_minutes)
+        if sig.commence_time is None:
+            return expires_at
+        series = (sig.event_ticker or sig.ticker).split("-", 1)[0]
+        sport = KALSHI_SERIES_TO_SPORT.get(series, "")
+        buffer = self.settings.kickoff_buffer_minutes.get(
+            sport, self.settings.kickoff_buffer_default_minutes
+        )
+        return min(expires_at, sig.commence_time - timedelta(minutes=buffer))
 
     @staticmethod
     def _batches(signals: Sequence[Signal]) -> list[list[Signal]]:
@@ -231,10 +314,21 @@ class Engine:
         """
         if sig.rules_version in {"v2", "v3"}:
             reason = ""
+            action = self._v3_paper_action(sig, grouped=len(batch) > 1)
             if self.live:
                 reason = "paper_only"
             elif not sig.position_key or not sig.event_ticker:
                 reason = "missing_position_key"
+            elif action == "resting":
+                reason = "order_resting"
+            elif action == "held" or (
+                sig.rules_version == "v3"
+                and self.settings.v3_no_reentry
+                and self.ledger.has_v3_position_activity(sig.position_key or "", sig.created_at)
+            ):
+                reason = "already_held"
+            elif action == "none":
+                reason = "net_edge"
             elif any(
                 held != sig.position_key
                 for held in self.ledger.held_keys(
@@ -247,12 +341,27 @@ class Engine:
             elif sig.fee_type not in {"quadratic", "quadratic_with_maker_fees"}:
                 reason = "unknown_fee_type"
             else:
+                cost_price = (
+                    sig.maker_price
+                    if action == "maker" and sig.maker_price is not None
+                    else sig.limit_price
+                )
                 try:
-                    fee = self._fee_amount(sig, sig.limit_price, sig.size)
+                    fee = (
+                        maker_fee(
+                            cost_price,
+                            sig.size,
+                            sig.fee_multiplier or Decimal(0),
+                            sig.fee_type or "",
+                            self.settings.fee_rounding,
+                        )
+                        if action == "maker"
+                        else self._fee_amount(sig, cost_price, sig.size)
+                    )
                 except ValueError:
                     reason = "fee_unknown"
                 else:
-                    cost = sig.limit_price * sig.size + fee
+                    cost = cost_price * sig.size + fee
                     bankroll = self.ledger.cash + sum(
                         (position.cost for position in self.ledger.positions()), Decimal(0)
                     )
@@ -308,8 +417,25 @@ class Engine:
                 )
                 return False
             if not self.live:
-                cost = sig.limit_price * sig.size + self._fee_amount(sig, sig.limit_price, sig.size)
-                if cost > self.ledger.cash:
+                action = self._v3_paper_action(sig, grouped=len(batch) > 1)
+                cost_price = (
+                    sig.maker_price
+                    if action == "maker" and sig.maker_price is not None
+                    else sig.limit_price
+                )
+                fee = (
+                    maker_fee(
+                        cost_price,
+                        sig.size,
+                        sig.fee_multiplier or Decimal(0),
+                        sig.fee_type or "",
+                        self.settings.fee_rounding,
+                    )
+                    if action == "maker"
+                    else self._fee_amount(sig, cost_price, sig.size)
+                )
+                cost = cost_price * sig.size + fee
+                if cost > self.ledger.available_cash(include_v3=sig.rules_version == "v3"):
                     return False
             return True
         legs = {(sig.ticker, sig.side), *sig.equivalents}
@@ -384,6 +510,33 @@ class Engine:
             self.ledger.record_signal(sig, acted=True)
             log.info("LIVE order %s", detail)
             return True
+        paper_action = self._v3_paper_action(sig, grouped=grouped)
+        if paper_action == "maker":
+            assert sig.maker_price is not None
+            try:
+                fee = maker_fee(
+                    sig.maker_price,
+                    sig.size,
+                    sig.fee_multiplier or Decimal(0),
+                    sig.fee_type or "",
+                    self.settings.fee_rounding,
+                )
+                self.ledger.record_paper_order(
+                    sig,
+                    sig.maker_price,
+                    fee,
+                    self._paper_order_expiry(sig),
+                )
+            except Exception as exc:
+                log.warning("skip maker order %s: %s", sig.ticker, exc)
+                self.ledger.record_signal(sig, acted=False)
+                return False
+            self.ledger.record_signal(sig, acted=True)
+            res.orders_placed.append(sig)
+            return True
+        if paper_action in {"none", "resting", "held"}:
+            self.ledger.record_signal(sig, acted=False)
+            return False
         try:
             fee = self._fee_amount(sig, sig.limit_price, sig.size)
         except ValueError as exc:

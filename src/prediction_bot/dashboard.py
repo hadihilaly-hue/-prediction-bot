@@ -27,7 +27,7 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
     rows = ledger.conn.execute(
         "SELECT f.id,f.created_at,f.strategy,f.ticker,f.side,f.price,f.count,f.fee,"
         "f.fair_prob,s.result,f.rules_version,f.position_key,f.event_ticker,f.tags,"
-        "f.commence_time,f.clv_kalshi,f.clv_gameday,f.line_move_since_entry FROM fills f "
+        "f.commence_time,f.clv_kalshi,f.clv_gameday,f.line_move_since_entry,f.clv_exit FROM fills f "
         "LEFT JOIN settlements s ON s.ticker=f.ticker ORDER BY f.id"
     ).fetchall()
     fills: list[tuple[Fill, str, str | None, str | None, str | None, str | None]] = []
@@ -35,6 +35,7 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
         tuple[str, tuple[str, str]],
         list[tuple[Fill, str | None, str | None, str | None, str | None, str | None]],
     ] = {}
+    exit_clv_by_id = {int(row[0]): str(row[18]) for row in rows if row[18] is not None}
     for row in rows:
         ts = datetime.fromisoformat(row[1])
         if ts.tzinfo is None:
@@ -73,6 +74,11 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
         day_clvs = [(float(day), fill.count) for fill, _, day, *_ in legs if day is not None]
         line_moves = [
             (float(move), fill.count) for fill, _, _, _, move, _ in legs if move is not None
+        ]
+        exit_clvs = [
+            (float(exit_clv_by_id[fill.id]), fill.count)
+            for fill, *_ in legs
+            if fill.id in exit_clv_by_id
         ]
         commence = next((row[3] for row in legs if row[3]), None)
         created = min(fill.created_at for fill, *_ in legs)
@@ -132,6 +138,11 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
             "strategy_tags": ", ".join(sorted(strategy_tags)),
             "clv": pos_clv,
             "clv_gameday": pos_day,
+            "clv_exit": (
+                sum(value * n for value, n in exit_clvs) / sum(n for _, n in exit_clvs)
+                if exit_clvs
+                else None
+            ),
             "line_move": (
                 sum(value * n for value, n in line_moves) / sum(n for _, n in line_moves)
                 if line_moves
@@ -274,6 +285,12 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
         (size if result == side else Decimal(0)) - price * size - fee
         for side, price, size, fee, result in maker_settled
     )
+    maker_metrics = ledger.maker_shadow_metrics()
+
+    def maker_metric_float(name: str) -> float | None:
+        value = maker_metrics[name]
+        return None if value is None else float(value)
+
     quality = {
         "blocks": recent_blocks,
         "edge_reviews": ledger.conn.execute("SELECT COUNT(*) FROM edge_reviews").fetchone()[0],
@@ -294,6 +311,20 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
             "unit": "cents",
             "too_few_to_be_evidence": len(maker_clvs) < 50,
             "evidence_note": "too few to be evidence" if len(maker_clvs) < 50 else None,
+        },
+        "maker_shadow_scoring": {
+            rule: {
+                "scored": maker_metrics[f"{rule}_scored"],
+                "filled": maker_metrics[f"{rule}_filled"],
+                "fill_rate": maker_metric_float(f"{rule}_fill_rate"),
+                "settled": maker_metrics[f"{rule}_settled"],
+                "pnl": maker_metric_float(f"{rule}_pnl"),
+                "clv_count": maker_metrics[f"{rule}_clv_count"],
+                "mean_clv": maker_metric_float(f"{rule}_mean_clv"),
+                "exit_clv_count": maker_metrics[f"{rule}_exit_clv_count"],
+                "mean_exit_clv": maker_metric_float(f"{rule}_mean_exit_clv"),
+            }
+            for rule in ("trade_through", "optimistic")
         },
         "depth_limited_all_time": sum(
             int(row["all"]) for row in recent_blocks if "depth" in str(row["reason"])
