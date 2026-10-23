@@ -132,6 +132,7 @@ class Settings(BaseSettings):
     # within `odds_lookahead_hours`. 0 = no budget.
     odds_runs_per_day: float = 0
     odds_lookahead_hours: float = 36
+    odds_planner: Literal["fixed", "event_driven"] = "fixed"
 
     # Paper trading
     paper_db_path: Path = Path("data/paper.sqlite")

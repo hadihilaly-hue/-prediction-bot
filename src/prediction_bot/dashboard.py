@@ -23,6 +23,14 @@ def _num(d: Decimal | None) -> float | None:
     return None if d is None else float(d)
 
 
+def _mean_ci95(values: list[float]) -> tuple[float, float] | None:
+    if len(values) < 5:
+        return None
+    mean = statistics.mean(values)
+    margin = 1.96 * statistics.stdev(values) / (len(values) ** 0.5)
+    return mean - margin, mean + margin
+
+
 def _measurement_data(ledger: Ledger) -> dict[str, object]:
     rows = ledger.conn.execute(
         "SELECT f.id,f.created_at,f.strategy,f.ticker,f.side,f.price,f.count,f.fee,"
@@ -336,6 +344,13 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
             {"version": v, "window": w, "n": n, "would_trade": traded} for v, w, n, traded in shadow
         ],
     }
+    quality["entry_window_clv"] = {
+        version: {
+            window: _entry_window_clv_summary(ledger, version, window)
+            for window in ("72h+", "24-72h", "2-24h")
+        }
+        for version in ("v3", "v2")
+    }
     road_dog_positions = [
         position for position in positions if "exp_road_dog" in str(position["strategy_tags"])
     ]
@@ -532,6 +547,23 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
         "monte_carlo": monte_carlo_result,
         "quality": quality,
         "by_version": by_version,
+    }
+
+
+def _entry_window_clv_summary(ledger: Ledger, version: str, window: str) -> dict[str, object]:
+    rows = ledger.conn.execute(
+        "SELECT CAST(clv_kalshi AS REAL),CAST(clv_exit AS REAL) FROM shadow_decisions "
+        "WHERE rules_version=? AND window=? AND reason='entry_window' AND clv_kalshi IS NOT NULL",
+        (version, window),
+    ).fetchall()
+    clvs = [float(row[0]) for row in rows]
+    exits = [float(row[1]) for row in rows if row[1] is not None]
+    ci95 = _mean_ci95(clvs)
+    return {
+        "n": len(clvs),
+        "mean_clv": statistics.mean(clvs) if clvs else None,
+        "ci95": None if ci95 is None else [ci95[0], ci95[1]],
+        "mean_clv_exit": statistics.mean(exits) if exits else None,
     }
 
 

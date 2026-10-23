@@ -236,9 +236,17 @@ def run_share(remaining: int, runs_per_day: float, now: datetime | None = None) 
     return max(0, remaining) / runs_left
 
 
-def per_run_budget(remaining: int, runs_per_day: float, now: datetime | None = None) -> int:
+def per_run_budget(
+    remaining: int,
+    runs_per_day: float,
+    now: datetime | None = None,
+    days_left_in_month: int | None = None,
+) -> int:
     """Whole requests a single run may spend; never more than its share, so the quota
     can't hit zero before the reset."""
+    if days_left_in_month is not None:
+        runs_left = max(1, math.ceil(max(1, days_left_in_month) * runs_per_day))
+        return math.floor(max(0, remaining) / runs_left)
     return math.floor(run_share(remaining, runs_per_day, now))
 
 
@@ -259,6 +267,7 @@ class OddsClient:
         self.budget = budget
         self.requests_made = 0
         self._memo: dict[tuple[str, str, str], tuple[float, list[dict[str, Any]]]] = {}
+        self.allowed_sports: set[str] | None = None
 
     # Strategies sharing one client within a cycle reuse the response instead of
     # spending another quota request; later cycles (minutes apart) refetch.
@@ -284,6 +293,8 @@ class OddsClient:
         *,
         bypass_cache: bool = False,
     ) -> list[dict[str, Any]]:
+        if self.allowed_sports is not None and sport not in self.allowed_sports:
+            return []
         params: dict[str, str] = {
             "apiKey": self.api_key,
             "regions": "us,eu",
