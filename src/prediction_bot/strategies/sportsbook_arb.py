@@ -61,6 +61,15 @@ class SportsbookArbStrategy(Strategy):
         self.odds = odds_client
         self._cache: dict[str, list[ConsensusOdds]] = {}
 
+    def seen_consensus(self) -> dict[str, dict[str, ConsensusOdds]]:
+        """Consensuses fetched during the last `evaluate`, keyed by feed then event_id.
+
+        The engine drains this each cycle so the ledger can snapshot every price we
+        based decisions on — the raw material for calibration and line-movement checks.
+        Strategies sharing one odds client see identical data; the engine deduplicates.
+        """
+        return {feed: {g.event_id: g for g in games} for feed, games in self._cache.items()}
+
     def games_for(self, sport: str) -> list[ConsensusOdds]:
         """Odds are fetched at most once per `evaluate` call (cache cleared on each)."""
         if sport not in self._cache:

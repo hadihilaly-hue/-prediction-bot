@@ -81,6 +81,44 @@ def test_consensus_filters_books() -> None:
     assert Decimal("0.64") < c.probs["Troy Trojans"] < Decimal("0.67")
 
 
+def test_consensus_weights_sharp_books() -> None:
+    # pinnacle (weight 3) says Troy ~0.65, draftkings (1) ~0.67, shadybook (1) ~0.10.
+    # Equal weighting would land ~0.47, pulled a third of the way to the bad book;
+    # weighted the consensus stays within ~0.11 of pinnacle at ~0.54.
+    c = consensus(EVENT)
+    assert c is not None and c.books_used == 3
+    assert Decimal("0.52") < c.probs["Troy Trojans"] < Decimal("0.56")
+
+
+def test_engine_snapshots_consensus_once_per_event(settings) -> None:  # type: ignore[no-untyped-def]
+    from prediction_bot.engine import Engine
+    from prediction_bot.paper.ledger import Ledger
+    from prediction_bot.strategies.underdog_value import UnderdogValueStrategy
+
+    ledger = Ledger(settings.paper_db_path, settings.paper_starting_cash)
+    odds = FakeOdds()
+    # two strategies sharing one odds client see the same consensus; the snapshot must
+    # record it once per event, not once per strategy
+    eng = Engine(
+        settings,
+        object(),  # type: ignore[arg-type]
+        [
+            SportsbookArbStrategy(settings, odds_client=odds),  # type: ignore[arg-type]
+            UnderdogValueStrategy(settings, odds_client=odds),  # type: ignore[arg-type]
+        ],
+        ledger,
+    )
+    troy = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy")
+    eng.run_cycle([troy])
+    rows = ledger.conn.execute(
+        "SELECT feed, event_id, team, books_used FROM odds_snapshots"
+    ).fetchall()
+    assert len(rows) == 2
+    assert {r[0] for r in rows} == {"americanfootball_ncaaf"}
+    assert {r[2] for r in rows} == {"Troy Trojans", "Southern Miss Golden Eagles"}
+    assert all(r[3] == 2 for r in rows)  # pinnacle + draftkings in EVENT
+
+
 def test_team_matching() -> None:
     cands = ["Troy Trojans", "Southern Miss Golden Eagles"]
     assert best_team("Troy", cands) == "Troy Trojans"
@@ -308,16 +346,16 @@ def test_underdog_value_only_buys_price_band(settings) -> None:  # type: ignore[
 
     settings.odds_bookmakers = ["pinnacle", "draftkings"]
     strat = UnderdogValueStrategy(settings, odds_client=FakeOdds())  # type: ignore[arg-type]
-    # Books: Troy ~0.655 / Southern Miss ~0.345. Troy YES at 0.55 is a favourite -> skipped;
-    # Southern Miss YES at 0.30 is an underdog priced below consensus -> bought.
+    # Books: Troy ~0.66 / Southern Miss ~0.34. Troy YES at 0.55 is a favourite -> skipped;
+    # Southern Miss YES at 0.22 is an underdog priced below consensus -> bought.
     troy = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy")
-    usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.25", "0.30", subtitle="Southern Miss")
+    usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.19", "0.22", subtitle="Southern Miss")
     sigs = strat.evaluate([troy, usm])
     assert [(s.ticker.rsplit("-", 1)[1], s.side) for s in sigs] == [("USM", OutcomeSide.yes)]
     assert sigs[0].strategy == "underdog_value"
-    assert "3.3x payout" in sigs[0].rationale
-    # an underdog priced *above* consensus (0.40 ask vs 0.345) is not a value bet
-    pricey = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.38", "0.40", subtitle="Southern Miss")
+    assert "4.5x payout" in sigs[0].rationale
+    # an ask above the 10-25c band is skipped outright, whatever the consensus says
+    pricey = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.28", "0.30", subtitle="Southern Miss")
     assert strat.evaluate([troy, pricey]) == []
     # a zero ask never reaches the payout division, even with no price floor
     settings.underdog_min_price = Decimal(0)

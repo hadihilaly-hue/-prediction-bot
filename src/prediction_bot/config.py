@@ -33,8 +33,10 @@ class Settings(BaseSettings):
     # Sportsbook odds (https://the-odds-api.com)
     odds_api_key: str | None = None
     odds_api_base: str = "https://api.the-odds-api.com/v4"
+    # Sharp books first: Pinnacle/Circa/BetOnline post early lines and carry most of the
+    # signal at the multi-day lead times we enter; see odds.BOOK_WEIGHTS.
     odds_bookmakers: list[str] = Field(
-        default_factory=lambda: ["pinnacle", "draftkings", "fanduel"]
+        default_factory=lambda: ["pinnacle", "circa", "betonlineag", "draftkings", "fanduel"]
     )
     # Scheduled runs per day. When > 0, each run spends at most its even share of the
     # Odds API requests left this month, on the leagues with the most games starting
@@ -55,9 +57,11 @@ class Settings(BaseSettings):
     # the UTC day once realized PnL settled today reaches -limit. Unset = disabled.
     kill_switch: bool = False
     max_daily_loss: Decimal | None = None
-    # `underdog_value` only buys sides whose ask is inside this band (10c..40c = 2.5x..10x)
+    # `underdog_value` only buys sides whose ask is inside this band (10c..25c = 4x..10x).
+    # Paper results: <=24c entries won 4/7 vs 1/7 at 28-40c, so the top of the old band is
+    # where "edge vs consensus" was noise rather than value.
     underdog_min_price: Decimal = Decimal("0.10")
-    underdog_max_price: Decimal = Decimal("0.40")
+    underdog_max_price: Decimal = Decimal("0.25")
     # Sportsbook strategies only enter at least this many hours before the event
     # resolves: paper results show same-day entries in efficient markets lose while
     # early entries keep their edge. 0 disables the check.

@@ -6,8 +6,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from prediction_bot.models import Market, OutcomeSide, Signal
+
+if TYPE_CHECKING:
+    from prediction_bot.odds import ConsensusOdds
 
 
 def describe(
@@ -91,6 +95,18 @@ CREATE TABLE IF NOT EXISTS runs (
     settled INTEGER NOT NULL,
     cash TEXT NOT NULL,
     open_cost TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS odds_snapshots (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    feed TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    home_team TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    commence_time TEXT NOT NULL,
+    team TEXT NOT NULL,
+    prob TEXT NOT NULL,
+    books_used INTEGER NOT NULL
 );
 """
 
@@ -426,6 +442,42 @@ class Ledger:
             )
             for r in rows
         ]
+
+    def record_consensus(
+        self,
+        seen: dict[str, dict[str, ConsensusOdds]],
+        at: datetime | None = None,
+    ) -> int:
+        """Persist one row per (feed, event, team) of sportsbook consensus seen this cycle.
+
+        `seen` maps feed name -> event_id -> ConsensusOdds, already deduplicated by the
+        caller across co-running strategies sharing one odds client. These snapshots are
+        the raw material for per-league calibration and line-movement signals.
+        """
+        stamp = (at or datetime.utcnow()).isoformat()
+        rows = [
+            (
+                stamp,
+                feed,
+                game.event_id,
+                game.home_team,
+                game.away_team,
+                game.commence_time,
+                team,
+                str(prob),
+                game.books_used,
+            )
+            for feed, events in seen.items()
+            for game in events.values()
+            for team, prob in game.probs.items()
+        ]
+        self.conn.executemany(
+            "INSERT INTO odds_snapshots (created_at, feed, event_id, home_team, away_team,"
+            " commence_time, team, prob, books_used) VALUES (?,?,?,?,?,?,?,?,?)",
+            rows,
+        )
+        self.conn.commit()
+        return len(rows)
 
     def record_run(
         self,
