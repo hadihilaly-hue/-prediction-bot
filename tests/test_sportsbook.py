@@ -137,14 +137,16 @@ class FakeOdds:
 def test_sportsbook_arb_signals(settings) -> None:  # type: ignore[no-untyped-def]
     settings.odds_bookmakers = ["pinnacle", "draftkings"]
     strat = SportsbookArbStrategy(settings, odds_client=FakeOdds())  # type: ignore[arg-type]
-    # Kalshi prices Troy at 0.55 ask while books say ~0.655 -> back Troy. "Troy YES" and
-    # "Southern Miss NO" are the same bet; only the cheaper leg (NO at 0.54) is signalled.
+    # Kalshi prices Troy at 0.55 ask (0.50 bid) while books say ~0.66 -> back Troy.
+    # "Troy YES" and "Southern Miss NO" are the same bet; both maker-enter at bid+1c
+    # (0.51) and the higher-edge leg wins the de-dup.
     troy = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy")
     usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.46", "0.50", subtitle="Southern Miss")
     sigs = strat.evaluate([troy, usm])
     assert [(s.ticker.rsplit("-", 1)[1], s.side) for s in sigs] == [("USM", OutcomeSide.no)]
     assert all(s.edge >= settings.min_edge for s in sigs)
     assert sigs[0].equivalents == (("KXNCAAFGAME-26OCT06USMTROY-TROY", OutcomeSide.yes),)
+    assert sigs[0].limit_price == Decimal("0.51") and not sigs[0].taker
     # with equal prices exactly one leg is kept
     tie = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.45", "0.50", subtitle="Southern Miss")
     assert len(strat.evaluate([troy, tie])) == 1
@@ -173,6 +175,45 @@ def test_soccer_draw_keeps_both_legs(settings) -> None:  # type: ignore[no-untyp
         ("CHE", OutcomeSide.no),
     }
     assert all(s.equivalents == () for s in sigs)
+
+
+def test_maker_entry_posts_inside_spread(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.odds_bookmakers = ["pinnacle", "draftkings"]
+    strat = SportsbookArbStrategy(settings, odds_client=FakeOdds())  # type: ignore[arg-type]
+    # 0.50/0.55 spread -> maker at 0.51 with the maker fee; a 1c spread can't improve
+    # so the same signal falls back to a taker fill at the ask.
+    wide = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy")
+    tight = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.54", "0.55", subtitle="Troy")
+    (sig,) = strat.evaluate([wide])
+    assert sig.limit_price == Decimal("0.51") and not sig.taker
+    assert sig.edge == sig.fair_prob - Decimal("0.51") - Decimal("0.01")
+    (sig,) = strat.evaluate([tight])
+    assert sig.limit_price == Decimal("0.55") and sig.taker
+
+
+def test_taker_entry_style_pays_the_ask(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.entry_style = "taker"
+    settings.odds_bookmakers = ["pinnacle", "draftkings"]
+    strat = SportsbookArbStrategy(settings, odds_client=FakeOdds())  # type: ignore[arg-type]
+    wide = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy")
+    (sig,) = strat.evaluate([wide])
+    assert sig.limit_price == Decimal("0.55") and sig.taker
+
+
+def test_min_book_depth_rejects_dead_quotes(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.odds_bookmakers = ["pinnacle", "draftkings"]
+    strat = SportsbookArbStrategy(settings, odds_client=FakeOdds())  # type: ignore[arg-type]
+    # maker joins the bid side: a 3-contract bid fails the 10-contract depth gate
+    thin = make_market(
+        "KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy", yes_bid_size="3"
+    )
+    assert strat.evaluate([thin]) == []
+    # a taker entry checks the ask side instead
+    settings.entry_style = "taker"
+    thin_ask = make_market(
+        "KXNCAAFGAME-26OCT06USMTROY-TROY", "0.54", "0.55", subtitle="Troy", yes_ask_size="3"
+    )
+    assert strat.evaluate([thin_ask]) == []
 
 
 def test_sportsbook_odds_refetched_each_cycle(settings) -> None:  # type: ignore[no-untyped-def]
@@ -347,14 +388,15 @@ def test_underdog_value_only_buys_price_band(settings) -> None:  # type: ignore[
     settings.odds_bookmakers = ["pinnacle", "draftkings"]
     strat = UnderdogValueStrategy(settings, odds_client=FakeOdds())  # type: ignore[arg-type]
     # Books: Troy ~0.66 / Southern Miss ~0.34. Troy YES at 0.55 is a favourite -> skipped;
-    # Southern Miss YES at 0.22 is an underdog priced below consensus -> bought.
+    # Southern Miss YES maker-enters at 0.20 (bid 0.19 + 1c), an underdog in-band -> bought.
     troy = make_market("KXNCAAFGAME-26OCT06USMTROY-TROY", "0.50", "0.55", subtitle="Troy")
     usm = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.19", "0.22", subtitle="Southern Miss")
     sigs = strat.evaluate([troy, usm])
     assert [(s.ticker.rsplit("-", 1)[1], s.side) for s in sigs] == [("USM", OutcomeSide.yes)]
     assert sigs[0].strategy == "underdog_value"
-    assert "4.5x payout" in sigs[0].rationale
-    # an ask above the 10-25c band is skipped outright, whatever the consensus says
+    assert "5.0x payout" in sigs[0].rationale
+    # an entry price above the 10-25c band (0.28 bid -> maker at 0.29) is skipped,
+    # whatever the consensus says
     pricey = make_market("KXNCAAFGAME-26OCT06USMTROY-USM", "0.28", "0.30", subtitle="Southern Miss")
     assert strat.evaluate([troy, pricey]) == []
     # a zero ask never reaches the payout division, even with no price floor

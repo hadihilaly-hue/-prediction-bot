@@ -164,8 +164,7 @@ class Engine:
         if not self.live:
             cost = sum(
                 (
-                    s.limit_price * s.size
-                    + fee_for(s.limit_price, s.size, self.settings.taker_fee_multiplier)
+                    s.limit_price * s.size + fee_for(s.limit_price, s.size, self._fee_multiplier(s))
                     for s in batch
                 ),
                 Decimal(0),
@@ -174,6 +173,11 @@ class Engine:
                 return False
         return True
 
+    def _fee_multiplier(self, sig: Signal) -> Decimal:
+        if sig.taker:
+            return self.settings.taker_fee_multiplier
+        return self.settings.maker_fee_multiplier
+
     def _act(self, sig: Signal, res: CycleResult, grouped: bool = False) -> bool:
         if self.live:
             # Grouped legs go fill-or-kill so a leg can never rest half-hedged; a
@@ -181,7 +185,14 @@ class Engine:
             tif = "fill_or_kill" if grouped else "good_till_canceled"
             try:
                 order = self.kalshi.create_order(
-                    sig.ticker, sig.side, sig.size, sig.limit_price, time_in_force=tif
+                    sig.ticker,
+                    sig.side,
+                    sig.size,
+                    sig.limit_price,
+                    time_in_force=tif,
+                    # A maker-priced signal must rest or die: if the book moved, paying
+                    # taker fees at the crossed price loses the edge we measured.
+                    post_only=not sig.taker,
                 )
             except KalshiError as e:
                 log.warning("live order rejected %s/%s: %s", sig.ticker, sig.side.value, e)
@@ -196,7 +207,7 @@ class Engine:
             self.ledger.record_signal(sig, acted=True)
             log.info("LIVE order %s", detail)
             return True
-        fee = fee_for(sig.limit_price, sig.size, self.settings.taker_fee_multiplier)
+        fee = fee_for(sig.limit_price, sig.size, self._fee_multiplier(sig))
         try:
             self.ledger.record_fill(
                 sig.strategy, sig.ticker, sig.side, sig.limit_price, sig.size, fee, sig.fair_prob

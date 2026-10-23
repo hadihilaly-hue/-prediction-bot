@@ -60,7 +60,8 @@ jobs:
           pbot paper -s book_scanner --cycles 1 | tee ledger/last_run.txt
           if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" = true ]; then
             pbot paper -s sportsbook_arb -s underdog_value --cycles 1 \
-              --series KXNFLGAME --series KXNCAAFGAME --series KXNBAGAME --series KXNHLGAME \
+              --series KXNFLGAME --series KXNCAAFGAME --series KXNBAGAME --series KXNCAAMBGAME \
+              --series KXNHLGAME \
               --series KXMLBGAME \
               --series KXEPLGAME --series KXLALIGAGAME --series KXUCLGAME --series KXSERIEAGAME \
               --series KXBUNDESLIGAGAME --series KXLIGUE1GAME --series KXUELGAME \
