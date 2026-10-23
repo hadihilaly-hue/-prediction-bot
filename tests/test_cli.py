@@ -9,6 +9,7 @@ import typer
 from prediction_bot.cli import _strategies, _validate_order
 from prediction_bot.config import Settings
 from prediction_bot.engine import CycleResult
+from prediction_bot.feed_selection import RotationScore
 from prediction_bot.models import Market, Quote
 from prediction_bot.odds import OddsClient
 from prediction_bot.odds_planner import PlannedGame
@@ -451,6 +452,83 @@ def test_odds_trigger_ignores_moved_games_outside_entry_window(
 
     assert capsys.readouterr().out == ""
     assert ledger.conn.execute("SELECT COUNT(*) FROM odds_triggers").fetchone() == (0,)
+
+
+@pytest.mark.parametrize(
+    "other_pull_offset",
+    [timedelta(hours=-2), timedelta(minutes=-30)],
+    ids=["other-pull-older", "other-pull-newer"],
+)
+def test_odds_trigger_records_and_dedupes_using_selected_feed_pull(
+    tmp_path, monkeypatch, capsys, other_pull_offset
+) -> None:  # type: ignore[no-untyped-def]
+    import prediction_bot.cli as cli
+
+    base = datetime.now(timezone.utc).replace(microsecond=0)
+    path = tmp_path / "selected-feed-pull.sqlite"
+    ledger = Ledger(path, Decimal("100"))
+    selected_feed = "americanfootball_nfl"
+    other_feed = "basketball_nba"
+    selected_event = "KXNFLGAME-SELECTED"
+    other_event = "KXNBAGAME-OTHER"
+    ticker = f"{selected_event}-HOME"
+    selected_pull = base - timedelta(hours=1)
+    other_pull = base + other_pull_offset
+    stale_trigger_at = base - timedelta(minutes=90)
+    ledger.record_feed_pulls({other_feed: 1}, "v3", other_pull)
+    ledger.record_odds_trigger(selected_feed, ticker, "0.41", stale_trigger_at)
+    ledger.record_feed_pulls({selected_feed: 1}, "v3", selected_pull)
+
+    settings = Settings(
+        _env_file=None,
+        rules_version="v3",
+        min_lead_hours=72,
+        paper_db_path=path,
+        odds_trigger_daily_cap=4,
+    )
+    monkeypatch.setattr(cli, "_settings", lambda: settings)
+    monkeypatch.setattr(cli, "_client", lambda _settings: object())
+    monkeypatch.setattr(cli, "_fetch", lambda _client, _series: [])
+    monkeypatch.setattr(
+        cli,
+        "_planner_games",
+        lambda _client, _markets, _ledger, now: {
+            selected_feed: [PlannedGame(now + timedelta(hours=100), event_ticker=selected_event)],
+            other_feed: [PlannedGame(now + timedelta(hours=100), event_ticker=other_event)],
+        },
+    )
+    monkeypatch.setattr(cli, "compute_feed_stats", lambda *_args: {})
+    monkeypatch.setattr(
+        cli,
+        "rotation_scores",
+        lambda _ledger, _games, _stats, _settings, now: {
+            selected_feed: RotationScore(
+                Decimal(1), Decimal(1), Decimal(10), now + timedelta(hours=100)
+            ),
+            other_feed: RotationScore(
+                Decimal(1), Decimal(1), Decimal(1), now + timedelta(hours=100)
+            ),
+        },
+    )
+
+    def moved_asks(_ledger, event, _since, _now, *, spread_gate):  # type: ignore[no-untyped-def]
+        return [(ticker, Decimal("0.41"))] if event == selected_event else []
+
+    monkeypatch.setattr(cli, "market_ask_moves_since", moved_asks)
+
+    cli.odds_trigger(series=["KXNFLGAME", "KXNBAGAME"])
+    assert capsys.readouterr().out.strip() == selected_feed
+    assert ledger.conn.execute(
+        "SELECT COUNT(*) FROM odds_triggers WHERE feed=? AND ticker=? AND ask=?",
+        (selected_feed, ticker, "0.41"),
+    ).fetchone() == (2,)
+
+    cli.odds_trigger(series=["KXNFLGAME", "KXNBAGAME"])
+    assert capsys.readouterr().out == ""
+    assert ledger.conn.execute(
+        "SELECT COUNT(*) FROM odds_triggers WHERE feed=? AND ticker=? AND ask=?",
+        (selected_feed, ticker, "0.41"),
+    ).fetchone() == (2,)
 
 
 def test_odds_trigger_daily_cap_is_shared_between_ledger_instances(

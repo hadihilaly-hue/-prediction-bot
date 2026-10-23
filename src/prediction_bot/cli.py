@@ -293,7 +293,7 @@ def odds_trigger(
     if ledger.odds_triggers_pulled_today(now) >= s.odds_trigger_daily_cap:
         return
 
-    candidates: list[tuple[Decimal, datetime, str, str, Decimal]] = []
+    candidates: list[tuple[Decimal, datetime, str, str, Decimal, datetime]] = []
     for feed, games in games_by_sport.items():
         score = scores[feed]
         if score.value <= 0:
@@ -329,11 +329,12 @@ def odds_trigger(
                             feed,
                             ticker,
                             ask,
+                            last_pull,
                         )
                     )
     if not candidates:
         return
-    _score, _kickoff, feed, ticker, ask = min(
+    _score, _kickoff, feed, ticker, ask, last_pull = min(
         candidates,
         key=lambda item: (-item[0], item[1], item[2], item[3], item[4]),
     )
