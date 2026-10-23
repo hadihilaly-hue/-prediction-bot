@@ -25,6 +25,7 @@ from prediction_bot.models import (
 )
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT, ConsensusOdds, OddsClient, consensus
 from prediction_bot.paper.ledger import Ledger
+from prediction_bot.settlement_rules import SETTLEMENT_RULES, normalize_rules_text
 from prediction_bot.strategies.sportsbook_arb import DRAW_NAMES, SportsbookArbStrategy
 from prediction_bot.teams import kalshi_name_ok, team_for_code, team_for_odds_name
 from prediction_bot.venues.kalshi import KalshiClient
@@ -950,11 +951,54 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         events_evaluated = 0
         for event_ticker, legs in by_event.items():
             series = event_ticker.split("-", 1)[0]
+            settlement_rule = None
+            if self.rules_version == "v3":
+                settlement_rule = SETTLEMENT_RULES.get(series)
+                if settlement_rule is None:
+                    self._block("settlement_rule_unknown", event_ticker, legs[0].ticker, series)
+                    continue
             sport = KALSHI_SERIES_TO_SPORT.get(series)
             if sport is None or sport == "mma_mixed_martial_arts":
                 self._block("unsupported_series", event_ticker, legs[0].ticker, series)
                 continue
             events_evaluated += 1
+            if settlement_rule is not None:
+                rule_mismatch = False
+                for market in legs:
+                    raw_rules = market.raw.get("rules_primary")
+                    rules_primary = raw_rules if isinstance(raw_rules, str) else ""
+                    normalized_rules = normalize_rules_text(rules_primary)
+                    missing = next(
+                        (
+                            phrase
+                            for phrase in settlement_rule.required_phrases
+                            if normalize_rules_text(phrase) not in normalized_rules
+                        ),
+                        None,
+                    )
+                    if missing is not None:
+                        self._block(
+                            "settlement_rule_mismatch",
+                            event_ticker,
+                            market.ticker,
+                            f"missing phrase {missing!r}; rules_primary={rules_primary[:120]}",
+                        )
+                        rule_mismatch = True
+                        break
+                if rule_mismatch:
+                    continue
+                if settlement_rule.needs_draw and not any(
+                    market.ticker.removeprefix(event_ticker + "-").upper() in {"TIE", "DRAW"}
+                    or market.subtitle.strip().lower() in DRAW_NAMES
+                    for market in legs
+                ):
+                    self._block(
+                        "settlement_rule_mismatch",
+                        event_ticker,
+                        legs[0].ticker,
+                        "Kalshi event is missing a TIE leg",
+                    )
+                    continue
             ticker_date = _ticker_date(event_ticker)
             if ticker_date is None:
                 self._block(
@@ -1009,6 +1053,18 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 self._block("ambiguous_match", event_ticker, legs[0].ticker)
                 continue
             game = games[0]
+            if (
+                settlement_rule is not None
+                and settlement_rule.needs_draw
+                and not any(name.strip().casefold() in DRAW_NAMES for name in game.probs)
+            ):
+                self._block(
+                    "settlement_rule_mismatch",
+                    event_ticker,
+                    legs[0].ticker,
+                    "Odds consensus is missing a Draw probability",
+                )
+                continue
             for odds_name in (game.home_team, game.away_team):
                 mapped_id = team_for_odds_name(sport, odds_name)
                 if mapped_id is not None:
@@ -1340,7 +1396,14 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     candidates[position_key].append(signal)
         if self.rules_version == "v3" and events_evaluated >= 10:
             quality_blocks = sum(
-                block.reason in {"title_mismatch", "mapping_sum", "mapping_mismatch", "dispersion"}
+                block.reason
+                in {
+                    "title_mismatch",
+                    "mapping_sum",
+                    "mapping_mismatch",
+                    "dispersion",
+                    "settlement_rule_mismatch",
+                }
                 for block in self._blocks
             )
             fraction = Decimal(quality_blocks) / Decimal(events_evaluated)
@@ -1349,7 +1412,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     "dq_stop",
                     "",
                     "",
-                    f"{quality_blocks}/{events_evaluated} mapping/dispersion blocks",
+                    f"{quality_blocks}/{events_evaluated} data-quality blocks",
                 )
                 return []
         out: list[Signal] = []
