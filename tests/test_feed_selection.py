@@ -13,6 +13,7 @@ from prediction_bot.config import Settings
 from prediction_bot.engine import CycleResult
 from prediction_bot.feed_selection import (
     FeedStat,
+    _market_moved_since,
     compute_feed_stats,
     compute_feed_stats_from_connection,
     eligible,
@@ -358,6 +359,14 @@ def test_rotation_skips_no_move_at_under_six_hours_and_allows_exact_boundary(
     )
     assert selected == ["americanfootball_nfl"]
     assert skips == {}
+
+
+def test_rotation_treats_newly_listed_market_as_moved(tmp_path: Path) -> None:
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "rotation-new-market.sqlite", Decimal("100"))
+    _market_snapshot(ledger, "NFL-EVENT", "NFL-EVENT-NEW-H", now, "0.45", "0.49", "10")
+
+    assert _market_moved_since(ledger, "NFL-EVENT", now - timedelta(hours=1), now)
 
 
 def test_rotation_no_events_is_recorded_and_events_cost_disables_blocking(

@@ -328,8 +328,10 @@ def _market_moved_since(
             "WHERE ticker=? AND fetched_at<=? ORDER BY fetched_at DESC,id DESC LIMIT 1",
             (ticker, now.isoformat()),
         ).fetchone()
-        if before is None or after is None:
+        if after is None:
             continue
+        if before is None:
+            return True
         for before_value, after_value in zip(before, after, strict=True):
             if before_value is None or after_value is None:
                 continue

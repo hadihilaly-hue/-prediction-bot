@@ -167,6 +167,15 @@ class Engine:
                 )
             except Exception:
                 log.exception("failed to record feed pulls")
+        seen_odds_clients: set[int] = set()
+        for strat in (*self.strategies, *self.shadow_strategies):
+            client = getattr(strat, "odds", None)
+            if client is None or id(client) in seen_odds_clients:
+                continue
+            seen_odds_clients.add(id(client))
+            last_by_sport = getattr(client, "requests_last_by_sport", None)
+            if last_by_sport is not None:
+                last_by_sport.clear()
         shadow_updates = [
             update
             for strat in self.strategies

@@ -331,7 +331,14 @@ class OddsClient:
             requests_last_value = int(requests_last) if requests_last is not None else None
         except ValueError:
             requests_last_value = None
-        self.requests_last_by_sport[sport] = requests_last_value
+        if sport in self.requests_last_by_sport:
+            previous_requests_last = self.requests_last_by_sport[sport]
+            if requests_last_value is not None:
+                self.requests_last_by_sport[sport] = (
+                    previous_requests_last or 0
+                ) + requests_last_value
+        else:
+            self.requests_last_by_sport[sport] = requests_last_value
         log.info("odds api: %s x-requests-last=%s", sport, requests_last)
         if requests_last != "1":
             log.error(
@@ -393,7 +400,10 @@ class OddsClient:
                 baseline,
                 used,
             )
+            self.requests_made += used - baseline
             self.events_free = False
+        if used is not None:
+            self._events_requests_used_baseline = used
         return cast(list[dict[str, Any]], resp.json())
 
 
@@ -420,6 +430,7 @@ class OddsPacer:
         else:
             self.credit = self.ledger.odds_pacer_carry()
         self.client.requests_made = 0
+        self.client.requests_last_by_sport.clear()
         self.client.events_free = True
         try:
             left = self.client.quota_remaining()
