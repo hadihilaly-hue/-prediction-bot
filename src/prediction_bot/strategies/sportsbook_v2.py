@@ -31,6 +31,7 @@ from prediction_bot.venues.kalshi import KalshiClient
 
 log = logging.getLogger(__name__)
 ET = ZoneInfo("America/New_York")
+SHARP_BOOKS = frozenset({"pinnacle", "circa", "betonlineag"})
 
 
 def _median(values: list[Decimal]) -> Decimal:
@@ -81,6 +82,7 @@ def _ticker_start_et(event_ticker: str) -> datetime | None:
 
 class SportsbookV2Strategy(SportsbookArbStrategy):
     name = "sportsbook_v2"
+    rules_version = "v2"
 
     def __init__(
         self,
@@ -275,14 +277,23 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     attention = True
         return attention
 
-    def _block(self, reason: str, event_ticker: str, ticker: str, detail: str = "") -> None:
+    def _block(
+        self,
+        reason: str,
+        event_ticker: str,
+        ticker: str,
+        detail: str = "",
+        position_key: str | None = None,
+    ) -> None:
         block = Block(
             reason=reason,
             strategy=self.name,
             ticker=ticker,
             event_ticker=event_ticker,
             detail=detail,
+            rules_version=self.rules_version,
             created_at=self.clock(),
+            position_key=position_key,
         )
         self._blocks.append(block)
         log.info("BLOCK %s %s %s: %s", self.name, event_ticker, reason, detail)
@@ -434,6 +445,8 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         side: OutcomeSide,
         sport: str,
     ) -> tuple[dict[str, Decimal], dict[str, dict[str, Decimal]], str, Decimal] | None:
+        if self.rules_version == "v3":
+            return self._v3_reference_for_side(books, outcome, side)
         side_books: dict[str, dict[str, Decimal]] = {}
         for bookmaker, outcomes in books.items():
             probabilities = outcomes.get(outcome)
@@ -470,6 +483,105 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             if "multiplicative" in values
         }
         return reference, per_book, source, spread
+
+    @staticmethod
+    def _sharp_dispersion(side_books: dict[str, dict[str, Decimal]]) -> Decimal:
+        sharp = [
+            values["multiplicative"]
+            for bookmaker, values in side_books.items()
+            if bookmaker in SHARP_BOOKS and "multiplicative" in values
+        ]
+        return max(sharp) - min(sharp) if len(sharp) >= 2 else Decimal(0)
+
+    def _v3_reference_for_side(
+        self,
+        books: dict[str, dict[str, dict[str, Decimal]]],
+        outcome: str,
+        side: OutcomeSide,
+    ) -> tuple[dict[str, Decimal], dict[str, dict[str, Decimal]], str, Decimal] | None:
+        side_books: dict[str, dict[str, Decimal]] = {}
+        for bookmaker, outcomes in books.items():
+            probabilities = outcomes.get(outcome)
+            if probabilities is None:
+                continue
+            side_books[bookmaker] = {
+                method: probability if side is OutcomeSide.yes else Decimal(1) - probability
+                for method, probability in probabilities.items()
+            }
+
+        reference_books: dict[str, dict[str, Decimal]]
+        if "pinnacle" in side_books:
+            reference_books = {"pinnacle": side_books["pinnacle"]}
+            source = "pinnacle"
+        else:
+            sharp_books = {
+                bookmaker: values
+                for bookmaker, values in side_books.items()
+                if bookmaker in SHARP_BOOKS
+            }
+            if sharp_books:
+                reference_books = sharp_books
+                source = "sharp_median"
+            else:
+                if not self.settings.v3_allow_soft_reference:
+                    return None
+                soft_books: dict[str, dict[str, Decimal]] = {
+                    bookmaker: side_books[bookmaker]
+                    for bookmaker in ("draftkings", "fanduel")
+                    if bookmaker in side_books
+                }
+                if not soft_books:
+                    return None
+                reference_books = soft_books
+                source = "soft_reference"
+
+        methods = set.intersection(*(set(values) for values in reference_books.values()))
+        reference = {
+            method: (
+                next(iter(reference_books.values()))[method]
+                if len(reference_books) == 1
+                else _median([values[method] for values in reference_books.values()])
+            )
+            for method in methods
+        }
+        if not reference:
+            return None
+        spread = self._sharp_dispersion(side_books)
+        if source == "soft_reference":
+            multiplicative = [
+                values["multiplicative"]
+                for values in side_books.values()
+                if "multiplicative" in values
+            ]
+            spread = (
+                max(multiplicative) - min(multiplicative)
+                if len(multiplicative) >= 2
+                else Decimal(0)
+            )
+        return reference, side_books, source, spread
+
+    def _fresh_books(
+        self,
+        game: ConsensusOdds,
+        books: dict[str, dict[str, dict[str, Decimal]]],
+        now: datetime,
+    ) -> tuple[dict[str, dict[str, dict[str, Decimal]]], bool]:
+        cutoff = timedelta(hours=float(self.settings.v3_max_book_age_hours))
+        stale = {
+            bookmaker
+            for bookmaker, updated in game.book_updates.items()
+            if (updated_at := _parse_time(updated)) is not None and now - updated_at > cutoff
+        }
+        return (
+            {bookmaker: values for bookmaker, values in books.items() if bookmaker not in stale},
+            bool(stale),
+        )
+
+    def _fair_after_haircut(self, fair: Decimal, hours_until_start: Decimal) -> Decimal:
+        if self.rules_version != "v3":
+            return longshot_haircut(fair, hours_until_start, self.settings.longshot_haircut)
+        mode = self.settings.v3_longshot_haircut
+        return fair if mode == "off" else longshot_haircut(fair, hours_until_start, mode)
 
     def _set_shadow_update(
         self, market: Market, side: OutcomeSide, at: datetime, fair: Decimal | None = None
@@ -513,27 +625,28 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             self.clock().astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         )
         position_fraction = self.settings.v2_position_bankroll_fraction
+        include_v3 = self.rules_version == "v3"
         tags = signal.tags or ()
         if "exp_road_dog" in tags and "value" not in tags:
             position_fraction = self.settings.exp_road_dog_position_bankroll_fraction
         position_room = (
             bankroll * position_fraction
-            - self.ledger.position_cost(signal.position_key)
+            - self.ledger.position_cost(signal.position_key, include_v3=include_v3)
             - reserved_position.get(signal.position_key, Decimal(0))
         )
         event_room = (
             bankroll * self.settings.v2_event_bankroll_fraction
-            - self.ledger.event_cost(signal.event_ticker)
+            - self.ledger.event_cost(signal.event_ticker, include_v3=include_v3)
             - reserved_event.get(signal.event_ticker, Decimal(0))
         )
         day_room = (
             bankroll * self.settings.v2_daily_bankroll_fraction
-            - self.ledger.v2_new_risk_since(utc_day)
+            - self.ledger.v2_new_risk_since(utc_day, include_v3=include_v3)
             - reserved_day
         )
         total_room = (
             bankroll * self.settings.v2_total_open_bankroll_fraction
-            - self.ledger.v2_total_open_cost()
+            - self.ledger.v2_total_open_cost(include_v3=include_v3)
             - reserved_total
         )
         cash_room = self.ledger.cash - reserved_cash
@@ -562,6 +675,8 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             if cost <= budget:
                 break
             size -= 1
+        if self.rules_version == "v3" and "large_gap" in (signal.tags or ()):
+            size = (size / 2).to_integral_value(rounding=ROUND_DOWN)
         if size <= 0:
             self._block("size_zero", signal.event_ticker, signal.ticker, str(budget))
             return None
@@ -595,6 +710,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         game: ConsensusOdds,
         outcome_name: str,
         now: datetime,
+        position_key: str | None = None,
     ) -> tuple[Market, Decimal] | None:
         price = market.quote.ask_for(side)
         side_fair = yes_fair if side is OutcomeSide.yes else Decimal(1) - yes_fair
@@ -650,6 +766,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 confirmed=confirmed,
                 whitelisted=whitelisted,
                 created_at=now,
+                position_key=position_key,
             )
         )
         if not confirmed:
@@ -658,11 +775,85 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 event_ticker,
                 market.ticker,
                 "gross edge requires an explicit whitelist and confirming refetches",
+                position_key,
             )
             return None
         assert refreshed_market is not None and refreshed_fair is not None
         capped_side_fair = min(side_fair, refreshed_fair)
         yes_fair = capped_side_fair if side is OutcomeSide.yes else Decimal(1) - capped_side_fair
+        return refreshed_market, yes_fair
+
+    def _review_large_gap_v3(
+        self,
+        market: Market,
+        side: OutcomeSide,
+        yes_fair: Decimal,
+        evaluated_yes_fair: Decimal,
+        event_ticker: str,
+        position_key: str,
+        sharp_dispersion: Decimal,
+        sharp_book_count: int,
+        now: datetime,
+    ) -> tuple[Market, Decimal] | None:
+        price = market.quote.ask_for(side)
+        side_fair = (
+            evaluated_yes_fair if side is OutcomeSide.yes else Decimal(1) - evaluated_yes_fair
+        )
+        if price is None or side_fair - price <= self.settings.max_gross_edge:
+            return market, yes_fair
+
+        reason = ""
+        refreshed_market: Market | None = None
+        refreshed_price: Decimal | None = None
+        if side_fair - price > self.settings.v3_large_gap_max:
+            reason = f"gross edge exceeds v3_large_gap_max={self.settings.v3_large_gap_max}"
+        elif self.settings.v3_large_gap_mode == "block":
+            reason = "v3_large_gap_mode=block"
+        elif self.ledger is None or not self.ledger.has_recent_large_gap_record(position_key, now):
+            reason = "no same-position big_edge/large_gap record from 2-36 hours earlier"
+        elif self.kalshi is None:
+            reason = "fresh Kalshi orderbook refetch unavailable"
+        else:
+            try:
+                refreshed_quote = self.kalshi.get_orderbook(market.ticker)
+                refreshed_price = refreshed_quote.ask_for(side)
+                if refreshed_price is not None:
+                    refreshed_market = replace(market, quote=refreshed_quote)
+            except Exception:
+                log.exception(
+                    "sportsbook_v3: Kalshi orderbook refetch failed for %s", market.ticker
+                )
+                reason = "fresh Kalshi orderbook refetch failed"
+        if not reason:
+            if refreshed_price is None:
+                reason = "fresh Kalshi orderbook has no ask"
+            elif side_fair - refreshed_price <= self.settings.max_gross_edge:
+                reason = "refreshed gross edge is not above max_gross_edge"
+        if not reason and sharp_book_count < 2:
+            reason = "fewer than two sharp books are available"
+        if not reason and sharp_dispersion >= Decimal("0.02"):
+            reason = f"sharp-book dispersion is not under 0.02: {sharp_dispersion}"
+
+        confirmed = not reason
+        self._reviews.append(
+            EdgeReview(
+                ticker=market.ticker,
+                side=side,
+                fair_prob=side_fair,
+                price=price,
+                gross_edge=side_fair - price,
+                refetched_price=refreshed_price,
+                refetched_fair=side_fair if refreshed_price is not None else None,
+                confirmed=confirmed,
+                whitelisted=False,
+                created_at=now,
+                position_key=position_key,
+            )
+        )
+        if not confirmed:
+            self._block("big_edge", event_ticker, market.ticker, reason, position_key)
+            return None
+        assert refreshed_market is not None
         return refreshed_market, yes_fair
 
     def evaluate(self, markets: Sequence[Market]) -> list[Signal]:
@@ -697,12 +888,14 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 self._set_shadow_update(market, side, now)
         candidates: dict[str, list[Signal]] = defaultdict(list)
         entry_window_events: set[str] = set()
+        events_evaluated = 0
         for event_ticker, legs in by_event.items():
             series = event_ticker.split("-", 1)[0]
             sport = KALSHI_SERIES_TO_SPORT.get(series)
             if sport is None or sport == "mma_mixed_martial_arts":
                 self._block("unsupported_series", event_ticker, legs[0].ticker, series)
                 continue
+            events_evaluated += 1
             ticker_date = _ticker_date(event_ticker)
             if ticker_date is None:
                 self._block(
@@ -817,9 +1010,13 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             expected_outcomes = set(ids_by_ticker.values())
             book_probabilities = self._book_probabilities(sport, game, expected_outcomes)
             minimum_books = self.settings.min_books_by_sport.get(sport, self.settings.min_books)
+            stale_books = False
+            if self.rules_version == "v3":
+                book_probabilities, stale_books = self._fresh_books(game, book_probabilities, now)
             if len(book_probabilities) < minimum_books:
+                reason = "stale_books" if stale_books else "few_books"
                 self._block(
-                    "few_books",
+                    reason,
                     event_ticker,
                     legs[0].ticker,
                     f"found {len(book_probabilities)}, require {minimum_books}",
@@ -830,6 +1027,43 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 outcome_id = ids_by_ticker[market.ticker]
                 for side in (OutcomeSide.yes, OutcomeSide.no):
                     outcome_name = "Draw" if outcome_id == "draw" else names_by_id[outcome_id]
+                    position_outcome = (
+                        outcome_id
+                        if side is OutcomeSide.yes
+                        else next((team_id for team_id in ids if team_id != outcome_id), outcome_id)
+                        if "draw" not in ids_by_ticker.values()
+                        else f"not:{outcome_id}"
+                    )
+                    position_key = f"{event_ticker}:{position_outcome}"
+                    ask_depth = market.quote.ask_size_for(side)
+                    if self.rules_version == "v3" and (
+                        market.open_interest < self.settings.v3_min_open_interest
+                        or ask_depth < self.settings.v3_min_ask_depth
+                    ):
+                        self._block(
+                            "thin_market",
+                            event_ticker,
+                            market.ticker,
+                            f"open_interest={market.open_interest}, ask_depth={ask_depth}, "
+                            f"require open_interest >= {self.settings.v3_min_open_interest} "
+                            f"and ask_depth >= {self.settings.v3_min_ask_depth}",
+                            position_key,
+                        )
+                        continue
+                    if (
+                        self.rules_version == "v3"
+                        and self.settings.v3_no_reentry
+                        and self.ledger is not None
+                        and self.ledger.has_v3_position_activity(position_key, now)
+                    ):
+                        self._block(
+                            "already_held",
+                            event_ticker,
+                            market.ticker,
+                            position_key,
+                            position_key,
+                        )
+                        continue
                     reference = self._reference_for_side(
                         book_probabilities, outcome_id, side, sport
                     )
@@ -845,11 +1079,14 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             str(book_spread),
                         )
                         continue
-                    fair_pre = min(method_fairs.values())
-                    hours_until_start = Decimal(str((commence - now).total_seconds() / 3600))
-                    fair = longshot_haircut(
-                        fair_pre, hours_until_start, self.settings.longshot_haircut
+                    fair_pre = (
+                        min(method_fairs.values())
+                        if self.rules_version != "v3"
+                        or self.settings.v3_devig_method == "worst_case"
+                        else method_fairs[self.settings.v3_devig_method]
                     )
+                    hours_until_start = Decimal(str((commence - now).total_seconds() / 3600))
+                    fair = self._fair_after_haircut(fair_pre, hours_until_start)
                     self._set_shadow_update(market, side, now, fair)
                     price = market.quote.ask_for(side)
                     if price is None:
@@ -876,21 +1113,43 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         self._block("longshot_edge", event_ticker, market.ticker, str(gross_edge))
                         continue
                     yes_fair = fair_pre if side is OutcomeSide.yes else Decimal(1) - fair_pre
-                    active = self._review_big_edge(
-                        market, side, yes_fair, event_ticker, sport, game, outcome_name, now
+                    active = (
+                        self._review_large_gap_v3(
+                            market,
+                            side,
+                            yes_fair,
+                            fair if side is OutcomeSide.yes else Decimal(1) - fair,
+                            event_ticker,
+                            position_key,
+                            book_spread,
+                            sum(book in SHARP_BOOKS for book in per_book),
+                            now,
+                        )
+                        if self.rules_version == "v3"
+                        else self._review_big_edge(
+                            market,
+                            side,
+                            yes_fair,
+                            event_ticker,
+                            sport,
+                            game,
+                            outcome_name,
+                            now,
+                            position_key,
+                        )
                     )
                     if active is None:
                         continue
                     active_market, active_yes_fair = active
-                    if active_yes_fair != yes_fair:
+                    if active_yes_fair != yes_fair or (
+                        self.rules_version == "v3" and active_market is not market
+                    ):
                         fair_pre = (
                             active_yes_fair
                             if side is OutcomeSide.yes
                             else Decimal(1) - active_yes_fair
                         )
-                        fair = longshot_haircut(
-                            fair_pre, hours_until_start, self.settings.longshot_haircut
-                        )
+                        fair = self._fair_after_haircut(fair_pre, hours_until_start)
                         price = active_market.quote.ask_for(side)
                         if price is None:
                             self._block("missing_quote", event_ticker, market.ticker, side.value)
@@ -934,6 +1193,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         continue
                     side_bid = active_market.quote.bid_for(side)
                     spread = price - side_bid if side_bid is not None else None
+                    large_gap = (
+                        self.rules_version == "v3" and fair - price > self.settings.max_gross_edge
+                    )
                     signal = Signal(
                         strategy=self.name,
                         ticker=active_market.ticker,
@@ -948,7 +1210,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         ),
                         taker=True,
                         created_at=now,
-                        rules_version="v2",
+                        rules_version=self.rules_version,
                         fee_type=fee_type,
                         fee_multiplier=fee_multiplier,
                         fair_pre_haircut=fair_pre,
@@ -973,16 +1235,11 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         ),
                         commence_time=commence,
                     )
-                    if side is OutcomeSide.yes:
-                        outcome = outcome_id
-                    elif "draw" not in ids_by_ticker.values():
-                        outcome = next(
-                            (team_id for team_id in ids if team_id != outcome_id), outcome_id
-                        )
-                    else:
-                        outcome = f"not:{outcome_id}"
-                    position_key = f"{event_ticker}:{outcome}"
                     tags = {"value"} if is_main_candidate else set()
+                    if reference_source == "soft_reference":
+                        tags.add("soft_reference")
+                    if large_gap:
+                        tags.add("large_gap")
                     if road_dog_candidate:
                         tags.add("exp_road_dog")
                     if (
@@ -998,6 +1255,20 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         tags=tuple(sorted(tags)),
                     )
                     candidates[position_key].append(signal)
+        if self.rules_version == "v3" and events_evaluated >= 10:
+            quality_blocks = sum(
+                block.reason in {"title_mismatch", "mapping_sum", "mapping_mismatch", "dispersion"}
+                for block in self._blocks
+            )
+            fraction = Decimal(quality_blocks) / Decimal(events_evaluated)
+            if fraction > self.settings.v3_dq_stop_fraction:
+                self._block(
+                    "dq_stop",
+                    "",
+                    "",
+                    f"{quality_blocks}/{events_evaluated} mapping/dispersion blocks",
+                )
+                return []
         out: list[Signal] = []
         reserved_position: dict[str, Decimal] = {}
         reserved_event: dict[str, Decimal] = {}

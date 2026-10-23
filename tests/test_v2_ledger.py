@@ -214,3 +214,31 @@ def test_legacy_naive_and_new_aware_settlement_timestamps_compare_as_utc(tmp_pat
     assert ledger.worst_drawdown_since(datetime(2026, 10, 23, tzinfo=timezone.utc)) == Decimal("-2")
     assert ledger.runs()[0].ran_at == "2026-10-23T01:00:00+00:00"
     ledger.conn.close()
+
+
+def test_v2_risk_queries_include_v3_only_when_requested(tmp_path) -> None:
+    ledger = Ledger(tmp_path / "versioned-risk.sqlite", Decimal("100"))
+    for version in ("v2", "v3"):
+        ledger.record_fill(
+            f"sportsbook_{version}",
+            f"KXNFLGAME-26OCT25KCLV-LV-{version}",
+            OutcomeSide.yes,
+            Decimal("0.5"),
+            Decimal("2"),
+            Decimal("0.1"),
+            Decimal("0.8"),
+            at=datetime(2026, 10, 23, 7, tzinfo=timezone.utc),
+            rules_version=version,
+            position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders",
+            event_ticker="KXNFLGAME-26OCT25KCLV",
+        )
+
+    since = datetime(2026, 10, 23, tzinfo=timezone.utc)
+    assert ledger.position_cost("KXNFLGAME-26OCT25KCLV:las-vegas-raiders") == Decimal("1.1")
+    assert ledger.position_cost(
+        "KXNFLGAME-26OCT25KCLV:las-vegas-raiders", include_v3=True
+    ) == Decimal("2.2")
+    assert ledger.v2_total_open_cost() == Decimal("1.1")
+    assert ledger.v2_total_open_cost(include_v3=True) == Decimal("2.2")
+    assert ledger.v2_new_risk_since(since) == Decimal("1.1")
+    assert ledger.v2_new_risk_since(since, include_v3=True) == Decimal("2.2")

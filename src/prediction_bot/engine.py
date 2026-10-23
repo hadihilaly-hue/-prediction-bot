@@ -229,13 +229,18 @@ class Engine:
         Live exposure is per venue position; paper exposure is per strategy so that
         strategies run together keep independent, comparable books.
         """
-        if sig.rules_version == "v2":
+        if sig.rules_version in {"v2", "v3"}:
             reason = ""
             if self.live:
                 reason = "paper_only"
             elif not sig.position_key or not sig.event_ticker:
                 reason = "missing_position_key"
-            elif any(held != sig.position_key for held in self.ledger.held_keys(sig.event_ticker)):
+            elif any(
+                held != sig.position_key
+                for held in self.ledger.held_keys(
+                    sig.event_ticker, include_v3=sig.rules_version == "v3"
+                )
+            ):
                 reason = "opposite_position"
             elif sig.fee_type is None or sig.fee_multiplier is None:
                 reason = "fee_unknown"
@@ -255,22 +260,29 @@ class Engine:
                         hour=0, minute=0, second=0, microsecond=0
                     )
                     if (
-                        self.ledger.position_cost(sig.position_key) + cost
+                        self.ledger.position_cost(
+                            sig.position_key, include_v3=sig.rules_version == "v3"
+                        )
+                        + cost
                         > bankroll * self.settings.v2_position_bankroll_fraction
                     ):
                         reason = "cap_position"
                     elif (
-                        self.ledger.event_cost(sig.event_ticker) + cost
+                        self.ledger.event_cost(
+                            sig.event_ticker, include_v3=sig.rules_version == "v3"
+                        )
+                        + cost
                         > bankroll * self.settings.v2_event_bankroll_fraction
                     ):
                         reason = "cap_event"
                     elif (
-                        self.ledger.v2_new_risk_since(utc_day) + cost
+                        self.ledger.v2_new_risk_since(utc_day, include_v3=sig.rules_version == "v3")
+                        + cost
                         > bankroll * self.settings.v2_daily_bankroll_fraction
                     ):
                         reason = "cap_day"
                     elif (
-                        self.ledger.v2_total_open_cost() + cost
+                        self.ledger.v2_total_open_cost(include_v3=sig.rules_version == "v3") + cost
                         > bankroll * self.settings.v2_total_open_bankroll_fraction
                     ):
                         reason = "cap_total"
@@ -327,7 +339,7 @@ class Engine:
         return self.settings.maker_fee_multiplier
 
     def _fee_amount(self, sig: Signal, price: Decimal, count: Decimal) -> Decimal:
-        if sig.rules_version != "v2":
+        if sig.rules_version not in {"v2", "v3"}:
             return fee_for(price, count, self._fee_multiplier(sig))
         if sig.fee_type not in {"quadratic", "quadratic_with_maker_fees"}:
             raise ValueError(f"unknown fee type: {sig.fee_type}")
@@ -404,7 +416,9 @@ class Engine:
                 event_ticker=sig.event_ticker,
                 tags=sig.tags,
                 commence_time=sig.commence_time,
-                fee_model_version=FEE_MODEL_VERSION if sig.rules_version == "v2" else "v1-flat",
+                fee_model_version=FEE_MODEL_VERSION
+                if sig.rules_version in {"v2", "v3"}
+                else "v1-flat",
             )
         except ValueError as e:
             log.warning("skip %s: %s", sig.ticker, e)

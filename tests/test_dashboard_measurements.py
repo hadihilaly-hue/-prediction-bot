@@ -67,6 +67,7 @@ def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: i
     assert measurement["brier_fills"]["market_value"] == 0.25
     assert measurement["brier_positions"]["market_value"] == 0.25
     assert measurement["by_version"]["v2"]["brier_fills"]["n"] == 1
+    assert measurement["by_version"]["v3"]["brier_fills"]["n"] == 0
     assert measurement["by_version"]["v1"]["brier_fills"]["n"] == 0
     assert measurement["by_version"]["v2"]["clv"]["league"]["KXNFLGAME"]["n"] == 1
     assert (
@@ -174,3 +175,31 @@ def test_dashboard_shows_phase_four_experiment_metrics(tmp_path) -> None:  # typ
     html = render_dashboard(ledger)
     assert "Line-move follower is shadow-only" in html
     assert "Road-dog experiment evaluation at 50 and 100 positions" in html
+
+
+def test_dashboard_data_includes_v3_fills_in_their_own_version(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "dashboard-v3.sqlite", Decimal("1000"))
+    ticker = "KXNFLGAME-26OCT25KCLV-LV"
+    ledger.record_fill(
+        "sportsbook_v3",
+        ticker,
+        OutcomeSide.yes,
+        Decimal("0.50"),
+        Decimal("2"),
+        Decimal("0"),
+        Decimal("0.70"),
+        rules_version="v3",
+        position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders",
+        event_ticker="KXNFLGAME-26OCT25KCLV",
+    )
+    ledger.conn.execute(
+        "INSERT INTO settlements (ticker,settled_at,result,pnl) VALUES (?,?,?,?)",
+        (ticker, datetime.now(timezone.utc).isoformat(), "yes", "1"),
+    )
+    ledger.conn.commit()
+
+    measurement = dashboard_data(ledger)["measurement"]
+    assert measurement["positions"][0]["version"] == "v3"
+    assert measurement["by_version"]["v3"]["brier_fills"]["n"] == 1
+    assert measurement["by_version"]["v2"]["brier_fills"]["n"] == 0
+    assert measurement["by_version"]["v1"]["brier_fills"]["n"] == 0

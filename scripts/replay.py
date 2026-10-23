@@ -22,6 +22,7 @@ from prediction_bot.venues.kalshi import KalshiClient
 ET = ZoneInfo("America/New_York")
 UTC = timezone.utc
 UNKNOWN_RULES = ("dispersion", "few_books", "wide_spread", "depth", "worst_case_devig")
+SHARP_BOOKS = frozenset({"pinnacle", "circa", "betonlineag"})
 MONTHS = {
     month: index + 1
     for index, month in enumerate(
@@ -104,6 +105,13 @@ class ReplaySignal:
     size: Decimal
     rationale: str
     acted: bool
+    devig_json: str | None = None
+    reference_source: str | None = None
+    book_probs_json: str | None = None
+    position_key: str | None = None
+    tags: str | None = None
+    open_interest: Decimal | None = None
+    available_size: Decimal | None = None
 
     @property
     def event_ticker(self) -> str:
@@ -129,6 +137,7 @@ class Decision:
     fee_multiplier: Decimal = Decimal(0)
     run_key: str = ""
     v2_would_trade: bool = False
+    large_gap: bool = False
     contracts: int = 0
     pnl: Decimal | None = None
     clv_kalshi: Decimal | None = None
@@ -174,12 +183,13 @@ def _event_team_ids(signal: ReplaySignal, sport: str) -> set[str] | None:
     return None
 
 
-def _mapping_reason(signal: ReplaySignal) -> str | None:
+def _mapping_reason(signal: ReplaySignal, fair: Decimal | None = None) -> str | None:
     sport = KALSHI_SERIES_TO_SPORT.get(signal.series)
     reference = _rationale_reference(signal)
     if sport is None or reference is None:
         return "mapping_failed"
     rationale_name, probability = reference
+    side_fair = signal.fair if fair is None else fair
     ticker_team = team_for_code(signal.series, signal.code)
     rationale_team = team_for_odds_name(sport, rationale_name)
     if signal.code in {"TIE", "DRAW"} and "draw" in rationale_name.casefold():
@@ -196,13 +206,13 @@ def _mapping_reason(signal: ReplaySignal) -> str | None:
             return None
         expected_yes = probability
         expected_side = expected_yes if signal.side == "yes" else Decimal(1) - expected_yes
-        return "mapping_mismatch" if abs(signal.fair - expected_side) > Decimal("0.02") else None
+        return "mapping_mismatch" if abs(side_fair - expected_side) > Decimal("0.02") else None
     if probability is None:
         return None
     if event_teams is None:
         return "mapping_mismatch"
     if signal.series in THREE_WAY_SERIES:
-        observed_yes = signal.fair if signal.side == "yes" else Decimal(1) - signal.fair
+        observed_yes = side_fair if signal.side == "yes" else Decimal(1) - side_fair
         return (
             "mapping_mismatch"
             if observed_yes > Decimal(1) - probability + Decimal("0.02")
@@ -210,7 +220,7 @@ def _mapping_reason(signal: ReplaySignal) -> str | None:
         )
     expected_yes = Decimal(1) - probability
     expected_side = expected_yes if signal.side == "yes" else Decimal(1) - expected_yes
-    return "mapping_mismatch" if abs(signal.fair - expected_side) > Decimal("0.02") else None
+    return "mapping_mismatch" if abs(side_fair - expected_side) > Decimal("0.02") else None
 
 
 def evaluate_signal(
@@ -218,16 +228,13 @@ def evaluate_signal(
     fee_map: dict[str, tuple[str, Decimal]],
     settings: Settings,
     history: list[ReplaySignal],
+    rules_version: str = "v2",
 ) -> Decision:
     decision = Decision(signal=signal, fair=signal.fair)
     decision.unknown.extend(UNKNOWN_RULES)
     sport = KALSHI_SERIES_TO_SPORT.get(signal.series)
     if sport in getattr(settings, "v2_disabled_sports", []):
         decision.reasons.append("league_disabled")
-    mapping_reason = _mapping_reason(signal)
-    if mapping_reason:
-        decision.reasons.append(mapping_reason)
-
     game_day = event_day(signal.event_ticker)
     commence = start_time(signal.event_ticker)
     if commence is None:
@@ -294,7 +301,47 @@ def evaluate_signal(
     else:
         proxy = game_day.replace(hour=12)
         hours_to_proxy = Decimal(str((proxy.astimezone(UTC) - signal.created_at).total_seconds() / 3600))
-    fair = longshot_haircut(signal.fair, hours_to_proxy, settings.longshot_haircut)
+    fair_pre = signal.fair
+    if rules_version == "v3" and signal.devig_json:
+        try:
+            diagnostics = json.loads(signal.devig_json)
+            methods = diagnostics.get("method_fairs", diagnostics)
+            if signal.reference_source is not None and methods:
+                fair_pre = (
+                    min(Decimal(value) for value in methods.values())
+                    if settings.v3_devig_method == "worst_case"
+                    else Decimal(methods[settings.v3_devig_method])
+                )
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            decision.unknown.append("v3_devig_method")
+    mapping_reason = _mapping_reason(
+        signal,
+        fair_pre if rules_version == "v3" else None,
+    )
+    if mapping_reason:
+        decision.reasons.append(mapping_reason)
+    if rules_version == "v3":
+        if signal.reference_source == "soft_reference" and not settings.v3_allow_soft_reference:
+            decision.reasons.append("soft_reference")
+        fair = (
+            fair_pre
+            if settings.v3_longshot_haircut == "off"
+            else longshot_haircut(fair_pre, hours_to_proxy, settings.v3_longshot_haircut)
+        )
+        decision.unknown.extend(("open_interest", "stale_books", "dq_stop"))
+        if signal.open_interest is not None:
+            decision.unknown.remove("open_interest")
+            if signal.open_interest < settings.v3_min_open_interest:
+                decision.reasons.append("thin_market")
+        if signal.available_size is not None:
+            decision.unknown = [rule for rule in decision.unknown if rule != "depth"]
+            if (
+                signal.available_size < settings.v3_min_ask_depth
+                and "thin_market" not in decision.reasons
+            ):
+                decision.reasons.append("thin_market")
+    else:
+        fair = longshot_haircut(fair_pre, hours_to_proxy, settings.longshot_haircut)
     decision.fair = fair
     if signal.price < settings.v2_price_floor:
         decision.reasons.append("price_floor")
@@ -317,9 +364,48 @@ def evaluate_signal(
         decision.reasons.append("net_edge")
     if signal.price < settings.v2_longshot_price and gross_edge < settings.v2_longshot_min_gross:
         decision.reasons.append("longshot_edge")
-    if gross_edge >= settings.max_gross_edge and signal.ticker not in settings.big_edge_whitelist:
-        decision.reasons.append("big_edge")
     decision.position_key = canonical_key(signal.event_ticker, signal.code, signal.side)
+    if rules_version == "v3" and gross_edge > settings.max_gross_edge:
+        detail = ""
+        if gross_edge > settings.v3_large_gap_max:
+            detail = "gross edge exceeds v3_large_gap_max"
+        elif settings.v3_large_gap_mode == "block":
+            detail = "v3_large_gap_mode=block"
+        else:
+            earlier_gap = any(
+                item.id != signal.id
+                and canonical_key(item.event_ticker, item.code, item.side) == decision.position_key
+                and timedelta(hours=2)
+                <= signal.created_at - item.created_at
+                <= timedelta(hours=36)
+                and item.fair - item.price > settings.max_gross_edge
+                for item in history
+            )
+            if not earlier_gap:
+                detail = "no same-position big_edge/large_gap record from 2-36 hours earlier"
+            else:
+                try:
+                    book_probs = json.loads(signal.book_probs_json or "{}")
+                    sharp = [
+                        Decimal(str(book_probs[name]["multiplicative_fair"]))
+                        for name in SHARP_BOOKS
+                        if name in book_probs and book_probs[name].get("multiplicative_fair") is not None
+                    ]
+                    dispersion = max(sharp) - min(sharp) if len(sharp) >= 2 else None
+                except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                    dispersion = None
+                if dispersion is None:
+                    decision.unknown.append("sharp_book_dispersion")
+                    detail = "sharp-book dispersion unavailable in replay data"
+                elif dispersion >= Decimal("0.02"):
+                    detail = f"sharp-book dispersion is not under 0.02: {dispersion}"
+        if detail:
+            decision.reasons.append("big_edge")
+        else:
+            decision.large_gap = True
+    elif rules_version != "v3" and gross_edge >= settings.max_gross_edge:
+        if signal.ticker not in settings.big_edge_whitelist:
+            decision.reasons.append("big_edge")
     return decision
 
 
@@ -339,12 +425,62 @@ def load_database(
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     signals: list[ReplaySignal] = []
+    signal_columns = _table_columns(conn, "signals")
+    signal_fields = [
+        "id",
+        "created_at",
+        "strategy",
+        "ticker",
+        "side",
+        "fair_prob",
+        "limit_price",
+        "edge",
+        "size",
+        "rationale",
+        "acted",
+    ]
+    optional_fields = (
+        "devig_json",
+        "reference_source",
+        "book_probs_json",
+        "position_key",
+        "tags",
+        "open_interest",
+        "available_size",
+    )
+    signal_select = ",".join(signal_fields) + "," + ",".join(
+        field if field in signal_columns else f"NULL AS {field}" for field in optional_fields
+    )
+    tables = {
+        str(row[0])
+        for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
     for row in conn.execute(
-        "SELECT id,created_at,strategy,ticker,side,fair_prob,limit_price,edge,size,rationale,acted "
-        "FROM signals ORDER BY created_at,id"
+        f"SELECT {signal_select} FROM signals ORDER BY created_at,id"
     ):
         if str(row["created_at"])[:10] < since:
             continue
+        open_interest = (
+            None
+            if row["open_interest"] is None
+            else Decimal(str(row["open_interest"]))
+        )
+        available_size = (
+            None
+            if row["available_size"] is None
+            else Decimal(str(row["available_size"]))
+        )
+        if open_interest is None and "quote_snapshots" in tables:
+            snapshot_columns = _table_columns(conn, "quote_snapshots")
+            if {"ticker", "open_interest", "created_at"} <= snapshot_columns:
+                id_order = ",id DESC" if "id" in snapshot_columns else ""
+                snapshot = conn.execute(
+                    "SELECT open_interest FROM quote_snapshots WHERE ticker=? AND created_at<=?"
+                    f" ORDER BY created_at DESC{id_order} LIMIT 1",
+                    (str(row["ticker"]), str(row["created_at"])),
+                ).fetchone()
+                if snapshot is not None and snapshot[0] is not None:
+                    open_interest = Decimal(str(snapshot[0]))
         signals.append(
             ReplaySignal(
                 int(row["id"]),
@@ -358,6 +494,13 @@ def load_database(
                 Decimal(str(row["size"])),
                 str(row["rationale"] or ""),
                 bool(row["acted"]),
+                None if row["devig_json"] is None else str(row["devig_json"]),
+                None if row["reference_source"] is None else str(row["reference_source"]),
+                None if row["book_probs_json"] is None else str(row["book_probs_json"]),
+                None if row["position_key"] is None else str(row["position_key"]),
+                None if row["tags"] is None else str(row["tags"]),
+                open_interest,
+                available_size,
             )
         )
     fills: list[dict[str, Any]] = []
@@ -384,10 +527,6 @@ def load_database(
         else {}
     )
     runs: list[dict[str, Any]] = []
-    tables = {
-        str(row[0])
-        for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    }
     if "runs" in tables:
         runs = [
             dict(row)
@@ -581,6 +720,7 @@ def _simulate(
     settlements: dict[str, tuple[str, str | None] | str],
     runs: list[dict[str, Any]],
     settings: Settings,
+    rules_version: str = "v2",
 ) -> list[Decision]:
     run_keys = _run_keys([decision.signal for decision in decisions], runs)
     batches: dict[tuple[str, str], list[Decision]] = defaultdict(list)
@@ -618,6 +758,7 @@ def _simulate(
     for fill in fills:
         fill_by_ticker[str(fill["ticker"])].append(fill)
     settlement_events: list[tuple[datetime, Decision, str, int, Decimal, str, tuple[str, str]]] = []
+    position_days: set[tuple[tuple[str, str], str]] = set()
 
     def settle_due(until: datetime) -> None:
         nonlocal cash, open_cost, total_open
@@ -638,6 +779,18 @@ def _simulate(
     for decision in chosen:
         signal = decision.signal
         settle_due(signal.created_at)
+        local_day = signal.created_at.astimezone(ET).date().isoformat()
+        key = decision.position_key
+        if (
+            rules_version == "v3"
+            and settings.v3_no_reentry
+            and (
+                position_cost.get(key, Decimal(0)) > 0
+                or (key, local_day) in position_days
+            )
+        ):
+            decision.reasons.append("already_held")
+            continue
         effective_price = signal.price + taker_fee_rate(signal.price, decision.fee_multiplier)
         bankroll = cash + open_cost
         if bankroll <= 0 or effective_price >= 1:
@@ -646,7 +799,6 @@ def _simulate(
         kelly = (decision.fair - effective_price) / (1 - effective_price)
         stake = max(Decimal(0), kelly * settings.v2_kelly_fraction * bankroll)
         event = signal.event_ticker
-        key = decision.position_key
         day = signal.created_at.astimezone(UTC).date().isoformat()
         budget = min(
             stake,
@@ -668,6 +820,16 @@ def _simulate(
             if cost <= budget:
                 break
             contracts -= 1
+        if rules_version == "v3" and decision.large_gap:
+            contracts //= 2
+            if contracts > 0:
+                fee = taker_fee(
+                    signal.price,
+                    Decimal(contracts),
+                    decision.fee_multiplier,
+                    settings.fee_rounding,
+                )
+                cost = signal.price * contracts + fee
         if contracts <= 0:
             decision.reasons.append("size_zero")
             continue
@@ -679,6 +841,8 @@ def _simulate(
         position_cost[key] = position_cost.get(key, Decimal(0)) + cost
         event_cost[event] = event_cost.get(event, Decimal(0)) + cost
         daily_cost[day] = daily_cost.get(day, Decimal(0)) + cost
+        if rules_version == "v3" and settings.v3_no_reentry:
+            position_days.add((key, local_day))
 
         matching = next(
             (
@@ -840,6 +1004,81 @@ def render_report(
     return "\n".join(rows)
 
 
+def render_v3_report(
+    since: str,
+    signals: list[ReplaySignal],
+    v2_decisions: list[Decision],
+    v3_decisions: list[Decision],
+    fills: list[dict[str, Any]],
+) -> str:
+    report = render_report("v3", since, signals, v3_decisions, fills)
+    report = (
+        report.replace("v2-blocked fills", "v3-blocked fills")
+        .replace("v2 would-trade positions", "v3 would-trade positions")
+        .replace("V2 decision", "V3 decision")
+        .replace("v2 replay settled P&L", "v3 replay settled P&L")
+    )
+    v2_positions = {
+        decision.position_key: decision for decision in v2_decisions if decision.v2_would_trade
+    }
+    v3_positions = {
+        decision.position_key: decision for decision in v3_decisions if decision.v2_would_trade
+    }
+    v2_by_key = {decision.position_key: decision for decision in v2_decisions}
+    v3_by_key = {decision.position_key: decision for decision in v3_decisions}
+    changes: list[list[object]] = []
+    for key in sorted(set(v2_by_key) | set(v3_by_key)):
+        old = v2_positions.get(key)
+        new = v3_positions.get(key)
+        old_reasons = tuple(old.reasons) if old is not None else tuple(v2_by_key[key].reasons)
+        new_reasons = tuple(new.reasons) if new is not None else tuple(v3_by_key[key].reasons)
+        same_trade = (old is None) == (new is None)
+        same_size = old is None or new is None or old.contracts == new.contracts
+        if same_trade and same_size and old_reasons == new_reasons:
+            continue
+        source = new or old or v3_by_key.get(key) or v2_by_key[key]
+        if old is not None and new is None:
+            reason = ", ".join(v3_by_key[key].reasons) or "blocked by v3 sizing/gates"
+        elif old is None and new is not None:
+            reason = ", ".join(v2_by_key[key].reasons) or "v2 sizing/gates"
+        elif old is None and new is None:
+            reason = (
+                f"v2: {', '.join(old_reasons) or 'no trade'}; "
+                f"v3: {', '.join(new_reasons) or 'no trade'}"
+            )
+        else:
+            reason = f"contracts {old.contracts} → {new.contracts}"
+        changes.append(
+            [
+                source.signal.ticker,
+                source.signal.side,
+                "would-trade" if old else "blocked",
+                "would-trade" if new else "blocked",
+                reason,
+            ]
+        )
+    if not changes:
+        changes = [["—", "—", "—", "—", "No position changes"]]
+    report = report.replace(
+        "Replay uses stored v1 weighted multiplicative fair values. Dispersion, few books, "
+        "wide spread, displayed depth, and worst-case devig are unknown; because alternative "
+        "devig methods can only lower the stored fair, trade counts are an upper bound. "
+        "Longshot haircut timing uses ticker date at 12:00 ET as a commencement proxy. "
+        "Only MLB ticker ET starts and published Appendix D kickoffs are used as exact starts.",
+        "V3 uses stored per-book and de-vig data when available; otherwise it retains the "
+        "stored fair and marks unavailable gates as unknown. Stored available_size is used "
+        "for the v3 depth floor when present; otherwise depth is marked unknown. The stored "
+        "Kalshi quote stands "
+        "in for the free orderbook refetch. Historical OI, freshness, run-level DQ, and "
+        "same-day activity are unavailable where the ledger did not persist them, so this "
+        "replay is an upper-bound comparison rather than a full historical v3 simulation.",
+    )
+    return report + "\n## v2-v3 changed positions and reasons\n\n" + _md_table(
+        ["Ticker", "Side", "V2", "V3", "Reason for change"],
+        changes,
+    ) + "\n"
+
+
 def run_replay(
     db_path: Path,
     since: str,
@@ -860,6 +1099,63 @@ def run_replay(
         else {}
     )
     history = signals
+    if rules == "v3":
+        v2_decisions = [
+            evaluate_signal(signal, fees, settings, history, "v2") for signal in signals
+        ]
+        v3_decisions = [
+            evaluate_signal(signal, fees, settings, history, "v3") for signal in signals
+        ]
+        _simulate(v2_decisions, fills, settlements, runs, settings)
+        _simulate(v3_decisions, fills, settlements, runs, settings, "v3")
+        clv_client = kalshi or KalshiClient(KALSHI_PROD_REST)
+        for decision in [*v2_decisions, *v3_decisions]:
+            if decision.v2_would_trade:
+                _record_clv(decision, cache_dir, clv_client)
+        report = render_v3_report(since, signals, v2_decisions, v3_decisions, fills)
+        report = report.replace(
+            f"Signals since {since}:",
+            f"Stored markets loaded: {len(markets)}; signals since {since}:",
+            1,
+        )
+        v2_position_map = {
+            decision.position_key: decision
+            for decision in v2_decisions
+            if decision.v2_would_trade
+        }
+        v3_position_map = {
+            decision.position_key: decision
+            for decision in v3_decisions
+            if decision.v2_would_trade
+        }
+        v2_v3_diff = [
+            (key, v2_position_map.get(key), v3_position_map.get(key))
+            for key in sorted(set(v2_position_map) | set(v3_position_map))
+            if (
+                key not in v2_position_map
+                or key not in v3_position_map
+                or v2_position_map[key].contracts != v3_position_map[key].contracts
+            )
+        ]
+        associated = _associate_fills(fills, signals)
+        v3_by_signal = {decision.signal.id: decision for decision in v3_decisions}
+        return report, {
+            "signals": len(signals),
+            "fills": len(fills),
+            "markets": len(markets),
+            "blocked_fills": sum(
+                1
+                for fill in fills
+                if (
+                    (signal := associated[int(fill["id"])]) is None
+                    or not v3_by_signal[signal.id].v2_would_trade
+                )
+            ),
+            "decisions": v3_decisions,
+            "v2_positions": [item for item in v2_decisions if item.v2_would_trade],
+            "v3_positions": [item for item in v3_decisions if item.v2_would_trade],
+            "v2_v3_diff": v2_v3_diff,
+        }
     decisions = [evaluate_signal(signal, fees, settings, history) for signal in signals]
     decisions_by_id = {decision.signal.id: decision for decision in decisions}
     if rules != "v1":
@@ -894,8 +1190,8 @@ def run_replay(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Read-only historical v1/v2 replay.")
-    parser.add_argument("--rules", choices=("v1", "v2", "both"), default="both")
+    parser = argparse.ArgumentParser(description="Read-only historical v1/v2/v3 replay.")
+    parser.add_argument("--rules", choices=("v1", "v2", "v3", "both"), default="both")
     parser.add_argument("--since", default="2026-09-28")
     parser.add_argument("--db", required=True, type=Path)
     parser.add_argument("--out", choices=("md",), default="md")
