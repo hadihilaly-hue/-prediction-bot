@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from prediction_bot.config import Settings
-from prediction_bot.odds_planner import PlannedGame
+from prediction_bot.odds_planner import PlannedGame, _priority
 
 if TYPE_CHECKING:
     import sqlite3
@@ -55,6 +55,8 @@ class RotationScore:
     staleness_hours: Decimal
     score: Decimal
     soonest_kickoff: datetime | None
+    entry_value: Decimal = Decimal(0)
+    measurement_value: Decimal = Decimal(0)
 
 
 def _utc(value: datetime) -> datetime:
@@ -247,15 +249,23 @@ def rotation_scores(
     earliest = now_utc + timedelta(hours=settings.min_lead_hours)
     latest = now_utc + ENTRY_LOOKAHEAD
     values: dict[str, Decimal] = {}
+    entry_values: dict[str, Decimal] = {}
+    measurement_values: dict[str, Decimal] = {}
     soonest: dict[str, datetime | None] = {}
     for feed, games in games_by_sport.items():
-        value = Decimal(0)
+        entry_value = Decimal(0)
+        measurement_value = Decimal(0)
         kickoffs: list[datetime] = []
         for game in games:
             kickoff = _utc(game.kickoff)
-            if not earliest <= kickoff <= latest:
+            in_entry_window = earliest <= kickoff <= latest
+            in_measurement_window = settings.odds_measurement_windows and _priority(
+                game, now_utc
+            ) in {1, 2, 3}
+            if not in_entry_window and not in_measurement_window:
                 continue
-            kickoffs.append(kickoff)
+            if in_entry_window:
+                kickoffs.append(kickoff)
             rows = ledger.conn.execute(
                 "SELECT ticker,yes_bid,yes_ask FROM market_snapshots "
                 "WHERE event_ticker=? ORDER BY fetched_at DESC,id DESC",
@@ -273,8 +283,15 @@ def rotation_scores(
                 spread = Decimal(str(ask_value)) - Decimal(str(bid_value))
                 tightest = spread if tightest is None else min(tightest, spread)
             if tightest is not None and tightest <= settings.v2_max_spread:
-                value += Decimal(1)
-        values[feed] = value if feed in stats and eligible(stats[feed], settings) else Decimal(0)
+                if in_entry_window:
+                    entry_value += Decimal(1)
+                else:
+                    measurement_value += Decimal(1)
+        if feed not in stats or not eligible(stats[feed], settings):
+            entry_value = measurement_value = Decimal(0)
+        entry_values[feed] = entry_value
+        measurement_values[feed] = measurement_value
+        values[feed] = entry_value + measurement_value
         soonest[feed] = min(kickoffs, default=None)
 
     last_pulls: dict[str, datetime] = {}
@@ -299,9 +316,62 @@ def rotation_scores(
             )
         )
         scored[feed] = RotationScore(
-            values[feed], staleness, values[feed] * staleness, soonest[feed]
+            values[feed],
+            staleness,
+            values[feed] * staleness,
+            soonest[feed],
+            entry_value=entry_values[feed],
+            measurement_value=measurement_values[feed],
         )
     return scored
+
+
+def market_ask_moves_since(
+    ledger: Ledger,
+    event_ticker: str,
+    last_pull: datetime,
+    now: datetime,
+    spread_gate: Decimal | None = None,
+) -> list[tuple[str, Decimal]]:
+    moves: dict[str, set[Decimal]] = {}
+    tickers = ledger.conn.execute(
+        "SELECT DISTINCT ticker FROM market_snapshots WHERE event_ticker=? ORDER BY ticker",
+        (event_ticker,),
+    )
+    for (ticker_value,) in tickers:
+        ticker = str(ticker_value)
+        before = ledger.conn.execute(
+            "SELECT yes_bid,yes_ask FROM market_snapshots "
+            "WHERE ticker=? AND fetched_at<=? ORDER BY fetched_at DESC,id DESC LIMIT 1",
+            (ticker, _utc(last_pull).isoformat()),
+        ).fetchone()
+        after = ledger.conn.execute(
+            "SELECT yes_bid,yes_ask FROM market_snapshots "
+            "WHERE ticker=? AND fetched_at<=? ORDER BY fetched_at DESC,id DESC LIMIT 1",
+            (ticker, _utc(now).isoformat()),
+        ).fetchone()
+        if after is None:
+            continue
+        bid_value, yes_ask_value = after
+        if bid_value is None or yes_ask_value is None:
+            continue
+        if (
+            spread_gate is not None
+            and Decimal(str(yes_ask_value)) - Decimal(str(bid_value)) > spread_gate
+        ):
+            continue
+        after_asks = (Decimal(str(yes_ask_value)), Decimal(1) - Decimal(str(bid_value)))
+        before_asks: tuple[Decimal | None, Decimal | None] = (None, None)
+        if before is not None:
+            before_bid, before_yes_ask = before
+            before_asks = (
+                Decimal(str(before_yes_ask)) if before_yes_ask is not None else None,
+                Decimal(1) - Decimal(str(before_bid)) if before_bid is not None else None,
+            )
+        for previous, current in zip(before_asks, after_asks, strict=True):
+            if previous is None or abs(current - previous) >= Decimal("0.01"):
+                moves.setdefault(ticker, set()).add(current.normalize())
+    return [(ticker, min(asks)) for ticker, asks in sorted(moves.items())]
 
 
 def _market_moved_since(
@@ -309,35 +379,11 @@ def _market_moved_since(
     event_ticker: str,
     last_pull: datetime,
     now: datetime,
+    spread_gate: Decimal | None = None,
 ) -> bool:
-    tickers = {
-        str(row[0])
-        for row in ledger.conn.execute(
-            "SELECT DISTINCT ticker FROM market_snapshots WHERE event_ticker=?",
-            (event_ticker,),
-        )
-    }
-    for ticker in tickers:
-        before = ledger.conn.execute(
-            "SELECT yes_bid,yes_ask FROM market_snapshots "
-            "WHERE ticker=? AND fetched_at<=? ORDER BY fetched_at DESC,id DESC LIMIT 1",
-            (ticker, last_pull.isoformat()),
-        ).fetchone()
-        after = ledger.conn.execute(
-            "SELECT yes_bid,yes_ask FROM market_snapshots "
-            "WHERE ticker=? AND fetched_at<=? ORDER BY fetched_at DESC,id DESC LIMIT 1",
-            (ticker, now.isoformat()),
-        ).fetchone()
-        if after is None:
-            continue
-        if before is None:
-            return True
-        for before_value, after_value in zip(before, after, strict=True):
-            if before_value is None or after_value is None:
-                continue
-            if abs(Decimal(str(after_value)) - Decimal(str(before_value))) >= Decimal("0.01"):
-                return True
-    return False
+    return bool(
+        market_ask_moves_since(ledger, event_ticker, last_pull, now, spread_gate=spread_gate)
+    )
 
 
 def select_rotation_feeds(
@@ -351,38 +397,94 @@ def select_rotation_feeds(
 ) -> tuple[list[str], dict[str, str], dict[str, RotationScore]]:
     """Select at most one ranked slot per feed, banking skipped slots."""
     scores = rotation_scores(ledger, games_by_sport, stats, settings, now)
-    ranked = sorted(
-        (feed for feed, score in scores.items() if score.score > 0),
-        key=lambda feed: (
-            -scores[feed].score,
-            scores[feed].soonest_kickoff or datetime.max.replace(tzinfo=timezone.utc),
-            feed,
-        ),
-    )
-    skips: dict[str, str] = {}
-    selected: list[str] = []
-    for feed in ranked[: budget if budget is not None else len(ranked)]:
+    now_utc = _utc(now)
+    entry_start = now_utc + timedelta(hours=settings.min_lead_hours)
+    entry_end = now_utc + ENTRY_LOOKAHEAD
+    feed_state: dict[str, tuple[datetime | None, bool, bool]] = {}
+    for feed, games in games_by_sport.items():
         last_row = ledger.conn.execute(
             "SELECT created_at FROM feed_pulls "
             "WHERE feed=? ORDER BY created_at DESC,id DESC LIMIT 1",
             (feed,),
         ).fetchone()
         last_pull = _timestamp(str(last_row[0])) if last_row is not None else None
+        large_gap = any(game.large_gap_pending for game in games)
+        moved = last_pull is not None and any(
+            _market_moved_since(
+                ledger, game.event_ticker, last_pull, now_utc, settings.v2_max_spread
+            )
+            for game in games
+            if entry_start <= _utc(game.kickoff) <= entry_end
+        )
+        feed_state[feed] = (last_pull, large_gap, moved)
+
+    ranked = sorted(
+        (
+            feed
+            for feed, score in scores.items()
+            if score.value > 0
+            and (
+                feed_state[feed][1]
+                or feed_state[feed][2]
+                or score.entry_value * score.staleness_hours > 0
+            )
+        ),
+        key=lambda feed: (
+            0 if feed_state[feed][1] else 1 if feed_state[feed][2] else 2,
+            -scores[feed].entry_value * scores[feed].staleness_hours,
+            scores[feed].soonest_kickoff or datetime.max.replace(tzinfo=timezone.utc),
+            feed,
+        ),
+    )
+    selection = ranked[: budget if budget is not None else len(ranked)]
+    measurement_feeds: set[str] = set()
+    if settings.odds_measurement_windows and budget is not None:
+        remaining = max(0, budget - len(selection))
+        ranked_set = set(ranked)
+        measurements: list[tuple[int, Decimal, datetime, str]] = []
+        for feed, games in games_by_sport.items():
+            score = scores[feed]
+            if feed in ranked_set or score.measurement_value <= 0:
+                continue
+            priorities = [
+                (priority, _utc(game.kickoff))
+                for game in games
+                if (priority := _priority(game, now_utc)) in {1, 2, 3}
+            ]
+            if not priorities:
+                continue
+            priority, kickoff = min(priorities)
+            measurements.append(
+                (
+                    priority,
+                    -(score.measurement_value * score.staleness_hours),
+                    kickoff,
+                    feed,
+                )
+            )
+        for _measurement_priority, _score, _kickoff, feed in sorted(measurements)[:remaining]:
+            selection.append(feed)
+            measurement_feeds.add(feed)
+
+    skips: dict[str, str] = {}
+    selected: list[str] = []
+    for feed in selection:
+        last_pull, large_gap, moved = feed_state[feed]
         if (
             last_pull is not None
-            and _utc(now) - last_pull < timedelta(hours=6)
-            and not any(
-                _market_moved_since(ledger, game.event_ticker, last_pull, _utc(now))
-                for game in games_by_sport.get(feed, ())
-                if _utc(game.kickoff) >= _utc(now) + timedelta(hours=settings.min_lead_hours)
-                and _utc(game.kickoff) <= _utc(now) + ENTRY_LOOKAHEAD
-            )
+            and now_utc - last_pull < timedelta(hours=6)
+            and not large_gap
+            and not moved
         ):
             skips[feed] = "no_move"
             continue
         if events_client is not None and getattr(events_client, "events_free", True):
-            window_start = _utc(now) + timedelta(hours=settings.min_lead_hours)
-            window_end = _utc(now) + ENTRY_LOOKAHEAD
+            if feed in measurement_feeds:
+                window_start = now_utc + timedelta(hours=1)
+                window_end = now_utc + timedelta(hours=26)
+            else:
+                window_start = entry_start
+                window_end = entry_end
             try:
                 events = events_client.events(feed, window_start, window_end)
                 no_events = getattr(events_client, "events_free", True) and not any(

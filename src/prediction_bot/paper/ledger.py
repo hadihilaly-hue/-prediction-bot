@@ -228,7 +228,8 @@ CREATE TABLE IF NOT EXISTS runs (
     cash TEXT NOT NULL,
     open_cost TEXT NOT NULL,
     odds_used INTEGER,
-    odds_remaining INTEGER
+    odds_remaining INTEGER,
+    trigger_reason TEXT
 );
 CREATE TABLE IF NOT EXISTS odds_snapshots (
     id INTEGER PRIMARY KEY,
@@ -278,6 +279,18 @@ CREATE TABLE IF NOT EXISTS odds_pacer_state (
     carry REAL NOT NULL,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS odds_triggers (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    feed TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    ask TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('planned','pulled','skipped'))
+);
+CREATE INDEX IF NOT EXISTS odds_triggers_move_lookup
+    ON odds_triggers(feed, ticker, ask, created_at);
+CREATE INDEX IF NOT EXISTS odds_triggers_created_status
+    ON odds_triggers(created_at, status);
 CREATE TABLE IF NOT EXISTS blocks (
     id INTEGER PRIMARY KEY,
     created_at TEXT NOT NULL,
@@ -520,6 +533,7 @@ class Ledger:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(self.path))
         self.conn.executescript(SCHEMA)
+        self.conn.execute("DROP INDEX IF EXISTS odds_triggers_move_unique")
         self.conn.execute("DROP INDEX IF EXISTS maker_shadow_position_key")
         self.conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS maker_shadow_position_key "
@@ -567,7 +581,11 @@ class Ledger:
             "feed_pulls": {"requests_last": "INTEGER"},
             "blocks": {"position_key": "TEXT"},
             "edge_reviews": {"position_key": "TEXT"},
-            "runs": {"odds_used": "INTEGER", "odds_remaining": "INTEGER"},
+            "runs": {
+                "odds_used": "INTEGER",
+                "odds_remaining": "INTEGER",
+                "trigger_reason": "TEXT",
+            },
             "shadow_decisions": {
                 "clv_kalshi": "TEXT",
                 "clv_gameday": "TEXT",
@@ -1512,9 +1530,90 @@ class Ledger:
         self.conn.execute(
             "INSERT INTO odds_pacer_state(id,carry,updated_at) VALUES(1,?,?) "
             "ON CONFLICT(id) DO UPDATE SET carry=excluded.carry,updated_at=excluded.updated_at",
-            (max(0.0, min(float(carry), 1.0)), stamp),
+            (max(-1.0, min(float(carry), 1.0)), stamp),
         )
         self.conn.commit()
+
+    @staticmethod
+    def _odds_trigger_ask(ask: Decimal | str) -> str:
+        return format(Decimal(str(ask)).normalize(), "f")
+
+    def has_odds_trigger(
+        self,
+        feed: str,
+        ticker: str,
+        ask: Decimal | str,
+        since: datetime | None = None,
+    ) -> bool:
+        if since is not None:
+            return (
+                self.conn.execute(
+                    "SELECT 1 FROM odds_triggers "
+                    "WHERE feed=? AND ticker=? AND ask=? AND created_at>? LIMIT 1",
+                    (
+                        feed,
+                        ticker,
+                        self._odds_trigger_ask(ask),
+                        self._utc(since).isoformat(),
+                    ),
+                ).fetchone()
+                is not None
+            )
+        return (
+            self.conn.execute(
+                "SELECT 1 FROM odds_triggers WHERE feed=? AND ticker=? AND ask=? LIMIT 1",
+                (feed, ticker, self._odds_trigger_ask(ask)),
+            ).fetchone()
+            is not None
+        )
+
+    def record_odds_trigger(
+        self,
+        feed: str,
+        ticker: str,
+        ask: Decimal | str,
+        at: datetime | None = None,
+        *,
+        since: datetime | None = None,
+    ) -> int | None:
+        ask_text = self._odds_trigger_ask(ask)
+        if self.has_odds_trigger(feed, ticker, ask_text, since=since):
+            return None
+        cursor = self.conn.execute(
+            "INSERT INTO odds_triggers(created_at,feed,ticker,ask,status) VALUES(?,?,?,?,?)",
+            (
+                self._utc(at or datetime.now(timezone.utc)).isoformat(),
+                feed,
+                ticker,
+                ask_text,
+                "planned",
+            ),
+        )
+        self.conn.commit()
+        return int(cursor.lastrowid) if cursor.lastrowid is not None else None
+
+    def odds_triggers_pulled_today(self, at: datetime | None = None) -> int:
+        now = self._utc(at or datetime.now(timezone.utc))
+        start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+        end = start + timedelta(days=1)
+        row = self.conn.execute(
+            "SELECT COUNT(*) FROM odds_triggers WHERE status='pulled' "
+            "AND created_at>=? AND created_at<?",
+            (start.isoformat(), end.isoformat()),
+        ).fetchone()
+        return int(row[0]) if row is not None else 0
+
+    def finish_odds_trigger(self, feed: str, status: str) -> bool:
+        if status not in {"pulled", "skipped"}:
+            raise ValueError(f"invalid odds trigger status: {status}")
+        cursor = self.conn.execute(
+            "UPDATE odds_triggers SET status=? WHERE id=("
+            "SELECT id FROM odds_triggers WHERE feed=? AND status='planned' "
+            "ORDER BY id DESC LIMIT 1)",
+            (status, feed),
+        )
+        self.conn.commit()
+        return cursor.rowcount > 0
 
     @staticmethod
     def _max_book_update(updates: dict[str, str]) -> str | None:
@@ -1845,12 +1944,13 @@ class Ledger:
         at: datetime | None = None,
         odds_used: int | None = None,
         odds_remaining: int | None = None,
+        trigger_reason: str | None = None,
     ) -> None:
         """Snapshot one engine cycle so the dashboard can chart activity and equity over time."""
         open_cost = sum((p.cost for p in self.positions()), Decimal(0))
         self.conn.execute(
             "INSERT INTO runs (ran_at, strategies, scanned, signals, filled, settled, cash,"
-            " open_cost, odds_used, odds_remaining) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            " open_cost, odds_used, odds_remaining, trigger_reason) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (
                 self._utc(at or datetime.now(timezone.utc)).isoformat(),
                 ",".join(strategies),
@@ -1862,6 +1962,7 @@ class Ledger:
                 str(open_cost),
                 odds_used,
                 odds_remaining,
+                trigger_reason,
             ),
         )
         self.conn.commit()
