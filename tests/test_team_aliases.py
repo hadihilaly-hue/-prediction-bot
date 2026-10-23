@@ -76,6 +76,38 @@ def test_exact_manual_titles_disambiguate_miami_and_los_angeles() -> None:
     assert not kalshi_name_ok("KXMLSGAME", "la-galaxy", "Los Angeles FC")
 
 
+@pytest.mark.parametrize(
+    ("code", "team_id", "title", "odds_name"),
+    [
+        ("MIA", "miami-hurricanes", "Miami (FL)", "Miami Hurricanes"),
+        ("MOH", "miami-oh-redhawks", "Miami (OH)", "Miami (OH) RedHawks"),
+        ("USC", "usc-trojans", "USC", "USC Trojans"),
+        ("SCAR", "south-carolina-gamecocks", "South Carolina", "South Carolina Gamecocks"),
+        ("TXAM", "texas-a-m-aggies", "Texas A&M", "Texas A&M Aggies"),
+        ("TEX", "texas-longhorns", "Texas", "Texas Longhorns"),
+        ("MISS", "ole-miss-rebels", "Ole Miss", "Ole Miss Rebels"),
+        ("PITT", "pittsburgh-panthers", "Pittsburgh", "Pittsburgh Panthers"),
+        ("CMU", "central-michigan-chippewas", "Central Michigan", "Central Michigan Chippewas"),
+        ("EMU", "eastern-michigan-eagles", "Eastern Michigan", "Eastern Michigan Eagles"),
+        ("WMU", "western-michigan-broncos", "Western Michigan", "Western Michigan Broncos"),
+        ("NIU", "northern-illinois-huskies", "Northern Illinois", "Northern Illinois Huskies"),
+        ("MICH", "michigan-wolverines", "Michigan", "Michigan Wolverines"),
+        ("MSU", "michigan-state-spartans", "Michigan St.", "Michigan State Spartans"),
+        ("ARIZ", "arizona-wildcats", "Arizona", "Arizona Wildcats"),
+    ],
+)
+def test_live_ncaaf_market_alias_spot_checks(
+    code: str, team_id: str, title: str, odds_name: str
+) -> None:
+    assert team_for_code("KXNCAAFGAME", code) == team_id
+    assert team_for_odds_name("americanfootball_ncaaf", odds_name) == team_id
+    assert kalshi_name_ok("KXNCAAFGAME", team_id, title)
+
+
+def test_appalachian_short_name_without_an_exact_market_pair_fails_closed() -> None:
+    assert team_for_code("KXNCAAFGAME", "APP") is None
+
+
 def test_completed_pro_league_alias_coverage() -> None:
     assert team_for_code("KXNFLGAME", "LAC") == "los-angeles-chargers"
     for code, team_id in (

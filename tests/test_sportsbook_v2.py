@@ -11,6 +11,7 @@ from prediction_bot.fees import maker_fee
 from prediction_bot.models import Block, Market
 from prediction_bot.odds import OddsClient, consensus
 from prediction_bot.paper.ledger import Ledger
+from prediction_bot.strategies import sportsbook_v2 as sportsbook_v2_module
 from prediction_bot.strategies.sportsbook_v2 import (
     SportsbookV2Strategy,
     _parse_time,
@@ -219,6 +220,105 @@ def test_v3_uses_power_fair_and_defaults_to_no_longshot_haircut(settings) -> Non
     assert signal.fair_prob == signal.fair_pre_haircut
     assert signal.fair_prob == Decimal(json.loads(signal.devig_json)["power"])
     assert Settings(_env_file=None).v3_longshot_haircut == "off"
+
+
+@pytest.mark.parametrize(
+    ("series", "code", "swapped_title"),
+    [
+        ("KXNCAAFGAME", "USC", "South Carolina"),
+        ("KXNCAAMBGAME", "ND", "Villanova"),
+        ("KXUELGAME", "ACM", "Celtic"),
+        ("KXUECLGAME", "AGF", "Braga"),
+    ],
+)
+def test_v3_college_swapped_aliases_block_on_title_mismatch(
+    settings, monkeypatch, series: str, code: str, swapped_title: str
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(
+        sportsbook_v2_module, "team_for_code", lambda current_series, value: "team-id"
+    )
+    monkeypatch.setattr(
+        sportsbook_v2_module,
+        "kalshi_name_ok",
+        lambda current_series, team_id, title: title == "Expected team",
+    )
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([]),
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+
+    signals = strategy.evaluate(
+        [
+            make_market(
+                f"{series}-26OCT25TEST-{code}",
+                "0.40",
+                "0.41",
+                subtitle=swapped_title,
+            )
+        ]
+    )
+
+    assert signals == []
+    assert any(
+        block.reason == "title_mismatch" and block.ticker.endswith(f"-{code}")
+        for block in strategy.seen_blocks()
+    )
+
+
+@pytest.mark.parametrize(
+    "series",
+    ["KXNCAAFGAME", "KXNCAAMBGAME", "KXUELGAME", "KXUECLGAME"],
+)
+def test_v3_college_mapping_sum_gate_runs_for_each_sport(
+    settings, monkeypatch, series: str
+) -> None:  # type: ignore[no-untyped-def]
+    settings.min_lead_hours = 0
+    team_by_code = {"HOME": "home-id", "AWAY": "away-id", "DUP": "home-id"}
+    team_by_name = {"Synthetic Home": "home-id", "Synthetic Away": "away-id"}
+    monkeypatch.setattr(
+        sportsbook_v2_module,
+        "team_for_code",
+        lambda current_series, code: team_by_code.get(code),
+    )
+    monkeypatch.setattr(
+        sportsbook_v2_module,
+        "team_for_odds_name",
+        lambda sport, name: team_by_name.get(name),
+    )
+    monkeypatch.setattr(
+        sportsbook_v2_module,
+        "kalshi_name_ok",
+        lambda current_series, team_id, title: (
+            title == ("Synthetic Home" if team_id == "home-id" else "Synthetic Away")
+        ),
+    )
+    game = odds_event(
+        "mapping-sum",
+        "Synthetic Home",
+        "Synthetic Away",
+        "2026-10-25T20:00:00Z",
+        {"Synthetic Home": Decimal("0.60"), "Synthetic Away": Decimal("0.40")},
+    )
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([game]),
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+    event_ticker = f"{series}-26OCT25HOMEB"
+
+    strategy.evaluate(
+        [
+            make_market(f"{event_ticker}-HOME", "0.40", "0.41", subtitle="Synthetic Home"),
+            make_market(f"{event_ticker}-AWAY", "0.40", "0.41", subtitle="Synthetic Away"),
+            make_market(f"{event_ticker}-DUP", "0.40", "0.41", subtitle="Synthetic Home"),
+        ]
+    )
+
+    assert any(
+        block.reason == "mapping_sum" and block.event_ticker == event_ticker
+        for block in strategy.seen_blocks()
+    )
 
 
 def test_v3_maker_first_prices_from_bid_fair_fee_and_edge(settings) -> None:  # type: ignore[no-untyped-def]

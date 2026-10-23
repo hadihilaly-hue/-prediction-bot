@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from scripts import build_team_aliases as alias_builder
 from scripts.build_team_aliases import (
     build,
     build_alias_proposal,
@@ -21,6 +22,16 @@ def test_ticker_parsers_and_canonical_id() -> None:
     assert event_market_code("KXNFLGAME-26OCT04KCLV", "KXNFLGAME-26OCT04KCLV-KC") == "KC"
     assert event_market_code("event", "other-market") is None
     assert canonical_id("New York Jets") == "new-york-jets"
+
+
+def test_prefix_token_normalization_keeps_parenthetical_tokens() -> None:
+    assert alias_builder._prefix_tokens("South Carolina St.") == [
+        "south",
+        "carolina",
+        "state",
+    ]
+    assert alias_builder._prefix_tokens("Miami (OH)") == ["miami", "oh"]
+    assert alias_builder._prefix_tokens("Texas A&M") == ["texas", "a", "m"]
 
 
 def test_alias_proposal_requires_both_legs_and_unique_date_pairing() -> None:
@@ -107,6 +118,236 @@ def test_rules_primary_disambiguates_shared_city_short_names() -> None:
     assert proposal["basketball_nba"]["los-angeles-lakers"]["kalshi_codes"] == ["LAL"]
     assert proposal["basketball_nba"]["los-angeles-clippers"]["kalshi_codes"] == ["LAC"]
     assert report["basketball_nba"]["codes_unmatched"] == []
+
+
+def test_participant_fallback_requires_an_exact_normalized_candidate() -> None:
+    kalshi = {
+        "KXNCAAMBGAME": [
+            {
+                "event_ticker": "KXNCAAMBGAME-26OCT25ALBYMIA",
+                "markets": [
+                    {
+                        "ticker": "KXNCAAMBGAME-26OCT25ALBYMIA-ALBY",
+                        "yes_sub_title": "University at Albany",
+                    },
+                    {
+                        "ticker": "KXNCAAMBGAME-26OCT25ALBYMIA-MIA",
+                        "yes_sub_title": "Miami",
+                    },
+                ],
+            }
+        ]
+    }
+    participants = {
+        "basketball_ncaab": [
+            {"full_name": "Albany"},
+            {"full_name": "Miami Hurricanes"},
+            {"full_name": "Miami (OH) RedHawks"},
+        ]
+    }
+
+    proposal, report = build_alias_proposal(kalshi, {}, participants, {"KXNCAAMBGAME"})
+
+    assert proposal["basketball_ncaab"]["albany"]["kalshi_codes"] == ["ALBY"]
+    assert report["basketball_ncaab"]["codes_unmatched"] == ["MIA"]
+    candidates = {
+        item["name"]
+        for item in report["basketball_ncaab"]["unmatched_candidates"]["MIA"]["candidates"]
+    }
+    assert {"Miami Hurricanes", "Miami (OH) RedHawks"} <= candidates
+
+
+def test_participant_fallback_rejects_a_code_used_for_two_teams() -> None:
+    kalshi = {
+        "KXUELGAME": [
+            {
+                "event_ticker": "KXUELGAME-26OCT25LEV",
+                "markets": [
+                    {
+                        "ticker": "KXUELGAME-26OCT25LEV-LEV",
+                        "yes_sub_title": "Levski Sofia",
+                    }
+                ],
+            },
+            {
+                "event_ticker": "KXUELGAME-26OCT26LEV",
+                "markets": [
+                    {
+                        "ticker": "KXUELGAME-26OCT26LEV-LEV",
+                        "yes_sub_title": "Bayer Leverkusen",
+                    }
+                ],
+            },
+        ]
+    }
+    participants = {
+        "soccer_uefa_europa_league": [
+            {"full_name": "Levski Sofia"},
+            {"full_name": "Bayer Leverkusen"},
+        ]
+    }
+
+    proposal, report = build_alias_proposal(kalshi, {}, participants, {"KXUELGAME"})
+
+    assert "LEV" in report["soccer_uefa_europa_league"]["codes_unmatched"]
+    assert report["soccer_uefa_europa_league"]["conflicting_codes"]["LEV"] == [
+        "Bayer Leverkusen",
+        "Levski Sofia",
+    ]
+    assert all(
+        "LEV" not in aliases["kalshi_codes"]
+        for aliases in proposal["soccer_uefa_europa_league"].values()
+    )
+
+
+def test_prefix_candidates_resolve_south_carolina_state_with_opponent(
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(alias_builder, "_market_team", lambda name, rules, candidates: None)
+    ticker = "KXNCAAFGAME-26OCT25SCSTHOW"
+    kalshi = {
+        "KXNCAAFGAME": [
+            {
+                "event_ticker": ticker,
+                "markets": [
+                    {"ticker": f"{ticker}-SCST", "yes_sub_title": "South Carolina St."},
+                    {"ticker": f"{ticker}-HOW", "yes_sub_title": "Howard"},
+                ],
+            }
+        ]
+    }
+    odds = {
+        "americanfootball_ncaaf": [
+            {
+                "home_team": "South Carolina State Bulldogs",
+                "away_team": "Howard Bison",
+                "commence_time": "2026-10-25T20:00:00Z",
+            }
+        ]
+    }
+    participants = {
+        "americanfootball_ncaaf": [
+            {"full_name": "South Carolina State Bulldogs"},
+            {"full_name": "South Carolina Gamecocks"},
+            {"full_name": "Howard Bison"},
+        ]
+    }
+
+    proposal, report = build_alias_proposal(kalshi, odds, participants, {"KXNCAAFGAME"})
+
+    assert proposal["americanfootball_ncaaf"]["south-carolina-state-bulldogs"]["kalshi_codes"] == [
+        "SCST"
+    ]
+    assert proposal["americanfootball_ncaaf"]["howard-bison"]["kalshi_codes"] == ["HOW"]
+    assert "SCST" not in report["americanfootball_ncaaf"]["codes_unmatched"]
+
+
+def test_prefix_candidate_pair_must_be_unique() -> None:
+    ticker = "KXNCAAFGAME-26OCT25TEXHOW"
+    kalshi = {
+        "KXNCAAFGAME": [
+            {
+                "event_ticker": ticker,
+                "markets": [
+                    {"ticker": f"{ticker}-TEX", "yes_sub_title": "Texas"},
+                    {"ticker": f"{ticker}-HOW", "yes_sub_title": "Howard"},
+                ],
+            }
+        ]
+    }
+    odds = {
+        "americanfootball_ncaaf": [
+            {
+                "home_team": "Texas Longhorns",
+                "away_team": "Howard Bison",
+                "commence_time": "2026-10-25T20:00:00Z",
+            },
+            {
+                "home_team": "Texas A&M Aggies",
+                "away_team": "Howard Bison",
+                "commence_time": "2026-10-25T21:00:00Z",
+            },
+        ]
+    }
+    participants = {
+        "americanfootball_ncaaf": [
+            {"full_name": "Texas Longhorns"},
+            {"full_name": "Texas Tech Red Raiders"},
+            {"full_name": "Texas State Bobcats"},
+            {"full_name": "Texas A&M Aggies"},
+            {"full_name": "Howard Bison"},
+        ]
+    }
+
+    proposal, report = build_alias_proposal(kalshi, odds, participants, {"KXNCAAFGAME"})
+
+    assert report["americanfootball_ncaaf"]["codes_unmatched"] == ["HOW", "TEX"]
+    assert (
+        "Texas Longhorns"
+        in report["americanfootball_ncaaf"]["unmatched_candidates"]["TEX"]["prefix_candidates"]
+    )
+    assert all(
+        "TEX" not in aliases["kalshi_codes"]
+        for aliases in proposal["americanfootball_ncaaf"].values()
+    )
+
+
+def test_prefix_pairing_rejects_cross_event_code_conflict(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(alias_builder, "_market_team", lambda name, rules, candidates: None)
+    first = "KXNCAAFGAME-26OCT25SCSTHOW"
+    second = "KXNCAAFGAME-26OCT26SCSTCLEM"
+    kalshi = {
+        "KXNCAAFGAME": [
+            {
+                "event_ticker": first,
+                "markets": [
+                    {"ticker": f"{first}-SCST", "yes_sub_title": "South Carolina"},
+                    {"ticker": f"{first}-HOW", "yes_sub_title": "Howard"},
+                ],
+            },
+            {
+                "event_ticker": second,
+                "markets": [
+                    {"ticker": f"{second}-SCST", "yes_sub_title": "South Carolina"},
+                    {"ticker": f"{second}-CLEM", "yes_sub_title": "Clemson"},
+                ],
+            },
+        ]
+    }
+    odds = {
+        "americanfootball_ncaaf": [
+            {
+                "home_team": "South Carolina State Bulldogs",
+                "away_team": "Howard Bison",
+                "commence_time": "2026-10-25T20:00:00Z",
+            },
+            {
+                "home_team": "South Carolina Gamecocks",
+                "away_team": "Clemson Tigers",
+                "commence_time": "2026-10-26T20:00:00Z",
+            },
+        ]
+    }
+    participants = {
+        "americanfootball_ncaaf": [
+            {"full_name": "South Carolina State Bulldogs"},
+            {"full_name": "South Carolina Gamecocks"},
+            {"full_name": "Howard Bison"},
+            {"full_name": "Clemson Tigers"},
+        ]
+    }
+
+    proposal, report = build_alias_proposal(kalshi, odds, participants, {"KXNCAAFGAME"})
+
+    assert "SCST" in report["americanfootball_ncaaf"]["codes_unmatched"]
+    assert report["americanfootball_ncaaf"]["conflicting_codes"]["SCST"] == [
+        "South Carolina Gamecocks",
+        "South Carolina State Bulldogs",
+    ]
+    assert all(
+        "SCST" not in aliases["kalshi_codes"]
+        for aliases in proposal["americanfootball_ncaaf"].values()
+    )
 
 
 def test_fetch_events_checks_response_and_headers() -> None:
@@ -203,6 +444,18 @@ def test_report_includes_unmatched_mappings_and_credits() -> None:
                 "odds_names_seen": ["Los Angeles Chargers"],
                 "odds_names_unmatched": ["Los Angeles Chargers"],
                 "unmatched_events": ["KXNFLGAME-26OCT04KCLAC"],
+                "participants_seen": 1,
+                "participants_without_confirmed_market": 1,
+                "unmatched_candidates": {
+                    "LAC": {
+                        "market_names": ["Los Angeles Chargers"],
+                        "candidates": [{"name": "Los Angeles Chargers", "score": 1.0}],
+                        "reason": (
+                            "No unique normalized participant match or unique kickoff pairing"
+                        ),
+                    }
+                },
+                "conflicting_codes": {},
             }
         },
         [{"x-requests-last": "0", "x-requests-used": "341", "x-requests-remaining": "159"}],
