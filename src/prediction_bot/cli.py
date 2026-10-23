@@ -77,7 +77,7 @@ def _strategies(
     out: list[Strategy] = []
     for n in names:
         cls = STRATEGIES[n]
-        if cls is SportsbookV2Strategy:
+        if issubclass(cls, SportsbookV2Strategy):
             out.append(cls(settings, odds_client=odds, kalshi_client=kalshi, ledger=ledger))
         elif issubclass(cls, SportsbookArbStrategy):
             out.append(cls(settings, odds_client=odds))  # one client: odds fetched once per cycle
@@ -160,6 +160,10 @@ def paper(
         per_day = s.odds_runs_per_day if cycles == 1 else 86400 / max(interval, 1)
         pacer = OddsPacer(odds, max(per_day, s.odds_runs_per_day))
     shadow_names = list(s.shadow_strategies)
+    if s.rules_version == "v3" and "sportsbook_v3" in strategy:
+        shadow_names = list(
+            dict.fromkeys(["sportsbook_v2", "sportsbook_arb", "underdog_value", *shadow_names])
+        )
     shadow_strategies = _strategies(s, shadow_names, odds, client, ledger)
     engine = Engine(
         s,

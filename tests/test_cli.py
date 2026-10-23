@@ -5,9 +5,15 @@ from decimal import Decimal
 import pytest
 import typer
 
-from prediction_bot.cli import _validate_order
+from prediction_bot.cli import _strategies, _validate_order
 from prediction_bot.config import Settings
 from prediction_bot.engine import CycleResult
+from prediction_bot.paper.ledger import Ledger
+
+
+class OddsStub:
+    requests_used = None
+    requests_remaining = None
 
 
 def test_v1_paper_does_not_implicitly_add_v2_shadow(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -46,6 +52,69 @@ def test_v1_paper_does_not_implicitly_add_v2_shadow(tmp_path, monkeypatch) -> No
     cli.paper(strategy=["sportsbook_arb"], cycles=1)
 
     assert requested == [["sportsbook_arb"], []]
+
+
+def test_v3_shadows_reuse_the_same_odds_client(settings) -> None:  # type: ignore[no-untyped-def]
+    odds = object()
+    strategies = _strategies(
+        settings,
+        ["sportsbook_v3", "sportsbook_v2", "sportsbook_arb", "underdog_value"],
+        odds=odds,  # type: ignore[arg-type]
+        kalshi=object(),  # type: ignore[arg-type]
+        ledger=Ledger(":memory:", Decimal("100")),
+    )
+    assert [strategy.name for strategy in strategies] == [
+        "sportsbook_v3",
+        "sportsbook_v2",
+        "sportsbook_arb",
+        "underdog_value",
+    ]
+    assert all(getattr(strategy, "odds", None) is odds for strategy in strategies)
+
+
+def test_v3_only_adds_shadows_for_the_sportsbook_v3_cycle(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import prediction_bot.cli as cli
+
+    settings = Settings(
+        _env_file=None,
+        rules_version="v3",
+        shadow_strategies=[],
+        paper_db_path=str(tmp_path / "paper.sqlite"),
+    )
+    requested: list[list[str]] = []
+
+    class EngineStub:
+        def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
+            pass
+
+        def settle_open_positions(self):  # type: ignore[no-untyped-def]
+            return {}
+
+        def run_cycle(self, markets):  # type: ignore[no-untyped-def]
+            return CycleResult()
+
+    monkeypatch.setattr(cli, "_settings", lambda: settings)
+    monkeypatch.setattr(cli, "_client", lambda _settings: object())
+    odds = OddsStub()
+    monkeypatch.setattr(cli, "_odds_client", lambda _settings: odds)
+    monkeypatch.setattr(
+        cli,
+        "_strategies",
+        lambda _settings, names, *args, **kwargs: requested.append(list(names)) or [],
+    )
+    monkeypatch.setattr(cli, "_fetch", lambda _client, _series: [])
+    monkeypatch.setattr(cli, "Engine", EngineStub)
+    monkeypatch.setattr(cli, "record_clv", lambda *args, **kwargs: 0)
+
+    cli.paper(strategy=["sportsbook_v3"], cycles=1)
+    cli.paper(strategy=["book_scanner"], cycles=1)
+
+    assert requested == [
+        ["sportsbook_v3"],
+        ["sportsbook_v2", "sportsbook_arb", "underdog_value"],
+        ["book_scanner"],
+        [],
+    ]
 
 
 @pytest.mark.parametrize(

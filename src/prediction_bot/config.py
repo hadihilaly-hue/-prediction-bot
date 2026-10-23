@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PBOT_", env_file=".env", extra="ignore")
 
     mode: Mode = Mode.paper
-    rules_version: Literal["v1", "v2"] = "v1"
+    rules_version: Literal["v1", "v2", "v3"] = "v1"
     shadow_strategies: Annotated[list[str], NoDecode] = Field(default_factory=list)
     v2_disabled_sports: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["basketball_nba"],
@@ -89,6 +89,15 @@ class Settings(BaseSettings):
     )
     max_book_spread: Decimal = Decimal("0.03")
     longshot_haircut: Literal["slope", "flat", "none"] = "slope"
+    v3_devig_method: Literal["power", "shin", "worst_case"] = "power"
+    v3_longshot_haircut: Literal["off", "slope", "flat", "none"] = "off"
+    v3_allow_soft_reference: bool = True
+    v3_large_gap_mode: Literal["reverify", "block"] = "reverify"
+    v3_large_gap_max: Decimal = Decimal("0.12")
+    v3_min_open_interest: Decimal = Decimal("100")
+    v3_max_book_age_hours: Decimal = Decimal("3")
+    v3_dq_stop_fraction: Decimal = Decimal("0.5")
+    v3_no_reentry: bool = True
     v2_kelly_fraction: Decimal = Decimal("0.25")
     v2_position_bankroll_fraction: Decimal = Decimal("0.02")
     v2_event_bankroll_fraction: Decimal = Decimal("0.02")

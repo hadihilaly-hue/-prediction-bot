@@ -155,6 +155,7 @@ class Block:
     detail: str = ""
     rules_version: str = "v2"
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    position_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -182,6 +183,7 @@ class EdgeReview:
     whitelisted: bool
     traded: bool = False
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    position_key: str | None = None
 
 
 def fee_for(price: Decimal, count: Decimal, multiplier: Decimal) -> Decimal:

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import json
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+import pytest
+
 from prediction_bot.config import Settings
-from prediction_bot.models import Market
+from prediction_bot.models import Block, Market
 from prediction_bot.odds import OddsClient, consensus
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.sportsbook_v2 import (
@@ -13,6 +16,8 @@ from prediction_bot.strategies.sportsbook_v2 import (
     _ticker_date,
     _ticker_start_et,
 )
+from prediction_bot.strategies.sportsbook_v3 import SportsbookV3Strategy as _SportsbookV3Strategy
+from prediction_bot.teams import team_for_code
 from prediction_bot.venues.kalshi import parse_market
 from tests.conftest import make_market as _make_market
 
@@ -96,6 +101,398 @@ def make_market(*args, **kwargs):  # type: ignore[no-untyped-def]
 
 def fixed_clock(value: str):
     return lambda: datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+class FakeV3Kalshi(FakeKalshi):
+    def __init__(self, quote=None) -> None:  # type: ignore[no-untyped-def]
+        super().__init__()
+        self.quote = quote
+        self.orderbook_calls: list[str] = []
+
+    def get_orderbook(self, ticker: str, depth: int = 10):  # type: ignore[no-untyped-def]
+        self.orderbook_calls.append(ticker)
+        if self.quote is None:
+            raise RuntimeError("no orderbook")
+        return self.quote
+
+
+class SportsbookV3Strategy(_SportsbookV3Strategy):
+    def __init__(self, settings, odds, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
+        if len(args) < 1:
+            kwargs.setdefault("kalshi_client", FakeV3Kalshi())
+        if len(args) < 2:
+            kwargs.setdefault("ledger", Ledger(":memory:", Decimal("1000")))
+        super().__init__(settings, odds, *args, **kwargs)
+        self.fee_cache = FakeFeeCache()
+
+
+def v3_odds_event(
+    *,
+    updated: str = "2026-10-22T09:00:00Z",
+    soft_only: bool = False,
+    dk_outlier: bool = False,
+    sharp_spread: bool = False,
+    miami_probability: Decimal = Decimal("0.65"),
+) -> dict[str, object]:
+    event = odds_event(
+        "event-v3",
+        "Miami Dolphins",
+        "Minnesota Vikings",
+        "2026-10-25T20:25:00Z",
+        {
+            "Miami Dolphins": miami_probability,
+            "Minnesota Vikings": Decimal(1) - miami_probability,
+        },
+    )
+    books = event["bookmakers"]
+    assert isinstance(books, list)
+    filtered = []
+    for book in books:
+        assert isinstance(book, dict)
+        key = str(book["key"])
+        if soft_only and key not in {"draftkings", "fanduel"}:
+            continue
+        book["last_update"] = updated
+        outcomes = book["markets"][0]["outcomes"]
+        for outcome in outcomes:
+            probability = (
+                miami_probability
+                if outcome["name"] == "Miami Dolphins"
+                else Decimal(1) - miami_probability
+            )
+            if dk_outlier and key == "draftkings":
+                probability = (
+                    Decimal("0.92") if outcome["name"] == "Miami Dolphins" else Decimal("0.08")
+                )
+            if sharp_spread and key == "circa":
+                probability = (
+                    Decimal("0.625") if outcome["name"] == "Miami Dolphins" else Decimal("0.375")
+                )
+            outcome["price"] = str(Decimal(1) / (probability * Decimal("1.05")))
+        filtered.append(book)
+    event["bookmakers"] = filtered
+    return event
+
+
+def v3_markets(open_interest: str = "200", yes_price: str = "0.56") -> list[Market]:
+    return [
+        make_market(
+            "KXNFLGAME-26OCT25MIAMIN-MIA",
+            str(Decimal(yes_price) - Decimal("0.02")),
+            yes_price,
+            subtitle="Miami",
+            open_interest=Decimal(open_interest),
+        ),
+        make_market(
+            "KXNFLGAME-26OCT25MIAMIN-MIN",
+            "0.34",
+            "0.36",
+            subtitle="Minnesota",
+            open_interest=Decimal(open_interest),
+        ),
+    ]
+
+
+def test_v3_uses_power_fair_and_defaults_to_no_longshot_haircut(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.max_gross_edge = Decimal("0.20")
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event()]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+    signal = next(
+        signal for signal in strategy.evaluate(v3_markets()) if signal.side.value == "yes"
+    )
+    assert signal.rules_version == "v3"
+    assert signal.fair_prob == signal.fair_pre_haircut
+    assert signal.fair_prob == Decimal(json.loads(signal.devig_json)["power"])
+    assert Settings(_env_file=None).v3_longshot_haircut == "off"
+
+
+def test_v3_large_gap_uses_haircut_fair_for_the_threshold(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.max_gross_edge = Decimal("0.07")
+    settings.v3_longshot_haircut = "slope"
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event(miami_probability=Decimal("0.25"))]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+    signals = strategy.evaluate(v3_markets(yes_price="0.17"))
+    miami_yes = next(
+        signal
+        for signal in signals
+        if signal.ticker.endswith("-MIA") and signal.side.value == "yes"
+    )
+    assert "large_gap" not in miami_yes.tags
+    assert not any(
+        block.reason == "big_edge" and block.ticker.endswith("-MIA")
+        for block in strategy.seen_blocks()
+    )
+
+
+def test_v3_draftkings_outlier_does_not_trigger_sharp_dispersion(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.max_gross_edge = Decimal("0.20")
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event(dk_outlier=True)]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+    signals = strategy.evaluate(v3_markets())
+    assert signals
+    assert not any(block.reason == "book_spread" for block in strategy.seen_blocks())
+
+
+def test_v3_soft_reference_is_tagged(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.max_gross_edge = Decimal("0.20")
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event(soft_only=True)]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+    signals = strategy.evaluate(v3_markets())
+    assert signals
+    assert all(signal.reference_source == "soft_reference" for signal in signals)
+    assert all("soft_reference" in signal.tags for signal in signals)
+
+
+def test_v3_discards_stale_books_and_blocks_when_too_few_remain(settings) -> None:  # type: ignore[no-untyped-def]
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event(updated="2026-10-22T05:00:00Z")]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+    assert strategy.evaluate(v3_markets()) == []
+    assert any(block.reason == "stale_books" for block in strategy.seen_blocks())
+
+
+def test_v3_blocks_below_open_interest_floor(settings) -> None:  # type: ignore[no-untyped-def]
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event()]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+    assert strategy.evaluate(v3_markets(open_interest="99")) == []
+    assert any(block.reason == "thin_market" for block in strategy.seen_blocks())
+
+
+def v3_position_key() -> str:
+    event_ticker = "KXNFLGAME-26OCT25MIAMIN"
+    return f"{event_ticker}:{team_for_code('KXNFLGAME', 'MIA')}"
+
+
+def seed_large_gap_record(ledger: Ledger, now: datetime) -> None:
+    ledger.record_blocks(
+        [
+            Block(
+                reason="big_edge",
+                strategy="sportsbook_v2",
+                ticker="KXNFLGAME-26OCT25MIAMIN-MIA",
+                event_ticker="KXNFLGAME-26OCT25MIAMIN",
+                created_at=now - timedelta(hours=3),
+                position_key=v3_position_key(),
+            )
+        ]
+    )
+
+
+def test_v3_large_gap_requires_persistence_refetch_and_tight_sharp_books(
+    settings,
+) -> None:  # type: ignore[no-untyped-def]
+    now = datetime.fromisoformat("2026-10-22T10:00:00+00:00")
+    ledger = Ledger(":memory:", Decimal("1000"))
+    seed_large_gap_record(ledger, now)
+    kalshi = FakeV3Kalshi(v3_markets()[0].quote)
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event()]),
+        kalshi_client=kalshi,
+        ledger=ledger,
+        clock=lambda: now,
+    )
+    signal = next(
+        signal
+        for signal in strategy.evaluate(v3_markets())
+        if signal.ticker.endswith("-MIA") and signal.side.value == "yes"
+    )
+    normal_settings = settings.model_copy(update={"max_gross_edge": Decimal("0.20")})
+    normal_strategy = SportsbookV3Strategy(
+        normal_settings,
+        FakeOdds([v3_odds_event()]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=lambda: now,
+    )
+    normal = next(
+        signal
+        for signal in normal_strategy.evaluate(v3_markets())
+        if signal.ticker.endswith("-MIA") and signal.side.value == "yes"
+    )
+    assert "large_gap" in signal.tags
+    assert signal.size == normal.size // 2
+    assert kalshi.orderbook_calls
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_detail"),
+    [
+        ("no_persistence", "no same-position"),
+        ("refreshed_price", "refreshed gross edge"),
+        ("wide_sharp", "sharp-book dispersion"),
+        ("few_sharp", "fewer than two sharp books"),
+        ("mode_block", "v3_large_gap_mode=block"),
+        ("over_limit", "exceeds v3_large_gap_max"),
+    ],
+)
+def test_v3_large_gap_failure_conditions_block(
+    settings, failure: str, expected_detail: str
+) -> None:  # type: ignore[no-untyped-def]
+    now = datetime.fromisoformat("2026-10-22T10:00:00+00:00")
+    ledger = Ledger(":memory:", Decimal("1000"))
+    if failure != "no_persistence":
+        seed_large_gap_record(ledger, now)
+    refreshed_price = "0.60" if failure == "refreshed_price" else "0.56"
+    refreshed = v3_markets(yes_price=refreshed_price)[0].quote
+    settings.v3_large_gap_mode = "block" if failure == "mode_block" else "reverify"
+    market_price = "0.50" if failure == "over_limit" else "0.56"
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds(
+            [
+                v3_odds_event(
+                    sharp_spread=failure == "wide_sharp",
+                    soft_only=failure == "few_sharp",
+                )
+            ]
+        ),
+        kalshi_client=FakeV3Kalshi(refreshed),
+        ledger=ledger,
+        clock=lambda: now,
+    )
+    assert strategy.evaluate(v3_markets(yes_price=market_price)) == []
+    blocks = [block for block in strategy.seen_blocks() if block.reason == "big_edge"]
+    assert blocks
+    assert expected_detail in blocks[0].detail
+
+
+def test_v3_data_quality_stop_suppresses_entries_when_mapping_failures_dominate(
+    settings,
+) -> None:  # type: ignore[no-untyped-def]
+    now = datetime.fromisoformat("2026-10-22T10:00:00+00:00")
+    markets = []
+    for index in range(10):
+        event_ticker = f"KXNFLGAME-26OCT25MIAMIN{index}"
+        markets.append(
+            make_market(
+                f"{event_ticker}-MIA",
+                "0.54",
+                "0.56",
+                subtitle="Not Miami",
+                open_interest=Decimal("200"),
+            )
+        )
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event()]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=lambda: now,
+    )
+    assert strategy.evaluate(markets) == []
+    assert any(block.reason == "dq_stop" for block in strategy.seen_blocks())
+
+
+def test_v3_blocks_an_open_position_key_from_reentry(settings) -> None:  # type: ignore[no-untyped-def]
+    now = datetime.fromisoformat("2026-10-22T10:00:00+00:00")
+    settings.max_gross_edge = Decimal("0.20")
+    ledger = Ledger(":memory:", Decimal("1000"))
+    first = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event(updated="2026-10-22T14:00:00Z")]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=ledger,
+        clock=lambda: now,
+    )
+    signal = next(
+        signal
+        for signal in first.evaluate(v3_markets())
+        if signal.ticker.endswith("-MIA") and signal.side.value == "yes"
+    )
+    ledger.record_fill(
+        "sportsbook_v3",
+        signal.ticker,
+        signal.side,
+        signal.limit_price,
+        Decimal(1),
+        Decimal(0),
+        signal.fair_prob,
+        now,
+        rules_version="v3",
+        position_key=signal.position_key,
+        event_ticker=signal.event_ticker,
+    )
+    second = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event(updated="2026-10-22T14:00:00Z")]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=ledger,
+        clock=lambda: now,
+    )
+    assert second.evaluate(v3_markets()) == []
+    assert any(block.reason == "already_held" for block in second.seen_blocks())
+
+
+def test_v3_blocks_reentry_after_same_et_day_settlement(settings) -> None:  # type: ignore[no-untyped-def]
+    now = datetime.fromisoformat("2026-10-22T10:00:00+00:00")
+    settings.max_gross_edge = Decimal("0.20")
+    ledger = Ledger(":memory:", Decimal("1000"))
+    first = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event()]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=ledger,
+        clock=lambda: now,
+    )
+    signal = next(
+        signal
+        for signal in first.evaluate(v3_markets())
+        if signal.ticker.endswith("-MIA") and signal.side.value == "yes"
+    )
+    ledger.record_fill(
+        "sportsbook_v3",
+        signal.ticker,
+        signal.side,
+        signal.limit_price,
+        Decimal(1),
+        Decimal(0),
+        signal.fair_prob,
+        now,
+        rules_version="v3",
+        position_key=signal.position_key,
+        event_ticker=signal.event_ticker,
+    )
+    ledger.settle(signal.ticker, signal.side, at=now + timedelta(hours=4))
+
+    second = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event(updated="2026-10-22T14:00:00Z")]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=ledger,
+        clock=lambda: now + timedelta(hours=5),
+    )
+    assert second.evaluate(v3_markets()) == []
+    assert any(block.reason == "already_held" for block in second.seen_blocks())
 
 
 def test_time_parsers_handle_utc_and_market_ticker_time() -> None:

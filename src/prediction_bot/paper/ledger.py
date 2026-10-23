@@ -3,10 +3,11 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from prediction_bot.models import (
     Block,
@@ -173,7 +174,8 @@ CREATE TABLE IF NOT EXISTS blocks (
     ticker TEXT,
     event_ticker TEXT,
     reason TEXT NOT NULL,
-    detail TEXT
+    detail TEXT,
+    position_key TEXT
 );
 CREATE TABLE IF NOT EXISTS edge_reviews (
     id INTEGER PRIMARY KEY,
@@ -187,7 +189,8 @@ CREATE TABLE IF NOT EXISTS edge_reviews (
     refetched_fair TEXT,
     confirmed INTEGER NOT NULL,
     whitelisted INTEGER NOT NULL,
-    traded INTEGER NOT NULL
+    traded INTEGER NOT NULL,
+    position_key TEXT
 );
 CREATE TABLE IF NOT EXISTS quote_snapshots (
     id INTEGER PRIMARY KEY,
@@ -384,6 +387,8 @@ class Ledger:
                 "line_move_since_entry": "TEXT",
             },
             "odds_snapshots": {"max_book_update": "TEXT"},
+            "blocks": {"position_key": "TEXT"},
+            "edge_reviews": {"position_key": "TEXT"},
             "runs": {"odds_used": "INTEGER", "odds_remaining": "INTEGER"},
             "shadow_decisions": {"clv_kalshi": "TEXT", "clv_gameday": "TEXT"},
             "maker_shadow": {
@@ -439,19 +444,22 @@ class Ledger:
         )
         self.conn.commit()
 
-    def v2_total_open_cost(self) -> Decimal:
+    def v2_total_open_cost(self, include_v3: bool = False) -> Decimal:
+        versions = "IN ('v2','v3')" if include_v3 else "='v2'"
         rows = self.conn.execute(
             "SELECT f.price, f.count, f.fee FROM fills f LEFT JOIN settlements s"
-            " ON s.ticker=f.ticker WHERE s.ticker IS NULL AND f.rules_version='v2'"
+            f" ON s.ticker=f.ticker WHERE s.ticker IS NULL AND f.rules_version {versions}"
         )
         return sum(
             (Decimal(price) * Decimal(count) + Decimal(fee) for price, count, fee in rows),
             Decimal(0),
         )
 
-    def v2_new_risk_since(self, since: datetime) -> Decimal:
+    def v2_new_risk_since(self, since: datetime, include_v3: bool = False) -> Decimal:
+        versions = "IN ('v2','v3')" if include_v3 else "='v2'"
         rows = self.conn.execute(
-            "SELECT price, count, fee FROM fills WHERE rules_version='v2' AND created_at >= ?",
+            f"SELECT price, count, fee FROM fills WHERE rules_version {versions}"
+            " AND created_at >= ?",
             (self._utc(since).isoformat(),),
         )
         return sum(
@@ -951,7 +959,7 @@ class Ledger:
     def record_blocks(self, blocks: Sequence[Block]) -> int:
         self.conn.executemany(
             "INSERT INTO blocks (created_at, rules_version, strategy, ticker, event_ticker,"
-            " reason, detail) VALUES (?,?,?,?,?,?,?)",
+            " reason, detail, position_key) VALUES (?,?,?,?,?,?,?,?)",
             [
                 (
                     self._utc(block.created_at).isoformat(),
@@ -961,6 +969,7 @@ class Ledger:
                     block.event_ticker,
                     block.reason,
                     block.detail,
+                    block.position_key,
                 )
                 for block in blocks
             ],
@@ -992,8 +1001,8 @@ class Ledger:
     def record_edge_reviews(self, reviews: Sequence[EdgeReview]) -> int:
         self.conn.executemany(
             "INSERT INTO edge_reviews (created_at, ticker, side, fair_prob, price, gross_edge,"
-            " refetched_price, refetched_fair, confirmed, whitelisted, traded)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            " refetched_price, refetched_fair, confirmed, whitelisted, traded, position_key)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             [
                 (
                     self._utc(review.created_at).isoformat(),
@@ -1007,6 +1016,7 @@ class Ledger:
                     int(review.confirmed),
                     int(review.whitelisted),
                     int(review.traded),
+                    review.position_key,
                 )
                 for review in reviews
             ],
@@ -1022,15 +1032,20 @@ class Ledger:
         self.conn.commit()
 
     def _v2_open_cost(
-        self, *, position_key: str | None = None, event_ticker: str | None = None
+        self,
+        *,
+        position_key: str | None = None,
+        event_ticker: str | None = None,
+        include_v3: bool = False,
     ) -> Decimal:
         if position_key is None and event_ticker is None:
             raise ValueError("position_key or event_ticker is required")
         field = "position_key" if position_key is not None else "event_ticker"
         value = position_key if position_key is not None else event_ticker
+        versions = "IN ('v2','v3')" if include_v3 else "='v2'"
         rows = self.conn.execute(
             f"SELECT f.price, f.count, f.fee FROM fills f LEFT JOIN settlements s"
-            f" ON s.ticker=f.ticker WHERE s.ticker IS NULL AND f.rules_version='v2'"
+            f" ON s.ticker=f.ticker WHERE s.ticker IS NULL AND f.rules_version {versions}"
             f" AND f.{field}=?",
             (value,),
         )
@@ -1039,20 +1054,68 @@ class Ledger:
             Decimal(0),
         )
 
-    def position_cost(self, position_key: str) -> Decimal:
-        return self._v2_open_cost(position_key=position_key)
+    def position_cost(self, position_key: str, include_v3: bool = False) -> Decimal:
+        return self._v2_open_cost(position_key=position_key, include_v3=include_v3)
 
-    def event_cost(self, event_ticker: str) -> Decimal:
-        return self._v2_open_cost(event_ticker=event_ticker)
+    def event_cost(self, event_ticker: str, include_v3: bool = False) -> Decimal:
+        return self._v2_open_cost(event_ticker=event_ticker, include_v3=include_v3)
 
-    def held_keys(self, event_ticker: str) -> set[str]:
+    def held_keys(self, event_ticker: str, include_v3: bool = False) -> set[str]:
+        versions = "IN ('v2','v3')" if include_v3 else "='v2'"
         rows = self.conn.execute(
             "SELECT DISTINCT f.position_key FROM fills f LEFT JOIN settlements s"
-            " ON s.ticker=f.ticker WHERE s.ticker IS NULL AND f.rules_version='v2'"
+            f" ON s.ticker=f.ticker WHERE s.ticker IS NULL AND f.rules_version {versions}"
             " AND f.event_ticker=? AND f.position_key IS NOT NULL",
             (event_ticker,),
         )
         return {str(row[0]) for row in rows}
+
+    def has_recent_large_gap_record(self, position_key: str, now: datetime) -> bool:
+        end = self._utc(now) - timedelta(hours=2)
+        start = self._utc(now) - timedelta(hours=36)
+        row = self.conn.execute(
+            "SELECT 1 FROM blocks WHERE position_key=? AND reason IN ('big_edge','large_gap')"
+            " AND created_at BETWEEN ? AND ? UNION ALL "
+            "SELECT 1 FROM edge_reviews WHERE position_key=? AND created_at BETWEEN ? AND ? "
+            "UNION ALL SELECT 1 FROM signals WHERE position_key=? AND rules_version='v3'"
+            " AND tags LIKE '%large_gap%' AND created_at BETWEEN ? AND ? LIMIT 1",
+            (
+                position_key,
+                start.isoformat(),
+                end.isoformat(),
+                position_key,
+                start.isoformat(),
+                end.isoformat(),
+                position_key,
+                start.isoformat(),
+                end.isoformat(),
+            ),
+        ).fetchone()
+        return row is not None
+
+    def has_v3_position_activity(self, position_key: str, at: datetime) -> bool:
+        et = ZoneInfo("America/New_York")
+        local_date = self._utc(at).astimezone(et).date()
+        start = datetime.combine(local_date, datetime.min.time(), tzinfo=et).astimezone(
+            timezone.utc
+        )
+        end = datetime.combine(
+            local_date + timedelta(days=1), datetime.min.time(), tzinfo=et
+        ).astimezone(timezone.utc)
+        row = self.conn.execute(
+            "SELECT 1 FROM fills f LEFT JOIN settlements s ON s.ticker=f.ticker"
+            " WHERE f.position_key=? AND (s.ticker IS NULL OR"
+            " (f.created_at>=? AND f.created_at<?) OR"
+            " (s.settled_at>=? AND s.settled_at<?)) LIMIT 1",
+            (
+                position_key,
+                start.isoformat(),
+                end.isoformat(),
+                start.isoformat(),
+                end.isoformat(),
+            ),
+        ).fetchone()
+        return row is not None
 
     def record_run(
         self,

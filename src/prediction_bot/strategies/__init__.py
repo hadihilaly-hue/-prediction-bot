@@ -4,12 +4,14 @@ from prediction_bot.strategies.base import Strategy
 from prediction_bot.strategies.book_scanner import BookScannerStrategy
 from prediction_bot.strategies.sportsbook_arb import SportsbookArbStrategy
 from prediction_bot.strategies.sportsbook_v2 import SportsbookV2Strategy
+from prediction_bot.strategies.sportsbook_v3 import SportsbookV3Strategy
 from prediction_bot.strategies.underdog_value import UnderdogValueStrategy
 
 STRATEGIES: dict[str, type[Strategy]] = {
     BookScannerStrategy.name: BookScannerStrategy,
     SportsbookArbStrategy.name: SportsbookArbStrategy,
     SportsbookV2Strategy.name: SportsbookV2Strategy,
+    SportsbookV3Strategy.name: SportsbookV3Strategy,
     UnderdogValueStrategy.name: UnderdogValueStrategy,
 }
 
@@ -18,6 +20,7 @@ __all__ = [
     "BookScannerStrategy",
     "SportsbookArbStrategy",
     "SportsbookV2Strategy",
+    "SportsbookV3Strategy",
     "Strategy",
     "UnderdogValueStrategy",
 ]

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
+from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
 
 from prediction_bot.config import Settings
+from prediction_bot.models import OutcomeSide, QuoteSnapshot, Signal
 from prediction_bot.paper.ledger import Ledger
 from scripts.replay import (
     Decision,
@@ -15,6 +18,7 @@ from scripts.replay import (
     load_database,
     load_fee_map,
     render_report,
+    run_replay,
 )
 
 
@@ -139,6 +143,62 @@ def test_replay_reads_a_synthetic_ledger_without_writing(tmp_path) -> None:
     assert "league_disabled" in decisions[5].reasons
 
 
+def test_replay_loads_open_interest_from_quote_snapshots(tmp_path) -> None:
+    path = tmp_path / "with-open-interest.sqlite"
+    ledger = Ledger(path, Decimal("100"))
+    created_at = datetime.fromisoformat("2026-10-03T12:00:00+00:00")
+    signal_row = Signal(
+        strategy="sportsbook_v2",
+        ticker="KXNFLGAME-26OCT04KCLV-LV",
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.60"),
+        limit_price=Decimal("0.50"),
+        edge=Decimal("0.10"),
+        size=Decimal("1"),
+        created_at=created_at,
+        rationale="Las Vegas Raiders consensus 0.60",
+    )
+    ledger.record_signal(signal_row, acted=True)
+    ledger.record_quote_snapshots(
+        [
+            QuoteSnapshot(
+                ticker=signal_row.ticker,
+                event_ticker="KXNFLGAME-26OCT04KCLV",
+                yes_bid=Decimal("0.49"),
+                yes_ask=Decimal("0.50"),
+                last_price=Decimal("0.50"),
+                volume=Decimal("100"),
+                open_interest=Decimal("250"),
+                created_at=created_at,
+            )
+        ]
+    )
+    ledger.conn.close()
+
+    signals, *_ = load_database(path, "2026-09-28")
+    assert signals[0].open_interest == Decimal("250")
+
+
+def test_v3_replay_generates_v2_comparison_for_legacy_ledger(tmp_path) -> None:
+    path = tmp_path / "legacy.sqlite"
+    ledger = Ledger(path, Decimal("100"))
+    ledger.conn.close()
+
+    report, headline = run_replay(
+        path,
+        "2026-09-28",
+        tmp_path / "cache",
+        rules="v3",
+        settings=settings(),
+        fee_map=FEES,
+    )
+
+    assert "Historical replay (v3)" in report
+    assert "v3-blocked fills" in report
+    assert "v2-v3 changed positions and reasons" in report
+    assert headline["signals"] == 0
+
+
 def test_replay_marks_unknown_rules_and_fee_aware_edge() -> None:
     decision = evaluate_signal(signal(fair="0.53", price="0.50"), FEES, settings(), [])
     assert "net_edge" in decision.reasons
@@ -170,6 +230,48 @@ def test_replay_big_edge_and_mapping_rules() -> None:
     )
     assert "big_edge" in big.reasons
     assert "mapping_failed" in unmapped.reasons
+
+
+def test_v3_replay_selects_power_and_does_not_apply_v2_haircut() -> None:
+    original = signal(fair="0.60", price="0.50")
+    recorded = replace(
+        original,
+        devig_json=json.dumps({"multiplicative": "0.58", "power": "0.60", "shin": "0.59"}),
+        reference_source="pinnacle",
+        open_interest=Decimal("150"),
+    )
+    decision = evaluate_signal(
+        recorded,
+        FEES,
+        settings(longshot_haircut="slope", v3_longshot_haircut="off"),
+        [recorded],
+        "v3",
+    )
+    assert decision.fair == Decimal("0.60")
+    assert "open_interest" not in decision.unknown
+
+
+def test_v3_replay_uses_stored_quote_and_requires_prior_record_and_tight_sharp_books() -> None:
+    earlier = signal(
+        id=1,
+        fair="0.60",
+        price="0.50",
+        at="2026-10-03T09:00:00Z",
+    )
+    current = replace(
+        signal(id=2, fair="0.65", price="0.56", at="2026-10-03T12:00:00Z"),
+        book_probs_json=json.dumps(
+            {
+                "pinnacle": {"multiplicative_fair": "0.65"},
+                "circa": {"multiplicative_fair": "0.66"},
+                "betonlineag": {"multiplicative_fair": "0.65"},
+            }
+        ),
+        open_interest=Decimal("200"),
+    )
+    decision = evaluate_signal(current, FEES, settings(), [earlier, current], "v3")
+    assert decision.large_gap
+    assert "big_edge" not in decision.reasons
 
 
 def test_replay_mapping_distinguishes_aliases_from_fair_orientation() -> None:
