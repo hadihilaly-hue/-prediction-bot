@@ -109,6 +109,86 @@ def test_rules_primary_disambiguates_shared_city_short_names() -> None:
     assert report["basketball_nba"]["codes_unmatched"] == []
 
 
+def test_participant_fallback_requires_an_exact_normalized_candidate() -> None:
+    kalshi = {
+        "KXNCAAMBGAME": [
+            {
+                "event_ticker": "KXNCAAMBGAME-26OCT25ALBYMIA",
+                "markets": [
+                    {
+                        "ticker": "KXNCAAMBGAME-26OCT25ALBYMIA-ALBY",
+                        "yes_sub_title": "University at Albany",
+                    },
+                    {
+                        "ticker": "KXNCAAMBGAME-26OCT25ALBYMIA-MIA",
+                        "yes_sub_title": "Miami",
+                    },
+                ],
+            }
+        ]
+    }
+    participants = {
+        "basketball_ncaab": [
+            {"full_name": "Albany"},
+            {"full_name": "Miami Hurricanes"},
+            {"full_name": "Miami (OH) RedHawks"},
+        ]
+    }
+
+    proposal, report = build_alias_proposal(kalshi, {}, participants, {"KXNCAAMBGAME"})
+
+    assert proposal["basketball_ncaab"]["albany"]["kalshi_codes"] == ["ALBY"]
+    assert report["basketball_ncaab"]["codes_unmatched"] == ["MIA"]
+    candidates = {
+        item["name"]
+        for item in report["basketball_ncaab"]["unmatched_candidates"]["MIA"]["candidates"]
+    }
+    assert {"Miami Hurricanes", "Miami (OH) RedHawks"} <= candidates
+
+
+def test_participant_fallback_rejects_a_code_used_for_two_teams() -> None:
+    kalshi = {
+        "KXUELGAME": [
+            {
+                "event_ticker": "KXUELGAME-26OCT25LEV",
+                "markets": [
+                    {
+                        "ticker": "KXUELGAME-26OCT25LEV-LEV",
+                        "yes_sub_title": "Levski Sofia",
+                    }
+                ],
+            },
+            {
+                "event_ticker": "KXUELGAME-26OCT26LEV",
+                "markets": [
+                    {
+                        "ticker": "KXUELGAME-26OCT26LEV-LEV",
+                        "yes_sub_title": "Bayer Leverkusen",
+                    }
+                ],
+            },
+        ]
+    }
+    participants = {
+        "soccer_uefa_europa_league": [
+            {"full_name": "Levski Sofia"},
+            {"full_name": "Bayer Leverkusen"},
+        ]
+    }
+
+    proposal, report = build_alias_proposal(kalshi, {}, participants, {"KXUELGAME"})
+
+    assert "LEV" in report["soccer_uefa_europa_league"]["codes_unmatched"]
+    assert report["soccer_uefa_europa_league"]["conflicting_codes"]["LEV"] == [
+        "Bayer Leverkusen",
+        "Levski Sofia",
+    ]
+    assert all(
+        "LEV" not in aliases["kalshi_codes"]
+        for aliases in proposal["soccer_uefa_europa_league"].values()
+    )
+
+
 def test_fetch_events_checks_response_and_headers() -> None:
     class Response:
         status_code = 200
@@ -203,6 +283,18 @@ def test_report_includes_unmatched_mappings_and_credits() -> None:
                 "odds_names_seen": ["Los Angeles Chargers"],
                 "odds_names_unmatched": ["Los Angeles Chargers"],
                 "unmatched_events": ["KXNFLGAME-26OCT04KCLAC"],
+                "participants_seen": 1,
+                "participants_without_confirmed_market": 1,
+                "unmatched_candidates": {
+                    "LAC": {
+                        "market_names": ["Los Angeles Chargers"],
+                        "candidates": [{"name": "Los Angeles Chargers", "score": 1.0}],
+                        "reason": (
+                            "No unique normalized participant match or unique kickoff pairing"
+                        ),
+                    }
+                },
+                "conflicting_codes": {},
             }
         },
         [{"x-requests-last": "0", "x-requests-used": "341", "x-requests-remaining": "159"}],

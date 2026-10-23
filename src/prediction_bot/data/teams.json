@@ -1198,6 +1198,28 @@
       "odds_names": [
         "Wyoming Cowboys"
       ]
+    },
+    "albany": {
+      "kalshi_codes": [
+        "ALBY"
+      ],
+      "kalshi_names": [
+        "University at Albany"
+      ],
+      "odds_names": [
+        "Albany"
+      ]
+    },
+    "pittsburgh-panthers": {
+      "kalshi_codes": [
+        "PITT"
+      ],
+      "kalshi_names": [
+        "Pittsburgh"
+      ],
+      "odds_names": [
+        "Pittsburgh Panthers"
+      ]
     }
   },
   "americanfootball_nfl": {
@@ -2417,7 +2439,7 @@
         "Montreal"
       ],
       "odds_names": [
-        "Montréal Canadiens"
+        "Montr\u00e9al Canadiens"
       ]
     },
     "tampa-bay-lightning": {
@@ -3168,10 +3190,10 @@
         "KOE"
       ],
       "kalshi_names": [
-        "FC Köln"
+        "FC K\u00f6ln"
       ],
       "odds_names": [
-        "1. FC Köln"
+        "1. FC K\u00f6ln"
       ]
     },
     "augsburg": {
@@ -3560,7 +3582,7 @@
         "America"
       ],
       "odds_names": [
-        "América"
+        "Am\u00e9rica"
       ]
     },
     "atl-tico-san-luis": {
@@ -3571,7 +3593,7 @@
         "San Luis"
       ],
       "odds_names": [
-        "Atlético San Luis"
+        "Atl\u00e9tico San Luis"
       ]
     },
     "atlante-fc": {
@@ -3615,7 +3637,7 @@
         "Juarez"
       ],
       "odds_names": [
-        "FC Juárez"
+        "FC Ju\u00e1rez"
       ]
     },
     "guadalajara": {
@@ -3637,7 +3659,7 @@
         "Leon"
       ],
       "odds_names": [
-        "León"
+        "Le\u00f3n"
       ]
     },
     "monterrey": {
@@ -3703,7 +3725,7 @@
         "Queretaro"
       ],
       "odds_names": [
-        "Querétaro"
+        "Quer\u00e9taro"
       ]
     },
     "santos-laguna": {
@@ -3760,7 +3782,7 @@
         "Alaves"
       ],
       "odds_names": [
-        "Alavés"
+        "Alav\u00e9s"
       ]
     },
     "athletic-bilbao": {
@@ -3782,7 +3804,7 @@
         "Atletico"
       ],
       "odds_names": [
-        "Atlético Madrid"
+        "Atl\u00e9tico Madrid"
       ]
     },
     "barcelona": {
@@ -3826,7 +3848,7 @@
         "Deportivo De La Coruna"
       ],
       "odds_names": [
-        "Deportivo La Coruña"
+        "Deportivo La Coru\u00f1a"
       ]
     },
     "elche-cf": {
@@ -3881,7 +3903,7 @@
         "Malaga"
       ],
       "odds_names": [
-        "Málaga"
+        "M\u00e1laga"
       ]
     },
     "rayo-vallecano": {
@@ -4026,7 +4048,7 @@
         "Atletico"
       ],
       "odds_names": [
-        "Atlético Madrid"
+        "Atl\u00e9tico Madrid"
       ]
     },
     "barcelona": {
@@ -4059,7 +4081,7 @@
         "Bodoe/Glimt"
       ],
       "odds_names": [
-        "Bodø/Glimt"
+        "Bod\u00f8/Glimt"
       ]
     },
     "borussia-dortmund": {
@@ -4147,7 +4169,7 @@
         "Slovan Bratislava"
       ],
       "odds_names": [
-        "ŠK Slovan Bratislava"
+        "\u0160K Slovan Bratislava"
       ]
     },
     "lask": {
@@ -4371,8 +4393,549 @@
       ]
     }
   },
-  "soccer_uefa_europa_conference_league": {},
-  "soccer_uefa_europa_league": {},
+  "soccer_uefa_europa_conference_league": {
+    "ajax": {
+      "kalshi_codes": [
+        "AJA"
+      ],
+      "kalshi_names": [
+        "Ajax"
+      ],
+      "odds_names": [
+        "Ajax"
+      ]
+    },
+    "fc-copenhagen": {
+      "kalshi_codes": [
+        "FCC"
+      ],
+      "kalshi_names": [
+        "Copenhagen"
+      ],
+      "odds_names": [
+        "FC Copenhagen"
+      ]
+    },
+    "fc-kairat": {
+      "kalshi_codes": [
+        "ALM"
+      ],
+      "kalshi_names": [
+        "Kairat"
+      ],
+      "odds_names": [
+        "FC Kairat"
+      ]
+    },
+    "fc-lugano": {
+      "kalshi_codes": [
+        "LUG"
+      ],
+      "kalshi_names": [
+        "Lugano"
+      ],
+      "odds_names": [
+        "FC Lugano"
+      ]
+    },
+    "fc-midtjylland": {
+      "kalshi_codes": [
+        "FCM"
+      ],
+      "kalshi_names": [
+        "Midtjylland"
+      ],
+      "odds_names": [
+        "FC Midtjylland"
+      ]
+    },
+    "fc-nordsjaelland": {
+      "kalshi_codes": [
+        "NJA"
+      ],
+      "kalshi_names": [
+        "Nordsjaelland"
+      ],
+      "odds_names": [
+        "FC Nordsjaelland"
+      ]
+    },
+    "fc-thun": {
+      "kalshi_codes": [
+        "THU"
+      ],
+      "kalshi_names": [
+        "Thun"
+      ],
+      "odds_names": [
+        "FC Thun"
+      ]
+    },
+    "fk-jablonec": {
+      "kalshi_codes": [
+        "FKJ"
+      ],
+      "kalshi_names": [
+        "Jablonec"
+      ],
+      "odds_names": [
+        "FK Jablonec"
+      ]
+    },
+    "gent": {
+      "kalshi_codes": [
+        "KAA"
+      ],
+      "kalshi_names": [
+        "Gent"
+      ],
+      "odds_names": [
+        "Gent"
+      ]
+    },
+    "getafe": {
+      "kalshi_codes": [
+        "GET"
+      ],
+      "kalshi_names": [
+        "Getafe"
+      ],
+      "odds_names": [
+        "Getafe"
+      ]
+    },
+    "lincoln-red-imps-fc": {
+      "kalshi_codes": [
+        "LIN"
+      ],
+      "kalshi_names": [
+        "Lincoln Red Imps"
+      ],
+      "odds_names": [
+        "Lincoln Red Imps FC"
+      ]
+    },
+    "pafos-fc": {
+      "kalshi_codes": [
+        "PAF"
+      ],
+      "kalshi_names": [
+        "Pafos"
+      ],
+      "odds_names": [
+        "Pafos FC"
+      ]
+    },
+    "panathinaikos-fc": {
+      "kalshi_codes": [
+        "PAN"
+      ],
+      "kalshi_names": [
+        "Panathinaikos"
+      ],
+      "odds_names": [
+        "Panathinaikos FC"
+      ]
+    },
+    "riga-fc": {
+      "kalshi_codes": [
+        "RFC"
+      ],
+      "kalshi_names": [
+        "Riga FC"
+      ],
+      "odds_names": [
+        "Riga FC"
+      ]
+    },
+    "sc-braga": {
+      "kalshi_codes": [
+        "BRA"
+      ],
+      "kalshi_names": [
+        "Braga"
+      ],
+      "odds_names": [
+        "SC Braga"
+      ]
+    },
+    "sc-freiburg": {
+      "kalshi_codes": [
+        "SCF"
+      ],
+      "kalshi_names": [
+        "Freiburg"
+      ],
+      "odds_names": [
+        "SC Freiburg"
+      ]
+    },
+    "trabzonspor": {
+      "kalshi_codes": [
+        "TRA"
+      ],
+      "kalshi_names": [
+        "Trabzonspor"
+      ],
+      "odds_names": [
+        "Trabzonspor"
+      ]
+    }
+  },
+  "soccer_uefa_europa_league": {
+    "ac-milan": {
+      "kalshi_codes": [
+        "ACM"
+      ],
+      "kalshi_names": [
+        "Milan"
+      ],
+      "odds_names": [
+        "AC Milan"
+      ]
+    },
+    "anderlecht": {
+      "kalshi_codes": [
+        "RSC"
+      ],
+      "kalshi_names": [
+        "Anderlecht"
+      ],
+      "odds_names": [
+        "Anderlecht"
+      ]
+    },
+    "az-alkmaar": {
+      "kalshi_codes": [
+        "AZA"
+      ],
+      "kalshi_names": [
+        "Alkmaar"
+      ],
+      "odds_names": [
+        "AZ Alkmaar"
+      ]
+    },
+    "benfica": {
+      "kalshi_codes": [
+        "BEN"
+      ],
+      "kalshi_names": [
+        "SL Benfica"
+      ],
+      "odds_names": [
+        "Benfica"
+      ]
+    },
+    "besiktas-jk": {
+      "kalshi_codes": [
+        "BES"
+      ],
+      "kalshi_names": [
+        "Besiktas"
+      ],
+      "odds_names": [
+        "Besiktas JK"
+      ]
+    },
+    "bournemouth": {
+      "kalshi_codes": [
+        "BOU"
+      ],
+      "kalshi_names": [
+        "Bournemouth"
+      ],
+      "odds_names": [
+        "Bournemouth"
+      ]
+    },
+    "celta-vigo": {
+      "kalshi_codes": [
+        "RCC"
+      ],
+      "kalshi_names": [
+        "Celta Vigo"
+      ],
+      "odds_names": [
+        "Celta Vigo"
+      ]
+    },
+    "crystal-palace": {
+      "kalshi_codes": [
+        "CRY"
+      ],
+      "kalshi_names": [
+        "Crystal Palace"
+      ],
+      "odds_names": [
+        "Crystal Palace"
+      ]
+    },
+    "dinamo-zagreb": {
+      "kalshi_codes": [
+        "DIN"
+      ],
+      "kalshi_names": [
+        "Dinamo Zagreb"
+      ],
+      "odds_names": [
+        "Dinamo Zagreb"
+      ]
+    },
+    "fc-ararat-armenia": {
+      "kalshi_codes": [
+        "ARA"
+      ],
+      "kalshi_names": [
+        "Ararat-Armenia"
+      ],
+      "odds_names": [
+        "FC Ararat-Armenia"
+      ]
+    },
+    "ferencv-ros-tc": {
+      "kalshi_codes": [
+        "FTC"
+      ],
+      "kalshi_names": [
+        "Ferencvarosi"
+      ],
+      "odds_names": [
+        "Ferencv\u00e1ros TC"
+      ]
+    },
+    "hapoel-be-er-sheva": {
+      "kalshi_codes": [
+        "HBS"
+      ],
+      "kalshi_names": [
+        "Be`er Sheva"
+      ],
+      "odds_names": [
+        "Hapoel Be'er Sheva"
+      ]
+    },
+    "jagiellonia-bia-ystok": {
+      "kalshi_codes": [
+        "JAG"
+      ],
+      "kalshi_names": [
+        "Jagiellonia"
+      ],
+      "odds_names": [
+        "Jagiellonia Bia\u0142ystok"
+      ]
+    },
+    "juventus": {
+      "kalshi_codes": [
+        "JUV"
+      ],
+      "kalshi_names": [
+        "Juventus"
+      ],
+      "odds_names": [
+        "Juventus"
+      ]
+    },
+    "lech-pozna": {
+      "kalshi_codes": [
+        "LPO"
+      ],
+      "kalshi_names": [
+        "Lech Poznan"
+      ],
+      "odds_names": [
+        "Lech Pozna\u0144"
+      ]
+    },
+    "lillestrom": {
+      "kalshi_codes": [
+        "LSK"
+      ],
+      "kalshi_names": [
+        "Lillestroem"
+      ],
+      "odds_names": [
+        "Lillestrom"
+      ]
+    },
+    "lyon": {
+      "kalshi_codes": [
+        "OL"
+      ],
+      "kalshi_names": [
+        "Lyon"
+      ],
+      "odds_names": [
+        "Lyon"
+      ]
+    },
+    "marseille": {
+      "kalshi_codes": [
+        "OLM"
+      ],
+      "kalshi_names": [
+        "Marseille"
+      ],
+      "odds_names": [
+        "Marseille"
+      ]
+    },
+    "nec-nijmegen": {
+      "kalshi_codes": [
+        "NIJ"
+      ],
+      "kalshi_names": [
+        "Nijmegen"
+      ],
+      "odds_names": [
+        "NEC Nijmegen"
+      ]
+    },
+    "ofi-crete": {
+      "kalshi_codes": [
+        "OFI"
+      ],
+      "kalshi_names": [
+        "OFI Crete"
+      ],
+      "odds_names": [
+        "OFI Crete"
+      ]
+    },
+    "olympiakos-piraeus": {
+      "kalshi_codes": [
+        "OLY"
+      ],
+      "kalshi_names": [
+        "Olympiacos"
+      ],
+      "odds_names": [
+        "Olympiakos Piraeus"
+      ]
+    },
+    "omonoia-fc": {
+      "kalshi_codes": [
+        "OMO"
+      ],
+      "kalshi_names": [
+        "Omonia Nicosia"
+      ],
+      "odds_names": [
+        "Omonoia FC"
+      ]
+    },
+    "real-sociedad": {
+      "kalshi_codes": [
+        "RSO"
+      ],
+      "kalshi_names": [
+        "Real Sociedad"
+      ],
+      "odds_names": [
+        "Real Sociedad"
+      ]
+    },
+    "rennes": {
+      "kalshi_codes": [
+        "REN"
+      ],
+      "kalshi_names": [
+        "Stade Rennais"
+      ],
+      "odds_names": [
+        "Rennes"
+      ]
+    },
+    "salzburg": {
+      "kalshi_codes": [
+        "RBS"
+      ],
+      "kalshi_names": [
+        "Salzburg"
+      ],
+      "odds_names": [
+        "Salzburg"
+      ]
+    },
+    "sk-sturm-graz": {
+      "kalshi_codes": [
+        "STU"
+      ],
+      "kalshi_names": [
+        "Sturm Graz"
+      ],
+      "odds_names": [
+        "SK Sturm Graz"
+      ]
+    },
+    "sparta-prague": {
+      "kalshi_codes": [
+        "SPA"
+      ],
+      "kalshi_names": [
+        "Sparta Prague"
+      ],
+      "odds_names": [
+        "Sparta Prague"
+      ]
+    },
+    "sunderland": {
+      "kalshi_codes": [
+        "SUN"
+      ],
+      "kalshi_names": [
+        "Sunderland"
+      ],
+      "odds_names": [
+        "Sunderland"
+      ]
+    },
+    "torreense": {
+      "kalshi_codes": [
+        "TOR"
+      ],
+      "kalshi_names": [
+        "Torreense"
+      ],
+      "odds_names": [
+        "Torreense"
+      ]
+    },
+    "tsg-hoffenheim": {
+      "kalshi_codes": [
+        "TSG"
+      ],
+      "kalshi_names": [
+        "Hoffenheim"
+      ],
+      "odds_names": [
+        "TSG Hoffenheim"
+      ]
+    },
+    "union-saint-gilloise": {
+      "kalshi_codes": [
+        "USG"
+      ],
+      "kalshi_names": [
+        "Union Gilloise"
+      ],
+      "odds_names": [
+        "Union Saint-Gilloise"
+      ]
+    },
+    "viktoria-plze": {
+      "kalshi_codes": [
+        "VIK"
+      ],
+      "kalshi_names": [
+        "Plzen"
+      ],
+      "odds_names": [
+        "Viktoria Plze\u0148"
+      ]
+    }
+  },
   "soccer_usa_mls": {
     "atlanta-united-fc": {
       "kalshi_codes": [

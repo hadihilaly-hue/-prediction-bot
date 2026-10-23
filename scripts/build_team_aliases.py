@@ -13,7 +13,8 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from prediction_bot.config import KALSHI_PROD_REST
-from prediction_bot.odds import KALSHI_SERIES_TO_SPORT, best_team
+from prediction_bot.odds import KALSHI_SERIES_TO_SPORT, _tokens, best_team, team_match_score
+from prediction_bot.teams import kalshi_name_ok, team_for_code, team_for_odds_name
 from prediction_bot.venues.kalshi import KalshiClient
 
 ODDS_API_BASE = "https://api.the-odds-api.com/v4"
@@ -66,17 +67,66 @@ def _market_team(name: str, rules_primary: str, candidates: list[str]) -> str | 
     return rules_match or title_match
 
 
+def _participant_team(
+    name: str, rules_primary: str, candidates: list[str]
+) -> tuple[str | None, list[str]]:
+    winner = RULES_WINNER.search(rules_primary)
+    queries = [name]
+    if winner is not None:
+        queries.append(winner.group(1).strip())
+    matches: list[set[str]] = []
+    for query in queries:
+        tokens = _tokens(query)
+        if not tokens:
+            continue
+        normalized_matches = {candidate for candidate in candidates if tokens == _tokens(candidate)}
+        if normalized_matches:
+            matches.append(normalized_matches)
+    if not matches:
+        return None, []
+    common = set.intersection(*matches)
+    if len(common) == 1 and all(len(match) == 1 for match in matches):
+        return next(iter(common)), sorted(common)
+    return None, sorted(set.union(*matches))
+
+
+def _participant_suggestions(
+    name: str, rules_primary: str, candidates: list[str]
+) -> list[tuple[str, float]]:
+    winner = RULES_WINNER.search(rules_primary)
+    queries = [name]
+    if winner is not None:
+        queries.append(winner.group(1).strip())
+    scores = {
+        candidate: max(team_match_score(query, candidate) for query in queries)
+        for candidate in candidates
+    }
+    return sorted(
+        ((candidate, score) for candidate, score in scores.items() if score > 0),
+        key=lambda item: (-item[1], item[0]),
+    )[:5]
+
+
 def build_alias_proposal(
     kalshi_events: dict[str, list[dict[str, Any]]],
     odds_events: dict[str, list[dict[str, Any]]],
+    participants: dict[str, list[dict[str, Any]]] | None = None,
+    series_filter: set[str] | None = None,
 ) -> tuple[dict[str, dict[str, dict[str, list[str]]]], dict[str, dict[str, Any]]]:
     proposal: dict[str, dict[str, dict[str, set[str]]]] = defaultdict(
-        lambda: defaultdict(lambda: {"kalshi_codes": set(), "kalshi_names": set(), "odds_names": set()})
+        lambda: defaultdict(
+            lambda: {"kalshi_codes": set(), "kalshi_names": set(), "odds_names": set()}
+        )
     )
     report: dict[str, dict[str, Any]] = {}
     for series, sport in SUPPORTED_SERIES.items():
+        if series_filter is not None and series not in series_filter:
+            continue
         seen_codes: set[str] = set()
         paired_codes: set[str] = set()
+        owners_by_code: dict[str, set[str]] = defaultdict(set)
+        market_names_by_code: dict[str, set[str]] = defaultdict(set)
+        codes_by_event: dict[str, list[tuple[str, str, str]]] = {}
         seen_names = {
             name
             for event in odds_events.get(sport, [])
@@ -109,6 +159,7 @@ def build_alias_proposal(
                     continue
                 seen_codes.add(code)
                 team_markets.append((code, name, str(market.get("rules_primary") or "")))
+            codes_by_event[event_ticker] = team_markets
             if len(team_markets) < 2:
                 unmatched_events.append(event_ticker)
                 continue
@@ -129,7 +180,22 @@ def build_alias_proposal(
                     continue
                 assignment: dict[str, str] = {}
                 for code, name, rules_primary in team_markets:
-                    matched = _market_team(name, rules_primary, [home, away])
+                    known_team = team_for_code(series, code)
+                    known_name = (
+                        team_for_odds_name(sport, home) == known_team
+                        or team_for_odds_name(sport, away) == known_team
+                    )
+                    matched = (
+                        next(
+                            candidate
+                            for candidate in (home, away)
+                            if team_for_odds_name(sport, candidate) == known_team
+                        )
+                        if known_team is not None
+                        and kalshi_name_ok(series, known_team, name)
+                        and known_name
+                        else _market_team(name, rules_primary, [home, away])
+                    )
                     if matched is None or matched in assignment.values():
                         assignment = {}
                         break
@@ -149,23 +215,91 @@ def build_alias_proposal(
                 team["kalshi_codes"].add(code)
                 team["kalshi_names"].add(name)
                 team["odds_names"].add(odds_name)
+                owners_by_code[code].add(odds_name)
+                market_names_by_code[code].add(name)
                 paired_codes.add(code)
                 paired_names.add(odds_name)
+        participant_names = sorted(
+            {
+                str(item["full_name"])
+                for item in (participants or {}).get(sport, [])
+                if isinstance(item.get("full_name"), str) and item["full_name"]
+            }
+        )
+        for team_markets in codes_by_event.values():
+            for code, name, rules_primary in team_markets:
+                matched, _ = _participant_team(name, rules_primary, participant_names)
+                if matched is not None:
+                    team = proposal[sport][canonical_id(matched)]
+                    team["kalshi_codes"].add(code)
+                    team["kalshi_names"].add(name)
+                    team["odds_names"].add(matched)
+                    owners_by_code[code].add(matched)
+                    market_names_by_code[code].add(name)
+                    paired_codes.add(code)
+                    paired_names.add(matched)
+        conflicting_codes = {
+            code: sorted(owners) for code, owners in owners_by_code.items() if len(owners) > 1
+        }
+        for team_id, team in list(proposal[sport].items()):
+            valid_codes = set(team["kalshi_codes"]) - set(conflicting_codes)
+            if not valid_codes:
+                del proposal[sport][team_id]
+                continue
+            team["kalshi_codes"] = valid_codes
+            team["kalshi_names"] = set().union(
+                *(
+                    market_names_by_code[code]
+                    for code in valid_codes
+                    if canonical_id(next(iter(owners_by_code[code]))) == team_id
+                )
+            )
+        paired_codes.difference_update(conflicting_codes)
+        paired_names = {
+            owner
+            for code, owners in owners_by_code.items()
+            if code not in conflicting_codes
+            for owner in owners
+        }
+        unmatched_codes = seen_codes - paired_codes
+        code_markets: dict[str, list[tuple[str, str]]] = defaultdict(list)
+        for team_markets in codes_by_event.values():
+            for code, name, rules_primary in team_markets:
+                code_markets[code].append((name, rules_primary))
         report[sport] = {
             "series": series,
             "teams_mapped": len(proposal[sport]),
             "codes_seen": sorted(seen_codes),
-            "codes_unmatched": sorted(seen_codes - paired_codes),
+            "codes_unmatched": sorted(unmatched_codes),
             "odds_names_seen": sorted(seen_names),
             "odds_names_unmatched": sorted(seen_names - paired_names),
             "unmatched_events": sorted(set(unmatched_events)),
+            "participants_seen": len(participant_names),
+            "participants_without_confirmed_market": len(set(participant_names) - paired_names),
+            "unmatched_candidates": {
+                code: {
+                    "market_names": sorted({name for name, _rules in code_markets[code]}),
+                    "candidates": [
+                        {"name": candidate, "score": round(score, 3)}
+                        for market_name, rules_primary in code_markets[code]
+                        for candidate, score in _participant_suggestions(
+                            market_name, rules_primary, participant_names
+                        )
+                    ][:10]
+                    + [{"name": owner, "score": 1.0} for owner in conflicting_codes.get(code, [])],
+                    "reason": (
+                        "Kalshi code identifies multiple Odds API participants"
+                        if code in conflicting_codes
+                        else "No unique normalized participant match or unique kickoff pairing"
+                    ),
+                }
+                for code in sorted(unmatched_codes)
+            },
+            "conflicting_codes": conflicting_codes,
         }
     normalized = {
         sport: {
-            team_id: {
-                key: sorted(values)
-                for key, values in team.items()
-            }
+            team_id: {key: sorted(values) for key, values in team.items()}
             for team_id, team in teams.items()
         }
         for sport, teams in proposal.items()
@@ -195,35 +329,48 @@ def fetch_odds_events(
     return data, headers
 
 
-def render_report(
-    report: dict[str, dict[str, Any]], headers: list[dict[str, str | None]]
-) -> str:
+def render_report(report: dict[str, dict[str, Any]], headers: list[dict[str, str | None]]) -> str:
     lines = [
         "# Team alias build report",
         "",
         "Proposals are generated from public Kalshi events and The Odds API events. "
-        "Only unique team/date pairings accepted by team subtitles and `rules_primary` are included.",
+        "Only unique kickoff pairings or exact participant token-set matches under the builder's "
+        "normalization are included. Codes shared by different teams remain unmapped.",
         "",
-        "| Sport | Series | Teams mapped / codes seen | Unmatched codes | Unmatched Odds API names |",
-        "|---|---|---:|---|---|",
+        "| Sport | Series | Teams mapped / codes seen | Unmatched codes | "
+        "Participants without a confirmed market |",
+        "|---|---|---:|---|---:|",
     ]
     for sport, data in sorted(report.items()):
         codes = data["codes_seen"]
         lines.append(
             f"| `{sport}` | `{data['series']}` | {data['teams_mapped']} / {len(codes)} "
             f"| {', '.join(data['codes_unmatched']) or '—'} "
-            f"| {', '.join(data['odds_names_unmatched']) or '—'} |"
+            f"| {data['participants_without_confirmed_market']} |"
         )
-    lines.extend(["", "## Unmatched Kalshi events and Odds API names", ""])
+    lines.extend(["", "## Unmatched Kalshi events and codes", ""])
     for sport, data in sorted(report.items()):
-        if data["unmatched_events"] or data["codes_unmatched"] or data["odds_names_unmatched"]:
+        if data["unmatched_events"] or data["codes_unmatched"]:
             lines.append(f"### `{sport}`")
             if data["unmatched_events"]:
                 lines.append("- Kalshi events: " + ", ".join(data["unmatched_events"]))
-            if data["codes_unmatched"]:
-                lines.append("- Kalshi codes: " + ", ".join(data["codes_unmatched"]))
-            if data["odds_names_unmatched"]:
-                lines.append("- Odds API names: " + ", ".join(data["odds_names_unmatched"]))
+            for code in data["codes_unmatched"]:
+                details = data["unmatched_candidates"][code]
+                candidates = ", ".join(
+                    f"{item['name']} (score {item['score']:.3f})" for item in details["candidates"]
+                )
+                lines.append(
+                    f"- `{code}` — market names: "
+                    f"{', '.join(details['market_names']) or 'unknown'}; "
+                    f"candidates: {candidates or 'none'}; "
+                    f"{details['reason']}."
+                )
+            if data["participants_seen"]:
+                lines.append(
+                    f"- Participants without a confirmed current-market mapping: "
+                    f"{data['participants_without_confirmed_market']} of "
+                    f"{data['participants_seen']}."
+                )
             lines.append("")
     lines.extend(["## Odds API request headers", ""])
     for i, item in enumerate(headers, start=1):
