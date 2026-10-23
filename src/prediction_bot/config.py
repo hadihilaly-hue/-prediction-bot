@@ -44,8 +44,25 @@ class Settings(BaseSettings):
     in_play_kalshi_price_min: Decimal = Decimal("0.03")
     in_play_kalshi_price_max: Decimal = Decimal("0.97")
     in_play_consensus_jump: Decimal = Decimal("0.15")
-    v2_max_position_cost: Decimal = Decimal("25")
-    v2_max_event_cost: Decimal = Decimal("25")
+    fee_rounding: Literal["cent", "centicent"] = "cent"
+    v2_min_net_edge: Decimal = Decimal("0.02")
+    v2_longshot_price: Decimal = Decimal("0.25")
+    v2_longshot_min_gross: Decimal = Decimal("0.04")
+    v2_price_floor: Decimal = Decimal("0.10")
+    v2_price_ceiling: Decimal = Decimal("0.90")
+    v2_max_spread: Decimal = Decimal("0.04")
+    v2_thin_market_extra_edge: Decimal = Decimal("0.01")
+    min_books: int = 2
+    min_books_by_sport: dict[str, int] = Field(
+        default_factory=lambda: {"americanfootball_ncaaf": 3}
+    )
+    max_book_spread: Decimal = Decimal("0.03")
+    longshot_haircut: Literal["slope", "flat", "none"] = "slope"
+    v2_kelly_fraction: Decimal = Decimal("0.25")
+    v2_position_bankroll_fraction: Decimal = Decimal("0.02")
+    v2_event_bankroll_fraction: Decimal = Decimal("0.02")
+    v2_daily_bankroll_fraction: Decimal = Decimal("0.10")
+    v2_total_open_bankroll_fraction: Decimal = Decimal("0.30")
 
     # Kalshi
     kalshi_api_base: str = KALSHI_DEMO_REST

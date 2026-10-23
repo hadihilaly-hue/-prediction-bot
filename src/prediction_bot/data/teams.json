@@ -1389,9 +1389,15 @@
       ]
     },
     "los-angeles-chargers": {
-      "kalshi_codes": ["LAC"],
-      "kalshi_names": ["Los Angeles C"],
-      "odds_names": ["Los Angeles Chargers"]
+      "kalshi_codes": [
+        "LAC"
+      ],
+      "kalshi_names": [
+        "Los Angeles C"
+      ],
+      "odds_names": [
+        "Los Angeles Chargers"
+      ]
     },
     "los-angeles-rams": {
       "kalshi_codes": [
@@ -1569,6 +1575,314 @@
       ],
       "odds_names": [
         "Tampa Bay Rays"
+      ]
+    },
+    "cleveland-guardians": {
+      "kalshi_codes": [
+        "CLE"
+      ],
+      "kalshi_names": [
+        "Cleveland"
+      ],
+      "odds_names": [
+        "Cleveland Guardians"
+      ]
+    },
+    "los-angeles-dodgers": {
+      "kalshi_codes": [
+        "LAD"
+      ],
+      "kalshi_names": [
+        "Los Angeles D"
+      ],
+      "odds_names": [
+        "Los Angeles Dodgers"
+      ]
+    },
+    "san-diego-padres": {
+      "kalshi_codes": [
+        "SD"
+      ],
+      "kalshi_names": [
+        "San Diego"
+      ],
+      "odds_names": [
+        "San Diego Padres"
+      ]
+    },
+    "new-york-yankees": {
+      "kalshi_codes": [
+        "NYY"
+      ],
+      "kalshi_names": [
+        "New York Y"
+      ],
+      "odds_names": [
+        "New York Yankees"
+      ]
+    },
+    "atlanta-braves": {
+      "kalshi_codes": [
+        "ATL"
+      ],
+      "kalshi_names": [
+        "Atlanta"
+      ],
+      "odds_names": [
+        "Atlanta Braves"
+      ]
+    },
+    "philadelphia-phillies": {
+      "kalshi_codes": [
+        "PHI"
+      ],
+      "kalshi_names": [
+        "Philadelphia"
+      ],
+      "odds_names": [
+        "Philadelphia Phillies"
+      ]
+    },
+    "chicago-cubs": {
+      "kalshi_codes": [
+        "CHC"
+      ],
+      "kalshi_names": [
+        "Chicago C"
+      ],
+      "odds_names": [
+        "Chicago Cubs"
+      ]
+    },
+    "boston-red-sox": {
+      "kalshi_codes": [
+        "BOS"
+      ],
+      "kalshi_names": [
+        "Boston"
+      ],
+      "odds_names": [
+        "Boston Red Sox"
+      ]
+    },
+    "houston-astros": {
+      "kalshi_codes": [
+        "HOU"
+      ],
+      "kalshi_names": [
+        "Houston"
+      ],
+      "odds_names": [
+        "Houston Astros"
+      ]
+    },
+    "baltimore-orioles": {
+      "kalshi_codes": [
+        "BAL"
+      ],
+      "kalshi_names": [
+        "Baltimore"
+      ],
+      "odds_names": [
+        "Baltimore Orioles"
+      ]
+    },
+    "texas-rangers": {
+      "kalshi_codes": [
+        "TEX"
+      ],
+      "kalshi_names": [
+        "Texas"
+      ],
+      "odds_names": [
+        "Texas Rangers"
+      ]
+    },
+    "minnesota-twins": {
+      "kalshi_codes": [
+        "MIN"
+      ],
+      "kalshi_names": [
+        "Minnesota"
+      ],
+      "odds_names": [
+        "Minnesota Twins"
+      ]
+    },
+    "st-louis-cardinals": {
+      "kalshi_codes": [
+        "STL"
+      ],
+      "kalshi_names": [
+        "St. Louis"
+      ],
+      "odds_names": [
+        "St. Louis Cardinals"
+      ]
+    },
+    "pittsburgh-pirates": {
+      "kalshi_codes": [
+        "PIT"
+      ],
+      "kalshi_names": [
+        "Pittsburgh"
+      ],
+      "odds_names": [
+        "Pittsburgh Pirates"
+      ]
+    },
+    "detroit-tigers": {
+      "kalshi_codes": [
+        "DET"
+      ],
+      "kalshi_names": [
+        "Detroit"
+      ],
+      "odds_names": [
+        "Detroit Tigers"
+      ]
+    },
+    "los-angeles-angels": {
+      "kalshi_codes": [
+        "LAA"
+      ],
+      "kalshi_names": [
+        "Los Angeles A"
+      ],
+      "odds_names": [
+        "Los Angeles Angels"
+      ]
+    },
+    "seattle-mariners": {
+      "kalshi_codes": [
+        "SEA"
+      ],
+      "kalshi_names": [
+        "Seattle"
+      ],
+      "odds_names": [
+        "Seattle Mariners"
+      ]
+    },
+    "colorado-rockies": {
+      "kalshi_codes": [
+        "COL"
+      ],
+      "kalshi_names": [
+        "Colorado"
+      ],
+      "odds_names": [
+        "Colorado Rockies"
+      ]
+    },
+    "kansas-city-royals": {
+      "kalshi_codes": [
+        "KC"
+      ],
+      "kalshi_names": [
+        "Kansas City"
+      ],
+      "odds_names": [
+        "Kansas City Royals"
+      ]
+    },
+    "arizona-diamondbacks": {
+      "kalshi_codes": [
+        "AZ"
+      ],
+      "kalshi_names": [
+        "Arizona"
+      ],
+      "odds_names": [
+        "Arizona Diamondbacks"
+      ]
+    },
+    "miami-marlins": {
+      "kalshi_codes": [
+        "MIA"
+      ],
+      "kalshi_names": [
+        "Miami"
+      ],
+      "odds_names": [
+        "Miami Marlins"
+      ]
+    },
+    "cincinnati-reds": {
+      "kalshi_codes": [
+        "CIN"
+      ],
+      "kalshi_names": [
+        "Cincinnati"
+      ],
+      "odds_names": [
+        "Cincinnati Reds"
+      ]
+    },
+    "toronto-blue-jays": {
+      "kalshi_codes": [
+        "TOR"
+      ],
+      "kalshi_names": [
+        "Toronto"
+      ],
+      "odds_names": [
+        "Toronto Blue Jays"
+      ]
+    },
+    "new-york-mets": {
+      "kalshi_codes": [
+        "NYM"
+      ],
+      "kalshi_names": [
+        "New York M"
+      ],
+      "odds_names": [
+        "New York Mets"
+      ]
+    },
+    "washington-nationals": {
+      "kalshi_codes": [
+        "WSH"
+      ],
+      "kalshi_names": [
+        "Washington"
+      ],
+      "odds_names": [
+        "Washington Nationals"
+      ]
+    },
+    "san-francisco-giants": {
+      "kalshi_codes": [
+        "SF"
+      ],
+      "kalshi_names": [
+        "San Francisco"
+      ],
+      "odds_names": [
+        "San Francisco Giants"
+      ]
+    },
+    "athletics": {
+      "kalshi_codes": [
+        "ATH"
+      ],
+      "kalshi_names": [
+        "A's"
+      ],
+      "odds_names": [
+        "Athletics"
+      ]
+    },
+    "chicago-white-sox": {
+      "kalshi_codes": [
+        "CWS"
+      ],
+      "kalshi_names": [
+        "Chicago WS"
+      ],
+      "odds_names": [
+        "Chicago White Sox"
       ]
     }
   },
@@ -1814,6 +2128,94 @@
       "odds_names": [
         "Washington Wizards"
       ]
+    },
+    "los-angeles-clippers": {
+      "kalshi_codes": [
+        "LAC"
+      ],
+      "kalshi_names": [
+        "Los Angeles C"
+      ],
+      "odds_names": [
+        "Los Angeles Clippers"
+      ]
+    },
+    "los-angeles-lakers": {
+      "kalshi_codes": [
+        "LAL"
+      ],
+      "kalshi_names": [
+        "Los Angeles L"
+      ],
+      "odds_names": [
+        "Los Angeles Lakers"
+      ]
+    },
+    "brooklyn-nets": {
+      "kalshi_codes": [
+        "BKN"
+      ],
+      "kalshi_names": [
+        "Brooklyn"
+      ],
+      "odds_names": [
+        "Brooklyn Nets"
+      ]
+    },
+    "cleveland-cavaliers": {
+      "kalshi_codes": [
+        "CLE"
+      ],
+      "kalshi_names": [
+        "Cleveland"
+      ],
+      "odds_names": [
+        "Cleveland Cavaliers"
+      ]
+    },
+    "philadelphia-76ers": {
+      "kalshi_codes": [
+        "PHI"
+      ],
+      "kalshi_names": [
+        "Philadelphia"
+      ],
+      "odds_names": [
+        "Philadelphia 76ers"
+      ]
+    },
+    "denver-nuggets": {
+      "kalshi_codes": [
+        "DEN"
+      ],
+      "kalshi_names": [
+        "Denver"
+      ],
+      "odds_names": [
+        "Denver Nuggets"
+      ]
+    },
+    "phoenix-suns": {
+      "kalshi_codes": [
+        "PHX"
+      ],
+      "kalshi_names": [
+        "Phoenix"
+      ],
+      "odds_names": [
+        "Phoenix Suns"
+      ]
+    },
+    "oklahoma-city-thunder": {
+      "kalshi_codes": [
+        "OKC"
+      ],
+      "kalshi_names": [
+        "Oklahoma City"
+      ],
+      "odds_names": [
+        "Oklahoma City Thunder"
+      ]
     }
   },
   "basketball_ncaab": {},
@@ -1838,6 +2240,149 @@
       ],
       "odds_names": [
         "Golden State Valkyries"
+      ]
+    },
+    "las-vegas-aces": {
+      "kalshi_codes": [
+        "LV"
+      ],
+      "kalshi_names": [
+        "Las Vegas"
+      ],
+      "odds_names": [
+        "Las Vegas Aces"
+      ]
+    },
+    "new-york-liberty": {
+      "kalshi_codes": [
+        "NY"
+      ],
+      "kalshi_names": [
+        "New York"
+      ],
+      "odds_names": [
+        "New York Liberty"
+      ]
+    },
+    "dallas-wings": {
+      "kalshi_codes": [
+        "DAL"
+      ],
+      "kalshi_names": [
+        "Dallas"
+      ],
+      "odds_names": [
+        "Dallas Wings"
+      ]
+    },
+    "indiana-fever": {
+      "kalshi_codes": [
+        "IND"
+      ],
+      "kalshi_names": [
+        "Indiana"
+      ],
+      "odds_names": [
+        "Indiana Fever"
+      ]
+    },
+    "washington-mystics": {
+      "kalshi_codes": [
+        "WSH"
+      ],
+      "kalshi_names": [
+        "Washington"
+      ],
+      "odds_names": [
+        "Washington Mystics"
+      ]
+    },
+    "minnesota-lynx": {
+      "kalshi_codes": [
+        "MIN"
+      ],
+      "kalshi_names": [
+        "Minnesota"
+      ],
+      "odds_names": [
+        "Minnesota Lynx"
+      ]
+    },
+    "phoenix-mercury": {
+      "kalshi_codes": [
+        "PHX"
+      ],
+      "kalshi_names": [
+        "Phoenix"
+      ],
+      "odds_names": [
+        "Phoenix Mercury"
+      ]
+    },
+    "los-angeles-sparks": {
+      "kalshi_codes": [
+        "LA"
+      ],
+      "kalshi_names": [
+        "Los Angeles"
+      ],
+      "odds_names": [
+        "Los Angeles Sparks"
+      ]
+    },
+    "chicago-sky": {
+      "kalshi_codes": [
+        "CHI"
+      ],
+      "kalshi_names": [
+        "Chicago"
+      ],
+      "odds_names": [
+        "Chicago Sky"
+      ]
+    },
+    "connecticut-sun": {
+      "kalshi_codes": [
+        "CONN"
+      ],
+      "kalshi_names": [
+        "Connecticut"
+      ],
+      "odds_names": [
+        "Connecticut Sun"
+      ]
+    },
+    "toronto-tempo": {
+      "kalshi_codes": [
+        "TOR"
+      ],
+      "kalshi_names": [
+        "Toronto"
+      ],
+      "odds_names": [
+        "Toronto Tempo"
+      ]
+    },
+    "seattle-storm": {
+      "kalshi_codes": [
+        "SEA"
+      ],
+      "kalshi_names": [
+        "Seattle"
+      ],
+      "odds_names": [
+        "Seattle Storm"
+      ]
+    },
+    "portland-fire": {
+      "kalshi_codes": [
+        "PDX"
+      ],
+      "kalshi_names": [
+        "Portland"
+      ],
+      "odds_names": [
+        "Portland Fire"
       ]
     }
   },
@@ -1872,7 +2417,7 @@
         "Montreal"
       ],
       "odds_names": [
-        "Montr\u00e9al Canadiens"
+        "Montréal Canadiens"
       ]
     },
     "tampa-bay-lightning": {
@@ -1884,6 +2429,314 @@
       ],
       "odds_names": [
         "Tampa Bay Lightning"
+      ]
+    },
+    "philadelphia-flyers": {
+      "kalshi_codes": [
+        "PHI"
+      ],
+      "kalshi_names": [
+        "Philadelphia"
+      ],
+      "odds_names": [
+        "Philadelphia Flyers"
+      ]
+    },
+    "anaheim-ducks": {
+      "kalshi_codes": [
+        "ANA"
+      ],
+      "kalshi_names": [
+        "Anaheim"
+      ],
+      "odds_names": [
+        "Anaheim Ducks"
+      ]
+    },
+    "new-jersey-devils": {
+      "kalshi_codes": [
+        "NJ"
+      ],
+      "kalshi_names": [
+        "New Jersey"
+      ],
+      "odds_names": [
+        "New Jersey Devils"
+      ]
+    },
+    "los-angeles-kings": {
+      "kalshi_codes": [
+        "LA"
+      ],
+      "kalshi_names": [
+        "Los Angeles"
+      ],
+      "odds_names": [
+        "Los Angeles Kings"
+      ]
+    },
+    "washington-capitals": {
+      "kalshi_codes": [
+        "WSH"
+      ],
+      "kalshi_names": [
+        "Washington"
+      ],
+      "odds_names": [
+        "Washington Capitals"
+      ]
+    },
+    "buffalo-sabres": {
+      "kalshi_codes": [
+        "BUF"
+      ],
+      "kalshi_names": [
+        "Buffalo"
+      ],
+      "odds_names": [
+        "Buffalo Sabres"
+      ]
+    },
+    "st-louis-blues": {
+      "kalshi_codes": [
+        "STL"
+      ],
+      "kalshi_names": [
+        "St. Louis"
+      ],
+      "odds_names": [
+        "St Louis Blues"
+      ]
+    },
+    "carolina-hurricanes": {
+      "kalshi_codes": [
+        "CAR"
+      ],
+      "kalshi_names": [
+        "Carolina"
+      ],
+      "odds_names": [
+        "Carolina Hurricanes"
+      ]
+    },
+    "pittsburgh-penguins": {
+      "kalshi_codes": [
+        "PIT"
+      ],
+      "kalshi_names": [
+        "Pittsburgh"
+      ],
+      "odds_names": [
+        "Pittsburgh Penguins"
+      ]
+    },
+    "nashville-predators": {
+      "kalshi_codes": [
+        "NSH"
+      ],
+      "kalshi_names": [
+        "Nashville"
+      ],
+      "odds_names": [
+        "Nashville Predators"
+      ]
+    },
+    "ottawa-senators": {
+      "kalshi_codes": [
+        "OTT"
+      ],
+      "kalshi_names": [
+        "Ottawa"
+      ],
+      "odds_names": [
+        "Ottawa Senators"
+      ]
+    },
+    "new-york-rangers": {
+      "kalshi_codes": [
+        "NYR"
+      ],
+      "kalshi_names": [
+        "New York R"
+      ],
+      "odds_names": [
+        "New York Rangers"
+      ]
+    },
+    "boston-bruins": {
+      "kalshi_codes": [
+        "BOS"
+      ],
+      "kalshi_names": [
+        "Boston"
+      ],
+      "odds_names": [
+        "Boston Bruins"
+      ]
+    },
+    "san-jose-sharks": {
+      "kalshi_codes": [
+        "SJ"
+      ],
+      "kalshi_names": [
+        "San Jose"
+      ],
+      "odds_names": [
+        "San Jose Sharks"
+      ]
+    },
+    "edmonton-oilers": {
+      "kalshi_codes": [
+        "EDM"
+      ],
+      "kalshi_names": [
+        "Edmonton"
+      ],
+      "odds_names": [
+        "Edmonton Oilers"
+      ]
+    },
+    "toronto-maple-leafs": {
+      "kalshi_codes": [
+        "TOR"
+      ],
+      "kalshi_names": [
+        "Toronto"
+      ],
+      "odds_names": [
+        "Toronto Maple Leafs"
+      ]
+    },
+    "columbus-blue-jackets": {
+      "kalshi_codes": [
+        "CBJ"
+      ],
+      "kalshi_names": [
+        "Columbus"
+      ],
+      "odds_names": [
+        "Columbus Blue Jackets"
+      ]
+    },
+    "vegas-golden-knights": {
+      "kalshi_codes": [
+        "VGK"
+      ],
+      "kalshi_names": [
+        "Vegas"
+      ],
+      "odds_names": [
+        "Vegas Golden Knights"
+      ]
+    },
+    "utah-mammoth": {
+      "kalshi_codes": [
+        "UTA"
+      ],
+      "kalshi_names": [
+        "Utah"
+      ],
+      "odds_names": [
+        "Utah Mammoth"
+      ]
+    },
+    "calgary-flames": {
+      "kalshi_codes": [
+        "CGY"
+      ],
+      "kalshi_names": [
+        "Calgary"
+      ],
+      "odds_names": [
+        "Calgary Flames"
+      ]
+    },
+    "detroit-red-wings": {
+      "kalshi_codes": [
+        "DET"
+      ],
+      "kalshi_names": [
+        "Detroit"
+      ],
+      "odds_names": [
+        "Detroit Red Wings"
+      ]
+    },
+    "seattle-kraken": {
+      "kalshi_codes": [
+        "SEA"
+      ],
+      "kalshi_names": [
+        "Seattle"
+      ],
+      "odds_names": [
+        "Seattle Kraken"
+      ]
+    },
+    "minnesota-wild": {
+      "kalshi_codes": [
+        "MIN"
+      ],
+      "kalshi_names": [
+        "Minnesota"
+      ],
+      "odds_names": [
+        "Minnesota Wild"
+      ]
+    },
+    "florida-panthers": {
+      "kalshi_codes": [
+        "FLA"
+      ],
+      "kalshi_names": [
+        "Florida"
+      ],
+      "odds_names": [
+        "Florida Panthers"
+      ]
+    },
+    "dallas-stars": {
+      "kalshi_codes": [
+        "DAL"
+      ],
+      "kalshi_names": [
+        "Dallas"
+      ],
+      "odds_names": [
+        "Dallas Stars"
+      ]
+    },
+    "new-york-islanders": {
+      "kalshi_codes": [
+        "NYI"
+      ],
+      "kalshi_names": [
+        "New York I"
+      ],
+      "odds_names": [
+        "New York Islanders"
+      ]
+    },
+    "winnipeg-jets": {
+      "kalshi_codes": [
+        "WPG"
+      ],
+      "kalshi_names": [
+        "Winnipeg"
+      ],
+      "odds_names": [
+        "Winnipeg Jets"
+      ]
+    },
+    "vancouver-canucks": {
+      "kalshi_codes": [
+        "VAN"
+      ],
+      "kalshi_names": [
+        "Vancouver"
+      ],
+      "odds_names": [
+        "Vancouver Canucks"
       ]
     }
   },
@@ -2315,10 +3168,10 @@
         "KOE"
       ],
       "kalshi_names": [
-        "FC K\u00f6ln"
+        "FC Köln"
       ],
       "odds_names": [
-        "1. FC K\u00f6ln"
+        "1. FC Köln"
       ]
     },
     "augsburg": {
@@ -2707,7 +3560,7 @@
         "America"
       ],
       "odds_names": [
-        "Am\u00e9rica"
+        "América"
       ]
     },
     "atl-tico-san-luis": {
@@ -2718,7 +3571,7 @@
         "San Luis"
       ],
       "odds_names": [
-        "Atl\u00e9tico San Luis"
+        "Atlético San Luis"
       ]
     },
     "atlante-fc": {
@@ -2762,7 +3615,7 @@
         "Juarez"
       ],
       "odds_names": [
-        "FC Ju\u00e1rez"
+        "FC Juárez"
       ]
     },
     "guadalajara": {
@@ -2784,7 +3637,7 @@
         "Leon"
       ],
       "odds_names": [
-        "Le\u00f3n"
+        "León"
       ]
     },
     "monterrey": {
@@ -2850,7 +3703,7 @@
         "Queretaro"
       ],
       "odds_names": [
-        "Quer\u00e9taro"
+        "Querétaro"
       ]
     },
     "santos-laguna": {
@@ -2907,7 +3760,7 @@
         "Alaves"
       ],
       "odds_names": [
-        "Alav\u00e9s"
+        "Alavés"
       ]
     },
     "athletic-bilbao": {
@@ -2929,7 +3782,7 @@
         "Atletico"
       ],
       "odds_names": [
-        "Atl\u00e9tico Madrid"
+        "Atlético Madrid"
       ]
     },
     "barcelona": {
@@ -2973,7 +3826,7 @@
         "Deportivo De La Coruna"
       ],
       "odds_names": [
-        "Deportivo La Coru\u00f1a"
+        "Deportivo La Coruña"
       ]
     },
     "elche-cf": {
@@ -3028,7 +3881,7 @@
         "Malaga"
       ],
       "odds_names": [
-        "M\u00e1laga"
+        "Málaga"
       ]
     },
     "rayo-vallecano": {
@@ -3173,7 +4026,7 @@
         "Atletico"
       ],
       "odds_names": [
-        "Atl\u00e9tico Madrid"
+        "Atlético Madrid"
       ]
     },
     "barcelona": {
@@ -3206,7 +4059,7 @@
         "Bodoe/Glimt"
       ],
       "odds_names": [
-        "Bod\u00f8/Glimt"
+        "Bodø/Glimt"
       ]
     },
     "borussia-dortmund": {
@@ -3294,7 +4147,7 @@
         "Slovan Bratislava"
       ],
       "odds_names": [
-        "\u0160K Slovan Bratislava"
+        "ŠK Slovan Bratislava"
       ]
     },
     "lask": {

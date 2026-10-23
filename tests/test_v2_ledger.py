@@ -43,7 +43,15 @@ def test_existing_ledger_gets_additive_v2_columns(tmp_path) -> None:
 
     ledger = Ledger(path, Decimal("100"))
     expected = {
-        "signals": {"rules_version", "position_key", "event_ticker", "tags", "commence_time"},
+        "signals": {
+            "rules_version",
+            "position_key",
+            "event_ticker",
+            "tags",
+            "commence_time",
+            "fee_type",
+            "fee_multiplier",
+        },
         "fills": {
             "rules_version",
             "position_key",
@@ -79,6 +87,8 @@ def test_v2_metadata_and_snapshot_helpers_use_aware_utc(tmp_path) -> None:
         event_ticker="KXNFLGAME-26OCT25KCLV",
         tags=("value", "underdog"),
         commence_time=start,
+        fee_type="quadratic_with_maker_fees",
+        fee_multiplier=Decimal("0.5"),
     )
     ledger.record_signal(signal, acted=True)
     ledger.record_fill(
@@ -98,7 +108,8 @@ def test_v2_metadata_and_snapshot_helpers_use_aware_utc(tmp_path) -> None:
         fee_model_version="kalshi-v1",
     )
     row = ledger.conn.execute(
-        "SELECT created_at, rules_version, position_key, event_ticker, tags, commence_time"
+        "SELECT created_at, rules_version, position_key, event_ticker, tags, commence_time,"
+        " fee_type, fee_multiplier"
         " FROM signals"
     ).fetchone()
     assert row == (
@@ -108,6 +119,8 @@ def test_v2_metadata_and_snapshot_helpers_use_aware_utc(tmp_path) -> None:
         signal.event_ticker,
         "underdog,value",
         "2026-10-25T20:00:00+00:00",
+        "quadratic_with_maker_fees",
+        "0.5",
     )
     assert ledger.position_cost(signal.position_key or "") == Decimal("3.51")
     assert ledger.event_cost(signal.event_ticker or "") == Decimal("3.51")

@@ -72,6 +72,7 @@ class ConsensusOdds:
     probs: dict[str, Decimal]  # team/player name -> probability (plus "Draw" for soccer)
     books_used: int
     book_updates: dict[str, str] = dataclass_field(default_factory=dict)
+    book_odds: dict[str, dict[str, Decimal]] = dataclass_field(default_factory=dict)
 
     @property
     def names(self) -> list[str]:
@@ -103,6 +104,7 @@ def consensus(
     used = 0
     quotes: list[dict[str, Decimal]] = []
     weights: list[Decimal] = []
+    book_odds: dict[str, dict[str, Decimal]] = {}
     book_updates: dict[str, str] = {}
     for book in event.get("bookmakers", []):
         if bookmakers and book.get("key") not in bookmakers:
@@ -112,7 +114,9 @@ def consensus(
             continue
         if isinstance(book.get("last_update"), str):
             book_updates[str(book.get("key", ""))] = str(book["last_update"])
-        quotes.append({o["name"]: Decimal(str(o["price"])) for o in mkt.get("outcomes", [])})
+        odds = {o["name"]: Decimal(str(o["price"])) for o in mkt.get("outcomes", [])}
+        quotes.append(odds)
+        book_odds[str(book.get("key", ""))] = odds
         weights.append(BOOK_WEIGHTS.get(str(book.get("key")), Decimal(1)))
     # The feed never says how big the real field is; the widest book is the best proxy,
     # and a book quoting far fewer names than that is pricing a subset, not the field.
@@ -140,6 +144,7 @@ def consensus(
         probs=probs,
         books_used=used,
         book_updates=book_updates,
+        book_odds=book_odds,
     )
 
 

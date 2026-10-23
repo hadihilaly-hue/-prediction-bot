@@ -9,29 +9,36 @@ from prediction_bot.engine import Engine
 from prediction_bot.models import QuoteSnapshot
 from prediction_bot.odds import consensus
 from prediction_bot.paper.ledger import Ledger
-from prediction_bot.strategies.sportsbook_v2 import SportsbookV2Strategy
-from tests.conftest import make_market
 from tests.test_engine_v2 import FixedSignals, v2_signal
-from tests.test_sportsbook_v2 import FakeOdds, fixed_clock, odds_event
+from tests.test_sportsbook_v2 import (
+    FakeOdds,
+    SportsbookV2Strategy,
+    fixed_clock,
+    make_market,
+    odds_event,
+)
 
 
 def _append_book(event: dict[str, object], key: str, probabilities: dict[str, Decimal]) -> None:
     bookmakers = event["bookmakers"]
     assert isinstance(bookmakers, list)
-    bookmakers.append(
-        {
-            "key": key,
-            "markets": [
-                {
-                    "key": "h2h",
-                    "outcomes": [
-                        {"name": name, "price": str(Decimal(1) / probability)}
-                        for name, probability in probabilities.items()
-                    ],
-                }
-            ],
-        }
-    )
+    bookmaker = {
+        "key": key,
+        "markets": [
+            {
+                "key": "h2h",
+                "outcomes": [
+                    {"name": name, "price": str(Decimal(1) / probability)}
+                    for name, probability in probabilities.items()
+                ],
+            }
+        ],
+    }
+    existing = next((item for item in bookmakers if item.get("key") == key), None)
+    if existing is None:
+        bookmakers.append(bookmaker)
+    else:
+        existing.update(bookmaker)
 
 
 @pytest.mark.parametrize(
@@ -143,7 +150,6 @@ def test_kickoff_guard_regression_cases(
             lambda series, team_id, title: True,
         )
 
-    settings.odds_bookmakers = ["pinnacle"]
     game = odds_event(
         event_ticker,
         home,
@@ -250,7 +256,6 @@ def test_future_commence_in_play_detector_uses_snapshot_history(
     home_bid: str,
     home_ask: str,
 ) -> None:  # type: ignore[no-untyped-def]
-    settings.odds_bookmakers = ["pinnacle"]
     if event_id == "edm-sj":
         ids = {"EDM": "edmonton-oilers", "SJ": "san-jose-sharks"}
         names = {
@@ -327,8 +332,8 @@ def test_future_commence_in_play_detector_uses_snapshot_history(
 
 
 def test_mls_galaxy_fair_and_mapping_failures(settings) -> None:  # type: ignore[no-untyped-def]
-    settings.odds_bookmakers = ["pinnacle"]
     settings.min_lead_hours = 0
+    settings.longshot_haircut = "none"
     event_ticker = "KXMLSGAME-26OCT25LAFCLAG"
     game = odds_event(
         "lafc-lag",
@@ -360,7 +365,6 @@ def test_mls_galaxy_fair_and_mapping_failures(settings) -> None:  # type: ignore
 
 
 def test_mls_swapped_fairs_fail_mapping_sum(settings) -> None:  # type: ignore[no-untyped-def]
-    settings.odds_bookmakers = ["pinnacle"]
     settings.min_lead_hours = 0
     event_ticker = "KXMLSGAME-26OCT25LAFCLAG"
     game = odds_event(
@@ -438,9 +442,7 @@ def test_big_edge_cases_persist_review_and_block(settings, tmp_path, case: str) 
         edge_ticker = f"{event_ticker}-SF"
 
     game = odds_event(f"{case}-event", home, away, commence, probs)
-    settings.odds_bookmakers = ["pinnacle"]
     if second_probs is not None:
-        settings.odds_bookmakers.append("circa")
         _append_book(game, "circa", second_probs)
     markets = [
         make_market(
@@ -474,7 +476,6 @@ def test_big_edge_cases_persist_review_and_block(settings, tmp_path, case: str) 
 
 
 def test_entry_window_uses_matched_commence_time_and_zero_disables(settings) -> None:  # type: ignore[no-untyped-def]
-    settings.odds_bookmakers = ["pinnacle"]
     event_ticker = "KXNFLGAME-26OCT25KCLV"
     game = odds_event(
         "kc-lv-entry-window",
@@ -511,7 +512,6 @@ def test_entry_window_uses_matched_commence_time_and_zero_disables(settings) -> 
 
 
 def test_hand_verified_lac_alias_matches_kalshi_subtitle(settings) -> None:  # type: ignore[no-untyped-def]
-    settings.odds_bookmakers = ["pinnacle"]
     settings.min_lead_hours = 0
     event_ticker = "KXNFLGAME-26OCT18LACKC"
     game = odds_event(
@@ -587,7 +587,6 @@ def test_quote_snapshots_exclude_unsupported_series(settings, tmp_path) -> None:
 
 
 def test_kclv_opposite_legs_collapse_and_engine_caps_across_cycles(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
-    settings.odds_bookmakers = ["pinnacle"]
     settings.min_lead_hours = 0
     event_ticker = "KXNFLGAME-26OCT25KCLV"
     game = odds_event(
