@@ -42,6 +42,8 @@ jobs:
         env:
           PBOT_MODE: paper
           PBOT_RULES_VERSION: ${{ vars.PBOT_RULES_VERSION || 'v3' }}
+          # Set the repo Variable to taker to force automatic maker-first off.
+          PBOT_V3_EXECUTION: ${{ vars.PBOT_V3_EXECUTION || 'auto' }}
           PBOT_KALSHI_API_BASE: https://api.elections.kalshi.com/trade-api/v2
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
           # 1c after fees: the default 3c found nothing; we want data on small edges too.

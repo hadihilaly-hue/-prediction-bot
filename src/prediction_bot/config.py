@@ -99,7 +99,10 @@ class Settings(BaseSettings):
     v3_max_book_age_hours: Decimal = Decimal("3")
     v3_dq_stop_fraction: Decimal = Decimal("0.5")
     v3_no_reentry: bool = True
-    v3_execution: Literal["taker", "maker_first"] = "taker"
+    v3_execution: Literal["taker", "maker_first", "auto"] = "taker"
+    v3_maker_gate_min_positions: int = 50
+    v3_maker_gate_min_scored: int = 50
+    v3_maker_gate_min_filled_clv: int = 20
     v3_maker_cancel_move: Decimal = Decimal("0.01")
     v3_maker_ttl_minutes: int = Field(
         default=480,

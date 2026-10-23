@@ -2,7 +2,7 @@
 
 v3 is the next step after v2 (`docs/CHANGES_v2.md`). It aims to stop the bot treating data errors and noise as edge, to make entries cheaper where it is safe, and to measure whether any edge exists before anything scales. It is still paper-only: there is no live-order path, no credential changes, and every ledger change is additive (new columns, tables or rules versions; no historical row is edited).
 
-**How to switch.** Scheduled sportsbook runs trade `sportsbook_v3`, with `sportsbook_v2` and the v1 strategies in shadow on the same odds data, so the shadows cost no extra credits. Set the repo Variable `PBOT_RULES_VERSION` to `v2` or `v1` to go back. Crons and the series list are unchanged.
+**How to switch.** Scheduled sportsbook runs trade `sportsbook_v3`, with `sportsbook_v2` and the v1 strategies in shadow on the same odds data, so the shadows cost no extra credits. Set the repo Variable `PBOT_RULES_VERSION` to `v2` or `v1` to go back. The workflow defaults `PBOT_V3_EXECUTION` to `auto`; set that repo Variable to `taker` to force maker-first off. Crons and the series list are unchanged.
 
 ## What changed, by phase
 
@@ -41,7 +41,10 @@ v3 is the next step after v2 (`docs/CHANGES_v2.md`). It aims to stop the bot tre
 | `v3_max_book_age_hours` | 3 | Stale-line rejection |
 | `v3_dq_stop_fraction` | 0.5 | Data-quality stop |
 | `v3_no_reentry` | true | No same-day re-buys |
-| `v3_execution` | **`taker`** | `maker_first` is built but off; see the decisions below |
+| `v3_execution` | `taker` in code; workflow `auto` | `auto` resolves before each v3 sportsbook run; `taker` and `maker_first` remain explicit modes |
+| `v3_maker_gate_min_positions` | 50 | Non-maker v3 positions with closing CLV required for the taker evidence gate |
+| `v3_maker_gate_min_scored` | 50 | Scored v3 maker-shadow orders required |
+| `v3_maker_gate_min_filled_clv` | 20 | Trade-through-filled maker shadows with closing CLV required |
 | `v3_maker_cancel_move` / `v3_maker_ttl_minutes` | 0.01 / 480 | Cancel a resting paper order when the price moves 1¢ against it or the edge disappears; expire after 8h |
 | `odds_planner` | **`fixed`** | `event_driven` is built but off |
 
@@ -81,7 +84,7 @@ The equity curve is not evidence. A result counts only when, for the rules versi
 - **at least 50 positions** have a closing price, and
 - the **95% CI lower bound of mean CLV is above 0**.
 
-The same rule enables an entry window (72h+, 24–72h, 2–24h). Turning on `maker_first` additionally requires the `trade_through` maker shadow to show at least 50 scored orders, with filled orders' CLV not worse than the taker's. The dashboard panel "How much evidence is there?" shows progress against these thresholds.
+The same rule enables an entry window (72h+, 24–72h, 2–24h). In `auto`, maker-first is enabled only when the taker evidence has at least 50 v3 positions with non-maker fills and closing CLV, and its 95% CI lower bound is above 0; the v3 maker shadow has at least 50 scored orders; at least 20 scored trade-through fills have non-null closing CLV; and their mean CLV is no worse than the taker mean. The gate is re-evaluated every run and otherwise automatically falls back to taker. The dashboard panel "How much evidence is there?" shows the gate evidence and thresholds.
 
 ## Known gaps
 - No historical orderbook, depth or line-age data exists before Oct 23, so the replays can't test the v3 liquidity or freshness gates.
@@ -92,4 +95,4 @@ The same rule enables an entry window (72h+, 24–72h, 2–24h). Turning on `mak
 ## Decisions for you
 1. **Odds API tier:** stay free at 3 runs/day (the default), or pay ~$30/month for 20,000 credits so runs can go to 6–12/day.
 2. **Cadence:** switch `odds_planner=event_driven`. That would allow ~6 runs/day on the free tier, but the estimate rests on only two observed runs.
-3. **Maker-first:** keep it off until the evidence threshold above is met.
+3. **Maker-first:** approved; it turns on automatically once the evidence gate above passes and falls back to taker otherwise.

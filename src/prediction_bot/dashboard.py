@@ -15,7 +15,10 @@ from decimal import Decimal
 from typing import cast
 
 from prediction_bot.analysis import Fill, band, monte_carlo, outcome_key
+from prediction_bot.config import Settings
+from prediction_bot.maker_gate import evaluate_maker_gate
 from prediction_bot.paper.ledger import Ledger
+from prediction_bot.position_clv import weighted_position_clv
 from prediction_bot.teams import team_name_for_code
 
 
@@ -31,7 +34,7 @@ def _mean_ci95(values: list[float]) -> tuple[float, float] | None:
     return mean - margin, mean + margin
 
 
-def _measurement_data(ledger: Ledger) -> dict[str, object]:
+def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[str, object]:
     rows = ledger.conn.execute(
         "SELECT f.id,f.created_at,f.strategy,f.ticker,f.side,f.price,f.count,f.fee,"
         "f.fair_prob,s.result,f.rules_version,f.position_key,f.event_ticker,f.tags,"
@@ -105,7 +108,8 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
                 if hours >= 2
                 else "<2h"
             )
-        pos_clv = sum(value * n for value, n in clvs) / sum(n for _, n in clvs) if clvs else None
+        pos_clv_value = weighted_position_clv(clvs)
+        pos_clv = None if pos_clv_value is None else float(pos_clv_value)
         pos_day = (
             sum(value * n for value, n in day_clvs) / sum(n for _, n in day_clvs)
             if day_clvs
@@ -294,6 +298,9 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
         for side, price, size, fee, result in maker_settled
     )
     maker_metrics = ledger.maker_shadow_metrics()
+    settings = settings or Settings()
+    gate = evaluate_maker_gate(ledger, settings)
+    latest_execution = ledger.latest_execution_mode()
 
     def maker_metric_float(name: str) -> float | None:
         value = maker_metrics[name]
@@ -343,6 +350,25 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
         "shadow_decisions": [
             {"version": v, "window": w, "n": n, "would_trade": traded} for v, w, n, traded in shadow
         ],
+        "maker_gate": {
+            "taker_n": gate.taker_n,
+            "taker_mean": _num(gate.taker_mean),
+            "taker_ci_low": _num(gate.taker_ci_low),
+            "taker_ci_high": _num(gate.taker_ci_high),
+            "maker_scored": gate.maker_scored,
+            "maker_clv_n": gate.maker_clv_n,
+            "maker_mean": _num(gate.maker_mean),
+            "passed": gate.passed,
+            "reason": gate.reason,
+            "configured": settings.v3_execution,
+            "thresholds": {
+                "min_positions": settings.v3_maker_gate_min_positions,
+                "min_scored": settings.v3_maker_gate_min_scored,
+                "min_filled_clv": settings.v3_maker_gate_min_filled_clv,
+            },
+            "resolved": None if latest_execution is None else latest_execution["resolved"],
+            "requested": None if latest_execution is None else latest_execution["requested"],
+        },
     }
     quality["entry_window_clv"] = {
         version: {
@@ -567,11 +593,11 @@ def _entry_window_clv_summary(ledger: Ledger, version: str, window: str) -> dict
     }
 
 
-def dashboard_data(ledger: Ledger) -> dict[str, object]:
+def dashboard_data(ledger: Ledger, settings: Settings | None = None) -> dict[str, object]:
     perf = ledger.performance()
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "measurement": _measurement_data(ledger),
+        "measurement": _measurement_data(ledger, settings),
         "performance": {
             "cash": _num(perf.cash),
             "starting_cash": _num(perf.starting_cash),
@@ -662,8 +688,8 @@ def dashboard_data(ledger: Ledger) -> dict[str, object]:
     }
 
 
-def render_dashboard(ledger: Ledger) -> str:
-    payload = json.dumps(dashboard_data(ledger), separators=(",", ":"))
+def render_dashboard(ledger: Ledger, settings: Settings | None = None) -> str:
+    payload = json.dumps(dashboard_data(ledger, settings), separators=(",", ":"))
     # A closing </script> inside market text must not terminate the data block.
     payload = payload.replace("</", "<\\/")
     return _TEMPLATE.replace("__DATA__", payload).replace(
@@ -1000,10 +1026,33 @@ _TEMPLATE = """<!doctype html>
       const g = windows[w]; const n = g.n || 0;
       return [windowNames[w], String(n), {v: signedCents(g.mean_clv), cls: tone(g.mean_clv)}, g.ci95 ? signedCents(g.ci95[0]) + ' to ' + signedCents(g.ci95[1]) : '–', evidenceVerdict(n, g.ci95)];
     });
+    const G = rules === 'v3' ? Q.maker_gate : null;
+    const gateRows = [];
+    let gateHead = '';
+    if (G) {
+      const makerOn = G.configured === 'maker_first' || (G.configured === 'auto' && G.passed);
+      const th = G.thresholds || {};
+      const step = (label, have, ok) => [label, have, ok ? pill('won', 'Done') : pill('', 'Not yet')];
+      gateRows.push(step('Normal bets with a closing price', G.taker_n + ' / ' + th.min_positions, G.taker_n >= th.min_positions));
+      gateRows.push(step('Normal bets beat the close (whole 95% range above 0)', num(G.taker_ci_low) ? signedCents(G.taker_ci_low) + ' to ' + signedCents(G.taker_ci_high) : '–', num(G.taker_ci_low) && G.taker_ci_low > 0));
+      gateRows.push(step('Practice resting orders checked', G.maker_scored + ' / ' + th.min_scored, G.maker_scored >= th.min_scored));
+      gateRows.push(step('Practice orders filled, with a closing price', G.maker_clv_n + ' / ' + th.min_filled_clv, G.maker_clv_n >= th.min_filled_clv));
+      gateRows.push(step('Resting orders gain at least as much as normal bets', num(G.maker_mean) ? signedCents(G.maker_mean) + ' vs ' + (num(G.taker_mean) ? signedCents(G.taker_mean) : '–') : '–', num(G.maker_mean) && num(G.taker_mean) && G.maker_mean >= G.taker_mean));
+      const explanation = G.configured === 'taker'
+        ? 'Switched off by the PBOT_V3_EXECUTION setting, whatever the checks below say.'
+        : G.configured === 'maker_first'
+          ? 'Switched on by the PBOT_V3_EXECUTION setting, whatever the checks below say.'
+          : G.passed
+            ? 'Every check below has passed, so the bot now posts a resting order one cent above the best bid instead of paying the ask. It switches back by itself if a check stops passing.'
+            : 'They switch on by themselves once every check below passes, and switch back off if one stops passing.';
+      gateHead = '<p class="hint" style="margin-top:14px"><b>Resting orders: ' + (makerOn ? 'on' : 'off') + '.</b> ' + explanation + '</p>';
+    }
     $('evidence').innerHTML = meter('Bets with a closing price', withClv.length) + meter('Finished bets', done.length) +
-      '<div class="tablewrap"><table id="expected"></table></div>' + (windowRows.length ? '<div class="tablewrap"><table id="windows"></table></div>' : '');
+      '<div class="tablewrap"><table id="expected"></table></div>' + (windowRows.length ? '<div class="tablewrap"><table id="windows"></table></div>' : '') +
+      (G ? gateHead + '<div class="tablewrap"><table id="makergate"></table></div>' : '');
     table('expected', 'Expected return if the Kalshi closing price is the true chance, before fees on the way out.', ['Measure', '#Bets', '#Average', '95% range', 'Verdict'], rows, '');
     if (windowRows.length) table('windows', 'When to buy: closing-price gain by how far ahead of the game the bot would have bought (shadow test, no real trades).', ['Window', '#Bets', '#Average', '95% range', 'Verdict'], windowRows, '');
+    if (G) table('makergate', 'Checklist for switching on resting (maker) orders. Cents are the average closing-price gain per contract.', ['Check', 'Now', 'Status'], gateRows, '');
   }
 
   document.querySelectorAll('#rules-tabs button').forEach(b => b.addEventListener('click', () => { rules = b.dataset.rules; renderVerdicts(); }));
