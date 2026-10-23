@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -11,6 +12,7 @@ from prediction_bot.fees import maker_fee
 from prediction_bot.models import Block, Market
 from prediction_bot.odds import OddsClient, consensus
 from prediction_bot.paper.ledger import Ledger
+from prediction_bot.series import SPORTSBOOK_SERIES
 from prediction_bot.strategies import sportsbook_v2 as sportsbook_v2_module
 from prediction_bot.strategies.sportsbook_v2 import (
     SportsbookV2Strategy,
@@ -98,6 +100,7 @@ class SportsbookV2Strategy(_SportsbookV2Strategy):
 def make_market(*args, **kwargs):  # type: ignore[no-untyped-def]
     kwargs.setdefault("yes_bid_size", Decimal("100"))
     kwargs.setdefault("yes_ask_size", Decimal("100"))
+    kwargs.setdefault("raw", {"rules_primary": "If the team wins the game."})
     return _make_market(*args, **kwargs)
 
 
@@ -190,6 +193,7 @@ def v3_markets(
             str(Decimal(yes_price) - Decimal("0.02")),
             yes_price,
             subtitle="Miami",
+            raw={"rules_primary": "If Miami wins the game, then the market resolves to Yes."},
             open_interest=Decimal(open_interest),
             yes_ask_size=Decimal(yes_ask_size),
         ),
@@ -198,10 +202,67 @@ def v3_markets(
             "0.34",
             "0.36",
             subtitle="Minnesota",
+            raw={"rules_primary": "If Minnesota wins the game, then the market resolves to Yes."},
             open_interest=Decimal(open_interest),
             yes_ask_size=Decimal(yes_ask_size),
         ),
     ]
+
+
+SOCCER_RULES_PRIMARY = (
+    "After 90 minutes plus stoppage time (does not include extra time or penalties)."
+)
+
+
+def _settlement_test_markets(
+    series: str, rules_primary: str, *, include_tie: bool = True
+) -> list[Market]:
+    event_ticker = f"{series}-26OCT25HOMAWAY"
+    markets = [
+        make_market(
+            f"{event_ticker}-HOME",
+            "0.37",
+            "0.39",
+            subtitle="Synthetic Home",
+            raw={"rules_primary": rules_primary},
+        ),
+        make_market(
+            f"{event_ticker}-AWAY",
+            "0.28",
+            "0.30",
+            subtitle="Synthetic Away",
+            raw={"rules_primary": rules_primary},
+        ),
+    ]
+    if include_tie:
+        markets.append(
+            make_market(
+                f"{event_ticker}-TIE",
+                "0.18",
+                "0.20",
+                subtitle="Tie",
+                raw={"rules_primary": rules_primary},
+            )
+        )
+    return markets
+
+
+def _fresh_settlement_odds_event(
+    probabilities: dict[str, Decimal],
+) -> dict[str, object]:
+    event = odds_event(
+        "settlement-test",
+        "Synthetic Home",
+        "Synthetic Away",
+        "2026-10-25T20:00:00Z",
+        probabilities,
+    )
+    bookmakers = event["bookmakers"]
+    assert isinstance(bookmakers, list)
+    for bookmaker in bookmakers:
+        assert isinstance(bookmaker, dict)
+        bookmaker["last_update"] = "2026-10-23T00:00:00Z"
+    return event
 
 
 def test_v3_uses_power_fair_and_defaults_to_no_longshot_haircut(settings) -> None:  # type: ignore[no-untyped-def]
@@ -248,16 +309,32 @@ def test_v3_college_swapped_aliases_block_on_title_mismatch(
         clock=fixed_clock("2026-10-23T00:00:00Z"),
     )
 
-    signals = strategy.evaluate(
-        [
-            make_market(
-                f"{series}-26OCT25TEST-{code}",
-                "0.40",
-                "0.41",
-                subtitle=swapped_title,
-            )
-        ]
+    event_ticker = f"{series}-26OCT25TEST"
+    rules_primary = (
+        "After 90 minutes plus stoppage time (does not include extra time or penalties)."
+        if series in {"KXUELGAME", "KXUECLGAME"}
+        else "If the team wins the game."
     )
+    markets = [
+        make_market(
+            f"{event_ticker}-{code}",
+            "0.40",
+            "0.41",
+            subtitle=swapped_title,
+            raw={"rules_primary": rules_primary},
+        )
+    ]
+    if series in {"KXUELGAME", "KXUECLGAME"}:
+        markets.append(
+            make_market(
+                f"{event_ticker}-TIE",
+                "0.30",
+                "0.31",
+                subtitle="Tie",
+                raw={"rules_primary": rules_primary},
+            )
+        )
+    signals = strategy.evaluate(markets)
 
     assert signals == []
     assert any(
@@ -293,12 +370,26 @@ def test_v3_college_mapping_sum_gate_runs_for_each_sport(
             title == ("Synthetic Home" if team_id == "home-id" else "Synthetic Away")
         ),
     )
+    is_soccer = series in {"KXUELGAME", "KXUECLGAME"}
+    rules_primary = (
+        "After 90 minutes plus stoppage time (does not include extra time or penalties)."
+        if is_soccer
+        else "If the team wins the game."
+    )
     game = odds_event(
         "mapping-sum",
         "Synthetic Home",
         "Synthetic Away",
         "2026-10-25T20:00:00Z",
-        {"Synthetic Home": Decimal("0.60"), "Synthetic Away": Decimal("0.40")},
+        (
+            {
+                "Synthetic Home": Decimal("0.40"),
+                "Synthetic Away": Decimal("0.40"),
+                "Draw": Decimal("0.20"),
+            }
+            if is_soccer
+            else {"Synthetic Home": Decimal("0.60"), "Synthetic Away": Decimal("0.40")}
+        ),
     )
     strategy = SportsbookV3Strategy(
         settings,
@@ -307,18 +398,251 @@ def test_v3_college_mapping_sum_gate_runs_for_each_sport(
     )
     event_ticker = f"{series}-26OCT25HOMEB"
 
-    strategy.evaluate(
-        [
-            make_market(f"{event_ticker}-HOME", "0.40", "0.41", subtitle="Synthetic Home"),
-            make_market(f"{event_ticker}-AWAY", "0.40", "0.41", subtitle="Synthetic Away"),
-            make_market(f"{event_ticker}-DUP", "0.40", "0.41", subtitle="Synthetic Home"),
-        ]
-    )
+    markets = [
+        make_market(
+            f"{event_ticker}-HOME",
+            "0.40",
+            "0.41",
+            subtitle="Synthetic Home",
+            raw={"rules_primary": rules_primary},
+        ),
+        make_market(
+            f"{event_ticker}-AWAY",
+            "0.40",
+            "0.41",
+            subtitle="Synthetic Away",
+            raw={"rules_primary": rules_primary},
+        ),
+        make_market(
+            f"{event_ticker}-DUP",
+            "0.40",
+            "0.41",
+            subtitle="Synthetic Home",
+            raw={"rules_primary": rules_primary},
+        ),
+    ]
+    if is_soccer:
+        markets.append(
+            make_market(
+                f"{event_ticker}-TIE",
+                "0.30",
+                "0.31",
+                subtitle="Tie",
+                raw={"rules_primary": rules_primary},
+            )
+        )
+    strategy.evaluate(markets)
 
     assert any(
         block.reason == "mapping_sum" and block.event_ticker == event_ticker
         for block in strategy.seen_blocks()
     )
+
+
+def _patch_synthetic_team_mappings(monkeypatch: pytest.MonkeyPatch) -> None:
+    team_by_code = {"HOME": "home-id", "AWAY": "away-id"}
+    team_by_name = {"Synthetic Home": "home-id", "Synthetic Away": "away-id"}
+    monkeypatch.setattr(
+        sportsbook_v2_module,
+        "team_for_code",
+        lambda current_series, code: team_by_code.get(code),
+    )
+    monkeypatch.setattr(
+        sportsbook_v2_module,
+        "team_for_odds_name",
+        lambda sport, name: team_by_name.get(name),
+    )
+    monkeypatch.setattr(
+        sportsbook_v2_module,
+        "kalshi_name_ok",
+        lambda current_series, team_id, title: (
+            title == ("Synthetic Home" if team_id == "home-id" else "Synthetic Away")
+        ),
+    )
+
+
+def test_v3_soccer_regulation_rules_with_draw_pass(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    settings.min_lead_hours = 0
+    settings.max_gross_edge = Decimal("0.20")
+    _patch_synthetic_team_mappings(monkeypatch)
+    game = _fresh_settlement_odds_event(
+        {
+            "Synthetic Home": Decimal("0.45"),
+            "Synthetic Away": Decimal("0.35"),
+            "Draw": Decimal("0.20"),
+        }
+    )
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([game]),
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+
+    signals = strategy.evaluate(_settlement_test_markets("KXEPLGAME", SOCCER_RULES_PRIMARY))
+
+    assert signals
+    assert not any(block.reason == "settlement_rule_mismatch" for block in strategy.seen_blocks())
+
+
+def test_v3_soccer_including_extra_time_rules_mismatch(settings) -> None:  # type: ignore[no-untyped-def]
+    rules = "After 90 minutes plus stoppage time, including extra time and penalties."
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([]),
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+
+    strategy.evaluate(_settlement_test_markets("KXEPLGAME", rules))
+
+    mismatch = next(
+        block for block in strategy.seen_blocks() if block.reason == "settlement_rule_mismatch"
+    )
+    assert "rules_primary=" in mismatch.detail
+    assert "including extra time" in mismatch.detail
+
+
+def test_v3_soccer_without_kalshi_tie_leg_mismatches(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    _patch_synthetic_team_mappings(monkeypatch)
+    game = _fresh_settlement_odds_event(
+        {
+            "Synthetic Home": Decimal("0.45"),
+            "Synthetic Away": Decimal("0.35"),
+            "Draw": Decimal("0.20"),
+        }
+    )
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([game]),
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+
+    strategy.evaluate(
+        _settlement_test_markets("KXEPLGAME", SOCCER_RULES_PRIMARY, include_tie=False)
+    )
+
+    assert any(
+        block.reason == "settlement_rule_mismatch" and "missing a TIE leg" in block.detail
+        for block in strategy.seen_blocks()
+    )
+
+
+def test_v3_soccer_consensus_without_draw_mismatches(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    _patch_synthetic_team_mappings(monkeypatch)
+    game = _fresh_settlement_odds_event(
+        {"Synthetic Home": Decimal("0.60"), "Synthetic Away": Decimal("0.40")}
+    )
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([game]),
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+
+    strategy.evaluate(_settlement_test_markets("KXEPLGAME", SOCCER_RULES_PRIMARY))
+
+    assert any(
+        block.reason == "settlement_rule_mismatch" and "missing a Draw probability" in block.detail
+        for block in strategy.seen_blocks()
+    )
+
+
+def test_v3_nhl_wins_phrase_passes_settlement_gate(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    settings.min_lead_hours = 0
+    settings.max_gross_edge = Decimal("0.20")
+    _patch_synthetic_team_mappings(monkeypatch)
+    game = _fresh_settlement_odds_event(
+        {"Synthetic Home": Decimal("0.55"), "Synthetic Away": Decimal("0.45")}
+    )
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([game]),
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+
+    signals = strategy.evaluate(
+        _settlement_test_markets(
+            "KXNHLGAME",
+            "If Synthetic Home wins the game, then the market resolves to Yes.",
+            include_tie=False,
+        )
+    )
+
+    assert signals
+    assert not any(block.reason == "settlement_rule_mismatch" for block in strategy.seen_blocks())
+
+
+def test_v3_unknown_series_blocks_settlement_rule(settings) -> None:  # type: ignore[no-untyped-def]
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([]),
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+
+    strategy.evaluate(
+        [make_market("KXUNKNOWN-26OCT25TEST-HOME", "0.40", "0.41", subtitle="Synthetic Home")]
+    )
+
+    assert any(block.reason == "settlement_rule_unknown" for block in strategy.seen_blocks())
+
+
+def test_v2_ignores_settlement_rule_mismatch(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    settings.min_lead_hours = 0
+    settings.max_gross_edge = Decimal("0.20")
+    _patch_synthetic_team_mappings(monkeypatch)
+    game = _fresh_settlement_odds_event(
+        {"Synthetic Home": Decimal("0.55"), "Synthetic Away": Decimal("0.45")}
+    )
+    strategy = SportsbookV2Strategy(
+        settings,
+        FakeOdds([game]),
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+
+    signals = strategy.evaluate(
+        _settlement_test_markets(
+            "KXNFLGAME", "Rules text that does not contain the winner phrase.", include_tie=False
+        )
+    )
+
+    assert signals
+    assert not any(block.reason.startswith("settlement_rule_") for block in strategy.seen_blocks())
+
+
+def test_v3_dq_stop_counts_settlement_rule_mismatches(settings) -> None:  # type: ignore[no-untyped-def]
+    now = datetime.fromisoformat("2026-10-23T00:00:00+00:00")
+    markets = [
+        make_market(
+            f"KXNFLGAME-26OCT25TEST{index}-HOME",
+            "0.40",
+            "0.41",
+            subtitle="Synthetic Home",
+            raw={"rules_primary": "Rules with no required settlement phrase."},
+        )
+        for index in range(10)
+    ]
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([]),
+        clock=lambda: now,
+    )
+
+    assert strategy.evaluate(markets) == []
+    assert sum(block.reason == "settlement_rule_mismatch" for block in strategy.seen_blocks()) == 10
+    assert any(block.reason == "dq_stop" for block in strategy.seen_blocks())
+
+
+def test_settlement_rules_cover_every_sportsbook_series() -> None:
+    path = Path(__file__).parents[1] / "src/prediction_bot/data/settlement_rules.json"
+    rules = json.loads(path.read_text())
+    assert set(rules) == set(SPORTSBOOK_SERIES)
+    for entry in rules.values():
+        assert set(entry) == {
+            "sport_key",
+            "outcome_type",
+            "required_phrases",
+            "odds_market",
+            "needs_draw",
+        }
+        assert entry["required_phrases"]
 
 
 def test_v3_maker_first_prices_from_bid_fair_fee_and_edge(settings) -> None:  # type: ignore[no-untyped-def]
@@ -583,6 +907,7 @@ def test_v3_data_quality_stop_suppresses_entries_when_mapping_failures_dominate(
                 "0.56",
                 subtitle="Not Miami",
                 open_interest=Decimal("200"),
+                raw={"rules_primary": "If Miami wins the game."},
             )
         )
     strategy = SportsbookV3Strategy(

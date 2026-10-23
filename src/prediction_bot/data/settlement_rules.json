@@ -1,0 +1,179 @@
+{
+  "KXNFLGAME": {
+    "sport_key": "americanfootball_nfl",
+    "outcome_type": "winner_incl_ot",
+    "required_phrases": ["wins the"],
+    "odds_market": "h2h",
+    "needs_draw": false
+  },
+  "KXNCAAFGAME": {
+    "sport_key": "americanfootball_ncaaf",
+    "outcome_type": "winner_incl_ot",
+    "required_phrases": ["wins the"],
+    "odds_market": "h2h",
+    "needs_draw": false
+  },
+  "KXNBAGAME": {
+    "sport_key": "basketball_nba",
+    "outcome_type": "winner_incl_ot",
+    "required_phrases": ["wins the"],
+    "odds_market": "h2h",
+    "needs_draw": false
+  },
+  "KXNCAAMBGAME": {
+    "sport_key": "basketball_ncaab",
+    "outcome_type": "winner_incl_ot",
+    "required_phrases": ["wins the"],
+    "odds_market": "h2h",
+    "needs_draw": false
+  },
+  "KXNHLGAME": {
+    "sport_key": "icehockey_nhl",
+    "outcome_type": "winner_incl_ot",
+    "required_phrases": ["wins the"],
+    "odds_market": "h2h",
+    "needs_draw": false
+  },
+  "KXMLBGAME": {
+    "sport_key": "baseball_mlb",
+    "outcome_type": "winner_incl_ot",
+    "required_phrases": ["wins the"],
+    "odds_market": "h2h",
+    "needs_draw": false
+  },
+  "KXEPLGAME": {
+    "sport_key": "soccer_epl",
+    "outcome_type": "regulation_3way",
+    "required_phrases": [
+      "after 90 minutes plus stoppage time",
+      "does not include extra time or penalties"
+    ],
+    "odds_market": "h2h",
+    "needs_draw": true
+  },
+  "KXLALIGAGAME": {
+    "sport_key": "soccer_spain_la_liga",
+    "outcome_type": "regulation_3way",
+    "required_phrases": [
+      "after 90 minutes plus stoppage time",
+      "does not include extra time or penalties"
+    ],
+    "odds_market": "h2h",
+    "needs_draw": true
+  },
+  "KXUCLGAME": {
+    "sport_key": "soccer_uefa_champs_league",
+    "outcome_type": "regulation_3way",
+    "required_phrases": [
+      "after 90 minutes plus stoppage time",
+      "does not include extra time or penalties"
+    ],
+    "odds_market": "h2h",
+    "needs_draw": true
+  },
+  "KXSERIEAGAME": {
+    "sport_key": "soccer_italy_serie_a",
+    "outcome_type": "regulation_3way",
+    "required_phrases": [
+      "after 90 minutes plus stoppage time",
+      "does not include extra time or penalties"
+    ],
+    "odds_market": "h2h",
+    "needs_draw": true
+  },
+  "KXBUNDESLIGAGAME": {
+    "sport_key": "soccer_germany_bundesliga",
+    "outcome_type": "regulation_3way",
+    "required_phrases": [
+      "after 90 minutes plus stoppage time",
+      "does not include extra time or penalties"
+    ],
+    "odds_market": "h2h",
+    "needs_draw": true
+  },
+  "KXLIGUE1GAME": {
+    "sport_key": "soccer_france_ligue_one",
+    "outcome_type": "regulation_3way",
+    "required_phrases": [
+      "after 90 minutes plus stoppage time",
+      "does not include extra time or penalties"
+    ],
+    "odds_market": "h2h",
+    "needs_draw": true
+  },
+  "KXUELGAME": {
+    "sport_key": "soccer_uefa_europa_league",
+    "outcome_type": "regulation_3way",
+    "required_phrases": [
+      "after 90 minutes plus stoppage time",
+      "does not include extra time or penalties"
+    ],
+    "odds_market": "h2h",
+    "needs_draw": true
+  },
+  "KXUECLGAME": {
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "outcome_type": "regulation_3way",
+    "required_phrases": [
+      "after 90 minutes plus stoppage time",
+      "does not include extra time or penalties"
+    ],
+    "odds_market": "h2h",
+    "needs_draw": true
+  },
+  "KXMLSGAME": {
+    "sport_key": "soccer_usa_mls",
+    "outcome_type": "regulation_3way",
+    "required_phrases": [
+      "after 90 minutes plus stoppage time",
+      "does not include extra time or penalties"
+    ],
+    "odds_market": "h2h",
+    "needs_draw": true
+  },
+  "KXLIGAMXGAME": {
+    "sport_key": "soccer_mexico_ligamx",
+    "outcome_type": "regulation_3way",
+    "required_phrases": [
+      "after 90 minutes plus stoppage time",
+      "does not include extra time or penalties"
+    ],
+    "odds_market": "h2h",
+    "needs_draw": true
+  },
+  "KXUFCFIGHT": {
+    "sport_key": "mma_mixed_martial_arts",
+    "outcome_type": "winner_incl_ot",
+    "required_phrases": ["wins the", "mma fight"],
+    "odds_market": "h2h",
+    "needs_draw": false
+  },
+  "KXMASTERS": {
+    "sport_key": "golf_masters_tournament_winner",
+    "outcome_type": "tournament_winner",
+    "required_phrases": ["wins"],
+    "odds_market": "outrights",
+    "needs_draw": false
+  },
+  "KXPGA": {
+    "sport_key": "golf_pga_championship_winner",
+    "outcome_type": "tournament_winner",
+    "required_phrases": ["wins"],
+    "odds_market": "outrights",
+    "needs_draw": false
+  },
+  "KXUSOPEN": {
+    "sport_key": "golf_us_open_winner",
+    "outcome_type": "tournament_winner",
+    "required_phrases": ["wins"],
+    "odds_market": "outrights",
+    "needs_draw": false
+  },
+  "KXTHEOPEN": {
+    "sport_key": "golf_the_open_championship_winner",
+    "outcome_type": "tournament_winner",
+    "required_phrases": ["wins"],
+    "odds_market": "outrights",
+    "needs_draw": false
+  }
+}
