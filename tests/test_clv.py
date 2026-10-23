@@ -669,6 +669,61 @@ def test_line_move_shadow_clv_does_not_require_settlement(tmp_path: Path) -> Non
     assert Decimal(value) == Decimal("10.0")
 
 
+def test_record_clv_scores_single_sharp_shadow_decision(tmp_path: Path) -> None:
+    commence = datetime(2026, 10, 27, 20, tzinfo=timezone.utc)
+    created = commence - timedelta(hours=100)
+    event = "KXNCAAFGAME-26OCT27SINGLE"
+    ticker = f"{event}-HOME"
+    ledger = Ledger(tmp_path / "single-sharp-clv.sqlite", Decimal("100"))
+    ledger.record_shadow_decision(
+        Signal(
+            strategy="sportsbook_v3",
+            ticker=ticker,
+            side=OutcomeSide.yes,
+            fair_prob=Decimal("0.60"),
+            limit_price=Decimal("0.50"),
+            edge=Decimal("0.04"),
+            size=Decimal(1),
+            created_at=created,
+            rules_version="v3",
+            position_key=f"{event}:home",
+            event_ticker=event,
+            tags=("single_sharp",),
+            commence_time=commence,
+        ),
+        "v3",
+        reason="single_sharp",
+    )
+
+    class Candles:
+        def get_candlesticks(self, series, market, start, end, period_interval=1):  # type: ignore[no-untyped-def]
+            assert series == "KXNCAAFGAME"
+            assert market == ticker
+            return [
+                {
+                    "end_period_ts": int((commence - timedelta(minutes=5)).timestamp()),
+                    "yes_bid": {"close_dollars": "0.59"},
+                    "yes_ask": {"close_dollars": "0.61"},
+                }
+            ]
+
+    assert (
+        record_clv(
+            ledger,
+            Candles(),  # type: ignore[arg-type]
+            now=commence + timedelta(hours=1),
+        )
+        == 1
+    )
+    clv, bid_clv, status = ledger.conn.execute(
+        "SELECT clv_kalshi,clv_kalshi_bid,clv_status "
+        "FROM shadow_decisions WHERE reason='single_sharp'"
+    ).fetchone()
+    assert clv is not None
+    assert bid_clv is not None
+    assert status == "ok"
+
+
 def test_record_clv_caps_candlestick_calls_per_run(tmp_path: Path) -> None:
     commence = datetime(2026, 10, 20, 20, tzinfo=timezone.utc)
     ledger = Ledger(tmp_path / "call-cap.sqlite", Decimal("1000"))

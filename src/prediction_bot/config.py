@@ -105,6 +105,7 @@ class Settings(BaseSettings):
     v3_min_open_interest: Decimal = Decimal("0")
     v3_min_ask_depth: Decimal = Decimal("50")
     v3_max_book_age_hours: Decimal = Decimal("3")
+    v3_single_sharp_cohort: Literal["off", "shadow"] = "shadow"
     v3_dq_stop_fraction: Decimal = Decimal("0.5")
     v3_no_reentry: bool = True
     v3_execution: Literal["taker", "maker_first", "auto"] = "taker"

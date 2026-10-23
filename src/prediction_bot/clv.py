@@ -240,7 +240,7 @@ def record_clv(
         "COALESCE(d.commence_time,d.commence_time_backfill),"
         "'',s.ticker,d.fair,COALESCE(d.rules_version,'v2') "
         "FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
-        "WHERE d.reason IN ('entry_window','net_edge') "
+        "WHERE d.reason IN ('entry_window','net_edge','single_sharp') "
         "AND d.rules_version IN ('v2','v3') "
         "AND d.window IN ('72h+','24-72h','2-24h') "
         "AND COALESCE(d.commence_time,d.commence_time_backfill) IS NOT NULL "
@@ -543,4 +543,5 @@ def record_clv(
                 )
                 ledger.conn.commit()
             log.exception("Failed to record CLV for ticker %s; it will be retried next run", ticker)
+    refresh_clv_statuses(ledger, Settings())
     return calls

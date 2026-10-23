@@ -108,6 +108,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._maker_shadows: list[MakerShadowCandidate] = []
         self._shadow_updates: dict[tuple[str, OutcomeSide], MakerShadowUpdate] = {}
         self._entry_window_decisions: list[Signal] = []
+        self._single_sharp_decisions: list[Signal] = []
         self._entry_window_event_tickers: set[str] = set()
         self._near_miss_decisions: list[tuple[Signal, str]] = []
         self._line_move_decisions: list[Signal] = []
@@ -130,6 +131,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
 
     def seen_shadow_decisions(self) -> list[Signal]:
         return list(self._entry_window_decisions)
+
+    def seen_single_sharp_decisions(self) -> list[Signal]:
+        return list(self._single_sharp_decisions)
 
     def seen_near_miss_decisions(self) -> list[tuple[Signal, str]]:
         return list(self._near_miss_decisions)
@@ -985,6 +989,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._maker_shadows.clear()
         self._shadow_updates.clear()
         self._entry_window_decisions.clear()
+        self._single_sharp_decisions.clear()
         self._entry_window_event_tickers.clear()
         self._near_miss_decisions.clear()
         self._line_move_decisions.clear()
@@ -1202,6 +1207,80 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     legs[0].ticker,
                     f"found {len(book_probabilities)}, require {minimum_books}",
                 )
+                if (
+                    self.rules_version == "v3"
+                    and self.settings.v3_single_sharp_cohort == "shadow"
+                    and (sport == "americanfootball_ncaaf" or sport.startswith("soccer_"))
+                ):
+                    sharp_book = next(
+                        (book for book in ("pinnacle", "circa") if book in book_probabilities),
+                        None,
+                    )
+                    if sharp_book is not None:
+                        for market in legs:
+                            outcome_id = ids_by_ticker[market.ticker]
+                            methods = book_probabilities[sharp_book].get(outcome_id)
+                            if not methods:
+                                continue
+                            fair_pre = (
+                                min(methods.values())
+                                if self.settings.v3_devig_method == "worst_case"
+                                else methods.get(self.settings.v3_devig_method)
+                            )
+                            if fair_pre is None:
+                                continue
+                            for side in (OutcomeSide.yes, OutcomeSide.no):
+                                price = market.quote.ask_for(side)
+                                bid = market.quote.bid_for(side)
+                                ask_depth = market.quote.ask_size_for(side)
+                                if price is None or bid is None:
+                                    continue
+                                sharp_spread = price - bid
+                                if (
+                                    sharp_spread > Decimal("0.03")
+                                    or ask_depth < self.settings.v3_min_ask_depth
+                                ):
+                                    continue
+                                fair = (
+                                    fair_pre if side is OutcomeSide.yes else Decimal(1) - fair_pre
+                                )
+                                net_edge = fair - price - taker_fee_rate(price, fee_multiplier)
+                                if net_edge < Decimal("0.03"):
+                                    continue
+                                position_outcome = (
+                                    outcome_id
+                                    if side is OutcomeSide.yes
+                                    else next(
+                                        (team_id for team_id in team_ids if team_id != outcome_id),
+                                        outcome_id,
+                                    )
+                                    if "draw" not in ids_by_ticker.values()
+                                    else f"not:{outcome_id}"
+                                )
+                                self._single_sharp_decisions.append(
+                                    Signal(
+                                        strategy=self.name,
+                                        ticker=market.ticker,
+                                        side=side,
+                                        fair_prob=fair,
+                                        limit_price=price,
+                                        edge=net_edge,
+                                        size=Decimal(1),
+                                        created_at=now,
+                                        rules_version=self.rules_version,
+                                        position_key=f"{event_ticker}:{position_outcome}",
+                                        event_ticker=event_ticker,
+                                        tags=("single_sharp",),
+                                        commence_time=commence,
+                                        fee_type=fee_type,
+                                        fee_multiplier=fee_multiplier,
+                                        fair_pre_haircut=fair_pre,
+                                        available_size=ask_depth,
+                                        spread=sharp_spread,
+                                        reference_source=sharp_book,
+                                        book_count=1,
+                                    )
+                                )
                 continue
             ids = set(team_ids)
             for market in legs:

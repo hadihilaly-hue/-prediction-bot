@@ -114,6 +114,14 @@ class Engine:
                             "v3" if strat.name == "sportsbook_v3" else "v2"
                         )
                         self.ledger.record_shadow_decision(sig, version, reason="entry_window")
+            get_single_sharp = getattr(strat, "seen_single_sharp_decisions", None)
+            if get_single_sharp is not None:
+                for sig in get_single_sharp():
+                    if sig.strategy != "book_scanner":
+                        version = sig.rules_version or (
+                            "v3" if strat.name == "sportsbook_v3" else "v2"
+                        )
+                        self.ledger.record_shadow_decision(sig, version, reason="single_sharp")
             get_line_moves = getattr(strat, "seen_line_move_decisions", None)
             if get_line_moves is not None:
                 for sig in get_line_moves():
@@ -137,6 +145,14 @@ class Engine:
                                 "v3" if strat.name == "sportsbook_v3" else "v2"
                             )
                             self.ledger.record_shadow_decision(sig, version, reason="entry_window")
+                get_single_sharp = getattr(strat, "seen_single_sharp_decisions", None)
+                if get_single_sharp is not None:
+                    for sig in get_single_sharp():
+                        if sig.strategy != "book_scanner":
+                            version = sig.rules_version or (
+                                "v3" if strat.name == "sportsbook_v3" else "v2"
+                            )
+                            self.ledger.record_shadow_decision(sig, version, reason="single_sharp")
                 get_line_moves = getattr(strat, "seen_line_move_decisions", None)
                 if get_line_moves is not None:
                     for sig in get_line_moves():
