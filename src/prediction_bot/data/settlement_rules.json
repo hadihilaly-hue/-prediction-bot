@@ -144,7 +144,7 @@
   "KXUFCFIGHT": {
     "sport_key": "mma_mixed_martial_arts",
     "outcome_type": "winner_incl_ot",
-    "required_phrases": ["wins the fight"],
+    "required_phrases": ["wins the", "mma fight"],
     "odds_market": "h2h",
     "needs_draw": false
   },
