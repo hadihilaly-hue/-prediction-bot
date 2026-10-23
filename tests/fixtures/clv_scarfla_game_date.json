@@ -1,0 +1,88 @@
+{
+  "request_url": "https://api.elections.kalshi.com/trade-api/v2/series/KXNCAAFGAME/markets/KXNCAAFGAME-26OCT10SCARFLA-SCAR/candlesticks?start_ts=1791640500&end_ts=1791676740&period_interval=1",
+  "request": {
+    "start_ts": 1791640500,
+    "end_ts": 1791676740,
+    "period_interval": 1
+  },
+  "response": {
+    "candlesticks": [
+      {
+        "end_period_ts": 1791640800,
+        "open_interest_fp": "87829.87",
+        "price": {
+          "close_dollars": "0.1900",
+          "high_dollars": "0.2000",
+          "low_dollars": "0.1900",
+          "mean_dollars": "0.1910",
+          "open_dollars": "0.2000",
+          "previous_dollars": "0.2000"
+        },
+        "volume_fp": "26.27",
+        "yes_ask": {
+          "close_dollars": "0.2000",
+          "high_dollars": "0.2000",
+          "low_dollars": "0.2000",
+          "open_dollars": "0.2000"
+        },
+        "yes_bid": {
+          "close_dollars": "0.1900",
+          "high_dollars": "0.1900",
+          "low_dollars": "0.1900",
+          "open_dollars": "0.1900"
+        }
+      },
+      {
+        "end_period_ts": 1791640860,
+        "open_interest_fp": "87836.97",
+        "price": {
+          "close_dollars": "0.2000",
+          "high_dollars": "0.2000",
+          "low_dollars": "0.2000",
+          "mean_dollars": "0.2000",
+          "open_dollars": "0.2000",
+          "previous_dollars": "0.1900"
+        },
+        "volume_fp": "7.10",
+        "yes_ask": {
+          "close_dollars": "0.2000",
+          "high_dollars": "0.2000",
+          "low_dollars": "0.2000",
+          "open_dollars": "0.2000"
+        },
+        "yes_bid": {
+          "close_dollars": "0.1900",
+          "high_dollars": "0.1900",
+          "low_dollars": "0.1900",
+          "open_dollars": "0.1900"
+        }
+      },
+      {
+        "end_period_ts": 1791664920,
+        "open_interest_fp": "1709785.34",
+        "price": {
+          "close_dollars": "0.9900",
+          "high_dollars": "0.9900",
+          "low_dollars": "0.9900",
+          "mean_dollars": "0.9900",
+          "open_dollars": "0.9900",
+          "previous_dollars": "0.9900"
+        },
+        "volume_fp": "236.74",
+        "yes_ask": {
+          "close_dollars": "1.0000",
+          "high_dollars": "1.0000",
+          "low_dollars": "1.0000",
+          "open_dollars": "1.0000"
+        },
+        "yes_bid": {
+          "close_dollars": "0.0000",
+          "high_dollars": "0.9900",
+          "low_dollars": "0.0000",
+          "open_dollars": "0.9900"
+        }
+      }
+    ],
+    "ticker": "KXNCAAFGAME-26OCT10SCARFLA-SCAR"
+  }
+}

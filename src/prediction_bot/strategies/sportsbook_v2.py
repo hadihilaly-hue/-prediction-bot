@@ -104,6 +104,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._reviews: list[EdgeReview] = []
         self._maker_shadows: list[MakerShadowCandidate] = []
         self._shadow_updates: dict[tuple[str, OutcomeSide], MakerShadowUpdate] = {}
+        self._entry_window_decisions: list[Signal] = []
 
     def seen_blocks(self) -> list[Block]:
         return list(self._blocks)
@@ -119,6 +120,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
 
     def seen_maker_shadow_updates(self) -> list[MakerShadowUpdate]:
         return list(self._shadow_updates.values())
+
+    def seen_shadow_decisions(self) -> list[Signal]:
+        return list(self._entry_window_decisions)
 
     def _block(self, reason: str, event_ticker: str, ticker: str, detail: str = "") -> None:
         block = Block(
@@ -510,6 +514,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._blocks.clear()
         self._maker_shadows.clear()
         self._shadow_updates.clear()
+        self._entry_window_decisions.clear()
         self._quotes = [
             QuoteSnapshot(
                 ticker=m.ticker,
@@ -534,6 +539,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             for side in (OutcomeSide.yes, OutcomeSide.no):
                 self._set_shadow_update(market, side, now)
         candidates: dict[str, list[Signal]] = defaultdict(list)
+        entry_window_events: set[str] = set()
         for event_ticker, legs in by_event.items():
             series = event_ticker.split("-", 1)[0]
             sport = KALSHI_SERIES_TO_SPORT.get(series)
@@ -619,7 +625,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             if gate_reasons:
                 for reason, detail in gate_reasons:
                     self._block(reason, event_ticker, legs[0].ticker, detail)
-                continue
+                if any(reason != "entry_window" for reason, _ in gate_reasons):
+                    continue
+                entry_window_events.add(event_ticker)
             if self.fee_cache is None:
                 self._block("fee_unknown", event_ticker, legs[0].ticker, series)
                 continue
@@ -814,6 +822,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 sized_shadow is not None
                 and sized_shadow.event_ticker is not None
                 and sized_shadow.commence_time is not None
+                and sized_shadow.event_ticker not in entry_window_events
             ):
                 shadow_market = next(m for m in markets if m.ticker == sized_shadow.ticker)
                 bid = shadow_market.quote.bid_for(sized_shadow.side)
@@ -842,6 +851,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                                 self.settings.fee_rounding,
                             ),
                             expires_at=sized_shadow.commence_time - timedelta(minutes=buffer),
+                            commence_time=sized_shadow.commence_time,
                         )
                     )
             trade_candidates = [
@@ -877,23 +887,26 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     reserved_cash=reserved_cash,
                 )
                 if sized is not None:
-                    out.append(sized)
-                    fee = taker_fee(
-                        sized.limit_price,
-                        sized.size,
-                        sized.fee_multiplier or Decimal(0),
-                        self.settings.fee_rounding,
-                    )
-                    cost = sized.limit_price * sized.size + fee
-                    reserved_position[position_key] = (
-                        reserved_position.get(position_key, Decimal(0)) + cost
-                    )
-                    reserved_event[sized.event_ticker or ""] = (
-                        reserved_event.get(sized.event_ticker or "", Decimal(0)) + cost
-                    )
-                    reserved_day += cost
-                    reserved_total += cost
-                    reserved_cash += cost
+                    if sized.event_ticker in entry_window_events:
+                        self._entry_window_decisions.append(sized)
+                    else:
+                        out.append(sized)
+                        fee = taker_fee(
+                            sized.limit_price,
+                            sized.size,
+                            sized.fee_multiplier or Decimal(0),
+                            self.settings.fee_rounding,
+                        )
+                        cost = sized.limit_price * sized.size + fee
+                        reserved_position[position_key] = (
+                            reserved_position.get(position_key, Decimal(0)) + cost
+                        )
+                        reserved_event[sized.event_ticker or ""] = (
+                            reserved_event.get(sized.event_ticker or "", Decimal(0)) + cost
+                        )
+                        reserved_day += cost
+                        reserved_total += cost
+                        reserved_cash += cost
             for rejected in signals:
                 if rejected is not selected_shadow:
                     event_ticker = rejected.event_ticker or ""

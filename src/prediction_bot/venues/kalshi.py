@@ -187,6 +187,25 @@ class KalshiClient:
     def get_market(self, ticker: str) -> Market:
         return parse_market(self._request("GET", f"/markets/{ticker}")["market"])
 
+    def get_candlesticks(
+        self,
+        series_ticker: str,
+        ticker: str,
+        start_ts: int,
+        end_ts: int,
+        period_interval: int = 1,
+    ) -> list[JSON]:
+        data = self._request(
+            "GET",
+            f"/series/{series_ticker}/markets/{ticker}/candlesticks",
+            params={
+                "start_ts": start_ts,
+                "end_ts": end_ts,
+                "period_interval": period_interval,
+            },
+        )
+        return cast(list[JSON], data.get("candlesticks", []))
+
     def get_orderbook(self, ticker: str, depth: int = 10) -> Quote:
         data = self._request("GET", f"/markets/{ticker}/orderbook", params={"depth": depth})
         return parse_orderbook(ticker, data)

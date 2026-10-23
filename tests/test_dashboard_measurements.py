@@ -1,0 +1,115 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from decimal import Decimal
+
+from prediction_bot.dashboard import dashboard_data, render_dashboard
+from prediction_bot.models import MakerShadowCandidate, OutcomeSide
+from prediction_bot.paper.ledger import Ledger
+
+
+def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "dashboard.sqlite", Decimal("1000"))
+    ticker = "KXNFLGAME-26OCT25KCLV-LV"
+    ledger.record_fill(
+        "sportsbook_v2",
+        ticker,
+        OutcomeSide.yes,
+        Decimal("0.50"),
+        Decimal("10"),
+        Decimal("0.10"),
+        Decimal("0.70"),
+        rules_version="v2",
+        position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders",
+        event_ticker="KXNFLGAME-26OCT25KCLV",
+        tags=("underdog", "value"),
+        commence_time=datetime(2026, 10, 25, 20, tzinfo=timezone.utc),
+    )
+    ledger.conn.execute(
+        "INSERT INTO settlements (ticker,settled_at,result,pnl) VALUES (?,?,?,?)",
+        (ticker, datetime.now(timezone.utc).isoformat(), "yes", "4.90"),
+    )
+    ledger.conn.execute("UPDATE fills SET clv_kalshi='5',clv_gameday='3' WHERE ticker=?", (ticker,))
+    ledger.record_maker_shadows(
+        [
+            MakerShadowCandidate(
+                created_at=datetime(2026, 10, 24, 20, tzinfo=timezone.utc),
+                ticker=ticker,
+                side=OutcomeSide.yes,
+                event_ticker="KXNFLGAME-26OCT25KCLV",
+                position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders:maker",
+                price=Decimal("0.50"),
+                size=Decimal("2"),
+                fair=Decimal("0.70"),
+                maker_fee=Decimal("0.10"),
+                expires_at=datetime(2026, 10, 25, 19, 50, tzinfo=timezone.utc),
+                commence_time=datetime(2026, 10, 25, 20, tzinfo=timezone.utc),
+            )
+        ]
+    )
+    ledger.conn.execute(
+        "UPDATE maker_shadow SET status='filled',clv_kalshi='4' WHERE ticker=?",
+        (ticker,),
+    )
+    ledger.conn.commit()
+    ledger.record_run(["sportsbook_v2"], 1, 1, 1, 0, odds_used=2, odds_remaining=10)
+
+    data = dashboard_data(ledger)
+    measurement = data["measurement"]
+    assert len(measurement["positions"]) == 1
+    position = measurement["positions"][0]
+    assert position["version"] == "v2"
+    assert position["summary"] == "Las Vegas Raiders win in KXNFLGAME-26OCT25KCLV"
+    assert position["strategy_tags"] == "sportsbook_v2, underdog, value"
+    assert position["clv"] == 5
+    assert position["clv_gameday"] == 3
+    assert measurement["brier_positions"]["n"] == 1
+    assert measurement["brier_fills"]["market_value"] == 0.25
+    assert measurement["brier_positions"]["market_value"] == 0.25
+    assert measurement["by_version"]["v2"]["brier_fills"]["n"] == 1
+    assert measurement["by_version"]["v1"]["brier_fills"]["n"] == 0
+    assert measurement["by_version"]["v2"]["clv"]["league"]["KXNFLGAME"]["n"] == 1
+    assert (
+        measurement["by_version"]["v2"]["clv"]["league"]["KXNFLGAME"]["evidence_note"]
+        == "too few to be evidence"
+    )
+    assert measurement["by_version"]["v2"]["monte_carlo"]["runs"] == 20_000
+    assert measurement["by_version"]["v2"]["calibration"]["70-79%"]["observed_win_rate"] == 1.0
+    assert measurement["by_version"]["v2"]["calibration"]["70-79%"]["predicted_win_rate"] == 0.7
+    assert measurement["quality"]["maker_shadow"] == {"filled": 1}
+    assert measurement["quality"]["maker_shadow_pnl"]["value"] == 0.9
+    assert measurement["quality"]["maker_shadow_clv"]["mean"] == 4.0
+    assert measurement["quality"]["odds_used"] == 2
+    assert measurement["quality"]["odds_remaining"] == 10
+
+
+def test_dashboard_renders_captioned_measurement_tables(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "dashboard-render.sqlite", Decimal("1000"))
+    html = render_dashboard(ledger)
+
+    for caption in (
+        "Calibration by ten-cent bucket",
+        "Brier scores use 2,000 game-bootstrap resamples",
+        "Monte Carlo estimates the chance",
+        "Settled position P&L with all outcomes",
+        "Block reasons show the last seven days",
+        "Maker-shadow counts by status",
+        "Shadow decisions by entry window",
+    ):
+        assert caption in html
+    assert 'data-rules="v2"' in html
+    assert 'data-rules="v1"' in html
+    for heading in (
+        "Expected wins",
+        "Actual wins",
+        "Bot Brier",
+        "Market Brier",
+        "Bot 95% CI",
+        "P(≥ realized)",
+        "Mean simulated P&L",
+        "Last 7 days",
+        "Would trade",
+    ):
+        assert heading in html
+    assert "JSON.stringify(V.calibration" not in html
+    assert "JSON.stringify(M.quality" not in html

@@ -1,0 +1,163 @@
+{
+  "request_url": "https://api.elections.kalshi.com/trade-api/v2/series/KXNFLGAME/markets/KXNFLGAME-26OCT11SFSEA-SF/candlesticks?start_ts=1791726900&end_ts=1791763140&period_interval=1",
+  "request": {
+    "start_ts": 1791726900,
+    "end_ts": 1791763140,
+    "period_interval": 1
+  },
+  "response": {
+    "candlesticks": [
+      {
+        "end_period_ts": 1791727200,
+        "open_interest_fp": "2256017.29",
+        "price": {
+          "close_dollars": "0.3900",
+          "high_dollars": "0.3900",
+          "low_dollars": "0.3900",
+          "mean_dollars": "0.3900",
+          "open_dollars": "0.3900",
+          "previous_dollars": "0.3900"
+        },
+        "volume_fp": "1399.75",
+        "yes_ask": {
+          "close_dollars": "0.3900",
+          "high_dollars": "0.3900",
+          "low_dollars": "0.3900",
+          "open_dollars": "0.3900"
+        },
+        "yes_bid": {
+          "close_dollars": "0.3800",
+          "high_dollars": "0.3800",
+          "low_dollars": "0.3800",
+          "open_dollars": "0.3800"
+        }
+      },
+      {
+        "end_period_ts": 1791727260,
+        "open_interest_fp": "2258375.78",
+        "price": {
+          "close_dollars": "0.3900",
+          "high_dollars": "0.3900",
+          "low_dollars": "0.3900",
+          "mean_dollars": "0.3900",
+          "open_dollars": "0.3900",
+          "previous_dollars": "0.3900"
+        },
+        "volume_fp": "2358.49",
+        "yes_ask": {
+          "close_dollars": "0.3900",
+          "high_dollars": "0.3900",
+          "low_dollars": "0.3900",
+          "open_dollars": "0.3900"
+        },
+        "yes_bid": {
+          "close_dollars": "0.3800",
+          "high_dollars": "0.3800",
+          "low_dollars": "0.3800",
+          "open_dollars": "0.3800"
+        }
+      },
+      {
+        "end_period_ts": 1791759540,
+        "open_interest_fp": "13305043.24",
+        "price": {
+          "close_dollars": "0.3500",
+          "high_dollars": "0.3600",
+          "low_dollars": "0.3400",
+          "mean_dollars": "0.3566",
+          "open_dollars": "0.3500",
+          "previous_dollars": "0.3600"
+        },
+        "volume_fp": "86404.34",
+        "yes_ask": {
+          "close_dollars": "0.3500",
+          "high_dollars": "0.3600",
+          "low_dollars": "0.3500",
+          "open_dollars": "0.3600"
+        },
+        "yes_bid": {
+          "close_dollars": "0.3400",
+          "high_dollars": "0.3500",
+          "low_dollars": "0.3400",
+          "open_dollars": "0.3500"
+        }
+      },
+      {
+        "end_period_ts": 1791759600,
+        "open_interest_fp": "13336553.80",
+        "price": {
+          "close_dollars": "0.3500",
+          "high_dollars": "0.3500",
+          "low_dollars": "0.3400",
+          "mean_dollars": "0.3476",
+          "open_dollars": "0.3500",
+          "previous_dollars": "0.3500"
+        },
+        "volume_fp": "59501.19",
+        "yes_ask": {
+          "close_dollars": "0.3500",
+          "high_dollars": "0.3500",
+          "low_dollars": "0.3500",
+          "open_dollars": "0.3500"
+        },
+        "yes_bid": {
+          "close_dollars": "0.3400",
+          "high_dollars": "0.3400",
+          "low_dollars": "0.3400",
+          "open_dollars": "0.3400"
+        }
+      },
+      {
+        "end_period_ts": 1791762240,
+        "open_interest_fp": "14751890.82",
+        "price": {
+          "close_dollars": "0.9900",
+          "high_dollars": "0.9900",
+          "low_dollars": "0.9900",
+          "mean_dollars": "0.9900",
+          "open_dollars": "0.9900",
+          "previous_dollars": "0.9900"
+        },
+        "volume_fp": "113240.76",
+        "yes_ask": {
+          "close_dollars": "1.0000",
+          "high_dollars": "1.0000",
+          "low_dollars": "1.0000",
+          "open_dollars": "1.0000"
+        },
+        "yes_bid": {
+          "close_dollars": "0.9900",
+          "high_dollars": "0.9900",
+          "low_dollars": "0.9900",
+          "open_dollars": "0.9900"
+        }
+      },
+      {
+        "end_period_ts": 1791762300,
+        "open_interest_fp": "14752218.11",
+        "price": {
+          "close_dollars": "0.9900",
+          "high_dollars": "0.9900",
+          "low_dollars": "0.9900",
+          "mean_dollars": "0.9900",
+          "open_dollars": "0.9900",
+          "previous_dollars": "0.9900"
+        },
+        "volume_fp": "42974.52",
+        "yes_ask": {
+          "close_dollars": "1.0000",
+          "high_dollars": "1.0000",
+          "low_dollars": "1.0000",
+          "open_dollars": "1.0000"
+        },
+        "yes_bid": {
+          "close_dollars": "0.0000",
+          "high_dollars": "0.9900",
+          "low_dollars": "0.0000",
+          "open_dollars": "0.9900"
+        }
+      }
+    ],
+    "ticker": "KXNFLGAME-26OCT11SFSEA-SF"
+  }
+}

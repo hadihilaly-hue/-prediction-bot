@@ -523,11 +523,17 @@ def test_odds_client_shares_fetch_within_ttl() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal calls
         calls += 1
-        return httpx.Response(200, json=[EVENT], headers={"x-requests-remaining": "9"})
+        return httpx.Response(
+            200,
+            json=[EVENT],
+            headers={"x-requests-used": "341", "x-requests-remaining": "9"},
+        )
 
     oc = OddsClient("k", client=httpx.Client(transport=httpx.MockTransport(handler)))
     assert oc.h2h("americanfootball_ncaaf") == oc.h2h("americanfootball_ncaaf")
     assert calls == 1
+    assert oc.requests_used == "341"
+    assert oc.requests_remaining == "9"
     oc.outrights("golf_masters_tournament_winner")
     assert calls == 2
 

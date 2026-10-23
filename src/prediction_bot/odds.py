@@ -254,6 +254,7 @@ class OddsClient:
         self.base_url = base_url.rstrip("/")
         self._client = client or httpx.Client(timeout=15.0)
         self.requests_remaining: str | None = None
+        self.requests_used: str | None = None
         # Max quota-costing requests this client may make; None = unlimited.
         self.budget = budget
         self.requests_made = 0
@@ -301,6 +302,7 @@ class OddsClient:
         resp = self._client.get(f"{self.base_url}/sports/{sport}/odds", params=params)
         resp.raise_for_status()
         self.requests_remaining = resp.headers.get("x-requests-remaining")
+        self.requests_used = resp.headers.get("x-requests-used")
         data = cast(list[dict[str, Any]], resp.json())
         self._memo[key] = (time.monotonic(), data)
         return data
@@ -311,6 +313,7 @@ class OddsClient:
         resp.raise_for_status()
         left = resp.headers.get("x-requests-remaining")
         self.requests_remaining = left
+        self.requests_used = resp.headers.get("x-requests-used")
         try:
             return int(float(left)) if left is not None else None
         except ValueError:

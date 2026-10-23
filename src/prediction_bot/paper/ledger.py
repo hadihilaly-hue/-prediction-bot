@@ -115,7 +115,10 @@ CREATE TABLE IF NOT EXISTS maker_shadow (
     status_at TEXT NOT NULL,
     trade_through_at TEXT,
     event_ticker TEXT NOT NULL,
-    expires_at TEXT NOT NULL
+    expires_at TEXT NOT NULL,
+    commence_time TEXT,
+    clv_kalshi TEXT,
+    clv_gameday TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS maker_shadow_position_key
     ON maker_shadow(position_key);
@@ -147,7 +150,9 @@ CREATE TABLE IF NOT EXISTS runs (
     filled INTEGER NOT NULL,
     settled INTEGER NOT NULL,
     cash TEXT NOT NULL,
-    open_cost TEXT NOT NULL
+    open_cost TEXT NOT NULL,
+    odds_used INTEGER,
+    odds_remaining INTEGER
 );
 CREATE TABLE IF NOT EXISTS odds_snapshots (
     id INTEGER PRIMARY KEY,
@@ -196,6 +201,33 @@ CREATE TABLE IF NOT EXISTS quote_snapshots (
     last_price TEXT,
     volume TEXT NOT NULL,
     open_interest TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS closing_quotes (
+    ticker TEXT NOT NULL,
+    commence_time TEXT NOT NULL,
+    t_minus_min INTEGER NOT NULL,
+    yes_bid TEXT NOT NULL,
+    yes_ask TEXT NOT NULL,
+    mid TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    source TEXT NOT NULL,
+    PRIMARY KEY (ticker, commence_time, t_minus_min)
+);
+CREATE TABLE IF NOT EXISTS shadow_decisions (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    rules_version TEXT,
+    window TEXT NOT NULL,
+    strategy TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    side TEXT NOT NULL,
+    position_key TEXT,
+    would_trade INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    fair TEXT,
+    price TEXT,
+    size TEXT,
+    commence_time TEXT
 );
 """
 
@@ -336,8 +368,17 @@ class Ledger:
                 "commence_time": "TEXT",
                 "fee_model_version": "TEXT",
                 "fee_paid": "TEXT",
+                "clv_kalshi": "TEXT",
+                "clv_gameday": "TEXT",
+                "line_move_since_entry": "TEXT",
             },
             "odds_snapshots": {"max_book_update": "TEXT"},
+            "runs": {"odds_used": "INTEGER", "odds_remaining": "INTEGER"},
+            "maker_shadow": {
+                "commence_time": "TEXT",
+                "clv_kalshi": "TEXT",
+                "clv_gameday": "TEXT",
+            },
         }.items():
             self._ensure_columns(self.conn, table, columns)
         self.starting_cash = starting_cash
@@ -413,7 +454,7 @@ class Ledger:
                 self.conn.execute(
                     "INSERT INTO maker_shadow (created_at, ticker, side, position_key, price,"
                     " size, fair, maker_fee, status, status_at, trade_through_at, event_ticker,"
-                    " expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    " expires_at, commence_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         self._utc(shadow.created_at).isoformat(),
                         shadow.ticker,
@@ -428,6 +469,9 @@ class Ledger:
                         None,
                         shadow.event_ticker,
                         self._utc(shadow.expires_at).isoformat(),
+                        self._utc(shadow.commence_time).isoformat()
+                        if shadow.commence_time
+                        else None,
                     ),
                 )
             except sqlite3.IntegrityError:
@@ -990,12 +1034,14 @@ class Ledger:
         filled: int,
         settled: int,
         at: datetime | None = None,
+        odds_used: int | None = None,
+        odds_remaining: int | None = None,
     ) -> None:
         """Snapshot one engine cycle so the dashboard can chart activity and equity over time."""
         open_cost = sum((p.cost for p in self.positions()), Decimal(0))
         self.conn.execute(
             "INSERT INTO runs (ran_at, strategies, scanned, signals, filled, settled, cash,"
-            " open_cost) VALUES (?,?,?,?,?,?,?,?)",
+            " open_cost, odds_used, odds_remaining) VALUES (?,?,?,?,?,?,?,?,?,?)",
             (
                 self._utc(at or datetime.now(timezone.utc)).isoformat(),
                 ",".join(strategies),
@@ -1005,6 +1051,45 @@ class Ledger:
                 settled,
                 str(self.cash),
                 str(open_cost),
+                odds_used,
+                odds_remaining,
+            ),
+        )
+        self.conn.commit()
+
+    def record_shadow_decision(self, sig: Signal, rules_version: str, reason: str = "") -> None:
+        commence = sig.commence_time
+        if commence is None:
+            window = "unknown"
+        else:
+            hours = (commence - sig.created_at).total_seconds() / 3600
+            window = (
+                "72h+"
+                if hours >= 72
+                else "24-72h"
+                if hours >= 24
+                else "2-24h"
+                if hours >= 2
+                else "<2h"
+            )
+        self.conn.execute(
+            "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
+            "position_key,would_trade,reason,fair,price,size,commence_time) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                self._utc(sig.created_at).isoformat(),
+                rules_version,
+                window,
+                sig.strategy,
+                sig.ticker,
+                sig.side.value,
+                sig.position_key,
+                1,
+                reason,
+                str(sig.fair_prob),
+                str(sig.limit_price),
+                str(sig.size),
+                self._utc(commence).isoformat() if commence else None,
             ),
         )
         self.conn.commit()

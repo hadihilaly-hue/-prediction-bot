@@ -6,6 +6,7 @@ from decimal import Decimal
 
 import pytest
 
+from prediction_bot import cli
 from prediction_bot.cli import predictions_markdown
 from prediction_bot.config import Mode
 from prediction_bot.engine import Engine
@@ -19,6 +20,38 @@ def test_fee_rounds_up_to_cent() -> None:
     # 0.07 * 10 * 0.5 * 0.5 = 0.175 -> 0.18
     assert fee_for(Decimal("0.5"), Decimal(10), Decimal("0.07")) == Decimal("0.18")
     assert fee_for(Decimal("0.99"), Decimal(1), Decimal("0.07")) == Decimal("0.01")
+
+
+def test_paper_cycle_runs_and_records_run_when_clv_fails(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    engines = []
+
+    class TrackingEngine(Engine):
+        def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            super().__init__(*args, **kwargs)
+            self.run_cycle_calls = 0
+            engines.append(self)
+
+        def run_cycle(self, markets):
+            self.run_cycle_calls += 1
+            return super().run_cycle(markets)
+
+    def fail_clv(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("temporary candlestick failure")
+
+    monkeypatch.setattr(cli, "Engine", TrackingEngine)
+    monkeypatch.setattr(cli, "_settings", lambda: settings)
+    monkeypatch.setattr(cli, "_client", lambda _: object())
+    monkeypatch.setattr(cli, "_odds_client", lambda _: None)
+    monkeypatch.setattr(cli, "_strategies", lambda *args, **kwargs: [])
+    monkeypatch.setattr(cli, "_fetch", lambda client, series: [])
+    monkeypatch.setattr(cli, "record_clv", fail_clv)
+
+    cli.paper(strategy=[], series=[], interval=0, cycles=1)
+
+    assert len(engines) == 1
+    assert engines[0].run_cycle_calls == 1
+    ledger = Ledger(settings.paper_db_path, settings.paper_starting_cash)
+    assert len(ledger.runs()) == 1
 
 
 def test_ledger_fill_settle_and_performance(tmp_path) -> None:  # type: ignore[no-untyped-def]

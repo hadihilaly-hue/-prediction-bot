@@ -1,0 +1,138 @@
+{
+  "request_url": "https://api.elections.kalshi.com/trade-api/v2/series/KXNCAAFGAME/markets/KXNCAAFGAME-26OCT10TEXOKLA-OKLA/candlesticks?start_ts=1791640500&end_ts=1791676740&period_interval=1",
+  "request": {
+    "start_ts": 1791640500,
+    "end_ts": 1791676740,
+    "period_interval": 1
+  },
+  "response": {
+    "candlesticks": [
+      {
+        "end_period_ts": 1791640800,
+        "open_interest_fp": "238832.59",
+        "price": {
+          "close_dollars": "0.2600",
+          "high_dollars": "0.2600",
+          "low_dollars": "0.2600",
+          "mean_dollars": "0.2600",
+          "open_dollars": "0.2600",
+          "previous_dollars": "0.2600"
+        },
+        "volume_fp": "309.87",
+        "yes_ask": {
+          "close_dollars": "0.2600",
+          "high_dollars": "0.2600",
+          "low_dollars": "0.2600",
+          "open_dollars": "0.2600"
+        },
+        "yes_bid": {
+          "close_dollars": "0.2500",
+          "high_dollars": "0.2500",
+          "low_dollars": "0.2500",
+          "open_dollars": "0.2500"
+        }
+      },
+      {
+        "end_period_ts": 1791640860,
+        "open_interest_fp": "239028.87",
+        "price": {
+          "close_dollars": "0.2600",
+          "high_dollars": "0.2600",
+          "low_dollars": "0.2600",
+          "mean_dollars": "0.2600",
+          "open_dollars": "0.2600",
+          "previous_dollars": "0.2600"
+        },
+        "volume_fp": "196.28",
+        "yes_ask": {
+          "close_dollars": "0.2600",
+          "high_dollars": "0.2600",
+          "low_dollars": "0.2600",
+          "open_dollars": "0.2600"
+        },
+        "yes_bid": {
+          "close_dollars": "0.2500",
+          "high_dollars": "0.2500",
+          "low_dollars": "0.2500",
+          "open_dollars": "0.2500"
+        }
+      },
+      {
+        "end_period_ts": 1791673140,
+        "open_interest_fp": "4586757.16",
+        "price": {
+          "close_dollars": "0.4200",
+          "high_dollars": "0.4200",
+          "low_dollars": "0.4100",
+          "mean_dollars": "0.4151",
+          "open_dollars": "0.4200",
+          "previous_dollars": "0.4100"
+        },
+        "volume_fp": "32446.93",
+        "yes_ask": {
+          "close_dollars": "0.4200",
+          "high_dollars": "0.4200",
+          "low_dollars": "0.4200",
+          "open_dollars": "0.4200"
+        },
+        "yes_bid": {
+          "close_dollars": "0.4100",
+          "high_dollars": "0.4100",
+          "low_dollars": "0.4100",
+          "open_dollars": "0.4100"
+        }
+      },
+      {
+        "end_period_ts": 1791673200,
+        "open_interest_fp": "4605519.66",
+        "price": {
+          "close_dollars": "0.4200",
+          "high_dollars": "0.4200",
+          "low_dollars": "0.4000",
+          "mean_dollars": "0.4170",
+          "open_dollars": "0.4100",
+          "previous_dollars": "0.4200"
+        },
+        "volume_fp": "30855.81",
+        "yes_ask": {
+          "close_dollars": "0.4200",
+          "high_dollars": "0.4200",
+          "low_dollars": "0.4100",
+          "open_dollars": "0.4200"
+        },
+        "yes_bid": {
+          "close_dollars": "0.4000",
+          "high_dollars": "0.4100",
+          "low_dollars": "0.4000",
+          "open_dollars": "0.4100"
+        }
+      },
+      {
+        "end_period_ts": 1791675240,
+        "open_interest_fp": "5888507.25",
+        "price": {
+          "close_dollars": "0.9900",
+          "high_dollars": "0.9900",
+          "low_dollars": "0.9900",
+          "mean_dollars": "0.9900",
+          "open_dollars": "0.9900",
+          "previous_dollars": "0.9900"
+        },
+        "volume_fp": "97060.99",
+        "yes_ask": {
+          "close_dollars": "1.0000",
+          "high_dollars": "1.0000",
+          "low_dollars": "1.0000",
+          "open_dollars": "1.0000"
+        },
+        "yes_bid": {
+          "close_dollars": "0.0000",
+          "high_dollars": "0.9900",
+          "low_dollars": "0.0000",
+          "open_dollars": "0.9900"
+        }
+      }
+    ],
+    "ticker": "KXNCAAFGAME-26OCT10TEXOKLA-OKLA"
+  }
+}
