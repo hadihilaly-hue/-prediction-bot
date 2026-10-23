@@ -387,6 +387,87 @@ def test_rotation_treats_newly_listed_market_as_moved(tmp_path: Path) -> None:
     assert _market_moved_since(ledger, "NFL-EVENT", now - timedelta(hours=1), now)
 
 
+def test_rotation_no_move_skip_banks_ranked_slot_and_pacer_credit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import httpx
+
+    from prediction_bot.odds import OddsClient, OddsPacer
+
+    now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+    last_pull = now - timedelta(hours=2)
+    ledger = Ledger(tmp_path / "rotation-bank.sqlite", Decimal("100"))
+    games = {
+        "americanfootball_nfl": [
+            PlannedGame(now + timedelta(hours=100), event_ticker="NFL-EVENT-1"),
+            PlannedGame(now + timedelta(hours=120), event_ticker="NFL-EVENT-2"),
+        ],
+        "soccer_epl": [PlannedGame(now + timedelta(hours=100), event_ticker="EPL-EVENT")],
+    }
+    for event_ticker in ("NFL-EVENT-1", "NFL-EVENT-2", "EPL-EVENT"):
+        _market_snapshot(
+            ledger,
+            event_ticker,
+            f"{event_ticker}-H",
+            last_pull,
+            "0.45",
+            "0.49",
+            "10",
+        )
+        _market_snapshot(
+            ledger,
+            event_ticker,
+            f"{event_ticker}-H",
+            now,
+            "0.45",
+            "0.49",
+            "10",
+        )
+    ledger.record_feed_pulls({"americanfootball_nfl": 2, "soccer_epl": 1}, "v3", last_pull)
+    stats = {
+        "americanfootball_nfl": _stat("americanfootball_nfl", 100),
+        "soccer_epl": _stat("soccer_epl", 100),
+    }
+
+    class Events:
+        events_free = True
+
+        def events(self, *_args, **_kwargs):
+            raise AssertionError("a no-move skip must not reach the events check")
+
+    monkeypatch.setattr("prediction_bot.odds.run_share", lambda *_args, **_kwargs: 0.5)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[],
+            headers={"x-requests-used": "10", "x-requests-remaining": "100"},
+        )
+
+    ledger.record_odds_pacer_carry(0.5, now)
+    pacer = OddsPacer(
+        OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler))),
+        runs_per_day=12,
+        ledger=ledger,
+    )
+    assert pacer.start_run(now) == 1
+    selected, skips, scores = select_rotation_feeds(
+        ledger,
+        games,
+        stats,
+        Settings(_env_file=None, rules_version="v3", min_lead_hours=72),
+        Events(),
+        now,
+        pacer.client.budget,
+    )
+
+    assert scores["soccer_epl"].value > 0
+    assert selected == []
+    assert skips == {"americanfootball_nfl": "no_move"}
+    pacer.finish_run(now)
+    assert ledger.odds_pacer_carry() == 1.0
+
+
 def test_rotation_prioritizes_gaps_moves_and_entries_before_measurement_windows(
     tmp_path: Path,
 ) -> None:

@@ -436,22 +436,7 @@ def select_rotation_feeds(
             feed,
         ),
     )
-    skips: dict[str, str] = {}
-    selection: list[str] = []
-    for feed in ranked:
-        if budget is not None and len(selection) >= budget:
-            break
-        last_pull, large_gap, moved = feed_state[feed]
-        if (
-            last_pull is not None
-            and now_utc - last_pull < timedelta(hours=6)
-            and not large_gap
-            and not moved
-        ):
-            skips[feed] = "no_move"
-            continue
-        selection.append(feed)
-
+    selection = ranked[: budget if budget is not None else len(ranked)]
     measurement_feeds: set[str] = set()
     if settings.odds_measurement_windows and budget is not None:
         remaining = max(0, budget - len(selection))
@@ -460,15 +445,6 @@ def select_rotation_feeds(
         for feed, games in games_by_sport.items():
             score = scores[feed]
             if feed in ranked_set or score.measurement_value <= 0:
-                continue
-            last_pull, large_gap, moved = feed_state[feed]
-            if (
-                last_pull is not None
-                and now_utc - last_pull < timedelta(hours=6)
-                and not large_gap
-                and not moved
-            ):
-                skips[feed] = "no_move"
                 continue
             priorities = [
                 (priority, _utc(game.kickoff))
@@ -490,8 +466,18 @@ def select_rotation_feeds(
             selection.append(feed)
             measurement_feeds.add(feed)
 
+    skips: dict[str, str] = {}
     selected: list[str] = []
     for feed in selection:
+        last_pull, large_gap, moved = feed_state[feed]
+        if (
+            last_pull is not None
+            and now_utc - last_pull < timedelta(hours=6)
+            and not large_gap
+            and not moved
+        ):
+            skips[feed] = "no_move"
+            continue
         if events_client is not None and getattr(events_client, "events_free", True):
             if feed in measurement_feeds:
                 window_start = now_utc + timedelta(hours=1)
