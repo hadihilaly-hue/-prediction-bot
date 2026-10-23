@@ -49,9 +49,20 @@ KALSHI_SERIES_TO_OUTRIGHT: dict[str, str] = {
 }
 
 
+# Relative trust in each book's line when forming the consensus. Sharp, early-posting
+# books (Pinnacle, Circa, BetOnline) carry the most signal far out from game time —
+# exactly the window the min-lead gate restricts entries to — while soft recreational
+# books track them with a lag, so equal weighting would average real edge away.
+BOOK_WEIGHTS: dict[str, Decimal] = {
+    "pinnacle": Decimal(3),
+    "circa": Decimal(3),
+    "betonlineag": Decimal(2),
+}
+
+
 @dataclass(frozen=True)
 class ConsensusOdds:
-    """De-vigged win probabilities for one game, averaged across bookmakers."""
+    """De-vigged win probabilities for one game, weighted-averaged across bookmakers."""
 
     event_id: str
     home_team: str
@@ -86,9 +97,10 @@ MIN_FIELD_COVERAGE = Decimal("0.9")
 def consensus(
     event: dict[str, Any], bookmakers: list[str] | None = None, market: str = "h2h"
 ) -> ConsensusOdds | None:
-    per_team: dict[str, list[Decimal]] = {}
+    per_team: dict[str, list[tuple[Decimal, Decimal]]] = {}
     used = 0
     quotes: list[dict[str, Decimal]] = []
+    weights: list[Decimal] = []
     for book in event.get("bookmakers", []):
         if bookmakers and book.get("key") not in bookmakers:
             continue
@@ -96,10 +108,11 @@ def consensus(
         if not mkt:
             continue
         quotes.append({o["name"]: Decimal(str(o["price"])) for o in mkt.get("outcomes", [])})
+        weights.append(BOOK_WEIGHTS.get(str(book.get("key")), Decimal(1)))
     # The feed never says how big the real field is; the widest book is the best proxy,
     # and a book quoting far fewer names than that is pricing a subset, not the field.
     field = max((len(q) for q in quotes), default=0)
-    for odds in quotes:
+    for odds, weight in zip(quotes, weights, strict=True):
         if market == "outrights" and len(odds) < field * MIN_FIELD_COVERAGE:
             continue
         fair = devig(odds, require_full=market == "outrights")
@@ -107,10 +120,13 @@ def consensus(
             continue
         used += 1
         for team, p in fair.items():
-            per_team.setdefault(team, []).append(p)
+            per_team.setdefault(team, []).append((p, weight))
     if not used:
         return None
-    probs = {t: sum(ps, Decimal(0)) / len(ps) for t, ps in per_team.items()}
+    probs = {
+        t: sum((p * w for p, w in pws), Decimal(0)) / sum((w for _, w in pws), Decimal(0))
+        for t, pws in per_team.items()
+    }
     return ConsensusOdds(
         event_id=str(event["id"]),
         home_team=str(event.get("home_team") or ""),

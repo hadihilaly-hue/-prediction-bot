@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from prediction_bot.config import Settings
 from prediction_bot.models import Market, OutcomeSide, Signal, fee_for
+from prediction_bot.odds import ConsensusOdds
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.base import Strategy
 from prediction_bot.venues.kalshi import KalshiClient, KalshiError
@@ -77,6 +78,20 @@ class Engine:
                 res.signals.extend(strat.evaluate(markets))
             except Exception:  # keep other strategies alive
                 log.exception("strategy %s failed", strat.name)
+        # Snapshot every sportsbook consensus the strategies fetched this cycle, once
+        # per (feed, event) — strategies sharing one odds client report the same data.
+        seen: dict[str, dict[str, ConsensusOdds]] = {}
+        for strat in self.strategies:
+            get = getattr(strat, "seen_consensus", None)
+            if get is None:
+                continue
+            for feed, events in get().items():
+                seen.setdefault(feed, {}).update(events)
+        if seen:
+            try:
+                self.ledger.record_consensus(seen)
+            except Exception:  # a logging failure must never stop a cycle
+                log.exception("failed to record odds snapshots")
         hit = {s.ticker for s in res.signals}
         self.ledger.remember_markets([m for m in markets if m.ticker in hit])
         res.halted = self.halt_reason()
