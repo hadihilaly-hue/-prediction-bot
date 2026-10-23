@@ -149,6 +149,7 @@ class Settings(BaseSettings):
     # Paper trading
     paper_db_path: Path = Path("data/paper.sqlite")
     paper_starting_cash: Decimal = Decimal("1000")
+    clv_max_calls_scanner: int = 300
 
     # Risk limits (apply to both paper and live)
     max_order_notional: Decimal = Decimal("25")

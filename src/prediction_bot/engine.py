@@ -131,6 +131,15 @@ class Engine:
                             )
             except Exception:
                 log.exception("shadow strategy %s failed", strat.name)
+        try:
+            near_miss_decisions = []
+            for strat in (*self.strategies, *self.shadow_strategies):
+                get = getattr(strat, "seen_near_miss_decisions", None)
+                if get is not None:
+                    near_miss_decisions.extend(get())
+            self.ledger.record_near_miss_decisions(near_miss_decisions)
+        except Exception:
+            log.exception("failed to record near-miss decisions")
         for method_name, write in (
             ("seen_blocks", self.ledger.record_blocks),
             ("seen_quotes", self.ledger.record_quote_snapshots),

@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS fills (
     fee_model_version TEXT,
     fee_paid TEXT,
     clv_exit TEXT,
+    clv_kalshi_bid TEXT,
     clv_status TEXT,
     commence_time_backfill TEXT,
     commence_source TEXT
@@ -157,7 +158,8 @@ CREATE TABLE IF NOT EXISTS maker_shadow (
     score_attempts INTEGER NOT NULL DEFAULT 0,
     score_status TEXT NOT NULL DEFAULT 'pending',
     cancel_reason TEXT,
-    clv_exit TEXT
+    clv_exit TEXT,
+    clv_kalshi_bid TEXT
 );
 CREATE TABLE IF NOT EXISTS paper_orders (
     id INTEGER PRIMARY KEY,
@@ -372,6 +374,8 @@ CREATE TABLE IF NOT EXISTS shadow_decisions (
     clv_kalshi TEXT,
     clv_gameday TEXT,
     clv_exit TEXT,
+    net_edge TEXT,
+    clv_kalshi_bid TEXT,
     clv_status TEXT,
     commence_time_backfill TEXT,
     commence_source TEXT
@@ -550,6 +554,7 @@ class Ledger:
                 "clv_kalshi": "TEXT",
                 "clv_gameday": "TEXT",
                 "clv_exit": "TEXT",
+                "clv_kalshi_bid": "TEXT",
                 "line_move_since_entry": "TEXT",
                 "clv_status": "TEXT",
                 "commence_time_backfill": "TEXT",
@@ -564,6 +569,8 @@ class Ledger:
                 "clv_kalshi": "TEXT",
                 "clv_gameday": "TEXT",
                 "clv_exit": "TEXT",
+                "net_edge": "TEXT",
+                "clv_kalshi_bid": "TEXT",
                 "clv_status": "TEXT",
                 "commence_time_backfill": "TEXT",
                 "commence_source": "TEXT",
@@ -580,9 +587,16 @@ class Ledger:
                 "score_status": "TEXT NOT NULL DEFAULT 'pending'",
                 "cancel_reason": "TEXT",
                 "clv_exit": "TEXT",
+                "clv_kalshi_bid": "TEXT",
             },
         }.items():
             self._ensure_columns(self.conn, table, columns)
+        for table in ("fills", "maker_shadow", "shadow_decisions"):
+            self.conn.execute(
+                f"UPDATE {table} SET clv_kalshi_bid=clv_exit "
+                "WHERE clv_kalshi_bid IS NULL AND clv_exit IS NOT NULL"
+            )
+        self.conn.commit()
         self.starting_cash = starting_cash
         row = self.conn.execute("SELECT balance FROM cash WHERE id = 1").fetchone()
         if row is None:
@@ -1845,13 +1859,27 @@ class Ledger:
 
     def record_shadow_decision(self, sig: Signal, rules_version: str, reason: str = "") -> None:
         commence = sig.commence_time
+        created_at = self._utc(sig.created_at)
+        if reason == "entry_window" and sig.position_key is not None:
+            existing = self.conn.execute(
+                "SELECT 1 FROM shadow_decisions WHERE rules_version IS ? "
+                "AND position_key=? AND substr(created_at,1,10)=? AND reason=? LIMIT 1",
+                (
+                    rules_version,
+                    sig.position_key,
+                    created_at.date().isoformat(),
+                    reason,
+                ),
+            ).fetchone()
+            if existing is not None:
+                return
         window = decision_window(sig.created_at, commence)
         self.conn.execute(
             "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
             "position_key,would_trade,reason,fair,price,size,commence_time) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
-                self._utc(sig.created_at).isoformat(),
+                created_at.isoformat(),
                 rules_version,
                 window,
                 sig.strategy,
@@ -1867,6 +1895,61 @@ class Ledger:
             ),
         )
         self.conn.commit()
+
+    def record_near_miss_decisions(
+        self, items: Sequence[tuple[Signal, str]], cap: int = 400
+    ) -> int:
+        written = 0
+        seen: set[tuple[str | None, str | None, str, str]] = set()
+        for sig, reason in items:
+            if written >= max(0, cap):
+                break
+            created_at = self._utc(sig.created_at)
+            key = (
+                sig.rules_version,
+                sig.position_key,
+                created_at.date().isoformat(),
+                reason,
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            existing = self.conn.execute(
+                "SELECT 1 FROM shadow_decisions WHERE rules_version IS ? "
+                "AND position_key IS ? AND substr(created_at,1,10)=? AND reason=? LIMIT 1",
+                key,
+            ).fetchone()
+            if existing is not None:
+                continue
+            self.conn.execute(
+                "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,"
+                "side,position_key,would_trade,reason,fair,price,size,commence_time,net_edge) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    created_at.isoformat(),
+                    sig.rules_version,
+                    decision_window(sig.created_at, sig.commence_time),
+                    sig.strategy,
+                    sig.ticker,
+                    sig.side.value,
+                    sig.position_key,
+                    0,
+                    reason,
+                    str(sig.fair_prob),
+                    str(sig.limit_price),
+                    str(sig.size),
+                    (
+                        self._utc(sig.commence_time).isoformat()
+                        if sig.commence_time is not None
+                        else None
+                    ),
+                    str(sig.edge),
+                ),
+            )
+            written += 1
+        if written:
+            self.conn.commit()
+        return written
 
     def runs(self) -> list[Run]:
         rows = self.conn.execute(

@@ -260,14 +260,42 @@ def test_dashboard_exposes_versioned_window_clv_and_null_small_sample_ci(tmp_pat
                 "WHERE ticker=?",
                 (str(index + 1), str(index + 2), ticker),
             )
+    near_miss = Signal(
+        strategy="sportsbook_v3",
+        ticker="KXNFLGAME-26OCT04-v3-near-miss",
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.70"),
+        limit_price=Decimal("0.50"),
+        edge=Decimal("-0.01"),
+        size=Decimal(0),
+        created_at=created,
+        rules_version="v3",
+        position_key="KXNFLGAME-26OCT04:v3-near-miss",
+        event_ticker="KXNFLGAME-26OCT04",
+        commence_time=commence,
+    )
+    assert ledger.record_near_miss_decisions([(near_miss, "entry_window")]) == 1
+    ledger.conn.execute(
+        "UPDATE shadow_decisions SET clv_kalshi='99',clv_exit='99',clv_status='ok' WHERE ticker=?",
+        (near_miss.ticker,),
+    )
     ledger.conn.commit()
 
-    summary = dashboard_data(ledger)["measurement"]["quality"]["entry_window_clv"]
+    measurement = dashboard_data(ledger)["measurement"]
+    summary = measurement["quality"]["entry_window_clv"]
     assert summary["v3"]["72h+"]["n"] == 5
     assert summary["v3"]["72h+"]["ci95"] is not None
     assert summary["v3"]["72h+"]["mean_clv_exit"] == 4
     assert summary["v2"]["72h+"]["n"] == 4
     assert summary["v2"]["72h+"]["ci95"] is None
+    assert (
+        next(
+            row
+            for row in measurement["quality"]["shadow_decisions"]
+            if row["version"] == "v3" and row["window"] == "72h+"
+        )["n"]
+        == 5
+    )
 
 
 def test_record_clv_scores_v3_entry_window_shadow_and_exit_bid(tmp_path: Path) -> None:

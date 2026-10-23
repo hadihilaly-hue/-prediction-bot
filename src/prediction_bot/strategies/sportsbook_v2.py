@@ -109,6 +109,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._shadow_updates: dict[tuple[str, OutcomeSide], MakerShadowUpdate] = {}
         self._entry_window_decisions: list[Signal] = []
         self._entry_window_event_tickers: set[str] = set()
+        self._near_miss_decisions: list[tuple[Signal, str]] = []
         self._line_move_decisions: list[Signal] = []
         self._feed_pull_candidates: dict[str, int] = {}
 
@@ -129,6 +130,43 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
 
     def seen_shadow_decisions(self) -> list[Signal]:
         return list(self._entry_window_decisions)
+
+    def seen_near_miss_decisions(self) -> list[tuple[Signal, str]]:
+        return list(self._near_miss_decisions)
+
+    def _record_near_miss(
+        self,
+        *,
+        ticker: str,
+        side: OutcomeSide,
+        fair: Decimal,
+        price: Decimal,
+        net_edge: Decimal,
+        event_ticker: str,
+        position_key: str,
+        commence: datetime,
+        now: datetime,
+    ) -> None:
+        reason = "entry_window" if event_ticker in self._entry_window_event_tickers else "net_edge"
+        self._near_miss_decisions.append(
+            (
+                Signal(
+                    strategy=self.name,
+                    ticker=ticker,
+                    side=side,
+                    fair_prob=fair,
+                    limit_price=price,
+                    edge=net_edge,
+                    size=Decimal(0),
+                    created_at=now,
+                    rules_version=self.rules_version,
+                    position_key=position_key,
+                    event_ticker=event_ticker,
+                    commence_time=commence,
+                ),
+                reason,
+            )
+        )
 
     def seen_line_move_decisions(self) -> list[Signal]:
         return list(self._line_move_decisions)
@@ -948,6 +986,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._shadow_updates.clear()
         self._entry_window_decisions.clear()
         self._entry_window_event_tickers.clear()
+        self._near_miss_decisions.clear()
         self._line_move_decisions.clear()
         self._feed_pull_candidates.clear()
         self._quotes = [
@@ -1254,6 +1293,17 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     )
                     maker_candidate = maker_price is not None
                     if net_edge < threshold and not road_dog_candidate and not maker_candidate:
+                        self._record_near_miss(
+                            ticker=market.ticker,
+                            side=side,
+                            fair=fair,
+                            price=price,
+                            net_edge=net_edge,
+                            event_ticker=event_ticker,
+                            position_key=position_key,
+                            commence=commence,
+                            now=now,
+                        )
                         self._block("net_edge", event_ticker, market.ticker, str(net_edge))
                         continue
                     if price < self.settings.v2_longshot_price and gross_edge < (
@@ -1332,6 +1382,17 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         )
                         maker_candidate = maker_price is not None
                         if net_edge < threshold and not road_dog_candidate and not maker_candidate:
+                            self._record_near_miss(
+                                ticker=active_market.ticker,
+                                side=side,
+                                fair=fair,
+                                price=price,
+                                net_edge=net_edge,
+                                event_ticker=event_ticker,
+                                position_key=position_key,
+                                commence=commence,
+                                now=now,
+                            )
                             self._block("net_edge", event_ticker, market.ticker, str(net_edge))
                             continue
                         if (
@@ -1354,6 +1415,17 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     )
                     maker_candidate = maker_price is not None
                     if not is_main_candidate and not road_dog_candidate and not maker_candidate:
+                        self._record_near_miss(
+                            ticker=active_market.ticker,
+                            side=side,
+                            fair=fair,
+                            price=price,
+                            net_edge=net_edge,
+                            event_ticker=event_ticker,
+                            position_key=position_key,
+                            commence=commence,
+                            now=now,
+                        )
                         self._block("net_edge", event_ticker, market.ticker, str(net_edge))
                         continue
                     side_bid = active_market.quote.bid_for(side)

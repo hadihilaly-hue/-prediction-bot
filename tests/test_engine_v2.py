@@ -85,6 +85,52 @@ def test_book_scanner_signals_are_not_recorded_as_v2_shadow(settings, tmp_path) 
     assert ledger.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 0
 
 
+def test_engine_collects_near_misses_from_primary_and_shadow_strategies(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from dataclasses import replace
+
+    class NearMisses(Strategy):
+        def __init__(self, settings, signal: Signal, reason: str) -> None:  # type: ignore[no-untyped-def]
+            super().__init__(settings)
+            self.signal = signal
+            self.reason = reason
+
+        def evaluate(self, markets):  # type: ignore[no-untyped-def]
+            return []
+
+        def seen_near_miss_decisions(self) -> list[tuple[Signal, str]]:
+            return [(self.signal, self.reason)]
+
+    primary = v2_signal(
+        ticker="KXNFLGAME-26OCT25KCLV-LV",
+        key="KXNFLGAME-26OCT25KCLV:primary",
+    )
+    shadow = replace(
+        v2_signal(
+            ticker="KXNFLGAME-26OCT25KCLV-KC",
+            key="KXNFLGAME-26OCT25KCLV:shadow",
+        ),
+        strategy="sportsbook_v3",
+        rules_version="v3",
+    )
+    ledger = Ledger(tmp_path / "engine-near-misses.sqlite", Decimal("1000"))
+    engine = Engine(
+        settings,
+        object(),
+        [NearMisses(settings, primary, "net_edge")],
+        ledger,
+        shadow_strategies=[NearMisses(settings, shadow, "entry_window")],
+    )  # type: ignore[arg-type]
+
+    engine.run_cycle([])
+
+    assert ledger.conn.execute(
+        "SELECT strategy,reason,would_trade FROM shadow_decisions ORDER BY id"
+    ).fetchall() == [
+        ("sportsbook_v2", "net_edge", 0),
+        ("sportsbook_v3", "entry_window", 0),
+    ]
+
+
 def test_engine_records_request_costs_then_clears_per_run_odds_state(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
     from types import SimpleNamespace
 

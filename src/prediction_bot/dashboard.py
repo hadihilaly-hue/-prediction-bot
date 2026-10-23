@@ -17,6 +17,7 @@ from typing import cast
 from prediction_bot.analysis import Fill, band, monte_carlo, outcome_key
 from prediction_bot.config import Settings
 from prediction_bot.maker_gate import evaluate_maker_gate
+from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.position_clv import weighted_position_clv
 from prediction_bot.teams import team_name_for_code
@@ -281,7 +282,7 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
     ).fetchone()
     shadow = ledger.conn.execute(
         "SELECT COALESCE(rules_version,'v1'),window,COUNT(*),SUM(would_trade) "
-        "FROM shadow_decisions GROUP BY 1,2 ORDER BY 1,2"
+        "FROM shadow_decisions WHERE would_trade=1 GROUP BY 1,2 ORDER BY 1,2"
     ).fetchall()
     maker = ledger.conn.execute(
         "SELECT status,COUNT(*) FROM maker_shadow GROUP BY status ORDER BY status"
@@ -392,6 +393,9 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
         }
         for version in ("v3", "v2")
     }
+    clv_cohorts = _clv_cohort_data(ledger)
+    quality["clv_by_edge"] = clv_cohorts["clv_by_edge"]
+    quality["clv_by_window"] = clv_cohorts["clv_by_window"]
     road_dog_positions = [
         position for position in positions if "exp_road_dog" in str(position["strategy_tags"])
     ]
@@ -413,7 +417,7 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
         "SELECT COUNT(*),SUM(would_trade),"
         "SUM(CASE WHEN clv_status='ok' AND clv_kalshi IS NOT NULL THEN 1 ELSE 0 END),"
         "AVG(CASE WHEN clv_status='ok' THEN CAST(clv_kalshi AS REAL) END) "
-        "FROM shadow_decisions WHERE strategy='line_move_follower'"
+        "FROM shadow_decisions WHERE strategy='line_move_follower' AND would_trade=1"
     ).fetchone()
     quality["line_move_follower"] = {
         "observations": int(line_move[0] or 0),
@@ -593,11 +597,119 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
     }
 
 
+def _clv_cohort_data(ledger: Ledger) -> dict[str, object]:
+    windows = ("72h+", "24-72h", "2-24h")
+    edge_labels = ("<0", "0-1", "1-2", "2-3", "3-5", "5+")
+    edge_groups: dict[tuple[str, str, str], list[tuple[float, float | None]]] = {}
+    window_groups: dict[tuple[str, str, str], list[tuple[float, float | None]]] = {}
+    excluded: dict[tuple[str, str], int] = {}
+
+    shadow_rows = ledger.conn.execute(
+        "SELECT COALESCE(rules_version,'v1'),ticker,window,CAST(net_edge AS REAL)*100,"
+        "CAST(clv_kalshi_bid AS REAL),CAST(clv_kalshi AS REAL),clv_status "
+        "FROM shadow_decisions WHERE reason IN ('net_edge','entry_window')"
+    ).fetchall()
+    fill_columns = {
+        str(row[1]) for row in ledger.conn.execute("PRAGMA table_info(fills)").fetchall()
+    }
+    fill_edge = "CAST(f.net_edge AS REAL)*100" if "net_edge" in fill_columns else "NULL"
+    fill_rows = ledger.conn.execute(
+        "SELECT COALESCE(f.rules_version,'v1'),f.ticker,"
+        "CASE WHEN (julianday(COALESCE(f.commence_time,f.commence_time_backfill))"
+        "-julianday(f.created_at))*24>=72 THEN '72h+' "
+        "WHEN (julianday(COALESCE(f.commence_time,f.commence_time_backfill))"
+        "-julianday(f.created_at))*24>=24 THEN '24-72h' "
+        "WHEN (julianday(COALESCE(f.commence_time,f.commence_time_backfill))"
+        "-julianday(f.created_at))*24>=2 THEN '2-24h' END,"
+        f"{fill_edge},CAST(f.clv_kalshi_bid AS REAL),CAST(f.clv_kalshi AS REAL),f.clv_status "
+        "FROM fills f WHERE f.rules_version IN ('v2','v3')"
+    ).fetchall()
+
+    for row in [*shadow_rows, *fill_rows]:
+        version = str(row[0])
+        ticker = str(row[1])
+        window = row[2]
+        edge = None if row[3] is None else float(row[3])
+        bid = None if row[4] is None else float(row[4])
+        clv = None if row[5] is None else float(row[5])
+        status = "unclassified" if row[6] is None else str(row[6])
+        if status != "ok":
+            key = (version, status)
+            excluded[key] = excluded.get(key, 0) + 1
+            continue
+        if bid is None:
+            continue
+        league = KALSHI_SERIES_TO_SPORT.get(ticker.split("-", 1)[0], "unknown")
+        if edge is not None:
+            if edge < 0:
+                edge_bucket = edge_labels[0]
+            elif edge < 1:
+                edge_bucket = edge_labels[1]
+            elif edge < 2:
+                edge_bucket = edge_labels[2]
+            elif edge < 3:
+                edge_bucket = edge_labels[3]
+            elif edge < 5:
+                edge_bucket = edge_labels[4]
+            else:
+                edge_bucket = edge_labels[5]
+            edge_groups.setdefault((edge_bucket, version, league), []).append((bid, clv))
+        if window in windows:
+            window_groups.setdefault((str(window), version, league), []).append((bid, clv))
+
+    def summarize(
+        groups: dict[tuple[str, str, str], list[tuple[float, float | None]]],
+        dimension: str,
+        order: tuple[str, ...],
+    ) -> list[dict[str, object]]:
+        result = []
+        for (label, version, league), values in sorted(
+            groups.items(), key=lambda item: (order.index(item[0][0]), item[0][1], item[0][2])
+        ):
+            bids = [value[0] for value in values]
+            clvs = [value[1] for value in values if value[1] is not None]
+            ci95 = _mean_ci95(bids)
+            verdict = "open"
+            if len(bids) >= 50 and ci95 is not None:
+                if ci95[0] > 0:
+                    verdict = "supported"
+                elif ci95[1] < 0:
+                    verdict = "rejected"
+            result.append(
+                {
+                    dimension: label,
+                    "rules_version": version,
+                    "league": league,
+                    "n": len(bids),
+                    "mean_clv_kalshi_bid": statistics.mean(bids),
+                    "ci95": None if ci95 is None else [ci95[0], ci95[1]],
+                    "mean_clv_kalshi": statistics.mean(clvs) if clvs else None,
+                    "verdict": verdict,
+                }
+            )
+        return result
+
+    excluded_counts = [
+        {"rules_version": version, "clv_status": status, "n": count}
+        for (version, status), count in sorted(excluded.items())
+    ]
+    return {
+        "clv_by_edge": {
+            "buckets": summarize(edge_groups, "edge_bucket", edge_labels),
+            "excluded_by_status": excluded_counts,
+        },
+        "clv_by_window": {
+            "windows": summarize(window_groups, "window", windows),
+            "excluded_by_status": excluded_counts,
+        },
+    }
+
+
 def _entry_window_clv_summary(ledger: Ledger, version: str, window: str) -> dict[str, object]:
     rows = ledger.conn.execute(
         "SELECT CAST(clv_kalshi AS REAL),CAST(clv_exit AS REAL) FROM shadow_decisions "
         "WHERE rules_version=? AND window=? AND reason='entry_window' "
-        "AND clv_status='ok' AND clv_kalshi IS NOT NULL",
+        "AND would_trade=1 AND clv_status='ok' AND clv_kalshi IS NOT NULL",
         (version, window),
     ).fetchall()
     clvs = [float(row[0]) for row in rows]

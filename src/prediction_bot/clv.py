@@ -231,7 +231,7 @@ def record_clv(
         "COALESCE(d.commence_time,d.commence_time_backfill),"
         "'',s.ticker,d.fair,COALESCE(d.rules_version,'v2') "
         "FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
-        "WHERE d.strategy='line_move_follower' "
+        "WHERE d.strategy='line_move_follower' AND d.would_trade=1 "
         "AND COALESCE(d.commence_time,d.commence_time_backfill) IS NOT NULL "
         "AND d.clv_kalshi IS NULL ORDER BY d.id"
     ).fetchall()
@@ -240,7 +240,8 @@ def record_clv(
         "COALESCE(d.commence_time,d.commence_time_backfill),"
         "'',s.ticker,d.fair,COALESCE(d.rules_version,'v2') "
         "FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
-        "WHERE d.reason='entry_window' AND d.rules_version IN ('v2','v3') "
+        "WHERE d.reason IN ('entry_window','net_edge') "
+        "AND d.rules_version IN ('v2','v3') "
         "AND d.window IN ('72h+','24-72h','2-24h') "
         "AND COALESCE(d.commence_time,d.commence_time_backfill) IS NOT NULL "
         "AND d.clv_kalshi IS NULL ORDER BY d.id"
@@ -493,10 +494,12 @@ def record_clv(
                         "UPDATE fills SET clv_kalshi=COALESCE(clv_kalshi,?), "
                         "clv_gameday=COALESCE(clv_gameday,?),"
                         "clv_exit=COALESCE(clv_exit,?),"
+                        "clv_kalshi_bid=COALESCE(clv_kalshi_bid,?),"
                         "line_move_since_entry=COALESCE(line_move_since_entry,?) WHERE id=?",
                         (
                             None if clv is None else str(clv),
                             None if day_clv is None else str(day_clv),
+                            None if exit_clv is None else str(exit_clv),
                             None if exit_clv is None else str(exit_clv),
                             None if line_move is None else str(line_move),
                             fill_id,
@@ -505,11 +508,13 @@ def record_clv(
                 elif table == "maker_shadow":
                     ledger.conn.execute(
                         "UPDATE maker_shadow SET clv_kalshi=COALESCE(clv_kalshi,?),"
-                        "clv_gameday=COALESCE(clv_gameday,?),clv_exit=COALESCE(clv_exit,?) "
+                        "clv_gameday=COALESCE(clv_gameday,?),clv_exit=COALESCE(clv_exit,?),"
+                        "clv_kalshi_bid=COALESCE(clv_kalshi_bid,?) "
                         "WHERE id=?",
                         (
                             None if clv is None else str(clv),
                             None if day_clv is None else str(day_clv),
+                            None if exit_clv is None else str(exit_clv),
                             None if exit_clv is None else str(exit_clv),
                             fill_id,
                         ),
@@ -517,11 +522,13 @@ def record_clv(
                 else:
                     ledger.conn.execute(
                         "UPDATE shadow_decisions SET clv_kalshi=COALESCE(clv_kalshi,?),"
-                        "clv_gameday=COALESCE(clv_gameday,?),clv_exit=COALESCE(clv_exit,?) "
+                        "clv_gameday=COALESCE(clv_gameday,?),clv_exit=COALESCE(clv_exit,?),"
+                        "clv_kalshi_bid=COALESCE(clv_kalshi_bid,?) "
                         "WHERE id=?",
                         (
                             None if clv is None else str(clv),
                             None if day_clv is None else str(day_clv),
+                            None if exit_clv is None else str(exit_clv),
                             None if exit_clv is None else str(exit_clv),
                             fill_id,
                         ),

@@ -302,6 +302,14 @@ def paper(
         shadow_names = list(
             dict.fromkeys(["sportsbook_v2", "sportsbook_arb", "underdog_value", *shadow_names])
         )
+    clv_max_calls = (
+        50
+        if any(
+            issubclass(STRATEGIES[name], SportsbookArbStrategy)
+            for name in (*strategy, *shadow_names)
+        )
+        else s.clv_max_calls_scanner
+    )
     n = 0
     while True:
         n += 1
@@ -350,7 +358,7 @@ def paper(
         except Exception:
             log.exception("CLV commence-time backfill failed; continuing paper cycle")
         try:
-            record_clv(ledger, client, max_calls=50)
+            record_clv(ledger, client, max_calls=clv_max_calls)
         except Exception:
             log.exception("CLV recording failed; continuing paper cycle")
         try:

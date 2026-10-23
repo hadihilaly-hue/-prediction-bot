@@ -1,11 +1,70 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from prediction_bot.dashboard import dashboard_data, render_dashboard
 from prediction_bot.models import MakerShadowCandidate, OutcomeSide, Signal
 from prediction_bot.paper.ledger import Ledger
+
+
+def test_dashboard_clv_cohorts_report_bucket_verdicts_and_exclusions(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "dashboard-clv-cohorts.sqlite", Decimal("1000"))
+    created = datetime(2026, 10, 1, tzinfo=timezone.utc)
+    commence = created + timedelta(hours=100)
+    decisions: list[tuple[Signal, str]] = []
+    scores: list[tuple[str, str | None, str, str]] = []
+    for label, count, edge, bid, status in (
+        ("supported", 50, "0.005", "1", "ok"),
+        ("rejected", 50, "0.025", "-1", "ok"),
+        ("open", 5, "0.015", "1", "ok"),
+        ("excluded", 1, "0.010", None, "no_commence"),
+    ):
+        for index in range(count):
+            event = f"KXNCAAFGAME-26OCT10{label}{index}"
+            ticker = f"{event}-HOME"
+            decisions.append(
+                (
+                    Signal(
+                        strategy="sportsbook_v2",
+                        ticker=ticker,
+                        side=OutcomeSide.yes,
+                        fair_prob=Decimal("0.70"),
+                        limit_price=Decimal("0.50"),
+                        edge=Decimal(edge),
+                        size=Decimal(0),
+                        created_at=created,
+                        rules_version="v2",
+                        position_key=f"{event}:{index}",
+                        event_ticker=event,
+                        commence_time=commence,
+                    ),
+                    "net_edge",
+                )
+            )
+            scores.append((ticker, bid, "0.5", status))
+    assert ledger.record_near_miss_decisions(decisions) == 106
+    ledger.conn.executemany(
+        "UPDATE shadow_decisions SET clv_kalshi_bid=?,clv_kalshi=?,clv_status=? WHERE ticker=?",
+        [(bid, clv, status, ticker) for ticker, bid, clv, status in scores],
+    )
+    ledger.conn.commit()
+
+    quality = dashboard_data(ledger)["measurement"]["quality"]
+    by_edge = quality["clv_by_edge"]
+    supported = next(row for row in by_edge["buckets"] if row["edge_bucket"] == "0-1")
+    rejected = next(row for row in by_edge["buckets"] if row["edge_bucket"] == "2-3")
+    opened = next(row for row in by_edge["buckets"] if row["edge_bucket"] == "1-2")
+    assert (supported["n"], supported["verdict"]) == (50, "supported")
+    assert (rejected["n"], rejected["verdict"]) == (50, "rejected")
+    assert (opened["n"], opened["verdict"]) == (5, "open")
+    assert by_edge["excluded_by_status"] == [
+        {"rules_version": "v2", "clv_status": "no_commence", "n": 1}
+    ]
+    by_window = quality["clv_by_window"]
+    assert by_window["windows"][0]["window"] == "72h+"
+    assert by_window["windows"][0]["n"] == 105
+    assert by_window["windows"][0]["mean_clv_kalshi"] == 0.5
 
 
 def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: ignore[no-untyped-def]
