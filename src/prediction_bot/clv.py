@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Any
@@ -14,6 +15,7 @@ from prediction_bot.venues.kalshi import KalshiClient
 ET = ZoneInfo("America/New_York")
 SOURCE = "kalshi_candles_1m"
 T_MINUS = (60, 15, 5)
+log = logging.getLogger(__name__)
 
 
 def _quote_at(
@@ -120,140 +122,144 @@ def record_clv(
 
     calls = 0
     for ticker, fills in candidates.items():
-        commence = next((fill[5] for fill in fills if fill[5] is not None), None)
-        event = fills[0][6]
-        gameday = game_day_target(event)
-        cached = {
-            int(row[0])
-            for row in ledger.conn.execute(
-                "SELECT t_minus_min FROM closing_quotes WHERE ticker=? AND commence_time=?",
-                (ticker, commence.isoformat() if commence else ""),
-            )
-        }
-        needed = set(T_MINUS) if commence is not None else set()
-        if gameday is not None:
-            needed.add(-1)
-        if needed and needed <= cached:
-            candles: list[dict[str, Any]] = []
-        else:
-            if calls >= max_calls:
-                break
-            targets = [commence - timedelta(minutes=n) for n in T_MINUS] if commence else []
-            if gameday is not None:
-                targets.append(gameday)
-            if not targets:
-                continue
-            if commence is not None:
-                start = commence - timedelta(minutes=65)
-                if gameday is not None:
-                    start = min(start, gameday - timedelta(minutes=2))
-                end = commence
-            else:
-                start = min(targets) - timedelta(minutes=2)
-                end = max(targets) + timedelta(minutes=1)
-            series = event.split("-", 1)[0]
-            candles = kalshi.get_candlesticks(
-                series,
-                ticker,
-                int(start.timestamp()),
-                int(end.timestamp()),
-                period_interval=1,
-            )
-            calls += 1
-            fetched = now.astimezone(timezone.utc).isoformat()
-            quote_targets = (
-                [(n, commence - timedelta(minutes=n)) for n in T_MINUS] if commence else []
-            )
-            if gameday is not None:
-                quote_targets.append((-1, gameday))
-            for t_minus, target in quote_targets:
-                quote = _quote_at(candles, target)
-                if quote is None:
-                    continue
-                _, bid, ask, mid = quote
-                ledger.conn.execute(
-                    "INSERT OR REPLACE INTO closing_quotes "
-                    "(ticker, commence_time, t_minus_min, yes_bid, yes_ask, mid, fetched_at, "
-                    "source) "
-                    "VALUES (?,?,?,?,?,?,?,?)",
-                    (
-                        ticker,
-                        commence.isoformat() if commence else "",
-                        t_minus,
-                        str(bid),
-                        str(ask),
-                        str(mid),
-                        fetched,
-                        SOURCE,
-                    ),
+        try:
+            commence = next((fill[5] for fill in fills if fill[5] is not None), None)
+            event = fills[0][6]
+            gameday = game_day_target(event)
+            cached = {
+                int(row[0])
+                for row in ledger.conn.execute(
+                    "SELECT t_minus_min FROM closing_quotes WHERE ticker=? AND commence_time=?",
+                    (ticker, commence.isoformat() if commence else ""),
                 )
-            ledger.conn.commit()
-
-        for table, fill_id, side, price, _, fill_start, _, version, fair in fills:
-            line_move = None
-            if table == "fills" and version == "v2" and fill_start is not None:
-                series = ticker.split("-", 1)[0]
-                team = team_for_code(series, ticker.rsplit("-", 1)[-1])
-                sport = KALSHI_SERIES_TO_SPORT.get(series)
-                if team and sport:
-                    snapshots = ledger.conn.execute(
-                        "SELECT prob,team FROM odds_snapshots WHERE commence_time=? "
-                        "AND created_at<? ORDER BY created_at DESC,id DESC",
-                        (fill_start.isoformat(), fill_start.isoformat()),
-                    ).fetchall()
-                    snapshot = next(
+            }
+            needed = set(T_MINUS) if commence is not None else set()
+            if gameday is not None:
+                needed.add(-1)
+            if needed and needed <= cached:
+                candles: list[dict[str, Any]] = []
+            else:
+                if calls >= max_calls:
+                    break
+                targets = [commence - timedelta(minutes=n) for n in T_MINUS] if commence else []
+                if gameday is not None:
+                    targets.append(gameday)
+                if not targets:
+                    continue
+                if commence is not None:
+                    start = commence - timedelta(minutes=65)
+                    if gameday is not None:
+                        start = min(start, gameday - timedelta(minutes=2))
+                    end = commence
+                else:
+                    start = min(targets) - timedelta(minutes=2)
+                    end = max(targets) + timedelta(minutes=1)
+                series = event.split("-", 1)[0]
+                calls += 1
+                candles = kalshi.get_candlesticks(
+                    series,
+                    ticker,
+                    int(start.timestamp()),
+                    int(end.timestamp()),
+                    period_interval=1,
+                )
+                fetched = now.astimezone(timezone.utc).isoformat()
+                quote_targets = (
+                    [(n, commence - timedelta(minutes=n)) for n in T_MINUS] if commence else []
+                )
+                if gameday is not None:
+                    quote_targets.append((-1, gameday))
+                for t_minus, target in quote_targets:
+                    quote = _quote_at(candles, target)
+                    if quote is None:
+                        continue
+                    _, bid, ask, mid = quote
+                    ledger.conn.execute(
+                        "INSERT OR REPLACE INTO closing_quotes "
+                        "(ticker, commence_time, t_minus_min, yes_bid, yes_ask, mid, fetched_at, "
+                        "source) "
+                        "VALUES (?,?,?,?,?,?,?,?)",
                         (
-                            row
-                            for row in snapshots
-                            if team_for_odds_name(sport, str(row[1])) == team
+                            ticker,
+                            commence.isoformat() if commence else "",
+                            t_minus,
+                            str(bid),
+                            str(ask),
+                            str(mid),
+                            fetched,
+                            SOURCE,
                         ),
-                        None,
                     )
-                    if snapshot is not None:
-                        probability = Decimal(str(snapshot[0]))
-                        if side == "no":
-                            probability = Decimal(1) - probability
-                        line_move = probability - Decimal(str(fair))
-            quote_row = (
-                ledger.conn.execute(
+                ledger.conn.commit()
+
+            for table, fill_id, side, price, _, fill_start, _, version, fair in fills:
+                line_move = None
+                if table == "fills" and version == "v2" and fill_start is not None:
+                    series = ticker.split("-", 1)[0]
+                    team = team_for_code(series, ticker.rsplit("-", 1)[-1])
+                    sport = KALSHI_SERIES_TO_SPORT.get(series)
+                    if team and sport:
+                        snapshots = ledger.conn.execute(
+                            "SELECT prob,team FROM odds_snapshots WHERE commence_time=? "
+                            "AND created_at<? ORDER BY created_at DESC,id DESC",
+                            (fill_start.isoformat(), fill_start.isoformat()),
+                        ).fetchall()
+                        snapshot = next(
+                            (
+                                row
+                                for row in snapshots
+                                if team_for_odds_name(sport, str(row[1])) == team
+                            ),
+                            None,
+                        )
+                        if snapshot is not None:
+                            probability = Decimal(str(snapshot[0]))
+                            if side == "no":
+                                probability = Decimal(1) - probability
+                            line_move = probability - Decimal(str(fair))
+                quote_row = (
+                    ledger.conn.execute(
+                        "SELECT mid FROM closing_quotes WHERE ticker=? AND commence_time=? "
+                        "AND t_minus_min=5",
+                        (ticker, fill_start.isoformat() if fill_start else ""),
+                    ).fetchone()
+                    if fill_start
+                    else None
+                )
+                game_row = ledger.conn.execute(
                     "SELECT mid FROM closing_quotes WHERE ticker=? AND commence_time=? "
-                    "AND t_minus_min=5",
+                    "AND t_minus_min=-1",
                     (ticker, fill_start.isoformat() if fill_start else ""),
                 ).fetchone()
-                if fill_start
-                else None
-            )
-            game_row = ledger.conn.execute(
-                "SELECT mid FROM closing_quotes WHERE ticker=? AND commence_time=? "
-                "AND t_minus_min=-1",
-                (ticker, fill_start.isoformat() if fill_start else ""),
-            ).fetchone()
-            side_t5 = None if quote_row is None else Decimal(str(quote_row[0]))
-            side_day = None if game_row is None else Decimal(str(game_row[0]))
-            if side == "no":
-                side_t5 = None if side_t5 is None else Decimal(1) - side_t5
-                side_day = None if side_day is None else Decimal(1) - side_day
-            clv = None if side_t5 is None else (side_t5 - price) * 100
-            day_clv = None if side_day is None else (side_day - price) * 100
-            if table == "fills":
-                ledger.conn.execute(
-                    "UPDATE fills SET clv_kalshi=?, clv_gameday=?,"
-                    " line_move_since_entry=? WHERE id=?",
-                    (
-                        None if clv is None else str(clv),
-                        None if day_clv is None else str(day_clv),
-                        None if line_move is None else str(line_move),
-                        fill_id,
-                    ),
-                )
-            else:
-                ledger.conn.execute(
-                    "UPDATE maker_shadow SET clv_kalshi=?,clv_gameday=? WHERE id=?",
-                    (
-                        None if clv is None else str(clv),
-                        None if day_clv is None else str(day_clv),
-                        fill_id,
-                    ),
-                )
-        ledger.conn.commit()
+                side_t5 = None if quote_row is None else Decimal(str(quote_row[0]))
+                side_day = None if game_row is None else Decimal(str(game_row[0]))
+                if side == "no":
+                    side_t5 = None if side_t5 is None else Decimal(1) - side_t5
+                    side_day = None if side_day is None else Decimal(1) - side_day
+                clv = None if side_t5 is None else (side_t5 - price) * 100
+                day_clv = None if side_day is None else (side_day - price) * 100
+                if table == "fills":
+                    ledger.conn.execute(
+                        "UPDATE fills SET clv_kalshi=?, clv_gameday=?,"
+                        " line_move_since_entry=? WHERE id=?",
+                        (
+                            None if clv is None else str(clv),
+                            None if day_clv is None else str(day_clv),
+                            None if line_move is None else str(line_move),
+                            fill_id,
+                        ),
+                    )
+                else:
+                    ledger.conn.execute(
+                        "UPDATE maker_shadow SET clv_kalshi=?,clv_gameday=? WHERE id=?",
+                        (
+                            None if clv is None else str(clv),
+                            None if day_clv is None else str(day_clv),
+                            fill_id,
+                        ),
+                    )
+            ledger.conn.commit()
+        except Exception:
+            ledger.conn.rollback()
+            log.exception("Failed to record CLV for ticker %s; it will be retried next run", ticker)
     return calls

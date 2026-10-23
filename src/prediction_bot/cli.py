@@ -28,6 +28,7 @@ from prediction_bot.venues.kalshi_auth import KalshiSigner
 
 app = typer.Typer(help="Prediction-market bot (Kalshi demo first).", no_args_is_help=True)
 console = Console()
+log = logging.getLogger(__name__)
 
 
 def _settings() -> Settings:
@@ -178,7 +179,10 @@ def paper(
         if pacer is not None:
             pacer.start_run()
         settled = engine.settle_open_positions()
-        record_clv(ledger, client, max_calls=50)
+        try:
+            record_clv(ledger, client, max_calls=50)
+        except Exception:
+            log.exception("CLV recording failed; continuing paper cycle")
         res = engine.run_cycle(_fetch(client, series))
         ledger.record_run(
             strategy,

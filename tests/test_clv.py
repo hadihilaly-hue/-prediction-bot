@@ -200,3 +200,62 @@ def test_record_clv_caps_candlestick_calls_per_run(tmp_path: Path) -> None:
         ledger.conn.execute("SELECT COUNT(*) FROM fills WHERE clv_kalshi IS NULL").fetchone()[0]
         == 2
     )
+
+
+def test_record_clv_skips_failed_ticker_and_retries_it(tmp_path: Path) -> None:
+    commence = datetime(2026, 10, 20, 20, tzinfo=timezone.utc)
+    tickers = (
+        ("KXNFLGAME-26OCT20KCLV-LV", "KXNFLGAME-26OCT20KCLV"),
+        ("KXNFLGAME-26OCT20DENSF-SF", "KXNFLGAME-26OCT20DENSF"),
+        ("KXNFLGAME-26OCT20MIANIN-MIA", "KXNFLGAME-26OCT20MIANIN"),
+    )
+    ledger = Ledger(tmp_path / "failed-ticker.sqlite", Decimal("1000"))
+    for ticker, event in tickers:
+        ledger.record_fill(
+            "sportsbook_v2",
+            ticker,
+            OutcomeSide.yes,
+            Decimal("0.40"),
+            Decimal(1),
+            Decimal(0),
+            Decimal("0.60"),
+            rules_version="v2",
+            event_ticker=event,
+            commence_time=commence,
+        )
+
+    class SelectiveCandles:
+        calls: list[str] = []
+        failed_once = False
+
+        def get_candlesticks(self, series, ticker, start, end, period_interval=1):  # type: ignore[no-untyped-def]
+            self.calls.append(ticker)
+            if ticker == tickers[0][0] and not self.failed_once:
+                self.failed_once = True
+                raise RuntimeError("temporary candlestick failure")
+            return [
+                {
+                    "end_period_ts": int((commence - timedelta(minutes=5)).timestamp()),
+                    "yes_bid": {"close_dollars": "0.74"},
+                    "yes_ask": {"close_dollars": "0.76"},
+                }
+            ]
+
+    client = SelectiveCandles()
+    now = commence + timedelta(hours=1)
+    assert record_clv(ledger, client, now=now, max_calls=2) == 2  # type: ignore[arg-type]
+    first_run = dict(ledger.conn.execute("SELECT ticker,clv_kalshi FROM fills").fetchall())
+    assert first_run[tickers[0][0]] is None
+    assert Decimal(first_run[tickers[1][0]]) == Decimal("35.00")
+    assert first_run[tickers[2][0]] is None
+    assert client.calls == [tickers[0][0], tickers[1][0]]
+
+    assert record_clv(ledger, client, now=now, max_calls=2) == 2  # type: ignore[arg-type]
+    second_run = dict(ledger.conn.execute("SELECT ticker,clv_kalshi FROM fills").fetchall())
+    assert all(Decimal(second_run[ticker]) == Decimal("35.00") for ticker, _ in tickers)
+    assert client.calls == [
+        tickers[0][0],
+        tickers[1][0],
+        tickers[0][0],
+        tickers[2][0],
+    ]
