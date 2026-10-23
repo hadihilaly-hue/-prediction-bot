@@ -105,6 +105,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._maker_shadows: list[MakerShadowCandidate] = []
         self._shadow_updates: dict[tuple[str, OutcomeSide], MakerShadowUpdate] = {}
         self._entry_window_decisions: list[Signal] = []
+        self._line_move_decisions: list[Signal] = []
 
     def seen_blocks(self) -> list[Block]:
         return list(self._blocks)
@@ -123,6 +124,156 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
 
     def seen_shadow_decisions(self) -> list[Signal]:
         return list(self._entry_window_decisions)
+
+    def seen_line_move_decisions(self) -> list[Signal]:
+        return list(self._line_move_decisions)
+
+    def _record_line_move(
+        self,
+        event_ticker: str,
+        game: ConsensusOdds,
+        legs: Sequence[Market],
+        ids_by_ticker: dict[str, str],
+        names_by_id: dict[str, str],
+        commence: datetime,
+        now: datetime,
+    ) -> None:
+        if self.ledger is None:
+            return
+        previous = self.ledger.previous_consensus(game.event_id, now)
+        if not previous:
+            return
+        ids = set(ids_by_ticker.values())
+        for market in legs:
+            outcome_id = ids_by_ticker[market.ticker]
+            team_name = names_by_id.get(outcome_id)
+            current_team_prob = game.probs.get(team_name or "")
+            previous_team_prob = previous.get(team_name or "")
+            quote = self.ledger.previous_quote_snapshot(market.ticker, now)
+            if (
+                team_name is None
+                or current_team_prob is None
+                or previous_team_prob is None
+                or quote is None
+                or market.quote.yes_bid is None
+                or market.quote.yes_ask is None
+                or quote[0] is None
+                or quote[1] is None
+            ):
+                continue
+            reference_delta = current_team_prob - previous_team_prob
+            if abs(reference_delta) < self.settings.exp_line_move_points:
+                continue
+            current_yes_mid = (market.quote.yes_bid + market.quote.yes_ask) / 2
+            previous_yes_mid = (quote[0] + quote[1]) / 2
+            side = OutcomeSide.yes if reference_delta > 0 else OutcomeSide.no
+            current_mid = (
+                current_yes_mid if side is OutcomeSide.yes else Decimal(1) - current_yes_mid
+            )
+            previous_mid = (
+                previous_yes_mid if side is OutcomeSide.yes else Decimal(1) - previous_yes_mid
+            )
+            directional_move = current_mid - previous_mid
+            if directional_move >= abs(reference_delta) / 3:
+                continue
+            if side is OutcomeSide.yes:
+                position_outcome = outcome_id
+                side_fair = current_team_prob
+            elif "draw" not in ids:
+                position_outcome = next(
+                    (team_id for team_id in ids if team_id != outcome_id), outcome_id
+                )
+                side_fair = Decimal(1) - current_team_prob
+            else:
+                position_outcome = f"not:{outcome_id}"
+                side_fair = Decimal(1) - current_team_prob
+            position_key = f"{event_ticker}:{position_outcome}"
+            if any(sig.position_key == position_key for sig in self._line_move_decisions):
+                continue
+            self._line_move_decisions.append(
+                Signal(
+                    strategy="line_move_follower",
+                    ticker=market.ticker,
+                    side=side,
+                    fair_prob=side_fair,
+                    limit_price=current_mid,
+                    edge=abs(reference_delta),
+                    size=Decimal(1),
+                    rationale=(
+                        f"reference moved {reference_delta:+.3f}; Kalshi side moved "
+                        f"{directional_move:+.3f} in that direction"
+                    ),
+                    created_at=now,
+                    rules_version="v2",
+                    position_key=position_key,
+                    event_ticker=event_ticker,
+                    tags=("line_move_follower",),
+                    commence_time=commence,
+                )
+            )
+
+    def _road_dog_candidate(
+        self,
+        sport: str,
+        event_ticker: str,
+        game: ConsensusOdds,
+        commence: datetime,
+        outcome_id: str,
+        side: OutcomeSide,
+        price: Decimal,
+        net_edge: Decimal,
+        now: datetime,
+    ) -> bool:
+        if not self.settings.exp_road_dog_enabled or net_edge < 0:
+            return False
+        if not Decimal("0.15") <= price <= Decimal("0.45"):
+            return False
+        hours = Decimal(str((commence - now).total_seconds() / 3600))
+        if not Decimal("72") <= hours <= Decimal("168"):
+            return False
+        away_id = team_for_odds_name(sport, game.away_team)
+        home_id = team_for_odds_name(sport, game.home_team)
+        if away_id is None or home_id is None:
+            return False
+        selected_outcome = (
+            outcome_id
+            if side is OutcomeSide.yes
+            else home_id
+            if outcome_id == away_id
+            else away_id
+            if outcome_id == home_id
+            else f"not:{outcome_id}"
+        )
+        if selected_outcome != away_id:
+            return False
+        start_et = commence.astimezone(ET)
+        attention = (
+            19 <= start_et.hour <= 23
+            or (sport == "americanfootball_nfl" and start_et.weekday() in {0, 3})
+            or event_ticker.casefold()
+            in {event.casefold() for event in self.settings.exp_road_dog_high_attention_events}
+        )
+        team_names = {game.home_team.casefold(), game.away_team.casefold()}
+        team_ids = {home_id, away_id}
+        for rivalry in self.settings.exp_road_dog_rivalries:
+            pair = [
+                token.strip()
+                for token in re.split(r"\s*(?:,|;|:|\||\bvs\.?\b|-)\s*", rivalry, flags=re.I)
+                if token.strip()
+            ]
+            if len(pair) == 2:
+                rivalry_ids: set[str] = set()
+                for token in pair:
+                    team_id = team_for_odds_name(sport, token) or team_for_code(
+                        event_ticker.split("-", 1)[0], token.upper()
+                    )
+                    if team_id in team_ids:
+                        rivalry_ids.add(team_id)
+                    elif token.casefold() in team_names:
+                        rivalry_ids.add(token.casefold())
+                if rivalry_ids == team_ids:
+                    attention = True
+        return attention
 
     def _block(self, reason: str, event_ticker: str, ticker: str, detail: str = "") -> None:
         block = Block(
@@ -361,8 +512,12 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         utc_day = (
             self.clock().astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         )
+        position_fraction = self.settings.v2_position_bankroll_fraction
+        tags = signal.tags or ()
+        if "exp_road_dog" in tags and "value" not in tags:
+            position_fraction = self.settings.exp_road_dog_position_bankroll_fraction
         position_room = (
-            bankroll * self.settings.v2_position_bankroll_fraction
+            bankroll * position_fraction
             - self.ledger.position_cost(signal.position_key)
             - reserved_position.get(signal.position_key, Decimal(0))
         )
@@ -515,6 +670,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._maker_shadows.clear()
         self._shadow_updates.clear()
         self._entry_window_decisions.clear()
+        self._line_move_decisions.clear()
         self._quotes = [
             QuoteSnapshot(
                 ticker=m.ticker,
@@ -608,6 +764,12 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             if total < Decimal("0.98") or total > Decimal("1.02"):
                 self._block("mapping_sum", event_ticker, legs[0].ticker, str(total))
                 continue
+            self._record_line_move(
+                event_ticker, game, legs, ids_by_ticker, names_by_id, commence, now
+            )
+            if sport in self.settings.v2_disabled_sports:
+                self._block("league_disabled", event_ticker, legs[0].ticker, sport)
+                continue
             gate_reasons: list[tuple[str, str]] = []
             mismatch = self._start_mismatch(event_ticker, legs, commence)
             if mismatch:
@@ -689,7 +851,10 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     if price > self.settings.v2_price_ceiling:
                         self._block("price_ceiling", event_ticker, market.ticker, str(price))
                         continue
-                    if net_edge < threshold:
+                    road_dog_candidate = self._road_dog_candidate(
+                        sport, event_ticker, game, commence, outcome_id, side, price, net_edge, now
+                    )
+                    if net_edge < threshold and not road_dog_candidate:
                         self._block("net_edge", event_ticker, market.ticker, str(net_edge))
                         continue
                     if price < self.settings.v2_longshot_price and gross_edge < (
@@ -719,17 +884,41 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             continue
                         gross_edge = fair - price
                         net_edge = gross_edge - taker_fee_rate(price, fee_multiplier)
-                        if (
-                            price < self.settings.v2_price_floor
-                            or price > self.settings.v2_price_ceiling
-                            or net_edge < threshold
-                            or (
-                                price < self.settings.v2_longshot_price
-                                and gross_edge < self.settings.v2_longshot_min_gross
-                            )
-                        ):
+                        if price < self.settings.v2_price_floor:
+                            self._block("price_floor", event_ticker, market.ticker, str(price))
+                            continue
+                        if price > self.settings.v2_price_ceiling:
+                            self._block("price_ceiling", event_ticker, market.ticker, str(price))
+                            continue
+                        road_dog_candidate = self._road_dog_candidate(
+                            sport,
+                            event_ticker,
+                            game,
+                            commence,
+                            outcome_id,
+                            side,
+                            price,
+                            net_edge,
+                            now,
+                        )
+                        if net_edge < threshold and not road_dog_candidate:
                             self._block("net_edge", event_ticker, market.ticker, str(net_edge))
                             continue
+                        if (
+                            price < self.settings.v2_longshot_price
+                            and gross_edge < self.settings.v2_longshot_min_gross
+                        ):
+                            self._block(
+                                "longshot_edge", event_ticker, market.ticker, str(gross_edge)
+                            )
+                            continue
+                    road_dog_candidate = self._road_dog_candidate(
+                        sport, event_ticker, game, commence, outcome_id, side, price, net_edge, now
+                    )
+                    is_main_candidate = net_edge >= threshold
+                    if not is_main_candidate and not road_dog_candidate:
+                        self._block("net_edge", event_ticker, market.ticker, str(net_edge))
+                        continue
                     side_bid = active_market.quote.bid_for(side)
                     spread = price - side_bid if side_bid is not None else None
                     signal = Signal(
@@ -780,7 +969,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     else:
                         outcome = f"not:{outcome_id}"
                     position_key = f"{event_ticker}:{outcome}"
-                    tags = {"value"}
+                    tags = {"value"} if is_main_candidate else set()
+                    if road_dog_candidate:
+                        tags.add("exp_road_dog")
                     if (
                         self.settings.underdog_min_price
                         <= signal.limit_price
@@ -878,6 +1069,10 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         sig.ticker,
                     ),
                 )
+                combined_tags = {
+                    tag for candidate in trade_candidates for tag in (candidate.tags or ())
+                }
+                selected = replace(selected, tags=tuple(sorted(combined_tags)))
                 sized = self._size_v2_signal(
                     selected,
                     reserved_position=reserved_position,

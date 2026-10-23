@@ -227,7 +227,9 @@ CREATE TABLE IF NOT EXISTS shadow_decisions (
     fair TEXT,
     price TEXT,
     size TEXT,
-    commence_time TEXT
+    commence_time TEXT,
+    clv_kalshi TEXT,
+    clv_gameday TEXT
 );
 """
 
@@ -374,6 +376,7 @@ class Ledger:
             },
             "odds_snapshots": {"max_book_update": "TEXT"},
             "runs": {"odds_used": "INTEGER", "odds_remaining": "INTEGER"},
+            "shadow_decisions": {"clv_kalshi": "TEXT", "clv_gameday": "TEXT"},
             "maker_shadow": {
                 "commence_time": "TEXT",
                 "clv_kalshi": "TEXT",
@@ -906,6 +909,21 @@ class Ledger:
             (event_id, row[0]),
         )
         return {str(team): Decimal(prob) for team, prob in rows}
+
+    def previous_quote_snapshot(
+        self, ticker: str, before: datetime
+    ) -> tuple[Decimal | None, Decimal | None] | None:
+        row = self.conn.execute(
+            "SELECT yes_bid,yes_ask FROM quote_snapshots WHERE ticker=? AND created_at<? "
+            "ORDER BY created_at DESC,id DESC LIMIT 1",
+            (ticker, self._timestamp_param(before)),
+        ).fetchone()
+        if row is None:
+            return None
+        return (
+            Decimal(row[0]) if row[0] is not None else None,
+            Decimal(row[1]) if row[1] is not None else None,
+        )
 
     def first_quote(self, ticker: str) -> tuple[Decimal | None, Decimal | None] | None:
         row = self.conn.execute(

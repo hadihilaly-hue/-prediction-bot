@@ -121,6 +121,9 @@ def test_settings_and_provider_parsers_preserve_v2_fields() -> None:
     assert settings.shadow_strategies == ["sportsbook_arb", "underdog_value"]
     assert settings.max_gross_edge == Decimal("0.07")
     assert settings.big_edge_whitelist == []
+    assert settings.v2_disabled_sports == ["basketball_nba"]
+    assert settings.exp_road_dog_enabled is True
+    assert settings.exp_line_move_points == Decimal("0.03")
     assert settings.kickoff_buffer_minutes["americanfootball_nfl"] == 30
     assert settings.kickoff_buffer_default_minutes == 15
     assert settings.v2_position_bankroll_fraction == Decimal("0.02")

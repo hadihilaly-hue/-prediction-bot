@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from prediction_bot.dashboard import dashboard_data, render_dashboard
-from prediction_bot.models import MakerShadowCandidate, OutcomeSide
+from prediction_bot.models import MakerShadowCandidate, OutcomeSide, Signal
 from prediction_bot.paper.ledger import Ledger
 
 
@@ -113,3 +113,59 @@ def test_dashboard_renders_captioned_measurement_tables(tmp_path) -> None:  # ty
         assert heading in html
     assert "JSON.stringify(V.calibration" not in html
     assert "JSON.stringify(M.quality" not in html
+
+
+def test_dashboard_shows_phase_four_experiment_metrics(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "phase-four-dashboard.sqlite", Decimal("1000"))
+    ticker = "KXNFLGAME-26OCT25KCLV-LV"
+    ledger.record_fill(
+        "sportsbook_v2",
+        ticker,
+        OutcomeSide.yes,
+        Decimal("0.30"),
+        Decimal("10"),
+        Decimal("0.10"),
+        Decimal("0.60"),
+        rules_version="v2",
+        position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders",
+        event_ticker="KXNFLGAME-26OCT25KCLV",
+        tags=("exp_road_dog",),
+        commence_time=datetime(2026, 10, 25, 20, 25, tzinfo=timezone.utc),
+    )
+    ledger.conn.execute(
+        "INSERT INTO settlements (ticker,settled_at,result,pnl) VALUES (?,?,?,?)",
+        (ticker, datetime.now(timezone.utc).isoformat(), "yes", "6.90"),
+    )
+    ledger.conn.execute(
+        "UPDATE fills SET clv_kalshi='2.5' WHERE ticker=?",
+        (ticker,),
+    )
+    shadow = Signal(
+        strategy="line_move_follower",
+        ticker=ticker,
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.60"),
+        limit_price=Decimal("0.50"),
+        edge=Decimal("0.10"),
+        size=Decimal(1),
+        created_at=datetime(2026, 10, 23, tzinfo=timezone.utc),
+        position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders",
+        event_ticker="KXNFLGAME-26OCT25KCLV",
+        commence_time=datetime(2026, 10, 25, 20, 25, tzinfo=timezone.utc),
+    )
+    ledger.record_shadow_decision(shadow, "v2", reason="line_move_follower")
+    ledger.conn.execute(
+        "UPDATE shadow_decisions SET clv_kalshi='3.5' WHERE strategy='line_move_follower'"
+    )
+    ledger.conn.commit()
+
+    measurement = dashboard_data(ledger)["measurement"]
+    assert measurement["quality"]["exp_road_dog"]["positions"] == 1
+    assert measurement["quality"]["exp_road_dog"]["pnl"] == 6.9
+    assert measurement["quality"]["exp_road_dog"]["clv_n"] == 1
+    assert measurement["quality"]["exp_road_dog"]["clv_mean"] == 2.5
+    assert measurement["quality"]["line_move_follower"]["observations"] == 1
+    assert measurement["quality"]["line_move_follower"]["settled_clv_mean"] == 3.5
+    html = render_dashboard(ledger)
+    assert "Line-move follower is shadow-only" in html
+    assert "Road-dog experiment evaluation at 50 and 100 positions" in html
