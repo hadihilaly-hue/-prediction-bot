@@ -85,6 +85,34 @@ def test_book_scanner_signals_are_not_recorded_as_v2_shadow(settings, tmp_path) 
     assert ledger.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 0
 
 
+def test_engine_records_request_costs_then_clears_per_run_odds_state(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from types import SimpleNamespace
+
+    class FeedPulls(Strategy):
+        name = "sportsbook_v3"
+
+        def __init__(self, settings, odds) -> None:  # type: ignore[no-untyped-def]
+            super().__init__(settings)
+            self.odds = odds
+
+        def evaluate(self, markets):  # type: ignore[no-untyped-def]
+            return []
+
+        def seen_feed_pulls(self) -> dict[str, int]:
+            return {"americanfootball_nfl": 0}
+
+    odds = SimpleNamespace(requests_last_by_sport={"americanfootball_nfl": 2})
+    ledger = Ledger(tmp_path / "requests-last-engine.sqlite", Decimal("100"))
+    engine = Engine(settings, object(), [FeedPulls(settings, odds)], ledger)  # type: ignore[arg-type]
+
+    engine.run_cycle([])
+
+    assert ledger.conn.execute(
+        "SELECT requests_last FROM feed_pulls WHERE feed='americanfootball_nfl'"
+    ).fetchone() == (2,)
+    assert odds.requests_last_by_sport == {}
+
+
 def test_v2_blocks_opposite_position_in_same_event(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
     ledger = Ledger(tmp_path / "opposite.sqlite", Decimal("1000"))
     first = v2_signal()

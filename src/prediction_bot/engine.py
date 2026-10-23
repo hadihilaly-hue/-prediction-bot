@@ -148,16 +148,34 @@ class Engine:
                 except Exception:
                     log.exception("failed to record %s", method_name)
         feed_pulls: dict[str, int] = {}
+        feed_requests_last: dict[str, int | None] = {}
         for strat in self.strategies:
             get = getattr(strat, "seen_feed_pulls", None)
             if get is not None:
                 for feed, candidates in get().items():
                     feed_pulls[feed] = feed_pulls.get(feed, 0) + candidates
+                    client = getattr(strat, "odds", None)
+                    last_by_sport = getattr(client, "requests_last_by_sport", {})
+                    if feed in last_by_sport:
+                        feed_requests_last[feed] = last_by_sport[feed]
         if feed_pulls:
             try:
-                self.ledger.record_feed_pulls(feed_pulls, self.settings.rules_version)
+                self.ledger.record_feed_pulls(
+                    feed_pulls,
+                    self.settings.rules_version,
+                    requests_last=feed_requests_last,
+                )
             except Exception:
                 log.exception("failed to record feed pulls")
+        seen_odds_clients: set[int] = set()
+        for strat in (*self.strategies, *self.shadow_strategies):
+            client = getattr(strat, "odds", None)
+            if client is None or id(client) in seen_odds_clients:
+                continue
+            seen_odds_clients.add(id(client))
+            last_by_sport = getattr(client, "requests_last_by_sport", None)
+            if last_by_sport is not None:
+                last_by_sport.clear()
         shadow_updates = [
             update
             for strat in self.strategies

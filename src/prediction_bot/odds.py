@@ -12,11 +12,20 @@ from dataclasses import field as dataclass_field
 from datetime import datetime, timezone
 from decimal import Decimal
 from difflib import SequenceMatcher
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 
 log = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from prediction_bot.paper.ledger import Ledger
+
+
+def _format_odds_time(value: datetime) -> str:
+    aware = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    return aware.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 # Kalshi game-winner series -> The Odds API sport key
 KALSHI_SERIES_TO_SPORT: dict[str, str] = {
@@ -266,6 +275,9 @@ class OddsClient:
         # Max quota-costing requests this client may make; None = unlimited.
         self.budget = budget
         self.requests_made = 0
+        self.requests_last_by_sport: dict[str, int | None] = {}
+        self.events_free = True
+        self._events_requests_used_baseline: int | None = None
         self._memo: dict[tuple[str, str, str], tuple[float, list[dict[str, Any]]]] = {}
         self.allowed_sports: set[str] | None = None
 
@@ -314,6 +326,27 @@ class OddsClient:
         resp.raise_for_status()
         self.requests_remaining = resp.headers.get("x-requests-remaining")
         self.requests_used = resp.headers.get("x-requests-used")
+        requests_last = resp.headers.get("x-requests-last")
+        try:
+            requests_last_value = int(requests_last) if requests_last is not None else None
+        except ValueError:
+            requests_last_value = None
+        if sport in self.requests_last_by_sport:
+            previous_requests_last = self.requests_last_by_sport[sport]
+            if requests_last_value is not None:
+                self.requests_last_by_sport[sport] = (
+                    previous_requests_last or 0
+                ) + requests_last_value
+        else:
+            self.requests_last_by_sport[sport] = requests_last_value
+        log.info("odds api: %s x-requests-last=%s", sport, requests_last)
+        if requests_last != "1":
+            log.error(
+                "odds api: expected x-requests-last=1 for %s, got %r; halting odds pulls",
+                sport,
+                requests_last,
+            )
+            self.budget = self.requests_made
         data = cast(list[dict[str, Any]], resp.json())
         self._memo[key] = (time.monotonic(), data)
         return data
@@ -326,9 +359,52 @@ class OddsClient:
         self.requests_remaining = left
         self.requests_used = resp.headers.get("x-requests-used")
         try:
+            self._events_requests_used_baseline = (
+                int(self.requests_used) if self.requests_used is not None else None
+            )
+        except ValueError:
+            self._events_requests_used_baseline = None
+        try:
             return int(float(left)) if left is not None else None
         except ValueError:
             return None
+
+    def events(
+        self,
+        sport: str,
+        commence_from: datetime,
+        commence_to: datetime,
+    ) -> list[dict[str, Any]]:
+        """Fetch free event metadata for a sport and commencement window."""
+        if not self.events_free:
+            return []
+        params = {
+            "apiKey": self.api_key,
+            "commenceTimeFrom": _format_odds_time(commence_from),
+            "commenceTimeTo": _format_odds_time(commence_to),
+        }
+        resp = self._client.get(f"{self.base_url}/sports/{sport}/events", params=params)
+        resp.raise_for_status()
+        self.requests_remaining = resp.headers.get("x-requests-remaining")
+        self.requests_used = resp.headers.get("x-requests-used")
+        try:
+            used = int(self.requests_used) if self.requests_used is not None else None
+        except ValueError:
+            used = None
+        baseline = self._events_requests_used_baseline
+        if baseline is not None and used is not None and used > baseline:
+            log.error(
+                "odds api events endpoint consumed quota for %s (%d -> %d); "
+                "disabling further free event checks",
+                sport,
+                baseline,
+                used,
+            )
+            self.requests_made += used - baseline
+            self.events_free = False
+        if used is not None:
+            self._events_requests_used_baseline = used
+        return cast(list[dict[str, Any]], resp.json())
 
 
 class OddsPacer:
@@ -337,14 +413,25 @@ class OddsPacer:
     per cycle) still fetches every few cycles instead of never. If the quota can't be
     read the run gets no odds requests (fail closed) but everything else still runs."""
 
-    def __init__(self, client: OddsClient, runs_per_day: float) -> None:
+    def __init__(
+        self,
+        client: OddsClient,
+        runs_per_day: float,
+        ledger: Ledger | None = None,
+    ) -> None:
         self.client = client
         self.runs_per_day = runs_per_day
+        self.ledger = ledger
         self.credit = 0.0
 
     def start_run(self, now: datetime | None = None) -> int:
-        self.credit -= self.client.requests_made
+        if self.ledger is None:
+            self.credit -= self.client.requests_made
+        else:
+            self.credit = self.ledger.odds_pacer_carry()
         self.client.requests_made = 0
+        self.client.requests_last_by_sport.clear()
+        self.client.events_free = True
         try:
             left = self.client.quota_remaining()
         except httpx.HTTPError as e:
@@ -355,6 +442,15 @@ class OddsPacer:
             return 0
         share = run_share(left, self.runs_per_day, now)
         self.credit = min(self.credit + share, float(max(0, left)))
-        self.client.budget = max(0, math.floor(self.credit))
+        self.client.budget = max(0, math.floor(self.credit + 1e-9))
+        self.client._events_requests_used_baseline = (
+            int(self.client.requests_used) if self.client.requests_used else None
+        )
         log.info("odds api: %d requests left this month, run budget %d", left, self.client.budget)
         return self.client.budget
+
+    def finish_run(self, now: datetime | None = None) -> None:
+        if self.ledger is None:
+            return
+        carry = max(0.0, min(self.credit - self.client.requests_made, 1.0))
+        self.ledger.record_odds_pacer_carry(carry, now)

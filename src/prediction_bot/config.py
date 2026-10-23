@@ -144,7 +144,7 @@ class Settings(BaseSettings):
     odds_runs_per_day: float = 0
     odds_lookahead_hours: float = 36
     odds_planner: Literal["fixed", "event_driven"] = "fixed"
-    odds_feed_selection: Literal["lead_aware", "legacy"] = "lead_aware"
+    odds_feed_selection: Literal["rotation", "lead_aware", "legacy"] = "rotation"
 
     # Paper trading
     paper_db_path: Path = Path("data/paper.sqlite")

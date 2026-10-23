@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
+import pytest
+
 from prediction_bot.models import OutcomeSide
 from prediction_bot.odds import (
     OddsBudgetExhausted,
@@ -14,6 +16,7 @@ from prediction_bot.odds import (
     devig,
     per_run_budget,
 )
+from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.sportsbook_arb import SportsbookArbStrategy
 from tests.conftest import make_market
 
@@ -526,7 +529,11 @@ def test_odds_client_shares_fetch_within_ttl() -> None:
         return httpx.Response(
             200,
             json=[EVENT],
-            headers={"x-requests-used": "341", "x-requests-remaining": "9"},
+            headers={
+                "x-requests-used": "341",
+                "x-requests-remaining": "9",
+                "x-requests-last": "1",
+            },
         )
 
     oc = OddsClient("k", client=httpx.Client(transport=httpx.MockTransport(handler)))
@@ -603,7 +610,11 @@ def test_odds_client_stops_at_budget() -> None:
     import pytest
 
     def handler(req: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=[], headers={"x-requests-remaining": "41"})
+        return httpx.Response(
+            200,
+            json=[],
+            headers={"x-requests-remaining": "41", "x-requests-last": "1"},
+        )
 
     oc = OddsClient("k", client=httpx.Client(transport=httpx.MockTransport(handler)), budget=1)
     assert oc.quota_remaining() == 41 and oc.requests_made == 0  # /sports is free
@@ -734,7 +745,11 @@ def test_odds_pacer_resets_each_run_and_fails_closed() -> None:
     status = {"code": 200}
 
     def handler(req: httpx.Request) -> httpx.Response:
-        return httpx.Response(status["code"], json=[], headers={"x-requests-remaining": "10"})
+        return httpx.Response(
+            status["code"],
+            json=[],
+            headers={"x-requests-remaining": "10", "x-requests-last": "1"},
+        )
 
     oc = OddsClient("k", client=httpx.Client(transport=httpx.MockTransport(handler)))
     oct31 = datetime(2026, 10, 31, 12, tzinfo=timezone.utc)  # 12h left
@@ -750,3 +765,205 @@ def test_odds_pacer_resets_each_run_and_fails_closed() -> None:
     assert many.start_run(oct31) == 10  # a later run gets a fresh budget, not a used-up one
     status["code"] = 500
     assert many.start_run(oct31) == 0 and oc.budget == 0  # quota unreadable: no odds, no crash
+
+
+def test_events_uses_free_window_without_spending_budget() -> None:
+    import httpx
+
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("/sports"):
+            return httpx.Response(
+                200,
+                json=[],
+                headers={"x-requests-used": "10", "x-requests-remaining": "100"},
+            )
+        return httpx.Response(
+            200,
+            json=[{"commence_time": "2026-10-05T12:00:00Z"}],
+            headers={"x-requests-used": "10", "x-requests-remaining": "100"},
+        )
+
+    client = OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    assert client.quota_remaining() == 100
+    before = client.requests_made
+    events = client.events(
+        "americanfootball_nfl",
+        datetime(2026, 10, 1, tzinfo=timezone.utc),
+        datetime(2026, 10, 8, tzinfo=timezone.utc),
+    )
+    assert events
+    assert client.requests_made == before
+    assert requests[-1].url.path.endswith("/sports/americanfootball_nfl/events")
+    assert requests[-1].url.params["commenceTimeFrom"] == "2026-10-01T00:00:00Z"
+    assert requests[-1].url.params["commenceTimeTo"] == "2026-10-08T00:00:00Z"
+
+
+def test_events_cost_detection_disables_remaining_event_checks(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import httpx
+
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        used = "10" if request.url.path.endswith("/sports") else "12"
+        return httpx.Response(
+            200,
+            json=[],
+            headers={"x-requests-used": used, "x-requests-remaining": "100"},
+        )
+
+    monkeypatch.setattr("prediction_bot.odds.run_share", lambda *_args, **_kwargs: 2)
+    ledger = Ledger(tmp_path / "events-cost-pacer.sqlite", Decimal("100"))
+    client = OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    pacer = OddsPacer(client, runs_per_day=12, ledger=ledger)
+    assert pacer.start_run(datetime(2026, 10, 1, tzinfo=timezone.utc)) == 2
+    assert (
+        client.events(
+            "americanfootball_nfl",
+            datetime(2026, 10, 1, tzinfo=timezone.utc),
+            datetime(2026, 10, 8, tzinfo=timezone.utc),
+        )
+        == []
+    )
+    assert not client.events_free
+    assert client.requests_made == 2
+    assert client._events_requests_used_baseline == 12
+    with pytest.raises(OddsBudgetExhausted):
+        client.h2h("americanfootball_nfl")
+    request_count = len(requests)
+    assert (
+        client.events(
+            "americanfootball_ncaaf",
+            datetime(2026, 10, 1, tzinfo=timezone.utc),
+            datetime(2026, 10, 8, tzinfo=timezone.utc),
+        )
+        == []
+    )
+    assert len(requests) == request_count
+    assert client.requests_made == 2
+    pacer.finish_run()
+    assert ledger.odds_pacer_carry() == 0
+
+
+def test_ledger_pacer_carry_persists_and_caps(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import httpx
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[],
+            headers={"x-requests-used": "10", "x-requests-remaining": "100"},
+        )
+
+    monkeypatch.setattr("prediction_bot.odds.run_share", lambda *_args, **_kwargs: 0.75)
+    ledger = Ledger(tmp_path / "pacer.sqlite", Decimal("100"))
+    first = OddsPacer(
+        OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler))),
+        runs_per_day=12,
+        ledger=ledger,
+    )
+    assert first.start_run(datetime(2026, 10, 1, tzinfo=timezone.utc)) == 0
+    first.finish_run()
+    assert ledger.odds_pacer_carry() == 0.75
+
+    second = OddsPacer(
+        OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler))),
+        runs_per_day=12,
+        ledger=ledger,
+    )
+    second.client.requests_last_by_sport["americanfootball_nfl"] = 1
+    assert second.start_run(datetime(2026, 10, 1, tzinfo=timezone.utc)) == 1
+    assert second.client.requests_last_by_sport == {}
+    second.client.requests_made = 1
+    second.finish_run()
+    assert ledger.odds_pacer_carry() == 0.5
+
+    ledger.record_odds_pacer_carry(0.9)
+    monkeypatch.setattr("prediction_bot.odds.run_share", lambda *_args, **_kwargs: 1.5)
+    capped = OddsPacer(
+        OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler))),
+        runs_per_day=12,
+        ledger=ledger,
+    )
+    assert capped.start_run(datetime(2026, 10, 1, tzinfo=timezone.utc)) == 2
+    capped.finish_run()
+    assert ledger.odds_pacer_carry() == 1.0
+
+
+def test_requests_last_other_than_one_halts_additional_odds_pulls() -> None:
+    import httpx
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[],
+            headers={
+                "x-requests-used": "10",
+                "x-requests-remaining": "100",
+                "x-requests-last": "2",
+            },
+        )
+
+    client = OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    client.budget = 3
+    client.h2h("americanfootball_nfl")
+    assert client.requests_last_by_sport["americanfootball_nfl"] == 2
+    assert client.budget == 1
+    with pytest.raises(OddsBudgetExhausted):
+        client.h2h("americanfootball_ncaaf")
+
+
+def test_requests_last_sums_multiple_responses_for_a_sport() -> None:
+    import httpx
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[],
+            headers={
+                "x-requests-used": "10",
+                "x-requests-remaining": "100",
+                "x-requests-last": "1",
+            },
+        )
+
+    client = OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    client.budget = 3
+    client.h2h("americanfootball_nfl", bypass_cache=True)
+    client.h2h("americanfootball_nfl", bypass_cache=True)
+
+    assert client.requests_last_by_sport == {"americanfootball_nfl": 2}
+
+
+def test_fractional_pacer_spends_at_most_sixteen_credits_over_twelve_runs(
+    monkeypatch, tmp_path
+) -> None:  # type: ignore[no-untyped-def]
+    import httpx
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[],
+            headers={"x-requests-used": "0", "x-requests-remaining": "16"},
+        )
+
+    monkeypatch.setattr("prediction_bot.odds.run_share", lambda *_args, **_kwargs: 4 / 3)
+    ledger = Ledger(tmp_path / "twelve-runs.sqlite", Decimal("100"))
+    budgets: list[int] = []
+    for slot in range(12):
+        pacer = OddsPacer(
+            OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler))),
+            runs_per_day=12,
+            ledger=ledger,
+        )
+        budget = pacer.start_run(
+            datetime(2026, 10, 1, tzinfo=timezone.utc) + timedelta(hours=2 * slot)
+        )
+        budgets.append(budget)
+        pacer.client.requests_made = budget
+        pacer.finish_run()
+    assert budgets[:3] == [1, 1, 2]
+    assert sum(budgets) <= 16

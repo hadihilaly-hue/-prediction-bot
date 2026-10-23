@@ -19,12 +19,14 @@ from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
 from prediction_bot.feed_selection import (
+    RotationScore,
     compute_feed_stats,
     eligible,
     feed_scores,
-    learning_rule_demoted,
     liquidity_weights,
+    rotation_scores,
     select_entry_feeds,
+    select_rotation_feeds,
 )
 from prediction_bot.maker_gate import MakerGate, evaluate_maker_gate
 from prediction_bot.maker_scoring import score_maker_shadows
@@ -177,16 +179,38 @@ def feed_plan(
     weights = liquidity_weights(ledger, games_by_sport, settings)
     scores = feed_scores(games_by_sport, weights, settings, now)
     ranked = select_entry_feeds(games_by_sport, stats, weights, settings, ledger, now)
+    skips: dict[str, str] = {}
+    rotation: dict[str, RotationScore] = {}
+    if settings.odds_feed_selection == "rotation":
+        odds = _odds_client(settings)
+        rotation = rotation_scores(ledger, games_by_sport, stats, settings, now)
+        ranked = sorted(
+            (feed for feed, score in rotation.items() if score.score > 0),
+            key=lambda feed: (
+                -rotation[feed].score,
+                rotation[feed].soonest_kickoff or datetime.max.replace(tzinfo=timezone.utc),
+                feed,
+            ),
+        )
+        _selected, skips, _rotation = select_rotation_feeds(
+            ledger, games_by_sport, stats, settings, odds, now, budget
+        )
 
-    table = Table(title="Lead-aware odds feed plan")
+    table = Table(
+        title="Rotation odds feed plan"
+        if settings.odds_feed_selection == "rotation"
+        else "Lead-aware odds feed plan"
+    )
     for column in (
         "feed",
         "lead p50 (h)",
         "lead p90 (h)",
         "provisional",
         "eligible",
-        "weighted games",
-        "zero-pull demotion",
+        "value",
+        "staleness",
+        "score",
+        "skip",
         "rank",
         "within budget",
     ):
@@ -195,14 +219,23 @@ def feed_plan(
         rank = ranked.index(feed) + 1 if feed in ranked else None
         within_budget = rank is not None and (budget is None or rank <= budget)
         score = scores.get(feed)
+        rotation_score = rotation.get(feed)
         table.add_row(
             feed,
             f"{stat.lead_p50_h:.1f}",
             f"{stat.lead_p90_h:.1f}",
             "yes" if stat.provisional else "no",
             "yes" if eligible(stat, settings) else "no",
-            str(score.weighted_game_count if score is not None else Decimal(0)),
-            "yes" if learning_rule_demoted(ledger, feed, now) else "no",
+            str(
+                rotation_score.value
+                if rotation_score is not None
+                else score.weighted_game_count
+                if score
+                else 0
+            ),
+            f"{rotation_score.staleness_hours:.1f}h" if rotation_score is not None else "-",
+            str(rotation_score.score if rotation_score is not None else "-"),
+            skips.get(feed, "-"),
             str(rank) if rank is not None else "-",
             "yes" if within_budget else "no",
         )
@@ -263,7 +296,7 @@ def paper(
             if s.odds_planner == "event_driven"
             else 86400 / max(interval, 1)
         )
-        pacer = OddsPacer(odds, max(per_day, s.odds_runs_per_day))
+        pacer = OddsPacer(odds, max(per_day, s.odds_runs_per_day), ledger=ledger)
     shadow_names = list(s.shadow_strategies)
     if s.rules_version == "v3" and "sportsbook_v3" in strategy:
         shadow_names = list(
@@ -363,7 +396,7 @@ def paper(
             odds is not None
             and uses_odds
             and s.odds_planner == "fixed"
-            and s.odds_feed_selection == "lead_aware"
+            and s.odds_feed_selection in {"lead_aware", "rotation"}
         ):
             now = datetime.now(timezone.utc)
             try:
@@ -371,7 +404,19 @@ def paper(
                 feeds = sorted(games_by_sport)
                 stats = compute_feed_stats(ledger, feeds, now)
                 weights = liquidity_weights(ledger, games_by_sport, s)
-                planned = select_entry_feeds(games_by_sport, stats, weights, s, ledger, now)
+                if s.odds_feed_selection == "rotation":
+                    planned, skips, _rotation = select_rotation_feeds(
+                        ledger,
+                        games_by_sport,
+                        stats,
+                        s,
+                        odds,
+                        now,
+                        odds.budget,
+                    )
+                    ledger.record_feed_skips(skips, now)
+                else:
+                    planned = select_entry_feeds(games_by_sport, stats, weights, s, ledger, now)
                 ledger.record_feed_stats(
                     stats,
                     {feed: eligible(stat, s) for feed, stat in stats.items()},
@@ -386,6 +431,8 @@ def paper(
         elif odds is not None:
             odds.allowed_sports = None
         res = engine.run_cycle(markets)
+        if pacer is not None:
+            pacer.finish_run()
         ledger.record_run(
             strategy,
             res.markets_scanned,
