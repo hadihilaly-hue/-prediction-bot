@@ -486,8 +486,12 @@ def test_odds_budget_reports_run_feeds_credits_and_reconstructed_useful_pulls(
     add_odds_snapshot(run_times[2], "baseball_mlb", "mlb-2")
     add_odds_snapshot(run_times[3], "soccer_uefa_europa_league", "uel-3")
     ledger.conn.execute(
-        "INSERT INTO blocks (created_at,event_ticker,reason) VALUES (?,?,?)",
-        (run_times[1].isoformat(), "KXNFLGAME-26OCT01", "net_edge"),
+        "INSERT INTO blocks (created_at,event_ticker,reason,rules_version) VALUES (?,?,?,?)",
+        (run_times[1].isoformat(), "KXNFLGAME-26OCT01", "net_edge", "v3"),
+    )
+    ledger.conn.execute(
+        "INSERT INTO blocks (created_at,event_ticker,reason,rules_version) VALUES (?,?,?,?)",
+        (run_times[1].isoformat(), "KXNFLGAME-26OCT01", "entry_window", "v3"),
     )
     ledger.conn.execute(
         "INSERT INTO signals (created_at,strategy,ticker,side,fair_prob,limit_price,edge,size,"
@@ -521,7 +525,7 @@ def test_odds_budget_reports_run_feeds_credits_and_reconstructed_useful_pulls(
     assert (
         "useful-pull ratio per feed (source: blocks+signals reconstructed per run window" in report
     )
-    assert "americanfootball_nfl,1,1,1.000" in report
+    assert "americanfootball_nfl,1,0,0.000" in report
     assert "soccer_uefa_europa_league,2,1,0.500" in report
     assert "feed stats and eligibility (nearest-rank percentiles; min_lead_hours=72)" in report
     ledger.record_feed_pulls({"americanfootball_nfl": 2}, "v3", run_times[1])

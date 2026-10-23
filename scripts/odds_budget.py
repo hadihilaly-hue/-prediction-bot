@@ -150,15 +150,21 @@ def _feed_report_sections(
                 )
             ]
         blocks = [
-            (_utc(str(created_at)), str(event_ticker or ""))
-            for created_at, event_ticker in conn.execute(
-                "SELECT created_at,event_ticker FROM blocks WHERE reason='net_edge'"
+            (
+                _utc(str(created_at)),
+                str(event_ticker or ""),
+                str(reason),
+                str(rules_version or ""),
+            )
+            for created_at, event_ticker, reason, rules_version in conn.execute(
+                "SELECT created_at,event_ticker,reason,rules_version FROM blocks "
+                "WHERE reason IN ('net_edge','entry_window')"
             )
         ]
         signals = [
-            (_utc(str(created_at)), str(event_ticker or ""))
-            for created_at, event_ticker in conn.execute(
-                "SELECT created_at,event_ticker FROM signals"
+            (_utc(str(created_at)), str(event_ticker or ""), str(rules_version or ""))
+            for created_at, event_ticker, rules_version in conn.execute(
+                "SELECT created_at,event_ticker,rules_version FROM signals"
             )
         ]
         report_windows = [window for window in _run_windows(runs) if window[3] >= since]
@@ -191,17 +197,35 @@ def _feed_report_sections(
             source = "blocks+signals reconstructed per run window"
             series_to_feed = {**KALSHI_SERIES_TO_SPORT, **KALSHI_SERIES_TO_OUTRIGHT}
             for run_id, _previous_id, start_at, end_at, _delta, _status in report_windows:
+                entry_window_events = {
+                    (event_ticker, rules_version)
+                    for created_at, event_ticker, reason, rules_version in blocks
+                    if start_at < created_at <= end_at
+                    and reason == "entry_window"
+                    and event_ticker
+                }
                 candidates: Counter[str] = Counter()
-                for created_at, event_ticker in blocks:
-                    if start_at < created_at <= end_at and event_ticker:
-                        feed = series_to_feed.get(event_ticker.split("-", 1)[0])
-                        if feed:
-                            candidates[feed] += 1
-                for created_at, event_ticker in signals:
-                    if start_at < created_at <= end_at and event_ticker:
-                        feed = series_to_feed.get(event_ticker.split("-", 1)[0])
-                        if feed:
-                            candidates[feed] += 1
+                for created_at, event_ticker, reason, rules_version in blocks:
+                    if (
+                        reason != "net_edge"
+                        or not start_at < created_at <= end_at
+                        or not event_ticker
+                        or (event_ticker, rules_version) in entry_window_events
+                    ):
+                        continue
+                    feed = series_to_feed.get(event_ticker.split("-", 1)[0])
+                    if feed:
+                        candidates[feed] += 1
+                for created_at, event_ticker, rules_version in signals:
+                    if (
+                        not start_at < created_at <= end_at
+                        or not event_ticker
+                        or (event_ticker, rules_version) in entry_window_events
+                    ):
+                        continue
+                    feed = series_to_feed.get(event_ticker.split("-", 1)[0])
+                    if feed:
+                        candidates[feed] += 1
                 for feed in feeds_by_run[run_id]:
                     total_pulls[feed] += 1
                     useful_pulls[feed] += int(candidates[feed] > 0)

@@ -108,6 +108,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._maker_shadows: list[MakerShadowCandidate] = []
         self._shadow_updates: dict[tuple[str, OutcomeSide], MakerShadowUpdate] = {}
         self._entry_window_decisions: list[Signal] = []
+        self._entry_window_event_tickers: set[str] = set()
         self._line_move_decisions: list[Signal] = []
         self._feed_pull_candidates: dict[str, int] = {}
 
@@ -138,13 +139,16 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
     def _finish_feed_pulls(self, signals: Sequence[Signal]) -> None:
         counts = Counter({feed: 0 for feed in self._fetched_feeds})
         for block in self._blocks:
-            if block.reason != "net_edge":
+            if block.reason != "net_edge" or block.event_ticker in self._entry_window_event_tickers:
                 continue
             feed = KALSHI_SERIES_TO_SPORT.get(block.event_ticker.split("-", 1)[0])
             if feed is not None and feed in counts:
                 counts[feed] += 1
         for signal in signals:
-            if signal.event_ticker is None:
+            if (
+                signal.event_ticker is None
+                or signal.event_ticker in self._entry_window_event_tickers
+            ):
                 continue
             feed = KALSHI_SERIES_TO_SPORT.get(signal.event_ticker.split("-", 1)[0])
             if feed is not None and feed in counts:
@@ -943,6 +947,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._maker_shadows.clear()
         self._shadow_updates.clear()
         self._entry_window_decisions.clear()
+        self._entry_window_event_tickers.clear()
         self._line_move_decisions.clear()
         self._feed_pull_candidates.clear()
         self._quotes = [
@@ -969,7 +974,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             for side in (OutcomeSide.yes, OutcomeSide.no):
                 self._set_shadow_update(market, side, now)
         candidates: dict[str, list[Signal]] = defaultdict(list)
-        entry_window_events: set[str] = set()
+        entry_window_events = self._entry_window_event_tickers
         events_evaluated = 0
         for event_ticker, legs in by_event.items():
             series = event_ticker.split("-", 1)[0]

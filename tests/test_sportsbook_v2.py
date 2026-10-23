@@ -1158,6 +1158,11 @@ def test_entry_window_candidate_is_shadowed_but_not_traded(settings, tmp_path) -
     ]
     engine = Engine(settings, object(), [strategy], ledger)  # type: ignore[arg-type]
     assert engine.run_cycle(markets).acted == []
+    assert any(
+        block.reason == "net_edge" and block.event_ticker == "KXNFLGAME-26OCT25KCLV"
+        for block in strategy.seen_blocks()
+    )
+    assert strategy.seen_feed_pulls() == {"americanfootball_nfl": 0}
     assert ledger.conn.execute("SELECT COUNT(*) FROM fills").fetchone()[0] == 0
     decision = ledger.conn.execute(
         "SELECT rules_version,window,would_trade,reason FROM shadow_decisions"
