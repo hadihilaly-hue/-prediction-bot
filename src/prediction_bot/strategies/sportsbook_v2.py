@@ -133,7 +133,19 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         return list(self._entry_window_decisions)
 
     def seen_single_sharp_decisions(self) -> list[Signal]:
-        return list(self._single_sharp_decisions)
+        decisions: list[Signal] = []
+        index_by_position: dict[str, int] = {}
+        for signal in self._single_sharp_decisions:
+            if signal.position_key is None:
+                decisions.append(signal)
+                continue
+            index = index_by_position.get(signal.position_key)
+            if index is None:
+                index_by_position[signal.position_key] = len(decisions)
+                decisions.append(signal)
+            elif signal.edge > decisions[index].edge:
+                decisions[index] = signal
+        return decisions
 
     def seen_near_miss_decisions(self) -> list[tuple[Signal, str]]:
         return list(self._near_miss_decisions)
@@ -1222,14 +1234,22 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             methods = book_probabilities[sharp_book].get(outcome_id)
                             if not methods:
                                 continue
-                            fair_pre = (
-                                min(methods.values())
-                                if self.settings.v3_devig_method == "worst_case"
-                                else methods.get(self.settings.v3_devig_method)
-                            )
-                            if fair_pre is None:
-                                continue
                             for side in (OutcomeSide.yes, OutcomeSide.no):
+                                if self.settings.v3_devig_method == "worst_case":
+                                    fair_pre = (
+                                        min(methods.values())
+                                        if side is OutcomeSide.yes
+                                        else Decimal(1) - max(methods.values())
+                                    )
+                                else:
+                                    selected_fair = methods.get(self.settings.v3_devig_method)
+                                    if selected_fair is None:
+                                        continue
+                                    fair_pre = (
+                                        selected_fair
+                                        if side is OutcomeSide.yes
+                                        else Decimal(1) - selected_fair
+                                    )
                                 price = market.quote.ask_for(side)
                                 bid = market.quote.bid_for(side)
                                 ask_depth = market.quote.ask_size_for(side)
@@ -1241,9 +1261,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                                     or ask_depth < self.settings.v3_min_ask_depth
                                 ):
                                     continue
-                                fair = (
-                                    fair_pre if side is OutcomeSide.yes else Decimal(1) - fair_pre
-                                )
+                                fair = fair_pre
                                 net_edge = fair - price - taker_fee_rate(price, fee_multiplier)
                                 if net_edge < Decimal("0.03"):
                                     continue

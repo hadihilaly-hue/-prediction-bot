@@ -221,6 +221,8 @@ def _run_single_sharp_scenario(
     spread: str = "0.02",
     depth: str = "60",
     cohort: str = "shadow",
+    away_no_ask: str | None = None,
+    reverse_legs: bool = False,
 ):  # type: ignore[no-untyped-def]
     settings.min_lead_hours = 0
     settings.min_books = 2
@@ -278,7 +280,7 @@ def _run_single_sharp_scenario(
     home_price = Decimal(home_ask)
     quote_spread = Decimal(spread)
     home_bid = home_price - quote_spread
-    away_bid = Decimal(1) - home_price
+    away_bid = Decimal(1) - (home_price if away_no_ask is None else Decimal(away_no_ask))
     away_ask = away_bid + quote_spread
     markets = [
         make_market(
@@ -312,6 +314,8 @@ def _run_single_sharp_scenario(
                 yes_ask_size=Decimal(depth),
             )
         )
+    if reverse_legs:
+        markets.reverse()
     ledger = Ledger(":memory:", Decimal("1000"))
     strategy = SportsbookV3Strategy(
         settings,
@@ -331,7 +335,7 @@ SOCCER_RULES_PRIMARY = (
 
 def test_v3_pinnacle_single_sharp_is_persisted_as_shadow_only(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     assert Settings(_env_file=None).v3_single_sharp_cohort == "shadow"
-    ledger, strategy, result = _run_single_sharp_scenario(settings, monkeypatch)
+    ledger, strategy, result = _run_single_sharp_scenario(settings, monkeypatch, away_no_ask="0.52")
 
     row = ledger.conn.execute(
         "SELECT rules_version,reason,would_trade,fair,price,side,net_edge,tags,commence_time "
@@ -365,6 +369,56 @@ def test_v3_circa_only_single_sharp_qualifies(settings, monkeypatch) -> None:  #
     assert ledger.conn.execute(
         "SELECT reason,COUNT(*) FROM shadow_decisions GROUP BY reason"
     ).fetchall() == [("single_sharp", 1)]
+
+
+def test_v3_single_sharp_worst_case_uses_pessimistic_fair_for_no(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    settings.v3_devig_method = "worst_case"
+
+    def differing_methods(_odds):  # type: ignore[no-untyped-def]
+        return {
+            "multiplicative": {
+                "Synthetic Home": Decimal("0.60"),
+                "Synthetic Away": Decimal("0.40"),
+            },
+            "power": {
+                "Synthetic Home": Decimal("0.70"),
+                "Synthetic Away": Decimal("0.30"),
+            },
+        }
+
+    monkeypatch.setattr(sportsbook_v2_module, "devig_all", differing_methods)
+    ledger, _strategy, _result = _run_single_sharp_scenario(
+        settings,
+        monkeypatch,
+        home_ask="0.72",
+        spread="0.03",
+    )
+
+    assert ledger.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 0
+
+
+def test_v3_single_sharp_keeps_highest_edge_equivalent_side_independent_of_leg_order(
+    settings, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    persisted = []
+    for reverse_legs in (False, True):
+        ledger, _strategy, result = _run_single_sharp_scenario(
+            settings,
+            monkeypatch,
+            away_no_ask="0.45",
+            reverse_legs=reverse_legs,
+        )
+        assert result.signals == []
+        rows = ledger.conn.execute(
+            "SELECT ticker,side,net_edge FROM shadow_decisions WHERE reason='single_sharp'"
+        ).fetchall()
+        assert len(rows) == 1
+        persisted.append(rows[0])
+
+    assert persisted[0] == persisted[1]
+    assert persisted[0][0].endswith("-AWAY")
+    assert persisted[0][1] == "no"
+    assert Decimal(persisted[0][2]) > Decimal("0.06")
 
 
 def test_v3_soccer_single_sharp_qualifies(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
