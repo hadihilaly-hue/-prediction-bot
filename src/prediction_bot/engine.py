@@ -164,8 +164,7 @@ class Engine:
         if not self.live:
             cost = sum(
                 (
-                    s.limit_price * s.size
-                    + fee_for(s.limit_price, s.size, self.settings.taker_fee_multiplier)
+                    s.limit_price * s.size + fee_for(s.limit_price, s.size, self._fee_multiplier(s))
                     for s in batch
                 ),
                 Decimal(0),
@@ -173,6 +172,11 @@ class Engine:
             if cost > self.ledger.cash:
                 return False
         return True
+
+    def _fee_multiplier(self, sig: Signal) -> Decimal:
+        if sig.taker:
+            return self.settings.taker_fee_multiplier
+        return self.settings.maker_fee_multiplier
 
     def _act(self, sig: Signal, res: CycleResult, grouped: bool = False) -> bool:
         if self.live:
@@ -196,7 +200,7 @@ class Engine:
             self.ledger.record_signal(sig, acted=True)
             log.info("LIVE order %s", detail)
             return True
-        fee = fee_for(sig.limit_price, sig.size, self.settings.taker_fee_multiplier)
+        fee = fee_for(sig.limit_price, sig.size, self._fee_multiplier(sig))
         try:
             self.ledger.record_fill(
                 sig.strategy, sig.ticker, sig.side, sig.limit_price, sig.size, fee, sig.fair_prob

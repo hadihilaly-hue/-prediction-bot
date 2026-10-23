@@ -45,13 +45,22 @@ class Quote:
         return self.yes_ask - self.yes_bid
 
     def ask_for(self, side: OutcomeSide) -> Decimal | None:
-        """Price you pay to buy one contract of `side`."""
+        """Price you pay to buy one contract of `side` right now (crossing the spread)."""
         if side is OutcomeSide.yes:
             return self.yes_ask
         return None if self.yes_bid is None else Decimal(1) - self.yes_bid
 
+    def bid_for(self, side: OutcomeSide) -> Decimal | None:
+        """Best resting bid for `side` — the level a maker buy posts above."""
+        if side is OutcomeSide.yes:
+            return self.yes_bid
+        return None if self.yes_ask is None else Decimal(1) - self.yes_ask
+
     def ask_size_for(self, side: OutcomeSide) -> Decimal:
         return self.yes_ask_size if side is OutcomeSide.yes else self.yes_bid_size
+
+    def bid_size_for(self, side: OutcomeSide) -> Decimal:
+        return self.yes_bid_size if side is OutcomeSide.yes else self.yes_ask_size
 
 
 @dataclass(frozen=True)
@@ -90,6 +99,9 @@ class Signal:
     group: str | None = None  # legs sharing a group are acted on all-or-nothing
     # other (ticker, side) legs that pay out on the same outcome; exposure counts them too
     equivalents: tuple[tuple[str, OutcomeSide], ...] = ()
+    # False when limit_price is a resting (maker) quote inside the spread: fees are
+    # charged at the maker rate and the order only fills when someone trades into it.
+    taker: bool = True
     created_at: datetime = field(default_factory=datetime.utcnow)
 
 
