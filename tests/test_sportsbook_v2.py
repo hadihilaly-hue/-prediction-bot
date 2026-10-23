@@ -113,8 +113,12 @@ def test_time_parsers_handle_utc_and_market_ticker_time() -> None:
 
 
 def test_settings_and_provider_parsers_preserve_v2_fields() -> None:
-    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        shadow_strategies="sportsbook_arb, underdog_value",
+    )
     assert settings.rules_version == "v1"
+    assert settings.shadow_strategies == ["sportsbook_arb", "underdog_value"]
     assert settings.max_gross_edge == Decimal("0.07")
     assert settings.big_edge_whitelist == []
     assert settings.kickoff_buffer_minutes["americanfootball_nfl"] == 30
@@ -203,6 +207,51 @@ def test_v2_deduplicates_two_way_no_and_yes_to_canonical_position(settings) -> N
     assert signals[0].event_ticker == "KXNFLGAME-26OCT25KCLV"
     assert signals[0].tags == ("value",)
     assert signals[0].commence_time == datetime(2026, 10, 25, 20, 25, tzinfo=timezone.utc)
+
+
+def test_entry_window_candidate_is_shadowed_but_not_traded(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from prediction_bot.engine import Engine
+
+    settings.min_lead_hours = 72
+    commence = "2026-10-25T20:25:00Z"
+    game = odds_event(
+        "kc-lv",
+        "Kansas City Chiefs",
+        "Las Vegas Raiders",
+        commence,
+        {
+            "Kansas City Chiefs": Decimal("0.2"),
+            "Las Vegas Raiders": Decimal("0.8"),
+        },
+    )
+    ledger = Ledger(tmp_path / "entry-window.sqlite", Decimal("1000"))
+    strategy = SportsbookV2Strategy(
+        settings,
+        FakeOdds([game]),
+        ledger=ledger,
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+    markets = [
+        make_market(
+            "KXNFLGAME-26OCT25KCLV-KC",
+            "0.20",
+            "0.22",
+            subtitle="Kansas City",
+        ),
+        make_market(
+            "KXNFLGAME-26OCT25KCLV-LV",
+            "0.74",
+            "0.76",
+            subtitle="Las Vegas",
+        ),
+    ]
+    engine = Engine(settings, object(), [strategy], ledger)  # type: ignore[arg-type]
+    assert engine.run_cycle(markets).acted == []
+    assert ledger.conn.execute("SELECT COUNT(*) FROM fills").fetchone()[0] == 0
+    decision = ledger.conn.execute(
+        "SELECT rules_version,window,would_trade,reason FROM shadow_decisions"
+    ).fetchone()
+    assert decision == ("v2", "24-72h", 1, "entry_window")
 
 
 def test_kickoff_guard_uses_sport_buffer(settings) -> None:  # type: ignore[no-untyped-def]

@@ -133,6 +133,7 @@ class MakerShadowCandidate:
     fair: Decimal
     maker_fee: Decimal
     expires_at: datetime
+    commence_time: datetime | None = None
 
 
 @dataclass(frozen=True)

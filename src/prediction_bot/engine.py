@@ -38,12 +38,14 @@ class Engine:
         strategies: Sequence[Strategy],
         ledger: Ledger,
         allow_live: bool = False,
+        shadow_strategies: Sequence[Strategy] = (),
     ) -> None:
         self.settings = settings
         self.kalshi = kalshi
         self.strategies = list(strategies)
         self.ledger = ledger
         self.allow_live = allow_live
+        self.shadow_strategies = list(shadow_strategies)
 
     @property
     def live(self) -> bool:
@@ -79,6 +81,25 @@ class Engine:
                 res.signals.extend(strat.evaluate(markets))
             except Exception:  # keep other strategies alive
                 log.exception("strategy %s failed", strat.name)
+        for sig in res.signals:
+            version = sig.rules_version or self.settings.rules_version
+            self.ledger.record_shadow_decision(sig, version)
+        for strat in self.strategies:
+            get = getattr(strat, "seen_shadow_decisions", None)
+            if get is not None:
+                for sig in get():
+                    self.ledger.record_shadow_decision(sig, "v2", reason="entry_window")
+        for strat in self.shadow_strategies:
+            try:
+                for sig in strat.evaluate(markets):
+                    version = sig.rules_version or ("v2" if strat.name == "sportsbook_v2" else "v1")
+                    self.ledger.record_shadow_decision(sig, version)
+                get = getattr(strat, "seen_shadow_decisions", None)
+                if get is not None:
+                    for sig in get():
+                        self.ledger.record_shadow_decision(sig, "v2", reason="entry_window")
+            except Exception:
+                log.exception("shadow strategy %s failed", strat.name)
         for method_name, write in (
             ("seen_blocks", self.ledger.record_blocks),
             ("seen_quotes", self.ledger.record_quote_snapshots),

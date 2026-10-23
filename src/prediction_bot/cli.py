@@ -10,6 +10,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from prediction_bot.clv import record_clv
 from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
@@ -157,16 +158,38 @@ def paper(
         # A one-shot run is one of the scheduled runs; a loop paces per cycle.
         per_day = s.odds_runs_per_day if cycles == 1 else 86400 / max(interval, 1)
         pacer = OddsPacer(odds, max(per_day, s.odds_runs_per_day))
-    engine = Engine(s, client, strats, ledger, allow_live=False)
+    shadow_names = list(s.shadow_strategies)
+    if s.rules_version == "v1" and any(
+        name in {"sportsbook_arb", "underdog_value", "sportsbook_v2"} for name in strategy
+    ):
+        shadow_names.append("sportsbook_v2")
+    shadow_strategies = _strategies(s, shadow_names, odds, client, ledger)
+    engine = Engine(
+        s,
+        client,
+        strats,
+        ledger,
+        allow_live=False,
+        shadow_strategies=shadow_strategies,
+    )
     n = 0
     while True:
         n += 1
         if pacer is not None:
             pacer.start_run()
         settled = engine.settle_open_positions()
+        record_clv(ledger, client, max_calls=50)
         res = engine.run_cycle(_fetch(client, series))
         ledger.record_run(
-            strategy, res.markets_scanned, len(res.signals), len(res.acted), len(settled)
+            strategy,
+            res.markets_scanned,
+            len(res.signals),
+            len(res.acted),
+            len(settled),
+            odds_used=int(odds.requests_used) if odds and odds.requests_used else None,
+            odds_remaining=int(odds.requests_remaining)
+            if odds and odds.requests_remaining
+            else None,
         )
         console.print(
             f"[cycle {n}] scanned={res.markets_scanned} signals={len(res.signals)}"

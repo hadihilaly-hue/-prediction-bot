@@ -41,6 +41,7 @@ jobs:
       - name: Run one paper cycle
         env:
           PBOT_MODE: paper
+          PBOT_RULES_VERSION: ${{ vars.PBOT_RULES_VERSION || 'v2' }}
           PBOT_KALSHI_API_BASE: https://api.elections.kalshi.com/trade-api/v2
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
           # 1c after fees: the default 3c found nothing; we want data on small edges too.
@@ -59,15 +60,28 @@ jobs:
           set -eo pipefail
           pbot paper -s book_scanner --cycles 1 | tee ledger/last_run.txt
           if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" = true ]; then
-            pbot paper -s sportsbook_arb -s underdog_value --cycles 1 \
-              --series KXNFLGAME --series KXNCAAFGAME --series KXNBAGAME --series KXNCAAMBGAME \
-              --series KXNHLGAME \
-              --series KXMLBGAME \
-              --series KXEPLGAME --series KXLALIGAGAME --series KXUCLGAME --series KXSERIEAGAME \
-              --series KXBUNDESLIGAGAME --series KXLIGUE1GAME --series KXUELGAME \
-              --series KXUECLGAME --series KXMLSGAME --series KXLIGAMXGAME --series KXUFCFIGHT \
-              --series KXMASTERS --series KXPGA --series KXUSOPEN --series KXTHEOPEN \
-              | tee -a ledger/last_run.txt
+            if [ "$PBOT_RULES_VERSION" = "v2" ]; then
+              PBOT_SHADOW_STRATEGIES=sportsbook_arb,underdog_value pbot paper \
+                -s sportsbook_v2 --cycles 1 \
+                --series KXNFLGAME --series KXNCAAFGAME --series KXNBAGAME --series KXNCAAMBGAME \
+                --series KXNHLGAME \
+                --series KXMLBGAME \
+                --series KXEPLGAME --series KXLALIGAGAME --series KXUCLGAME --series KXSERIEAGAME \
+                --series KXBUNDESLIGAGAME --series KXLIGUE1GAME --series KXUELGAME \
+                --series KXUECLGAME --series KXMLSGAME --series KXLIGAMXGAME --series KXUFCFIGHT \
+                --series KXMASTERS --series KXPGA --series KXUSOPEN --series KXTHEOPEN \
+                | tee -a ledger/last_run.txt
+            else
+              pbot paper -s sportsbook_arb -s underdog_value --cycles 1 \
+                --series KXNFLGAME --series KXNCAAFGAME --series KXNBAGAME --series KXNCAAMBGAME \
+                --series KXNHLGAME \
+                --series KXMLBGAME \
+                --series KXEPLGAME --series KXLALIGAGAME --series KXUCLGAME --series KXSERIEAGAME \
+                --series KXBUNDESLIGAGAME --series KXLIGUE1GAME --series KXUELGAME \
+                --series KXUECLGAME --series KXMLSGAME --series KXLIGAMXGAME --series KXUFCFIGHT \
+                --series KXMASTERS --series KXPGA --series KXUSOPEN --series KXTHEOPEN \
+                | tee -a ledger/last_run.txt
+            fi
           fi
           pbot report | tee ledger/REPORT.txt
           pbot predictions --limit 0 --markdown ledger/PREDICTIONS.md >/dev/null

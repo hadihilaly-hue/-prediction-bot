@@ -53,6 +53,15 @@ def team_for_code(series: str, code: str) -> str | None:
     )
 
 
+def team_name_for_code(series: str, code: str) -> str | None:
+    sport = _sport_for_series(series)
+    team_id = team_for_code(series, code)
+    if sport is None or team_id is None:
+        return None
+    names = _TEAMS[sport][team_id]["odds_names"]
+    return names[0] if names else team_id.replace("-", " ").title()
+
+
 def team_for_odds_name(sport: str, name: str) -> str | None:
     name = name.strip()
     return next(

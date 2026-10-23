@@ -3,10 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 KALSHI_DEMO_REST = "https://external-api.demo.kalshi.co/trade-api/v2"
 KALSHI_DEMO_WS = "wss://external-api-ws.demo.kalshi.co/trade-api/ws/v2"
@@ -25,6 +25,14 @@ class Settings(BaseSettings):
 
     mode: Mode = Mode.paper
     rules_version: Literal["v1", "v2"] = "v1"
+    shadow_strategies: Annotated[list[str], NoDecode] = Field(default_factory=list)
+
+    @field_validator("shadow_strategies", mode="before")
+    @classmethod
+    def parse_shadow_strategies(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [name.strip() for name in value.split(",") if name.strip()]
+        return value
 
     # V2 correctness gates
     kickoff_buffer_minutes: dict[str, int] = Field(

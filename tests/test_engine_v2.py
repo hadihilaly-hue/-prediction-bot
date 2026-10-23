@@ -12,9 +12,10 @@ from tests.conftest import make_market
 class FixedSignals(Strategy):
     name = "sportsbook_v2"
 
-    def __init__(self, settings, signals: list[Signal]) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, settings, signals: list[Signal], name: str = "sportsbook_v2") -> None:  # type: ignore[no-untyped-def]
         super().__init__(settings)
         self.signals = signals
+        self.name = name
 
     def evaluate(self, markets):  # type: ignore[no-untyped-def]
         return self.signals
@@ -124,3 +125,35 @@ def test_v2_unknown_fee_metadata_fails_closed(settings, tmp_path) -> None:  # ty
 
     assert engine.run_cycle([market]).acted == []
     assert ledger.conn.execute("SELECT reason FROM blocks").fetchone()[0] == "fee_unknown"
+
+
+def test_shadow_strategy_is_recorded_without_acting(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "shadow.sqlite", Decimal("1000"))
+    signal = Signal(
+        strategy="sportsbook_arb",
+        ticker="KXNFLGAME-26OCT25KCLV-LV",
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.8"),
+        limit_price=Decimal("0.5"),
+        edge=Decimal("0.29"),
+        size=Decimal(2),
+        rules_version=None,
+        position_key="KXNFLGAME-26OCT25KCLV:las-vegas-raiders",
+        event_ticker="KXNFLGAME-26OCT25KCLV",
+    )
+    shadow = FixedSignals(settings, [signal], name="sportsbook_arb")
+    market = make_market(signal.ticker, "0.49", "0.5", subtitle="Las Vegas")
+    engine = Engine(
+        settings,
+        object(),
+        [],
+        ledger,
+        shadow_strategies=[shadow],
+    )  # type: ignore[arg-type]
+
+    assert engine.run_cycle([market]).acted == []
+    assert ledger.conn.execute("SELECT COUNT(*) FROM fills").fetchone()[0] == 0
+    row = ledger.conn.execute(
+        "SELECT rules_version,strategy,would_trade,reason FROM shadow_decisions"
+    ).fetchone()
+    assert row == ("v1", "sportsbook_arb", 1, "")
