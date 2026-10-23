@@ -185,7 +185,14 @@ class Engine:
             tif = "fill_or_kill" if grouped else "good_till_canceled"
             try:
                 order = self.kalshi.create_order(
-                    sig.ticker, sig.side, sig.size, sig.limit_price, time_in_force=tif
+                    sig.ticker,
+                    sig.side,
+                    sig.size,
+                    sig.limit_price,
+                    time_in_force=tif,
+                    # A maker-priced signal must rest or die: if the book moved, paying
+                    # taker fees at the crossed price loses the edge we measured.
+                    post_only=not sig.taker,
                 )
             except KalshiError as e:
                 log.warning("live order rejected %s/%s: %s", sig.ticker, sig.side.value, e)
