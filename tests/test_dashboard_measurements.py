@@ -30,7 +30,8 @@ def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: i
         (ticker, datetime.now(timezone.utc).isoformat(), "yes", "4.90"),
     )
     ledger.conn.execute(
-        "UPDATE fills SET clv_kalshi='5',clv_gameday='3',clv_exit='7' WHERE ticker=?",
+        "UPDATE fills SET clv_kalshi='5',clv_gameday='3',clv_exit='7',"
+        "clv_status='ok' WHERE ticker=?",
         (ticker,),
     )
     ledger.record_maker_shadows(
@@ -152,7 +153,7 @@ def test_dashboard_shows_phase_four_experiment_metrics(tmp_path) -> None:  # typ
         (ticker, datetime.now(timezone.utc).isoformat(), "yes", "6.90"),
     )
     ledger.conn.execute(
-        "UPDATE fills SET clv_kalshi='2.5' WHERE ticker=?",
+        "UPDATE fills SET clv_kalshi='2.5',clv_status='in_game' WHERE ticker=?",
         (ticker,),
     )
     shadow = Signal(
@@ -170,15 +171,16 @@ def test_dashboard_shows_phase_four_experiment_metrics(tmp_path) -> None:  # typ
     )
     ledger.record_shadow_decision(shadow, "v2", reason="line_move_follower")
     ledger.conn.execute(
-        "UPDATE shadow_decisions SET clv_kalshi='3.5' WHERE strategy='line_move_follower'"
+        "UPDATE shadow_decisions SET clv_kalshi='3.5',clv_status='ok' "
+        "WHERE strategy='line_move_follower'"
     )
     ledger.conn.commit()
 
     measurement = dashboard_data(ledger)["measurement"]
     assert measurement["quality"]["exp_road_dog"]["positions"] == 1
     assert measurement["quality"]["exp_road_dog"]["pnl"] == 6.9
-    assert measurement["quality"]["exp_road_dog"]["clv_n"] == 1
-    assert measurement["quality"]["exp_road_dog"]["clv_mean"] == 2.5
+    assert measurement["quality"]["exp_road_dog"]["clv_n"] == 0
+    assert measurement["quality"]["exp_road_dog"]["clv_mean"] is None
     assert measurement["quality"]["line_move_follower"]["observations"] == 1
     assert measurement["quality"]["line_move_follower"]["settled_clv_mean"] == 3.5
     html = render_dashboard(ledger)
@@ -205,7 +207,7 @@ def test_dashboard_data_includes_v3_fills_in_their_own_version(tmp_path) -> None
         "INSERT INTO settlements (ticker,settled_at,result,pnl) VALUES (?,?,?,?)",
         (ticker, datetime.now(timezone.utc).isoformat(), "yes", "1"),
     )
-    ledger.conn.execute("UPDATE fills SET clv_exit='2.5' WHERE ticker=?", (ticker,))
+    ledger.conn.execute("UPDATE fills SET clv_exit='2.5',clv_status='ok' WHERE ticker=?", (ticker,))
     ledger.conn.commit()
 
     measurement = dashboard_data(ledger)["measurement"]
@@ -214,3 +216,40 @@ def test_dashboard_data_includes_v3_fills_in_their_own_version(tmp_path) -> None
     assert measurement["by_version"]["v3"]["brier_fills"]["n"] == 1
     assert measurement["by_version"]["v2"]["brier_fills"]["n"] == 0
     assert measurement["by_version"]["v1"]["brier_fills"]["n"] == 0
+
+
+def test_dashboard_v1_clv_aggregate_excludes_in_game_fill(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "dashboard-clv-hygiene.sqlite", Decimal("1000"))
+    for index, (ticker, clv, status) in enumerate(
+        (
+            ("KXNFLGAME-26OCT01PRE-HOME", "5", "ok"),
+            ("KXNFLGAME-26OCT01LIVE-HOME", "38.5", "in_game"),
+            ("KXNFLGAME-26OCT01UNKNOWN-HOME", "20", "no_commence"),
+        )
+    ):
+        ledger.record_fill(
+            "sportsbook_v1",
+            ticker,
+            OutcomeSide.yes,
+            Decimal("0.50"),
+            Decimal(1),
+            Decimal(0),
+            Decimal("0.60"),
+            rules_version="v1",
+            position_key=f"position-{index}",
+        )
+        ledger.conn.execute(
+            "UPDATE fills SET clv_kalshi=?,clv_status=? WHERE ticker=?",
+            (clv, status, ticker),
+        )
+    ledger.conn.commit()
+
+    measurement = dashboard_data(ledger)["measurement"]
+    clv = measurement["by_version"]["v1"]["clv"]["league"]["KXNFLGAME"]
+
+    assert clv["n"] == 1
+    assert clv["mean"] == 5
+    assert measurement["quality"]["clv_exclusions"]["v1"]["in_game"] == 1
+    assert measurement["quality"]["clv_exclusions"]["v1"]["no_commence"] == 1
+    html = render_dashboard(ledger)
+    assert "Excluded from closing-price numbers:" in html

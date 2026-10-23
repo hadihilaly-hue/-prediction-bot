@@ -122,6 +122,28 @@ def start_time(event: str) -> tuple[datetime | None, str]:
     return None, "unknown"
 
 
+def event_datetime(event: dict[str, object]) -> datetime | None:
+    for key in (
+        "start_time",
+        "scheduled_start_time",
+        "commence_time",
+        "event_start_time",
+        "game_start_time",
+    ):
+        value = event.get(key)
+        if not isinstance(value, str):
+            continue
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
+    ticker = event.get("event_ticker")
+    if ticker:
+        return start_time(str(ticker))[0]
+    return None
+
+
 def load(db: str) -> list[Fill]:
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     rows = conn.execute(

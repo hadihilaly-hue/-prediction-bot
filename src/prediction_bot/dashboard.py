@@ -38,7 +38,8 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
     rows = ledger.conn.execute(
         "SELECT f.id,f.created_at,f.strategy,f.ticker,f.side,f.price,f.count,f.fee,"
         "f.fair_prob,s.result,f.rules_version,f.position_key,f.event_ticker,f.tags,"
-        "f.commence_time,f.clv_kalshi,f.clv_gameday,f.line_move_since_entry,f.clv_exit FROM fills f "
+        "f.commence_time,f.commence_time_backfill,f.clv_status,f.clv_kalshi,"
+        "f.clv_gameday,f.line_move_since_entry,f.clv_exit FROM fills f "
         "LEFT JOIN settlements s ON s.ticker=f.ticker ORDER BY f.id"
     ).fetchall()
     fills: list[tuple[Fill, str, str | None, str | None, str | None, str | None]] = []
@@ -46,9 +47,11 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
         tuple[str, tuple[str, str]],
         list[tuple[Fill, str | None, str | None, str | None, str | None, str | None]],
     ] = {}
-    exit_clv_by_id = {int(row[0]): str(row[18]) for row in rows if row[18] is not None}
+    exit_clv_by_id = {
+        int(row[0]): str(row[20]) for row in rows if row[16] == "ok" and row[20] is not None
+    }
     for row in rows:
-        ts = datetime.fromisoformat(row[1])
+        ts = datetime.fromisoformat(str(row[1]).replace("Z", "+00:00"))
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
         fill = Fill(
@@ -65,11 +68,12 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
         )
         version = str(row[10] or "v1")
         key = outcome_key(fill) if "-" in fill.ticker else (fill.event, f"outcome:{fill.side}")
-        clv = None if row[15] is None else str(row[15])
-        gameday = None if row[16] is None else str(row[16])
-        commence = None if row[14] is None else str(row[14])
+        clv = None if row[16] != "ok" or row[17] is None else str(row[17])
+        gameday = None if row[16] != "ok" or row[18] is None else str(row[18])
+        commence_value = row[14] or row[15]
+        commence = None if commence_value is None else str(commence_value)
         tags = None if row[13] is None else str(row[13])
-        line_move = None if row[17] is None else str(row[17])
+        line_move = None if row[16] != "ok" or row[19] is None else str(row[19])
         fills.append((fill, version, clv, gameday, commence, tags))
         groups.setdefault((version, key), []).append(
             (fill, clv, gameday, commence, line_move, tags)
@@ -306,6 +310,16 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
         value = maker_metrics[name]
         return None if value is None else float(value)
 
+    clv_exclusions = {
+        version: {"in_game": 0, "no_commence": 0, "pending": 0} for version in ("v1", "v2", "v3")
+    }
+    for version, status, count in ledger.conn.execute(
+        "SELECT COALESCE(rules_version,'v1'),clv_status,COUNT(*) FROM fills "
+        "WHERE clv_status IN ('in_game','no_commence','pending') GROUP BY 1,2"
+    ):
+        clv_exclusions.setdefault(str(version), {"in_game": 0, "no_commence": 0, "pending": 0})[
+            str(status)
+        ] = int(count)
     quality = {
         "blocks": recent_blocks,
         "edge_reviews": ledger.conn.execute("SELECT COUNT(*) FROM edge_reviews").fetchone()[0],
@@ -350,6 +364,7 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
         "shadow_decisions": [
             {"version": v, "window": w, "n": n, "would_trade": traded} for v, w, n, traded in shadow
         ],
+        "clv_exclusions": clv_exclusions,
         "maker_gate": {
             "taker_n": gate.taker_n,
             "taker_mean": _num(gate.taker_mean),
@@ -395,7 +410,9 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
         "evaluation_note": "Evaluate at 50 and 100 positions; rankings and neutral-site data are absent.",
     }
     line_move = ledger.conn.execute(
-        "SELECT COUNT(*),SUM(would_trade),COUNT(clv_kalshi),AVG(CAST(clv_kalshi AS REAL)) "
+        "SELECT COUNT(*),SUM(would_trade),"
+        "SUM(CASE WHEN clv_status='ok' AND clv_kalshi IS NOT NULL THEN 1 ELSE 0 END),"
+        "AVG(CASE WHEN clv_status='ok' THEN CAST(clv_kalshi AS REAL) END) "
         "FROM shadow_decisions WHERE strategy='line_move_follower'"
     ).fetchone()
     quality["line_move_follower"] = {
@@ -579,7 +596,8 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
 def _entry_window_clv_summary(ledger: Ledger, version: str, window: str) -> dict[str, object]:
     rows = ledger.conn.execute(
         "SELECT CAST(clv_kalshi AS REAL),CAST(clv_exit AS REAL) FROM shadow_decisions "
-        "WHERE rules_version=? AND window=? AND reason='entry_window' AND clv_kalshi IS NOT NULL",
+        "WHERE rules_version=? AND window=? AND reason='entry_window' "
+        "AND clv_status='ok' AND clv_kalshi IS NOT NULL",
         (version, window),
     ).fetchall()
     clvs = [float(row[0]) for row in rows]
@@ -1016,6 +1034,11 @@ _TEMPLATE = """<!doctype html>
     const perDollar = meanCi(withClv.filter(p => num(p.price) && p.price > 0).map(p => p.clv / 100 / p.price));
     const range = (r, f) => r && r.ci ? f(r.ci[0]) + ' to ' + f(r.ci[1]) : '–';
     const per100 = x => (x >= 0 ? '+$' : '−$') + Math.abs(x * 100).toFixed(2);
+    const excluded = (Q.clv_exclusions || {})[rules] || {};
+    const exclusionNote = '<p class="hint">Excluded from closing-price numbers: ' +
+      String(excluded.in_game || 0) + ' bought after kickoff, ' +
+      String(excluded.no_commence || 0) + ' with no kickoff time, ' +
+      String(excluded.pending || 0) + ' still waiting for a closing price.</p>';
     const rows = [
       ['Per contract (cents)', String(cents ? cents.n : 0), {v: cents ? signedCents(cents.mean) : '–', cls: cents ? tone(cents.mean) : ''}, range(cents, signedCents), cents ? evidenceVerdict(cents.n, cents.ci) : evidenceVerdict(0, null)],
       ['Per $100 bet', String(perDollar ? perDollar.n : 0), {v: perDollar ? per100(perDollar.mean) : '–', cls: perDollar ? tone(perDollar.mean) : ''}, range(perDollar, per100), perDollar ? evidenceVerdict(perDollar.n, perDollar.ci) : evidenceVerdict(0, null)]
@@ -1047,7 +1070,7 @@ _TEMPLATE = """<!doctype html>
             : 'They switch on by themselves once every check below passes, and switch back off if one stops passing.';
       gateHead = '<p class="hint" style="margin-top:14px"><b>Resting orders: ' + (makerOn ? 'on' : 'off') + '.</b> ' + explanation + '</p>';
     }
-    $('evidence').innerHTML = meter('Bets with a closing price', withClv.length) + meter('Finished bets', done.length) +
+    $('evidence').innerHTML = exclusionNote + meter('Bets with a closing price', withClv.length) + meter('Finished bets', done.length) +
       '<div class="tablewrap"><table id="expected"></table></div>' + (windowRows.length ? '<div class="tablewrap"><table id="windows"></table></div>' : '') +
       (G ? gateHead + '<div class="tablewrap"><table id="makergate"></table></div>' : '');
     table('expected', 'Expected return if the Kalshi closing price is the true chance, before fees on the way out.', ['Measure', '#Bets', '#Average', '95% range', 'Verdict'], rows, '');

@@ -96,3 +96,7 @@ The same rule enables an entry window (72h+, 24–72h, 2–24h). In `auto`, make
 1. **Odds API tier:** stay free at 3 runs/day (the default), or pay ~$30/month for 20,000 credits so runs can go to 6–12/day.
 2. **Cadence:** switch `odds_planner=event_driven`. That would allow ~6 runs/day on the free tier, but the estimate rests on only two observed runs.
 3. **Maker-first:** approved; it turns on automatically once the evidence gate above passes and falls back to taker otherwise.
+
+## CLV commencement hygiene
+
+Paper fills and shadow decisions now carry additive `clv_status`, `commence_time_backfill`, and `commence_source` fields. CLV aggregates include only rows marked `ok`; in-game rows, rows with no known commencement, and rows still waiting for a closing price are shown separately in the dashboard. The paper-cycle backfill checks Kalshi event start times first and uses the MLB ticker's Eastern-time start only when a Kalshi event start is unavailable. Other missing events, including NFL and college football, are not inferred from ticker dates. Each row's lookup result is recorded in `clv_commence_attempts`, so failed lookups are not repeated indefinitely. Existing commencement values and scored CLV values are preserved.

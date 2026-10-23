@@ -5,12 +5,112 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from prediction_bot.clv import _quote_at, game_day_target, record_clv
+from prediction_bot.clv import (
+    _quote_at,
+    backfill_clv_commence_times,
+    clv_status,
+    game_day_target,
+    record_clv,
+)
+from prediction_bot.config import Settings
 from prediction_bot.maker_scoring import score_maker_shadows
 from prediction_bot.models import MakerShadowCandidate, OutcomeSide, Signal
 from prediction_bot.paper.ledger import Ledger
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def test_clv_status_rules_and_buffer_boundary() -> None:
+    assert clv_status("2026-10-04T22:21Z", "2026-10-04T20:00Z", 15, True) == "in_game"
+    assert clv_status("2026-10-04T18:00Z", None, 15, True) == "no_commence"
+    assert clv_status("2026-10-01T20:00:00+00:00", "2026-10-04T20:00:00Z", 15, True) == "ok"
+    assert clv_status("2026-10-01T20:00Z", "2026-10-04T20:00Z", 15, False) == "pending"
+    assert clv_status("2026-10-04T19:45Z", "2026-10-04T20:00Z", 15, True) == "in_game"
+    assert clv_status("2026-10-04T19:44:59Z", "2026-10-04T20:00Z", 15, True) == "ok"
+
+
+def test_commence_backfill_prefers_kalshi_and_never_overwrites_existing(tmp_path: Path) -> None:
+    ledger = Ledger(tmp_path / "commence-backfill.sqlite", Decimal("1000"))
+    event_ticker = "KXMLBGAME-26OCT041600SDMIL"
+    missing_mlb_ticker = "KXMLBGAME-26OCT051600CHCSTL-CHC"
+    missing_nfl_event = "KXNFLGAME-26OCT20UNKNOWN"
+    existing_ticker = "KXNFLGAME-26OCT21EXIST-HOME"
+    for ticker, event in (
+        (f"{event_ticker}-MIL", event_ticker),
+        (missing_mlb_ticker, missing_mlb_ticker.rsplit("-", 1)[0]),
+        (f"{missing_nfl_event}-HOME", missing_nfl_event),
+    ):
+        ledger.record_fill(
+            "sportsbook_v1",
+            ticker,
+            OutcomeSide.yes,
+            Decimal("0.5"),
+            Decimal(1),
+            Decimal(0),
+            Decimal("0.6"),
+            rules_version="v1",
+            event_ticker=event,
+        )
+    existing_commence = datetime(2026, 10, 21, 20, tzinfo=timezone.utc)
+    ledger.record_fill(
+        "sportsbook_v1",
+        existing_ticker,
+        OutcomeSide.yes,
+        Decimal("0.5"),
+        Decimal(1),
+        Decimal(0),
+        Decimal("0.6"),
+        rules_version="v1",
+        commence_time=existing_commence,
+    )
+
+    class Events:
+        calls: list[tuple[str, str]] = []
+
+        def get_events(self, *, series_ticker, status, with_nested_markets):  # type: ignore[no-untyped-def]
+            self.calls.append((series_ticker, status))
+            if status == "settled" and series_ticker == "KXMLBGAME":
+                return [
+                    {
+                        "event_ticker": event_ticker,
+                        "start_time": "2026-10-04T20:30:00Z",
+                    }
+                ]
+            if status == "settled" and series_ticker == "KXNFLGAME":
+                return [
+                    {
+                        "event_ticker": "KXNFLGAME-26OCT20FOUND",
+                        "start_time": "2026-10-20T20:00:00Z",
+                    }
+                ]
+            return []
+
+    client = Events()
+    changed = backfill_clv_commence_times(
+        ledger,
+        client,  # type: ignore[arg-type]
+        Settings(_env_file=None),
+        now=datetime(2026, 10, 22, tzinfo=timezone.utc),
+    )
+    rows = {
+        ticker: (commence, backfill, source, status)
+        for ticker, commence, backfill, source, status in ledger.conn.execute(
+            "SELECT ticker,commence_time,commence_time_backfill,commence_source,clv_status "
+            "FROM fills"
+        )
+    }
+
+    assert changed == 2
+    assert rows[f"{event_ticker}-MIL"][2] == "kalshi_event"
+    assert rows[f"{event_ticker}-MIL"][1] == "2026-10-04T20:30:00+00:00"
+    assert rows[missing_mlb_ticker][2] == "mlb_ticker"
+    assert rows[missing_mlb_ticker][3] == "in_game"
+    assert rows[f"{missing_nfl_event}-HOME"][1:] == (None, None, "no_commence")
+    assert rows[existing_ticker][0] == existing_commence.isoformat()
+    assert rows[existing_ticker][1] is None
+    assert rows[existing_ticker][2] is None
+    assert client.calls[0] == ("KXMLBGAME", "settled")
+    assert ("KXMLBGAME", "settled") in client.calls
 
 
 def _response(name: str) -> list[dict[str, object]]:

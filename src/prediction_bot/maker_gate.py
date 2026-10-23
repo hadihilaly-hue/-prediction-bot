@@ -37,7 +37,8 @@ def _ci95(values: list[Decimal]) -> tuple[Decimal, Decimal] | None:
 def evaluate_maker_gate(ledger: Ledger, settings: Settings, rules_version: str = "v3") -> MakerGate:
     rows = ledger.conn.execute(
         "SELECT position_key,clv_kalshi,count,tags FROM fills "
-        "WHERE rules_version=? AND position_key IS NOT NULL AND clv_kalshi IS NOT NULL",
+        "WHERE rules_version=? AND position_key IS NOT NULL AND clv_kalshi IS NOT NULL "
+        "AND clv_status='ok'",
         (rules_version,),
     ).fetchall()
     clvs_by_position: dict[str, list[tuple[Decimal, Decimal]]] = {}
