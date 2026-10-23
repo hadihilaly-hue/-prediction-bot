@@ -73,3 +73,28 @@ def test_series_fee_cache_fails_closed_for_unknown_and_uses_stale_value(tmp_path
         clock=lambda: now,
     )
     assert stale_cache.get("KXNHLGAME") == ("quadratic_with_maker_fees", Decimal("0.5"))
+
+
+def test_series_fee_cache_refreshes_after_24_hours_only_from_successful_fetch(tmp_path) -> None:
+    now = [datetime(2026, 10, 23, tzinfo=timezone.utc)]
+    ledger = Ledger(tmp_path / "refresh-fees.sqlite", Decimal("100"))
+    kalshi = FakeKalshi(
+        [{"ticker": "KXNHLGAME", "fee_type": "quadratic_with_maker_fees", "fee_multiplier": 1}]
+    )
+    cache = SeriesFeeCache(ledger, kalshi, clock=lambda: now[0])  # type: ignore[arg-type]
+
+    assert cache.get("KXNHLGAME") == ("quadratic_with_maker_fees", Decimal(1))
+    first_fetched_at = ledger.get_series_fee("KXNHLGAME")[2]  # type: ignore[index]
+
+    now[0] += timedelta(hours=25)
+    kalshi.fail = True
+    assert cache.get("KXNHLGAME") == ("quadratic_with_maker_fees", Decimal(1))
+    assert ledger.get_series_fee("KXNHLGAME")[2] == first_fetched_at  # type: ignore[index]
+
+    kalshi.fail = False
+    kalshi.series = [
+        {"ticker": "KXNHLGAME", "fee_type": "quadratic_with_maker_fees", "fee_multiplier": 2}
+    ]
+    now[0] += timedelta(hours=1)
+    assert cache.get("KXNHLGAME") == ("quadratic_with_maker_fees", Decimal(2))
+    assert kalshi.calls == 3

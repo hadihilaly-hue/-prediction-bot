@@ -89,6 +89,58 @@ def test_line_move_follower_is_shadow_only_and_uses_previous_snapshots(tmp_path)
     assert tuple(row) == ("line_move_follower", "line_move_follower", 1)
 
 
+def test_line_move_is_not_recorded_after_commence(tmp_path) -> None:
+    commence = "2026-10-22T20:25:00Z"
+    previous_game = odds_event(
+        "kc-lv",
+        "Kansas City Chiefs",
+        "Las Vegas Raiders",
+        commence,
+        {"Kansas City Chiefs": Decimal("0.50"), "Las Vegas Raiders": Decimal("0.50")},
+    )
+    current_game = odds_event(
+        "kc-lv",
+        "Kansas City Chiefs",
+        "Las Vegas Raiders",
+        commence,
+        {"Kansas City Chiefs": Decimal("0.40"), "Las Vegas Raiders": Decimal("0.60")},
+    )
+    ledger = Ledger(tmp_path / "line-move-past.sqlite", Decimal("1000"))
+    ledger.record_consensus(
+        {"odds": {"kc-lv": consensus(previous_game)}},
+        at=datetime(2026, 10, 22, 18, tzinfo=timezone.utc),
+    )
+    markets = [
+        make_market("KXNFLGAME-26OCT22KCLV-KC", "0.49", "0.51", subtitle="Kansas City"),
+        make_market("KXNFLGAME-26OCT22KCLV-LV", "0.49", "0.51", subtitle="Las Vegas"),
+    ]
+    ledger.record_quote_snapshots(
+        [
+            QuoteSnapshot(
+                ticker=market.ticker,
+                event_ticker=market.event_ticker,
+                yes_bid=Decimal("0.49"),
+                yes_ask=Decimal("0.51"),
+                last_price=None,
+                volume=Decimal(0),
+                open_interest=Decimal(0),
+                created_at=datetime(2026, 10, 22, 18, tzinfo=timezone.utc),
+            )
+            for market in markets
+        ]
+    )
+    strategy = SportsbookV2Strategy(
+        Settings(_env_file=None, min_lead_hours=0),
+        FakeOdds([current_game]),
+        ledger=ledger,
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+
+    strategy.evaluate(markets)
+
+    assert not strategy.seen_line_move_decisions()
+
+
 def test_line_move_follower_accounts_for_no_side_movement(tmp_path) -> None:
     commence = "2026-10-25T20:25:00Z"
     previous_game = odds_event(
@@ -273,6 +325,51 @@ def test_road_dog_requires_away_team_attention_and_uses_one_percent_cap(tmp_path
     )
     assert len(signals) == 1
     assert set(signals[0].tags or ()) >= {"value", "exp_road_dog"}
+
+
+def test_road_dog_tag_and_cap_follow_the_selected_leg(tmp_path) -> None:
+    settings = Settings(
+        _env_file=None,
+        min_lead_hours=0,
+        longshot_haircut="none",
+        max_gross_edge=Decimal("0.40"),
+        v2_min_net_edge=Decimal(0),
+        exp_road_dog_rivalries=["Kansas City Chiefs vs Las Vegas Raiders"],
+    )
+    game = odds_event(
+        "kc-lv",
+        "Kansas City Chiefs",
+        "Las Vegas Raiders",
+        "2026-10-25T20:25:00Z",
+        {"Kansas City Chiefs": Decimal("0.60"), "Las Vegas Raiders": Decimal("0.40")},
+    )
+    strategy = SportsbookV2Strategy(
+        settings,
+        FakeOdds([game]),
+        ledger=Ledger(tmp_path / "road-dog-selected-leg.sqlite", Decimal("1000")),
+        clock=fixed_clock("2026-10-20T20:25:00Z"),
+    )
+
+    signals = strategy.evaluate(
+        [
+            make_market(
+                "KXNFLGAME-26OCT25KCLV-KC",
+                "0.86",
+                "0.88",
+                subtitle="Kansas City",
+            ),
+            make_market(
+                "KXNFLGAME-26OCT25KCLV-LV",
+                "0.19",
+                "0.20",
+                subtitle="Las Vegas",
+            ),
+        ]
+    )
+
+    assert len(signals) == 1
+    assert signals[0].side is OutcomeSide.no
+    assert "exp_road_dog" not in (signals[0].tags or ())
 
 
 def test_nba_is_disabled_by_default_in_v2(tmp_path) -> None:

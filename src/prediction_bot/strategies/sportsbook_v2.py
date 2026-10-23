@@ -661,7 +661,8 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             )
             return None
         assert refreshed_market is not None and refreshed_fair is not None
-        yes_fair = refreshed_fair if side is OutcomeSide.yes else Decimal(1) - refreshed_fair
+        capped_side_fair = min(side_fair, refreshed_fair)
+        yes_fair = capped_side_fair if side is OutcomeSide.yes else Decimal(1) - capped_side_fair
         return refreshed_market, yes_fair
 
     def evaluate(self, markets: Sequence[Market]) -> list[Signal]:
@@ -740,7 +741,19 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             if not games:
                 self._block("no_odds_match", event_ticker, legs[0].ticker)
                 continue
+            if len(games) > 1 and series == "KXMLBGAME":
+                ticker_start = _ticker_start_et(event_ticker)
+                if ticker_start is not None:
+                    games = [
+                        game
+                        for game in games
+                        if (game_start := _parse_time(game.commence_time)) is not None
+                        and abs(game_start.astimezone(ET) - ticker_start) <= timedelta(minutes=60)
+                    ]
             if len(games) > 1:
+                self._block("ambiguous_match", event_ticker, legs[0].ticker)
+                continue
+            if not games:
                 self._block("ambiguous_match", event_ticker, legs[0].ticker)
                 continue
             game = games[0]
@@ -764,9 +777,6 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             if total < Decimal("0.98") or total > Decimal("1.02"):
                 self._block("mapping_sum", event_ticker, legs[0].ticker, str(total))
                 continue
-            self._record_line_move(
-                event_ticker, game, legs, ids_by_ticker, names_by_id, commence, now
-            )
             if sport in self.settings.v2_disabled_sports:
                 self._block("league_disabled", event_ticker, legs[0].ticker, sport)
                 continue
@@ -790,6 +800,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 if any(reason != "entry_window" for reason, _ in gate_reasons):
                     continue
                 entry_window_events.add(event_ticker)
+            self._record_line_move(
+                event_ticker, game, legs, ids_by_ticker, names_by_id, commence, now
+            )
             if self.fee_cache is None:
                 self._block("fee_unknown", event_ticker, legs[0].ticker, series)
                 continue
@@ -1045,11 +1058,19 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             commence_time=sized_shadow.commence_time,
                         )
                     )
-            trade_candidates = [
-                sig
-                for sig in signals
-                if sig.spread is not None and sig.spread <= self.settings.v2_max_spread
-            ]
+            trade_candidates = sorted(
+                (
+                    sig
+                    for sig in signals
+                    if sig.spread is not None and sig.spread <= self.settings.v2_max_spread
+                ),
+                key=lambda sig: (
+                    sig.limit_price
+                    + taker_fee_rate(sig.limit_price, sig.fee_multiplier or Decimal(0)),
+                    0 if sig.side is OutcomeSide.yes else 1,
+                    sig.ticker,
+                ),
+            )
             if not trade_candidates:
                 self._block(
                     "wide_spread",
@@ -1060,27 +1081,18 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     else "missing bid",
                 )
             else:
-                selected = min(
-                    trade_candidates,
-                    key=lambda sig: (
-                        sig.limit_price
-                        + taker_fee_rate(sig.limit_price, sig.fee_multiplier or Decimal(0)),
-                        0 if sig.side is OutcomeSide.yes else 1,
-                        sig.ticker,
-                    ),
-                )
-                combined_tags = {
-                    tag for candidate in trade_candidates for tag in (candidate.tags or ())
-                }
-                selected = replace(selected, tags=tuple(sorted(combined_tags)))
-                sized = self._size_v2_signal(
-                    selected,
-                    reserved_position=reserved_position,
-                    reserved_event=reserved_event,
-                    reserved_day=reserved_day,
-                    reserved_total=reserved_total,
-                    reserved_cash=reserved_cash,
-                )
+                sized = None
+                for candidate in trade_candidates:
+                    sized = self._size_v2_signal(
+                        candidate,
+                        reserved_position=reserved_position,
+                        reserved_event=reserved_event,
+                        reserved_day=reserved_day,
+                        reserved_total=reserved_total,
+                        reserved_cash=reserved_cash,
+                    )
+                    if sized is not None:
+                        break
                 if sized is not None:
                     if sized.event_ticker in entry_window_events:
                         self._entry_window_decisions.append(sized)

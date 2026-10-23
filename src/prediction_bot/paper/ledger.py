@@ -120,8 +120,6 @@ CREATE TABLE IF NOT EXISTS maker_shadow (
     clv_kalshi TEXT,
     clv_gameday TEXT
 );
-CREATE UNIQUE INDEX IF NOT EXISTS maker_shadow_position_key
-    ON maker_shadow(position_key);
 CREATE TABLE IF NOT EXISTS settlements (
     ticker TEXT PRIMARY KEY,
     settled_at TEXT NOT NULL,
@@ -212,6 +210,12 @@ CREATE TABLE IF NOT EXISTS closing_quotes (
     fetched_at TEXT NOT NULL,
     source TEXT NOT NULL,
     PRIMARY KEY (ticker, commence_time, t_minus_min)
+);
+CREATE TABLE IF NOT EXISTS clv_fetch_attempts (
+    ticker TEXT PRIMARY KEY,
+    attempts INTEGER NOT NULL,
+    last_attempt_at TEXT NOT NULL,
+    status TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS shadow_decisions (
     id INTEGER PRIMARY KEY,
@@ -346,6 +350,11 @@ class Ledger:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(self.path))
         self.conn.executescript(SCHEMA)
+        self.conn.execute("DROP INDEX IF EXISTS maker_shadow_position_key")
+        self.conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS maker_shadow_position_key "
+            "ON maker_shadow(position_key) WHERE status='open'"
+        )
         for table, columns in {
             "signals": {
                 "rules_version": "TEXT",
@@ -724,10 +733,11 @@ class Ledger:
         return sorted({p.ticker for p in self.positions()})
 
     def unsettled_tickers(self) -> list[str]:
-        """Tickers with any fill *or* signal that Kalshi has not yet been seen to resolve."""
+        """Tickers with fills, signals, or filled shadows not yet seen to resolve."""
         rows = self.conn.execute(
             "SELECT DISTINCT t FROM (SELECT ticker AS t FROM fills UNION"
-            " SELECT ticker FROM signals) WHERE t NOT IN (SELECT ticker FROM settlements)"
+            " SELECT ticker FROM signals UNION SELECT ticker FROM maker_shadow"
+            " WHERE status='filled') WHERE t NOT IN (SELECT ticker FROM settlements)"
             " ORDER BY t"
         ).fetchall()
         return [r[0] for r in rows]

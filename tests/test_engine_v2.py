@@ -59,6 +59,26 @@ def test_v2_position_cap_applies_across_cycles(settings, tmp_path) -> None:  # t
     assert ledger.conn.execute("SELECT reason FROM blocks").fetchone()[0] == "cap_position"
 
 
+def test_book_scanner_signals_are_not_recorded_as_v2_shadow(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "scanner-shadow.sqlite", Decimal("100"))
+    signal = Signal(
+        strategy="book_scanner",
+        ticker="KXNFLGAME-26OCT25KCLV-LV",
+        side=OutcomeSide.yes,
+        fair_prob=Decimal("0.60"),
+        limit_price=Decimal("0.50"),
+        edge=Decimal("0.10"),
+        size=Decimal(0),
+        rules_version="v2",
+    )
+
+    Engine(
+        settings, object(), [FixedSignals(settings, [signal], name="book_scanner")], ledger
+    ).run_cycle([])
+
+    assert ledger.conn.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0] == 0
+
+
 def test_v2_blocks_opposite_position_in_same_event(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
     ledger = Ledger(tmp_path / "opposite.sqlite", Decimal("1000"))
     first = v2_signal()

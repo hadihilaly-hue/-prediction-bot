@@ -82,30 +82,39 @@ class Engine:
             except Exception:  # keep other strategies alive
                 log.exception("strategy %s failed", strat.name)
         for sig in res.signals:
-            version = sig.rules_version or self.settings.rules_version
-            self.ledger.record_shadow_decision(sig, version)
+            if sig.strategy != "book_scanner" and sig.rules_version is not None:
+                self.ledger.record_shadow_decision(sig, sig.rules_version)
         for strat in self.strategies:
             get = getattr(strat, "seen_shadow_decisions", None)
             if get is not None:
                 for sig in get():
-                    self.ledger.record_shadow_decision(sig, "v2", reason="entry_window")
+                    if sig.strategy != "book_scanner":
+                        self.ledger.record_shadow_decision(sig, "v2", reason="entry_window")
             get_line_moves = getattr(strat, "seen_line_move_decisions", None)
             if get_line_moves is not None:
                 for sig in get_line_moves():
-                    self.ledger.record_shadow_decision(sig, "v2", reason="line_move_follower")
+                    if sig.strategy != "book_scanner":
+                        self.ledger.record_shadow_decision(sig, "v2", reason="line_move_follower")
         for strat in self.shadow_strategies:
             try:
                 for sig in strat.evaluate(markets):
-                    version = sig.rules_version or ("v2" if strat.name == "sportsbook_v2" else "v1")
-                    self.ledger.record_shadow_decision(sig, version)
+                    if sig.strategy != "book_scanner":
+                        version = sig.rules_version or (
+                            "v2" if strat.name == "sportsbook_v2" else "v1"
+                        )
+                        self.ledger.record_shadow_decision(sig, version)
                 get = getattr(strat, "seen_shadow_decisions", None)
                 if get is not None:
                     for sig in get():
-                        self.ledger.record_shadow_decision(sig, "v2", reason="entry_window")
+                        if sig.strategy != "book_scanner":
+                            self.ledger.record_shadow_decision(sig, "v2", reason="entry_window")
                 get_line_moves = getattr(strat, "seen_line_move_decisions", None)
                 if get_line_moves is not None:
                     for sig in get_line_moves():
-                        self.ledger.record_shadow_decision(sig, "v2", reason="line_move_follower")
+                        if sig.strategy != "book_scanner":
+                            self.ledger.record_shadow_decision(
+                                sig, "v2", reason="line_move_follower"
+                            )
             except Exception:
                 log.exception("shadow strategy %s failed", strat.name)
         for method_name, write in (

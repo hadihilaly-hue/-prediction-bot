@@ -6,6 +6,46 @@ import pytest
 import typer
 
 from prediction_bot.cli import _validate_order
+from prediction_bot.config import Settings
+from prediction_bot.engine import CycleResult
+
+
+def test_v1_paper_does_not_implicitly_add_v2_shadow(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import prediction_bot.cli as cli
+
+    settings = Settings(
+        _env_file=None,
+        rules_version="v1",
+        shadow_strategies=[],
+        paper_db_path=str(tmp_path / "paper.sqlite"),
+    )
+    requested: list[list[str]] = []
+
+    class EngineStub:
+        def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
+            pass
+
+        def settle_open_positions(self):  # type: ignore[no-untyped-def]
+            return {}
+
+        def run_cycle(self, markets):  # type: ignore[no-untyped-def]
+            return CycleResult()
+
+    monkeypatch.setattr(cli, "_settings", lambda: settings)
+    monkeypatch.setattr(cli, "_client", lambda _settings: object())
+    monkeypatch.setattr(cli, "_odds_client", lambda _settings: None)
+    monkeypatch.setattr(
+        cli,
+        "_strategies",
+        lambda _settings, names, *args, **kwargs: requested.append(list(names)) or [],
+    )
+    monkeypatch.setattr(cli, "_fetch", lambda _client, _series: [])
+    monkeypatch.setattr(cli, "Engine", EngineStub)
+    monkeypatch.setattr(cli, "record_clv", lambda *args, **kwargs: 0)
+
+    cli.paper(strategy=["sportsbook_arb"], cycles=1)
+
+    assert requested == [["sportsbook_arb"], []]
 
 
 @pytest.mark.parametrize(

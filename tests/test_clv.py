@@ -52,6 +52,12 @@ def test_appendix_d_game_day_quotes_match_recorded_kalshi_fixtures() -> None:
         assert (FIXTURES / f"clv_{name}.json").stat().st_size < 30_000
 
 
+def test_game_day_target_uses_known_commence_et_date() -> None:
+    commence = datetime(2026, 10, 5, 4, 5, tzinfo=timezone.utc)
+    target = game_day_target("KXMLBGAME-26OCT042300NYKBOS", commence)
+    assert target == datetime(2026, 10, 5, 14, tzinfo=timezone.utc)
+
+
 def test_quote_at_rejects_missing_crossed_and_impossible_quotes() -> None:
     target = datetime(2026, 10, 10, 14, tzinfo=timezone.utc)
     cases = [
@@ -166,6 +172,146 @@ def test_record_clv_persists_tminus_and_side_adjusted_values(tmp_path: Path) -> 
     assert client.calls == 1
 
 
+def test_record_clv_matches_z_snapshot_to_utc_fill_commence(tmp_path: Path) -> None:
+    commence = datetime(2026, 10, 20, 20, tzinfo=timezone.utc)
+    ticker = "KXNFLGAME-26OCT20KCLV-LV"
+    ledger = Ledger(tmp_path / "clv-z-snapshot.sqlite", Decimal("100"))
+    ledger.record_fill(
+        "sportsbook_v2",
+        ticker,
+        OutcomeSide.yes,
+        Decimal("0.50"),
+        Decimal(1),
+        Decimal(0),
+        Decimal("0.65"),
+        rules_version="v2",
+        event_ticker="KXNFLGAME-26OCT20KCLV",
+        commence_time=commence,
+    )
+    ledger.conn.execute(
+        "INSERT INTO odds_snapshots "
+        "(created_at,feed,event_id,home_team,away_team,commence_time,team,prob,books_used) "
+        "VALUES (?,?,?,?,?,?,?,?,?)",
+        (
+            (commence - timedelta(hours=1)).isoformat(),
+            "oddsapi",
+            "event-id",
+            "Kansas City Chiefs",
+            "Las Vegas Raiders",
+            commence.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "Las Vegas Raiders",
+            "0.70",
+            1,
+        ),
+    )
+    ledger.conn.commit()
+
+    class EmptyCandles:
+        def get_candlesticks(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            return []
+
+    record_clv(ledger, EmptyCandles(), now=commence + timedelta(hours=1))  # type: ignore[arg-type]
+    line_move = ledger.conn.execute("SELECT line_move_since_entry FROM fills").fetchone()[0]
+    assert Decimal(line_move) == Decimal("0.05")
+
+
+def test_record_clv_retries_failed_tickers_and_marks_unavailable_after_three(
+    tmp_path: Path,
+) -> None:
+    commence = datetime(2026, 10, 20, 20, tzinfo=timezone.utc)
+    ledger = Ledger(tmp_path / "clv-attempts.sqlite", Decimal("100"))
+    for index in range(51):
+        day = 22 if index < 50 else 23
+        start = datetime(2026, 10, day, 20, tzinfo=timezone.utc)
+        event = f"KXNFLGAME-26OCT{day:02d}EV{index:02d}"
+        ledger.record_fill(
+            "sportsbook_v2",
+            f"{event}-LV",
+            OutcomeSide.yes,
+            Decimal("0.50"),
+            Decimal(1),
+            Decimal(0),
+            Decimal("0.65"),
+            rules_version="v2",
+            event_ticker=event,
+            commence_time=start,
+        )
+
+    class EmptyCandles:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def get_candlesticks(self, series, ticker, *args, **kwargs):  # type: ignore[no-untyped-def]
+            self.calls.append(ticker)
+            return []
+
+    client = EmptyCandles()
+    now = datetime(2026, 10, 24, tzinfo=timezone.utc)
+    record_clv(ledger, client, now=now, max_calls=50)  # type: ignore[arg-type]
+    assert "KXNFLGAME-26OCT23EV50-LV" in client.calls
+
+    single = Ledger(tmp_path / "clv-unavailable.sqlite", Decimal("100"))
+    single.record_fill(
+        "sportsbook_v2",
+        "KXNFLGAME-26OCT20KCLV-LV",
+        OutcomeSide.yes,
+        Decimal("0.50"),
+        Decimal(1),
+        Decimal(0),
+        Decimal("0.65"),
+        rules_version="v2",
+        event_ticker="KXNFLGAME-26OCT20KCLV",
+        commence_time=commence,
+    )
+    for _ in range(3):
+        record_clv(single, client, now=now, max_calls=1)  # type: ignore[arg-type]
+    status = single.conn.execute(
+        "SELECT status FROM clv_fetch_attempts WHERE ticker=?",
+        ("KXNFLGAME-26OCT20KCLV-LV",),
+    ).fetchone()[0]
+    calls_before = len(client.calls)
+    record_clv(single, client, now=now, max_calls=1)  # type: ignore[arg-type]
+    assert status == "unavailable"
+    assert len(client.calls) == calls_before
+
+
+def test_line_move_shadow_clv_does_not_require_settlement(tmp_path: Path) -> None:
+    commence = datetime(2026, 10, 20, 20, tzinfo=timezone.utc)
+    ticker = "KXNFLGAME-26OCT20KCLV-LV"
+    event = "KXNFLGAME-26OCT20KCLV"
+    ledger = Ledger(tmp_path / "line-move-clv.sqlite", Decimal("100"))
+    ledger.record_shadow_decision(
+        Signal(
+            strategy="line_move_follower",
+            ticker=ticker,
+            side=OutcomeSide.yes,
+            fair_prob=Decimal("0.60"),
+            limit_price=Decimal("0.50"),
+            edge=Decimal("0.10"),
+            size=Decimal(1),
+            created_at=commence - timedelta(hours=1),
+            commence_time=commence,
+            event_ticker=event,
+        ),
+        "v2",
+        reason="line_move_follower",
+    )
+
+    class Candles:
+        def get_candlesticks(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            return [
+                {
+                    "end_period_ts": int((commence - timedelta(minutes=5)).timestamp()),
+                    "yes_bid": {"close_dollars": "0.59"},
+                    "yes_ask": {"close_dollars": "0.61"},
+                }
+            ]
+
+    record_clv(ledger, Candles(), now=commence + timedelta(hours=1))  # type: ignore[arg-type]
+    value = ledger.conn.execute("SELECT clv_kalshi FROM shadow_decisions").fetchone()[0]
+    assert Decimal(value) == Decimal("10.0")
+
+
 def test_record_clv_caps_candlestick_calls_per_run(tmp_path: Path) -> None:
     commence = datetime(2026, 10, 20, 20, tzinfo=timezone.utc)
     ledger = Ledger(tmp_path / "call-cap.sqlite", Decimal("1000"))
@@ -256,8 +402,8 @@ def test_record_clv_skips_failed_ticker_and_retries_it(tmp_path: Path) -> None:
     assert client.calls == [
         tickers[0][0],
         tickers[1][0],
-        tickers[0][0],
         tickers[2][0],
+        tickers[0][0],
     ]
 
 

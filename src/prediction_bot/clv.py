@@ -44,7 +44,11 @@ def _quote_at(
     )
 
 
-def game_day_target(event_ticker: str) -> datetime | None:
+def game_day_target(event_ticker: str, commence: datetime | None = None) -> datetime | None:
+    if commence is not None:
+        return datetime.combine(commence.astimezone(ET).date(), time(10), ET).astimezone(
+            timezone.utc
+        )
     day, _, _ = parse_event(event_ticker)
     if day is None:
         return None
@@ -75,9 +79,18 @@ def record_clv(
         "SELECT d.id,d.ticker,d.side,d.price,d.size,d.commence_time,"
         "'',s.ticker,d.fair "
         "FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
-        "WHERE d.strategy='line_move_follower' AND s.ticker IS NOT NULL "
+        "WHERE d.strategy='line_move_follower' AND d.commence_time IS NOT NULL "
         "AND d.clv_kalshi IS NULL ORDER BY d.id"
     ).fetchall()
+    commenced_line_moves = []
+    for row in line_move_rows:
+        try:
+            commence_at = datetime.fromisoformat(str(row[5]).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if commence_at.astimezone(timezone.utc) <= now.astimezone(timezone.utc):
+            commenced_line_moves.append(row)
+    line_move_rows = commenced_line_moves
     candidates: dict[str, list[tuple[Any, ...]]] = {}
     entries = (
         [("fills", row) for row in fill_rows]
@@ -131,12 +144,32 @@ def record_clv(
             )
         )
 
+    attempts_by_ticker = {
+        str(ticker): (int(attempts), str(status))
+        for ticker, attempts, status in ledger.conn.execute(
+            "SELECT ticker,attempts,status FROM clv_fetch_attempts"
+        )
+    }
+    ordered_candidates = sorted(
+        candidates.items(),
+        key=lambda item: (
+            attempts_by_ticker.get(item[0], (0, "pending"))[0] > 0,
+            -max(
+                (fill[5].timestamp() for fill in item[1] if fill[5] is not None),
+                default=0,
+            ),
+        ),
+    )
     calls = 0
-    for ticker, fills in candidates.items():
+    for ticker, fills in ordered_candidates:
+        attempts = attempts_by_ticker.get(ticker, (0, "pending"))[0]
+        if attempts_by_ticker.get(ticker, (0, "pending"))[1] == "unavailable":
+            continue
+        attempt_number: int | None = None
         try:
             commence = next((fill[5] for fill in fills if fill[5] is not None), None)
             event = fills[0][6]
-            gameday = game_day_target(event)
+            gameday = game_day_target(event, commence)
             cached = {
                 int(row[0])
                 for row in ledger.conn.execute(
@@ -167,6 +200,15 @@ def record_clv(
                     end = max(targets) + timedelta(minutes=1)
                 series = event.split("-", 1)[0]
                 calls += 1
+                attempt_number = attempts + 1
+                ledger.conn.execute(
+                    "INSERT INTO clv_fetch_attempts(ticker,attempts,last_attempt_at,status) "
+                    "VALUES (?,?,?,'pending') ON CONFLICT(ticker) DO UPDATE SET "
+                    "attempts=excluded.attempts,last_attempt_at=excluded.last_attempt_at,"
+                    "status='pending'",
+                    (ticker, attempt_number, now.astimezone(timezone.utc).isoformat()),
+                )
+                ledger.conn.commit()
                 candles = kalshi.get_candlesticks(
                     series,
                     ticker,
@@ -180,10 +222,12 @@ def record_clv(
                 )
                 if gameday is not None:
                     quote_targets.append((-1, gameday))
+                usable_quotes = 0
                 for t_minus, target in quote_targets:
                     quote = _quote_at(candles, target)
                     if quote is None:
                         continue
+                    usable_quotes += 1
                     _, bid, ask, mid = quote
                     ledger.conn.execute(
                         "INSERT OR REPLACE INTO closing_quotes "
@@ -201,6 +245,11 @@ def record_clv(
                             SOURCE,
                         ),
                     )
+                if usable_quotes == 0 and attempt_number >= 3:
+                    ledger.conn.execute(
+                        "UPDATE clv_fetch_attempts SET status='unavailable' WHERE ticker=?",
+                        (ticker,),
+                    )
                 ledger.conn.commit()
 
             for table, fill_id, side, price, _, fill_start, _, version, fair in fills:
@@ -211,8 +260,10 @@ def record_clv(
                     sport = KALSHI_SERIES_TO_SPORT.get(series)
                     if team and sport:
                         snapshots = ledger.conn.execute(
-                            "SELECT prob,team FROM odds_snapshots WHERE commence_time=? "
-                            "AND created_at<? ORDER BY created_at DESC,id DESC",
+                            "SELECT prob,team FROM odds_snapshots "
+                            "WHERE julianday(commence_time)=julianday(?) "
+                            "AND julianday(created_at)<julianday(?) "
+                            "ORDER BY created_at DESC,id DESC",
                             (fill_start.isoformat(), fill_start.isoformat()),
                         ).fetchall()
                         snapshot = next(
@@ -281,5 +332,11 @@ def record_clv(
             ledger.conn.commit()
         except Exception:
             ledger.conn.rollback()
+            if attempt_number is not None:
+                ledger.conn.execute(
+                    "UPDATE clv_fetch_attempts SET status=? WHERE ticker=?",
+                    ("unavailable" if attempt_number >= 3 else "pending", ticker),
+                )
+                ledger.conn.commit()
             log.exception("Failed to record CLV for ticker %s; it will be retried next run", ticker)
     return calls

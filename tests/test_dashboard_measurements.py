@@ -82,6 +82,11 @@ def test_dashboard_measurements_are_position_based(tmp_path) -> None:  # type: i
     assert measurement["quality"]["odds_used"] == 2
     assert measurement["quality"]["odds_remaining"] == 10
 
+    ledger.record_run(["book_scanner"], 1, 0, 0, 0)
+    latest_measurement = dashboard_data(ledger)["measurement"]
+    assert latest_measurement["quality"]["odds_used"] == 2
+    assert latest_measurement["quality"]["odds_remaining"] == 10
+
 
 def test_dashboard_renders_captioned_measurement_tables(tmp_path) -> None:  # type: ignore[no-untyped-def]
     ledger = Ledger(tmp_path / "dashboard-render.sqlite", Decimal("1000"))

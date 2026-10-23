@@ -160,10 +160,6 @@ def paper(
         per_day = s.odds_runs_per_day if cycles == 1 else 86400 / max(interval, 1)
         pacer = OddsPacer(odds, max(per_day, s.odds_runs_per_day))
     shadow_names = list(s.shadow_strategies)
-    if s.rules_version == "v1" and any(
-        name in {"sportsbook_arb", "underdog_value", "sportsbook_v2"} for name in strategy
-    ):
-        shadow_names.append("sportsbook_v2")
     shadow_strategies = _strategies(s, shadow_names, odds, client, ledger)
     engine = Engine(
         s,
