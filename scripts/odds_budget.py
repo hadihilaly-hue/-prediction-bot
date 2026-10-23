@@ -11,6 +11,9 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from prediction_bot.config import Settings
+from prediction_bot.feed_selection import compute_feed_stats_from_connection, eligible
+from prediction_bot.odds import KALSHI_SERIES_TO_OUTRIGHT, KALSHI_SERIES_TO_SPORT
 from prediction_bot.odds_planner import PlannedGame, plan_odds_pulls
 
 MONTH_DAYS = 30.4375
@@ -91,6 +94,156 @@ def _cumulative_deltas(
             continue
         deltas.append((run_id, previous[0], ran_at, delta))
     return deltas
+
+
+def _canonical_feed(feed: str) -> str:
+    return feed.removeprefix("outrights:")
+
+
+def _run_windows(
+    runs: Sequence[tuple[int, datetime, int]],
+) -> list[tuple[int, int | None, datetime, datetime, int | None, str]]:
+    previous_by_month: dict[str, tuple[int, datetime, int]] = {}
+    windows: list[tuple[int, int | None, datetime, datetime, int | None, str]] = []
+    for run_id, ran_at, cumulative in sorted(runs, key=lambda row: (row[1], row[0])):
+        utc_run = ran_at.astimezone(timezone.utc)
+        month = utc_run.strftime("%Y-%m")
+        previous = previous_by_month.get(month)
+        month_start = utc_run.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if previous is None:
+            start_at = month_start
+            previous_id = None
+            delta = None
+            status = "first run of month"
+        else:
+            previous_id, start_at, previous_cumulative = previous
+            delta = cumulative - previous_cumulative
+            status = "month reset" if delta < 0 else "ok"
+            if delta < 0:
+                delta = None
+        windows.append((run_id, previous_id, start_at, utc_run, delta, status))
+        previous_by_month[month] = (run_id, utc_run, cumulative)
+    return windows
+
+
+def _feed_report_sections(
+    path: Path,
+    runs: Sequence[tuple[int, datetime, int]],
+    since: datetime,
+    now: datetime,
+) -> str:
+    uri = f"{path.resolve().as_uri()}?mode=ro"
+    with sqlite3.connect(uri, uri=True) as conn:
+        snapshots = [
+            (_utc(str(created_at)), _canonical_feed(str(feed)))
+            for created_at, feed in conn.execute("SELECT created_at,feed FROM odds_snapshots")
+        ]
+        table_names = {
+            str(row[0]) for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        feed_pulls: list[tuple[datetime, str, int]] = []
+        if "feed_pulls" in table_names:
+            feed_pulls = [
+                (_utc(str(created_at)), _canonical_feed(str(feed)), int(candidates))
+                for created_at, feed, candidates in conn.execute(
+                    "SELECT created_at,feed,candidates FROM feed_pulls"
+                )
+            ]
+        blocks = [
+            (_utc(str(created_at)), str(event_ticker or ""))
+            for created_at, event_ticker in conn.execute(
+                "SELECT created_at,event_ticker FROM blocks WHERE reason='net_edge'"
+            )
+        ]
+        signals = [
+            (_utc(str(created_at)), str(event_ticker or ""))
+            for created_at, event_ticker in conn.execute(
+                "SELECT created_at,event_ticker FROM signals"
+            )
+        ]
+        report_windows = [window for window in _run_windows(runs) if window[3] >= since]
+        feeds_by_run: dict[int, set[str]] = {}
+        for run_id, _previous_id, start_at, end_at, _delta, _status in report_windows:
+            feeds_by_run[run_id] = {
+                feed for created_at, feed in snapshots if start_at < created_at <= end_at
+            }
+
+        lines = [
+            "credits per run by feed (distinct odds_snapshots.feed in (previous run, current run]):",
+            "run_id,previous_run_id,credits,feeds",
+        ]
+        for run_id, previous_id, _start_at, _end_at, delta, status in report_windows:
+            credits = str(delta) if delta is not None else f"n/a ({status})"
+            feeds = "|".join(sorted(feeds_by_run[run_id])) or "none"
+            lines.append(
+                f"{run_id},{previous_id if previous_id is not None else 'none'},{credits},{feeds}"
+            )
+
+        recent_pulls = [row for row in feed_pulls if since <= row[0] <= now]
+        useful_pulls: Counter[str] = Counter()
+        total_pulls: Counter[str] = Counter()
+        if recent_pulls:
+            source = "feed_pulls"
+            for _created_at, feed, candidates in recent_pulls:
+                total_pulls[feed] += 1
+                useful_pulls[feed] += int(candidates > 0)
+        else:
+            source = "blocks+signals reconstructed per run window"
+            series_to_feed = {**KALSHI_SERIES_TO_SPORT, **KALSHI_SERIES_TO_OUTRIGHT}
+            for run_id, _previous_id, start_at, end_at, _delta, _status in report_windows:
+                candidates: Counter[str] = Counter()
+                for created_at, event_ticker in blocks:
+                    if start_at < created_at <= end_at and event_ticker:
+                        feed = series_to_feed.get(event_ticker.split("-", 1)[0])
+                        if feed:
+                            candidates[feed] += 1
+                for created_at, event_ticker in signals:
+                    if start_at < created_at <= end_at and event_ticker:
+                        feed = series_to_feed.get(event_ticker.split("-", 1)[0])
+                        if feed:
+                            candidates[feed] += 1
+                for feed in feeds_by_run[run_id]:
+                    total_pulls[feed] += 1
+                    useful_pulls[feed] += int(candidates[feed] > 0)
+        lines.extend(
+            [
+                f"useful-pull ratio per feed (source: {source}; lookback starts {since.isoformat()}):",
+                "feed,pulls,useful_pulls,ratio",
+            ]
+        )
+        for feed in sorted(total_pulls):
+            pulls = total_pulls[feed]
+            ratio = useful_pulls[feed] / pulls if pulls else 0.0
+            lines.append(f"{feed},{pulls},{useful_pulls[feed]},{ratio:.3f}")
+        if not total_pulls:
+            lines.append("none")
+
+        stats_cutoff = now - timedelta(days=14)
+        stat_feeds = sorted(
+            {feed for created_at, feed in snapshots if stats_cutoff <= created_at <= now}
+            | {
+                feed
+                for created_at, feed, _candidates in feed_pulls
+                if stats_cutoff <= created_at <= now
+            }
+        )
+        stats = compute_feed_stats_from_connection(conn, stat_feeds, now)
+        settings = Settings(_env_file=None, rules_version="v3", min_lead_hours=72)
+        lines.extend(
+            [
+                "feed stats and eligibility (nearest-rank percentiles; min_lead_hours=72):",
+                "feed,lead_p50_h,lead_p90_h,provisional,pulls_14d,useful_pulls_14d,eligible",
+            ]
+        )
+        for feed, stat in sorted(stats.items()):
+            lines.append(
+                f"{feed},{stat.lead_p50_h:.1f},{stat.lead_p90_h:.1f},"
+                f"{int(stat.provisional)},{stat.pulls_14d},{stat.useful_pulls_14d},"
+                f"{int(eligible(stat, settings))}"
+            )
+        if not stats:
+            lines.append("none")
+    return "\n".join(lines)
 
 
 def _estimate(
@@ -235,6 +388,7 @@ def main() -> None:
     print(f"Ledger input: {args.ledger.resolve()}")
     print(f"Lookback: {max(1, args.days)} days; cutoff={since.isoformat()}")
     _estimate(events, runs, since)
+    print(_feed_report_sections(args.ledger, runs, since, datetime.now(timezone.utc)))
 
 
 if __name__ == "__main__":

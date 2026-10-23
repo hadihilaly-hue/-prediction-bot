@@ -14,6 +14,7 @@ ENTRY_WINDOW = timedelta(hours=72)
 class PlannedGame:
     kickoff: datetime
     large_gap_pending: bool = False
+    event_ticker: str = ""
 
 
 def _utc(value: datetime) -> datetime:

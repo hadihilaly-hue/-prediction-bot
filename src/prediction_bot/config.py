@@ -58,6 +58,14 @@ class Settings(BaseSettings):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
+    @field_validator("odds_bookmakers")
+    @classmethod
+    def require_odds_bookmakers(cls, value: list[str]) -> list[str]:
+        bookmakers = [book.strip() for book in value if book.strip()]
+        if not bookmakers:
+            raise ValueError("odds_bookmakers must contain at least one bookmaker")
+        return bookmakers
+
     # V2 correctness gates
     kickoff_buffer_minutes: dict[str, int] = Field(
         default_factory=lambda: {
@@ -136,6 +144,7 @@ class Settings(BaseSettings):
     odds_runs_per_day: float = 0
     odds_lookahead_hours: float = 36
     odds_planner: Literal["fixed", "event_driven"] = "fixed"
+    odds_feed_selection: Literal["lead_aware", "legacy"] = "lead_aware"
 
     # Paper trading
     paper_db_path: Path = Path("data/paper.sqlite")

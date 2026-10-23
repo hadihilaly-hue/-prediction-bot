@@ -53,7 +53,7 @@ jobs:
           PBOT_MAX_DAILY_LOSS: ${{ vars.PBOT_MAX_DAILY_LOSS || '50' }}
           PBOT_ODDS_API_KEY: ${{ secrets.PBOT_ODDS_API_KEY }}
           # Three sportsbook slots a day: each spends only its share of the free-tier quota
-          # left this month, on the leagues with the most games in the next 36h.
+          # left this month, on feeds whose games can clear min_lead_hours.
           PBOT_ODDS_RUNS_PER_DAY: "3"
           # github.event.schedule is the cron expression that fired, so slot selection is
           # immune to delayed starts; manual runs always include the sportsbook strategy.
