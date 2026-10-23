@@ -72,4 +72,12 @@ For MLB, observed `rules_primary` included a scheduled start-time string (e.g. â
 - Paper exposure is per strategy, allowing both sportsbook strategies to stack the same outcome (`src/prediction_bot/engine.py:Engine._exposure`, `_admissible`).
 - Fees are not series-specific (`src/prediction_bot/engine.py:Engine._fee_multiplier`).
 - One devig method (multiplicative) is implemented (`src/prediction_bot/odds.py:devig`).
-- No CLV snapshots or CLV calculation exist; the verified ledger had 0 `odds_snapshots` rows (`src/prediction_bot/paper/ledger.py:SCHEMA`, `Ledger.record_consensus`).
+- CLV estimates depend on stored Kalshi candles and Odds API consensus snapshots; small entry-window samples are descriptive, not trading evidence.
+
+## Entry-window shadow CLV
+
+Entry-window decisions are grouped by decision-time lead into `72h+`, `24-72h`, and
+`2-24h` windows. The dashboard reports the v2 and v3 sample count, mean CLV, normal
+approximation 95% confidence interval, and mean exit CLV for each window. A window is
+enabled for trading only after it has at least 50 positions and its 95% CI lower bound
+is above zero.

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+import math
 import time
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -10,14 +12,22 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from prediction_bot.analysis import start_time
 from prediction_bot.clv import record_clv
 from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
 from prediction_bot.maker_scoring import score_maker_shadows
 from prediction_bot.models import Market, OutcomeSide, Signal
-from prediction_bot.odds import OddsClient, OddsPacer
+from prediction_bot.odds import (
+    KALSHI_SERIES_TO_OUTRIGHT,
+    KALSHI_SERIES_TO_SPORT,
+    OddsClient,
+    OddsPacer,
+)
+from prediction_bot.odds_planner import PlannedGame, plan_odds_pulls
 from prediction_bot.paper.ledger import Ledger, Prediction
+from prediction_bot.series import SPORTSBOOK_SERIES
 from prediction_bot.strategies import (
     STRATEGIES,
     SportsbookArbStrategy,
@@ -156,9 +166,19 @@ def paper(
     strats = _strategies(s, strategy, odds, kalshi=client, ledger=ledger)
     pacer = None
     uses_odds = any(isinstance(st, SportsbookArbStrategy) for st in strats)
-    if odds is not None and s.odds_runs_per_day > 0 and uses_odds:
+    if (
+        odds is not None
+        and uses_odds
+        and (s.odds_runs_per_day > 0 or s.odds_planner == "event_driven")
+    ):
         # A one-shot run is one of the scheduled runs; a loop paces per cycle.
-        per_day = s.odds_runs_per_day if cycles == 1 else 86400 / max(interval, 1)
+        per_day = (
+            s.odds_runs_per_day
+            if s.odds_runs_per_day > 0 and cycles == 1
+            else max(s.odds_runs_per_day, 3)
+            if s.odds_planner == "event_driven"
+            else 86400 / max(interval, 1)
+        )
         pacer = OddsPacer(odds, max(per_day, s.odds_runs_per_day))
     shadow_names = list(s.shadow_strategies)
     if s.rules_version == "v3" and "sportsbook_v3" in strategy:
@@ -188,7 +208,44 @@ def paper(
             record_clv(ledger, client, max_calls=50)
         except Exception:
             log.exception("CLV recording failed; continuing paper cycle")
-        res = engine.run_cycle(_fetch(client, series))
+        markets = _fetch(client, series)
+        snapshot_markets = markets
+        if not series and strategy == ["book_scanner"]:
+
+            def fetch_missing(series_to_fetch: list[str]) -> list[Market]:
+                additional: list[Market] = []
+                for missing_series in series_to_fetch:
+                    try:
+                        additional.extend(_fetch(client, [missing_series]))
+                    except Exception:
+                        log.exception("Market snapshot fetch failed for %s", missing_series)
+                return additional
+
+            snapshot_markets = _snapshot_markets(
+                markets,
+                fetch_missing,
+                datetime.now(timezone.utc),
+            )
+        ledger.record_market_snapshots(snapshot_markets)
+        if odds is not None and s.odds_planner == "event_driven" and uses_odds:
+            now = datetime.now(timezone.utc)
+            try:
+                planned = plan_odds_pulls(
+                    _planner_games(client, markets, ledger, now),
+                    now,
+                    int(odds.requests_remaining or 0),
+                    _days_left_in_month(now),
+                    runs_per_day=max(s.odds_runs_per_day, 3),
+                )
+                if odds.budget is not None:
+                    planned = planned[: odds.budget]
+                odds.allowed_sports = set(planned)
+            except Exception:
+                odds.allowed_sports = set()
+                log.exception("Event-driven odds planning failed; no odds feeds selected")
+        elif odds is not None:
+            odds.allowed_sports = None
+        res = engine.run_cycle(markets)
         ledger.record_run(
             strategy,
             res.markets_scanned,
@@ -455,6 +512,132 @@ def _fetch(client: KalshiClient, series: list[str]) -> list[Market]:
     for st in series:
         out.extend(client.get_markets(series_ticker=st, limit=1000, max_pages=2))
     return out
+
+
+def _snapshot_markets(
+    markets: list[Market],
+    fetch_missing: Callable[[list[str]], list[Market]],
+    now: datetime,
+    series_list: tuple[str, ...] = SPORTSBOOK_SERIES,
+) -> list[Market]:
+    now = now.replace(tzinfo=timezone.utc) if now.tzinfo is None else now.astimezone(timezone.utc)
+    cutoff = now + timedelta(days=8)
+    held_series = set()
+    for market in markets:
+        expiration = market.expected_expiration
+        if expiration is None:
+            continue
+        expiration = (
+            expiration.replace(tzinfo=timezone.utc)
+            if expiration.tzinfo is None
+            else expiration.astimezone(timezone.utc)
+        )
+        if now <= expiration <= cutoff:
+            held_series.add(market.event_ticker.split("-", 1)[0])
+    missing = [series for series in series_list if series not in held_series]
+    if not missing:
+        return markets
+    by_ticker = {market.ticker: market for market in markets}
+    by_ticker.update({market.ticker: market for market in fetch_missing(missing)})
+    return list(by_ticker.values())
+
+
+def _event_datetime(event: dict[str, object]) -> datetime | None:
+    for key in (
+        "start_time",
+        "scheduled_start_time",
+        "commence_time",
+        "event_start_time",
+        "game_start_time",
+    ):
+        value = event.get(key)
+        if not isinstance(value, str):
+            continue
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
+    ticker = event.get("event_ticker")
+    if ticker:
+        return start_time(str(ticker))[0]
+    return None
+
+
+def _planner_games(
+    client: KalshiClient, markets: list[Market], ledger: Ledger, now: datetime
+) -> dict[str, list[PlannedGame]]:
+    series_to_sport = {**KALSHI_SERIES_TO_SPORT, **KALSHI_SERIES_TO_OUTRIGHT}
+    event_markets: dict[str, list[Market]] = {}
+    for market in markets:
+        series = market.event_ticker.split("-", 1)[0]
+        if series in SPORTSBOOK_SERIES and series_to_sport.get(series):
+            event_markets.setdefault(market.event_ticker, []).append(market)
+    if not event_markets:
+        return {}
+
+    pending = {
+        str(row[0])
+        for row in ledger.conn.execute(
+            "SELECT DISTINCT ticker FROM blocks WHERE rules_version='v3' "
+            "AND reason IN ('big_edge','large_gap') AND created_at BETWEEN ? AND ?",
+            (
+                (now - timedelta(hours=36)).isoformat(),
+                (now - timedelta(hours=2)).isoformat(),
+            ),
+        )
+    }
+    event_starts: dict[str, datetime] = {}
+    series_values = sorted({ticker.split("-", 1)[0] for ticker in event_markets})
+    for series in series_values:
+        try:
+            events = client.get_events(series_ticker=series, with_nested_markets=False)
+        except Exception:
+            log.exception("Kalshi event lookup failed for odds planning (%s)", series)
+            continue
+        for event in events:
+            ticker = str(event.get("event_ticker", ""))
+            kickoff = _event_datetime(event)
+            if ticker and kickoff is not None:
+                event_starts[ticker] = kickoff
+
+    games_by_sport: dict[str, list[PlannedGame]] = {}
+    for event_ticker, legs in event_markets.items():
+        series = event_ticker.split("-", 1)[0]
+        sport = series_to_sport.get(series)
+        if sport is None:
+            continue
+        kickoff = event_starts.get(event_ticker) or start_time(event_ticker)[0]
+        if kickoff is None and series not in KALSHI_SERIES_TO_OUTRIGHT:
+            expiration = next(
+                (market.expected_expiration for market in legs if market.expected_expiration),
+                None,
+            )
+            if expiration is not None:
+                duration = (
+                    timedelta(hours=2)
+                    if sport.startswith("soccer_")
+                    else timedelta(hours=2.5)
+                    if sport == "basketball_nba"
+                    else timedelta(hours=3)
+                )
+                kickoff = expiration - duration
+        if kickoff is None:
+            continue
+        games_by_sport.setdefault(sport, []).append(
+            PlannedGame(kickoff, any(market.ticker in pending for market in legs))
+        )
+    return games_by_sport
+
+
+def _days_left_in_month(now: datetime) -> int:
+    next_month = datetime(
+        now.year + now.month // 12,
+        now.month % 12 + 1,
+        1,
+        tzinfo=timezone.utc,
+    )
+    return max(1, math.ceil((next_month - now.astimezone(timezone.utc)).total_seconds() / 86400))
 
 
 def _print_signals(signals: list[Signal]) -> None:

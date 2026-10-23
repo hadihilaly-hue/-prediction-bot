@@ -71,7 +71,8 @@ def record_clv(
         "WHERE f.clv_kalshi IS NULL ORDER BY f.id"
     ).fetchall()
     shadow_rows = ledger.conn.execute(
-        "SELECT m.id,m.ticker,m.side,m.price,m.size,m.commence_time,m.event_ticker,s.ticker,m.fair "
+        "SELECT m.id,m.ticker,m.side,m.price,m.size,m.commence_time,m.event_ticker,s.ticker,"
+        "m.fair,COALESCE(m.rules_version,'v2') "
         "FROM maker_shadow m LEFT JOIN settlements s ON s.ticker=m.ticker "
         "WHERE m.clv_kalshi IS NULL AND "
         "(m.status='filled' OR m.fill_trade_through_at IS NOT NULL "
@@ -79,20 +80,33 @@ def record_clv(
     ).fetchall()
     line_move_rows = ledger.conn.execute(
         "SELECT d.id,d.ticker,d.side,d.price,d.size,d.commence_time,"
-        "'',s.ticker,d.fair "
+        "'',s.ticker,d.fair,COALESCE(d.rules_version,'v2') "
         "FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
         "WHERE d.strategy='line_move_follower' AND d.commence_time IS NOT NULL "
         "AND d.clv_kalshi IS NULL ORDER BY d.id"
     ).fetchall()
-    commenced_line_moves = []
-    for row in line_move_rows:
+    entry_window_rows = ledger.conn.execute(
+        "SELECT d.id,d.ticker,d.side,d.price,d.size,d.commence_time,"
+        "'',s.ticker,d.fair,COALESCE(d.rules_version,'v2') "
+        "FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
+        "WHERE d.reason='entry_window' AND d.rules_version IN ('v2','v3') "
+        "AND d.window IN ('72h+','24-72h','2-24h') AND d.commence_time IS NOT NULL "
+        "AND d.clv_kalshi IS NULL ORDER BY d.id"
+    ).fetchall()
+    commenced_shadow_decisions = []
+    for row in [*line_move_rows, *entry_window_rows]:
         try:
             commence_at = datetime.fromisoformat(str(row[5]).replace("Z", "+00:00"))
         except ValueError:
             continue
+        commence_at = (
+            commence_at.replace(tzinfo=timezone.utc)
+            if commence_at.tzinfo is None
+            else commence_at.astimezone(timezone.utc)
+        )
         if commence_at.astimezone(timezone.utc) <= now.astimezone(timezone.utc):
-            commenced_line_moves.append(row)
-    line_move_rows = commenced_line_moves
+            commenced_shadow_decisions.append(row)
+    line_move_rows = commenced_shadow_decisions
     candidates: dict[str, list[tuple[Any, ...]]] = {}
     entries = (
         [("fills", row) for row in fill_rows]
@@ -114,19 +128,29 @@ def record_clv(
                 fair,
             ) = row
         else:
-            fill_id, ticker, side, price, count, raw_start, event_ticker, settled, fair = row
-            version = "v2"
+            (
+                fill_id,
+                ticker,
+                side,
+                price,
+                count,
+                raw_start,
+                event_ticker,
+                settled,
+                fair,
+                version,
+            ) = row
         if not event_ticker:
             event_ticker = str(ticker).rsplit("-", 1)[0]
         commence: datetime | None = None
-        if version == "v2" and raw_start:
+        if raw_start:
             parsed = datetime.fromisoformat(str(raw_start).replace("Z", "+00:00"))
             commence = (
                 parsed.replace(tzinfo=timezone.utc)
                 if parsed.tzinfo is None
                 else parsed.astimezone(timezone.utc)
             )
-        elif version != "v2":
+        else:
             commence = start_time(str(event_ticker))[0]
         if commence is None and not settled:
             continue

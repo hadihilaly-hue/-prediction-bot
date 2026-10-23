@@ -51,6 +51,31 @@ def describe(
     )
 
 
+def decision_window(created_at: datetime, commence_time: datetime | None) -> str:
+    if commence_time is None:
+        return "unknown"
+    created_utc = (
+        created_at.replace(tzinfo=timezone.utc)
+        if created_at.tzinfo is None
+        else created_at.astimezone(timezone.utc)
+    )
+    commence_utc = (
+        commence_time.replace(tzinfo=timezone.utc)
+        if commence_time.tzinfo is None
+        else commence_time.astimezone(timezone.utc)
+    )
+    lead = commence_utc - created_utc
+    return (
+        "72h+"
+        if lead >= timedelta(hours=72)
+        else "24-72h"
+        if lead >= timedelta(hours=24)
+        else "2-24h"
+        if lead >= timedelta(hours=2)
+        else "<2h"
+    )
+
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS signals (
     id INTEGER PRIMARY KEY,
@@ -233,6 +258,23 @@ CREATE TABLE IF NOT EXISTS quote_snapshots (
     volume TEXT NOT NULL,
     open_interest TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS market_snapshots (
+    id INTEGER PRIMARY KEY,
+    fetched_at TEXT NOT NULL,
+    ticker TEXT NOT NULL,
+    event_ticker TEXT NOT NULL,
+    series TEXT NOT NULL,
+    yes_bid TEXT,
+    yes_ask TEXT,
+    yes_bid_size TEXT NOT NULL,
+    yes_ask_size TEXT NOT NULL,
+    last_price TEXT,
+    open_interest TEXT NOT NULL,
+    volume TEXT NOT NULL,
+    expected_expiration TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS market_snapshots_ticker_fetched_at
+    ON market_snapshots(ticker, fetched_at);
 CREATE TABLE IF NOT EXISTS closing_quotes (
     ticker TEXT NOT NULL,
     commence_time TEXT NOT NULL,
@@ -1350,6 +1392,74 @@ class Ledger:
         self.conn.commit()
         return len(snapshots)
 
+    def record_market_snapshots(
+        self,
+        markets: Sequence[Market],
+        *,
+        at: datetime | None = None,
+    ) -> int:
+        from prediction_bot.series import SPORTSBOOK_SERIES
+
+        now = self._utc(at or datetime.now(timezone.utc))
+        cutoff = now + timedelta(days=8)
+        eligible = set(SPORTSBOOK_SERIES)
+        recorded = 0
+        for market in markets:
+            series = market.event_ticker.split("-", 1)[0]
+            expiration = market.expected_expiration
+            if series not in eligible or expiration is None:
+                continue
+            expiration = self._utc(expiration)
+            if not now <= expiration <= cutoff:
+                continue
+            previous = self.conn.execute(
+                "SELECT yes_bid,yes_ask,open_interest,fetched_at "
+                "FROM market_snapshots WHERE ticker=? ORDER BY fetched_at DESC,id DESC LIMIT 1",
+                (market.ticker,),
+            ).fetchone()
+            current_values = (
+                market.quote.yes_bid,
+                market.quote.yes_ask,
+                market.open_interest,
+            )
+            changed = previous is None or any(
+                value != (None if stored is None else Decimal(str(stored)))
+                for value, stored in zip(current_values, previous[:3], strict=True)
+            )
+            heartbeat = True
+            if previous is not None:
+                try:
+                    last_fetched = datetime.fromisoformat(str(previous[3]))
+                    heartbeat = now - self._utc(last_fetched) >= timedelta(hours=6)
+                except ValueError:
+                    heartbeat = True
+            if not changed and not heartbeat:
+                continue
+            self.conn.execute(
+                "INSERT INTO market_snapshots "
+                "(fetched_at,ticker,event_ticker,series,yes_bid,yes_ask,yes_bid_size,"
+                "yes_ask_size,last_price,open_interest,volume,expected_expiration) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    now.isoformat(),
+                    market.ticker,
+                    market.event_ticker,
+                    series,
+                    None if market.quote.yes_bid is None else str(market.quote.yes_bid),
+                    None if market.quote.yes_ask is None else str(market.quote.yes_ask),
+                    str(market.quote.yes_bid_size),
+                    str(market.quote.yes_ask_size),
+                    None if market.last_price is None else str(market.last_price),
+                    str(market.open_interest),
+                    str(market.volume),
+                    expiration.isoformat(),
+                ),
+            )
+            recorded += 1
+        if recorded:
+            self.conn.commit()
+        return recorded
+
     def record_edge_reviews(self, reviews: Sequence[EdgeReview]) -> int:
         self.conn.executemany(
             "INSERT INTO edge_reviews (created_at, ticker, side, fair_prob, price, gross_edge,"
@@ -1521,19 +1631,7 @@ class Ledger:
 
     def record_shadow_decision(self, sig: Signal, rules_version: str, reason: str = "") -> None:
         commence = sig.commence_time
-        if commence is None:
-            window = "unknown"
-        else:
-            hours = (commence - sig.created_at).total_seconds() / 3600
-            window = (
-                "72h+"
-                if hours >= 72
-                else "24-72h"
-                if hours >= 24
-                else "2-24h"
-                if hours >= 2
-                else "<2h"
-            )
+        window = decision_window(sig.created_at, commence)
         self.conn.execute(
             "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
             "position_key,would_trade,reason,fair,price,size,commence_time) "
