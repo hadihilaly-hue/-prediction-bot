@@ -949,12 +949,12 @@ _TEMPLATE = """<!doctype html>
   function renderPositions() {
     const rows = positions.filter(p => p.version === rules).map(p => [
       p.result === 'W' ? pill('won', 'Won') : p.result === 'L' ? pill('lost', 'Lost') : pill('open', 'Open'),
-      {v: p.summary, cls: 'what'},
+      {v: String(p.summary || '').replace(/ in KX[A-Z0-9-]+$/, ''), cls: 'what'},
       {v: league(p.event)},
       {v: cents(p.price)},
       {v: pct(p.fair)},
       {v: String(Math.round(p.contracts || 0))},
-      {v: p.pnl == null ? '–' : money(p.pnl, true), cls: tone(p.pnl)},
+      p.result === 'W' || p.result === 'L' ? {v: money(p.pnl, true), cls: tone(p.pnl)} : {v: '–'},
       {v: signedCents(p.clv)}
     ]);
     table('positions', 'One row per game outcome. Buying "Team A wins" and "Team B loses" counts as one bet.', ['Result', 'Bet', 'League', '#Avg price', '#Bot chance', '#Contracts', '#Profit', '#Price move to kickoff'], rows, 'No bets under these rules yet.');
