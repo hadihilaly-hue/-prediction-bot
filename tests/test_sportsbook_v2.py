@@ -380,6 +380,135 @@ def test_big_edge_requires_whitelist_and_both_fresh_quotes(settings, tmp_path) -
     assert any(row == (mia.ticker, 1, 1) for row in reviews)
 
 
+def test_confirmed_big_edge_refetch_cannot_raise_the_fair(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    settings.min_lead_hours = 0
+    settings.longshot_haircut = "none"
+    event_ticker = "KXNFLGAME-26OCT25MIAMIN"
+    mia = make_market(f"{event_ticker}-MIA", "0.64", "0.65", subtitle="Miami")
+    minnesota = make_market(f"{event_ticker}-MIN", "0.20", "0.22", subtitle="Minnesota")
+    old_game = odds_event(
+        "mia-min",
+        "Miami Dolphins",
+        "Minnesota Vikings",
+        "2026-10-25T20:05:00Z",
+        {"Miami Dolphins": Decimal("0.78"), "Minnesota Vikings": Decimal("0.22")},
+    )
+    fresh_game = odds_event(
+        "mia-min",
+        "Miami Dolphins",
+        "Minnesota Vikings",
+        "2026-10-25T20:05:00Z",
+        {"Miami Dolphins": Decimal("0.90"), "Minnesota Vikings": Decimal("0.10")},
+    )
+
+    class RefetchOdds(FakeOdds):
+        def h2h(self, sport, bookmakers=None, *, bypass_cache=False):  # type: ignore[no-untyped-def]
+            self.bypass_calls += int(bypass_cache)
+            return [fresh_game] if bypass_cache else [old_game]
+
+    settings.big_edge_whitelist = [mia.ticker]
+    strategy = SportsbookV2Strategy(
+        settings,
+        RefetchOdds([old_game]),
+        FakeKalshi({mia.ticker: mia}),
+        Ledger(tmp_path / "big-edge-clamp.sqlite", Decimal("1000")),
+        clock=fixed_clock("2026-10-23T00:00:00Z"),
+    )
+
+    signals = strategy.evaluate([mia, minnesota])
+    signal = next(item for item in signals if item.ticker == mia.ticker)
+    review = next(item for item in strategy.seen_edge_reviews() if item.ticker == mia.ticker)
+
+    assert review.confirmed
+    assert review.refetched_fair == Decimal("0.9")
+    assert signal.fair_pre_haircut <= Decimal("0.78")
+    assert Decimal("0.78") - signal.fair_pre_haircut < Decimal("1e-20")
+
+
+def test_equivalent_leg_sizing_tries_the_next_candidate_with_depth(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.min_lead_hours = 0
+    settings.longshot_haircut = "none"
+    settings.max_gross_edge = Decimal("0.40")
+    game = odds_event(
+        "mia-min",
+        "Miami Dolphins",
+        "Minnesota Vikings",
+        "2026-10-25T20:05:00Z",
+        {"Miami Dolphins": Decimal("0.70"), "Minnesota Vikings": Decimal("0.30")},
+    )
+    strategy = SportsbookV2Strategy(
+        settings, FakeOdds([game]), clock=fixed_clock("2026-10-23T00:00:00Z")
+    )
+    mia = make_market(
+        "KXNFLGAME-26OCT25MIAMIN-MIA",
+        "0.54",
+        "0.55",
+        subtitle="Miami",
+        yes_ask_size=100,
+    )
+    minnesota = make_market(
+        "KXNFLGAME-26OCT25MIAMIN-MIN",
+        "0.58",
+        "0.62",
+        subtitle="Minnesota",
+        yes_bid_size=0,
+    )
+
+    signals = strategy.evaluate([mia, minnesota])
+
+    assert len(signals) == 1
+    assert signals[0].ticker == mia.ticker
+
+
+def test_mlb_doubleheader_tickers_select_their_encoded_games(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.min_lead_hours = 0
+    settings.longshot_haircut = "none"
+    settings.max_gross_edge = Decimal("0.20")
+    settings.v2_min_net_edge = Decimal("0.01")
+    games = [
+        odds_event(
+            "sd-mil-1",
+            "San Diego Padres",
+            "Milwaukee Brewers",
+            "2026-10-04T20:00:00Z",
+            {"San Diego Padres": Decimal("0.60"), "Milwaukee Brewers": Decimal("0.40")},
+        ),
+        odds_event(
+            "sd-mil-2",
+            "San Diego Padres",
+            "Milwaukee Brewers",
+            "2026-10-04T23:00:00Z",
+            {"San Diego Padres": Decimal("0.70"), "Milwaukee Brewers": Decimal("0.30")},
+        ),
+    ]
+    strategy = SportsbookV2Strategy(
+        settings, FakeOdds(games), clock=fixed_clock("2026-10-03T12:00:00Z")
+    )
+    markets = [
+        make_market(
+            f"KXMLBGAME-26OCT041600SDMIL-{code}",
+            "0.49",
+            "0.50",
+            subtitle=title,
+        )
+        for code, title in (("SD", "San Diego"), ("MIL", "Milwaukee"))
+    ] + [
+        make_market(
+            f"KXMLBGAME-26OCT041900SDMIL-{code}",
+            "0.49",
+            "0.50",
+            subtitle=title,
+        )
+        for code, title in (("SD", "San Diego"), ("MIL", "Milwaukee"))
+    ]
+
+    signals = strategy.evaluate(markets)
+    by_event = {signal.event_ticker: signal.fair_pre_haircut for signal in signals}
+
+    assert Decimal("0.6") - by_event["KXMLBGAME-26OCT041600SDMIL"] < Decimal("1e-20")
+    assert Decimal("0.7") - by_event["KXMLBGAME-26OCT041900SDMIL"] < Decimal("1e-20")
+
+
 def test_mls_mapping_uses_galaxy_fair_not_lafc_fair(settings) -> None:  # type: ignore[no-untyped-def]
     event_ticker = "KXMLSGAME-26OCT25LAFCLAG"
     settings.min_lead_hours = 0

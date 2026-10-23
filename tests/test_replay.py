@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from prediction_bot.config import Settings
@@ -13,6 +13,7 @@ from scripts.replay import (
     canonical_key,
     evaluate_signal,
     load_database,
+    load_fee_map,
     render_report,
 )
 
@@ -297,3 +298,127 @@ def test_replay_deduplicates_a_run_but_caps_same_key_across_cycles() -> None:
     assert "duplicate_position" in decisions[1].reasons
     assert not decisions[2].v2_would_trade
     assert "size_zero" in decisions[2].reasons
+
+
+def test_replay_chooses_cheapest_effective_equivalent_leg() -> None:
+    expensive = signal(id=1, price="0.55")
+    cheap = signal(
+        id=2,
+        ticker="KXNFLGAME-26OCT04KCLV-KC",
+        side="no",
+        price="0.45",
+        rationale="Kansas City Chiefs consensus 0.90",
+    )
+    decisions = [
+        Decision(
+            signal=item,
+            fair=Decimal("0.90"),
+            fee_multiplier=Decimal(0),
+            position_key=canonical_key(item.event_ticker, item.code, item.side),
+        )
+        for item in (expensive, cheap)
+    ]
+
+    _simulate(decisions, [], {}, [], settings())
+
+    assert "duplicate_position" in decisions[0].reasons
+    assert decisions[1].v2_would_trade
+
+
+def test_replay_does_not_credit_payout_before_settled_at() -> None:
+    first = signal(
+        id=1,
+        ticker="KXNFLGAME-26OCT04KCLV-LV",
+        fair="0.90",
+        price="0.50",
+        at="2026-10-03T12:00:00Z",
+    )
+    second = signal(
+        id=2,
+        ticker="KXNFLGAME-26OCT04DENSF-SF",
+        fair="0.90",
+        price="0.50",
+        at="2026-10-03T12:15:00Z",
+    )
+    decisions = [
+        Decision(
+            signal=item,
+            fair=item.fair,
+            fee_multiplier=Decimal(0),
+            position_key=(item.event_ticker, item.code),
+        )
+        for item in (first, second)
+    ]
+    fill = {
+        "ticker": first.ticker,
+        "side": "yes",
+        "result": "yes",
+        "settled_at": "2026-10-03T12:30:00+00:00",
+    }
+
+    _simulate(
+        decisions,
+        [fill],
+        {},
+        [],
+        settings(
+            paper_starting_cash=Decimal("100"),
+            v2_kelly_fraction=Decimal("0.25"),
+            v2_position_bankroll_fraction=Decimal(1),
+            v2_event_bankroll_fraction=Decimal(1),
+            v2_daily_bankroll_fraction=Decimal(1),
+            v2_total_open_bankroll_fraction=Decimal(1),
+        ),
+    )
+
+    assert decisions[0].contracts == 40
+    assert decisions[1].contracts == 40
+
+
+def test_load_fee_map_fetches_missing_series_from_partial_database(tmp_path) -> None:
+    path = tmp_path / "partial-fees.sqlite"
+    ledger = Ledger(path, Decimal("100"))
+    ledger.save_series_fee(
+        "KXNFLGAME",
+        "quadratic_with_maker_fees",
+        Decimal(1),
+        datetime(2026, 10, 1, tzinfo=timezone.utc),
+    )
+    ledger.conn.execute(
+        "INSERT INTO signals (created_at,strategy,ticker,side,limit_price,fair_prob,edge,size,"
+        "rationale,acted) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (
+            "2026-10-03T12:00:00+00:00",
+            "sportsbook_v2",
+            "KXNHLGAME-26OCT04KCLV-LV",
+            "yes",
+            "0.50",
+            "0.60",
+            "0.10",
+            "1",
+            "test",
+            0,
+        ),
+    )
+    ledger.conn.commit()
+    ledger.close()
+
+    class Series:
+        calls = 0
+
+        def get_series(self):
+            self.calls += 1
+            return [
+                {
+                    "ticker": "KXNHLGAME",
+                    "fee_type": "quadratic_with_maker_fees",
+                    "fee_multiplier": "0.5",
+                }
+            ]
+
+    client = Series()
+    fee_map = load_fee_map(path, tmp_path / "cache", client)  # type: ignore[arg-type]
+
+    assert fee_map["KXNFLGAME"] == ("quadratic_with_maker_fees", Decimal(1))
+    assert fee_map["KXNHLGAME"] == ("quadratic_with_maker_fees", Decimal("0.5"))
+    assert client.calls == 1

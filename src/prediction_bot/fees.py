@@ -76,7 +76,7 @@ class SeriesFeeCache:
         self.ledger = ledger
         self.kalshi = kalshi
         self.clock = clock or (lambda: datetime.now(timezone.utc))
-        self._refreshed = False
+        self._last_refresh_at: datetime | None = None
         self._series_data: dict[str, tuple[str, Decimal]] = {}
 
     @staticmethod
@@ -92,11 +92,13 @@ class SeriesFeeCache:
         cached = self.ledger.get_series_fee(series_ticker)
         if cached is not None and now - cached[2] < timedelta(hours=24):
             return cached[0], cached[1]
-        if not self._refreshed:
-            self._refresh(now)
+        refresh_due = self._last_refresh_at is None or now - self._last_refresh_at >= timedelta(
+            hours=24
+        )
+        if refresh_due and self._refresh(now):
+            self._last_refresh_at = now
         fetched = self._series_data.get(series_ticker)
         if fetched is not None:
-            self.ledger.save_series_fee(series_ticker, fetched[0], fetched[1], now)
             return fetched
         refreshed = self.ledger.get_series_fee(series_ticker)
         if refreshed is not None:
@@ -105,12 +107,13 @@ class SeriesFeeCache:
             return cached[0], cached[1]
         return None
 
-    def _refresh(self, now: datetime) -> None:
-        self._refreshed = True
+    def _refresh(self, now: datetime) -> bool:
         try:
             series = self.kalshi.get_series()
         except Exception:
-            return
+            self._series_data = {}
+            return False
+        fetched_data: dict[str, tuple[str, Decimal]] = {}
         for item in series:
             ticker = item.get("ticker") or item.get("series_ticker")
             fee_type = item.get("fee_type")
@@ -125,4 +128,8 @@ class SeriesFeeCache:
                 parsed_multiplier = Decimal(str(multiplier))
             except Exception:
                 continue
-            self._series_data[ticker] = (fee_type, parsed_multiplier)
+            fetched_data[ticker] = (fee_type, parsed_multiplier)
+        self._series_data = fetched_data
+        for ticker, (fee_type, multiplier) in fetched_data.items():
+            self.ledger.save_series_fee(ticker, fee_type, multiplier, now)
+        return True

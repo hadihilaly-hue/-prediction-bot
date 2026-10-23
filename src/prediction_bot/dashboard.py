@@ -249,7 +249,8 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
         ).fetchone()[0]
         recent_blocks.append({"reason": reason, "7d": recent, "all": count})
     latest_run = ledger.conn.execute(
-        "SELECT odds_used,odds_remaining FROM runs ORDER BY id DESC LIMIT 1"
+        "SELECT odds_used,odds_remaining FROM runs WHERE odds_used IS NOT NULL "
+        "ORDER BY id DESC LIMIT 1"
     ).fetchone()
     shadow = ledger.conn.execute(
         "SELECT COALESCE(rules_version,'v1'),window,COUNT(*),SUM(would_trade) "

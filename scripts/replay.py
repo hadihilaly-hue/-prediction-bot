@@ -374,10 +374,15 @@ def load_database(
             if str(row["created_at"])[:10] < since:
                 continue
             fills.append(dict(row))
-    settlements = {
-        str(row[0]): str(row[1])
-        for row in conn.execute("SELECT ticker,result FROM settlements")
-    } if settlement_columns >= {"ticker", "result"} else {}
+    settled_at_select = "settled_at" if "settled_at" in settlement_columns else "NULL"
+    settlements = (
+        {
+            str(row[0]): (str(row[1]), None if row[2] is None else str(row[2]))
+            for row in conn.execute(f"SELECT ticker,result,{settled_at_select} FROM settlements")
+        }
+        if settlement_columns >= {"ticker", "result"}
+        else {}
+    )
     runs: list[dict[str, Any]] = []
     tables = {
         str(row[0])
@@ -402,29 +407,40 @@ def load_fee_map(
 ) -> dict[str, tuple[str, Decimal]]:
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_path = cache_dir / "series_fees.json"
+    fee_map: dict[str, tuple[str, Decimal]] = {}
     if cache_path.is_file():
         raw = json.loads(cache_path.read_text())
-        return {key: (value[0], Decimal(value[1])) for key, value in raw.items()}
+        fee_map = {key: (value[0], Decimal(value[1])) for key, value in raw.items()}
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     tables = {str(row[0]) for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    fee_map: dict[str, tuple[str, Decimal]] = {}
     if "series_fees" in tables:
         columns = _table_columns(conn, "series_fees")
         if {"series_ticker", "fee_type", "fee_multiplier"} <= columns:
-            fee_map = {
-                str(ticker): (str(kind), Decimal(str(multiplier)))
-                for ticker, kind, multiplier in conn.execute(
-                    "SELECT series_ticker,fee_type,fee_multiplier FROM series_fees"
-                )
-            }
+            for ticker, kind, multiplier in conn.execute(
+                "SELECT series_ticker,fee_type,fee_multiplier FROM series_fees"
+            ):
+                fee_map.setdefault(str(ticker), (str(kind), Decimal(str(multiplier))))
+    required: set[str] = set()
+    for table in ("signals", "fills"):
+        if table in tables:
+            required.update(
+                str(row[0]).split("-", 1)[0]
+                for row in conn.execute(f"SELECT DISTINCT ticker FROM {table}")
+            )
     conn.close()
-    if not fee_map:
+    missing = required - fee_map.keys()
+    if missing:
         series = (client or KalshiClient(KALSHI_PROD_REST)).get_series()
         for item in series:
             ticker = item.get("ticker") or item.get("series_ticker")
             fee_type = item.get("fee_type")
             multiplier = item.get("fee_multiplier")
-            if isinstance(ticker, str) and isinstance(fee_type, str) and multiplier not in (None, ""):
+            if (
+                isinstance(ticker, str)
+                and ticker in missing
+                and isinstance(fee_type, str)
+                and multiplier not in (None, "")
+            ):
                 fee_map[ticker] = (fee_type, Decimal(str(multiplier)))
     cache_path.write_text(
         json.dumps({key: (value[0], str(value[1])) for key, value in fee_map.items()}, indent=2) + "\n"
@@ -562,7 +578,7 @@ def _record_clv(
 def _simulate(
     decisions: list[Decision],
     fills: list[dict[str, Any]],
-    settlements: dict[str, str],
+    settlements: dict[str, tuple[str, str | None] | str],
     runs: list[dict[str, Any]],
     settings: Settings,
 ) -> list[Decision]:
@@ -574,19 +590,23 @@ def _simulate(
             batches[(decision.run_key, decision.position_key[0] + ":" + decision.position_key[1])].append(
                 decision
             )
-    ordered = sorted(
-        (decision for batch in batches.values() for decision in batch),
-        key=lambda decision: (decision.signal.created_at, decision.signal.id),
-    )
     chosen: list[Decision] = []
-    seen_run_positions: set[tuple[str, tuple[str, str]]] = set()
-    for decision in ordered:
-        run_position = (decision.run_key, decision.position_key)
-        if run_position in seen_run_positions:
-            decision.reasons.append("duplicate_position")
-            continue
-        seen_run_positions.add(run_position)
-        chosen.append(decision)
+    for batch in batches.values():
+        ranked = sorted(
+            batch,
+            key=lambda decision: (
+                decision.signal.price
+                + taker_fee_rate(decision.signal.price, decision.fee_multiplier),
+                0 if decision.signal.side == "yes" else 1,
+                decision.signal.ticker,
+                decision.signal.created_at,
+                decision.signal.id,
+            ),
+        )
+        chosen.append(ranked[0])
+        for duplicate in ranked[1:]:
+            duplicate.reasons.append("duplicate_position")
+    chosen.sort(key=lambda decision: (decision.signal.created_at, decision.signal.id))
 
     cash = settings.paper_starting_cash
     open_cost = Decimal(0)
@@ -597,8 +617,27 @@ def _simulate(
     fill_by_ticker: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for fill in fills:
         fill_by_ticker[str(fill["ticker"])].append(fill)
+    settlement_events: list[tuple[datetime, Decision, str, int, Decimal, str, tuple[str, str]]] = []
+
+    def settle_due(until: datetime) -> None:
+        nonlocal cash, open_cost, total_open
+        due = [event for event in settlement_events if event[0] <= until]
+        settlement_events[:] = [event for event in settlement_events if event[0] > until]
+        for _settled_at, decision, result, contracts, cost, event, key in sorted(
+            due, key=lambda row: (row[0], row[1].signal.id)
+        ):
+            signal = decision.signal
+            payout = Decimal(contracts) if result == signal.side else Decimal(0)
+            decision.pnl = payout - cost
+            cash += payout
+            open_cost -= cost
+            total_open -= cost
+            position_cost[key] -= cost
+            event_cost[event] -= cost
+
     for decision in chosen:
         signal = decision.signal
+        settle_due(signal.created_at)
         effective_price = signal.price + taker_fee_rate(signal.price, decision.fee_multiplier)
         bankroll = cash + open_cost
         if bankroll <= 0 or effective_price >= 1:
@@ -648,16 +687,25 @@ def _simulate(
             ),
             None,
         )
-        result = str(matching["result"]) if matching and matching.get("result") is not None else settlements.get(signal.ticker)
+        settlement = settlements.get(signal.ticker)
+        result = (
+            str(matching["result"])
+            if matching and matching.get("result") is not None
+            else (settlement[0] if isinstance(settlement, tuple) else settlement)
+        )
+        raw_settled_at = matching.get("settled_at") if matching else None
+        if raw_settled_at is None and isinstance(settlement, tuple):
+            raw_settled_at = settlement[1]
         if result in {"yes", "no"}:
-            won = result == signal.side
-            payout = Decimal(contracts) if won else Decimal(0)
-            decision.pnl = payout - cost
-            cash += payout
-            open_cost -= cost
-            total_open -= cost
-            position_cost[key] -= cost
-            event_cost[event] -= cost
+            settled_at = (
+                parse_datetime(str(raw_settled_at))
+                if raw_settled_at is not None
+                else datetime.max.replace(tzinfo=UTC)
+            )
+            settlement_events.append(
+                (settled_at, decision, str(result), contracts, cost, event, key)
+            )
+    settle_due(datetime.max.replace(tzinfo=UTC))
     return decisions
 
 
