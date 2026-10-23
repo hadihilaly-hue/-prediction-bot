@@ -615,431 +615,410 @@ _TEMPLATE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__</title>
 <style>
-  :root { --bg:#0f1115; --card:#181b22; --fg:#e6e6e6; --muted:#9aa0aa; --good:#3ddc84;
-          --bad:#ff5d5d; --accent:#6ea8fe; --line:#2a2f3a; }
-  * { box-sizing: border-box; }
-  body { margin:0; font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  :root { --bg:#f4f5f7; --card:#fff; --fg:#1d2330; --muted:#667085; --line:#e4e7ec;
+          --good:#12875b; --goodbg:#e7f6ef; --bad:#c4321f; --badbg:#fdecea;
+          --warn:#a15c00; --warnbg:#fff4e0; --accent:#2f5fd0; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
          background:var(--bg); color:var(--fg); }
-  header { padding:16px 20px; border-bottom:1px solid var(--line); display:flex;
-           flex-wrap:wrap; gap:8px 16px; align-items:baseline; }
-  header h1 { font-size:18px; margin:0; }
-  header .sub { color:var(--muted); font-size:12px; }
-  main { padding:16px 20px; display:grid; gap:16px; }
-  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
-  .card .k { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
-  .card .v { font-size:20px; font-weight:600; margin-top:4px; }
+  header { background:#1d2330; color:#fff; padding:20px 24px; }
+  header h1 { margin:0; font-size:22px; }
+  header .sub { color:#c5cad3; font-size:13px; margin-top:4px; }
+  .badge { display:inline-block; background:#fff3; border-radius:999px; padding:2px 10px;
+           font-size:12px; margin-left:8px; vertical-align:middle; }
+  main { max-width:1180px; margin:0 auto; padding:20px 16px 40px; display:grid; gap:20px; }
+  section.block { background:var(--card); border:1px solid var(--line); border-radius:14px;
+                  padding:20px; }
+  section.block > h2 { margin:0 0 4px; font-size:18px; }
+  .hint { color:var(--muted); font-size:13px; margin:0 0 14px; }
+  .story { font-size:17px; margin:0 0 16px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; }
+  .stat { border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .stat .k { color:var(--muted); font-size:13px; }
+  .stat .v { font-size:26px; font-weight:700; margin:2px 0; }
+  .stat .d { color:var(--muted); font-size:13px; }
   .good { color:var(--good); } .bad { color:var(--bad); } .muted { color:var(--muted); }
-  .charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
-  .chart h2, section h2 { font-size:14px; margin:0 0 8px; color:var(--muted); font-weight:600; }
-  svg { width:100%; height:180px; display:block; }
-  .tabs { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-  .tabs button { background:var(--card); color:var(--fg); border:1px solid var(--line);
-                 border-radius:8px; padding:6px 12px; cursor:pointer; }
-  .tabs button.on { border-color:var(--accent); color:var(--accent); }
-  .tabs input, .tabs select { background:var(--card); color:var(--fg); border:1px solid var(--line);
-                              border-radius:8px; padding:6px 10px; }
-  .tabs input { flex:1; min-width:160px; }
+  .verdicts { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:12px; }
+  .verdict { border-radius:12px; padding:14px; border:1px solid var(--line); }
+  .verdict.good { background:var(--goodbg); border-color:#bfe6d3; color:var(--fg); }
+  .verdict.bad { background:var(--badbg); border-color:#f5c6bf; color:var(--fg); }
+  .verdict.warn { background:var(--warnbg); border-color:#f3d9a8; color:var(--fg); }
+  .verdict h3 { margin:0 0 6px; font-size:15px; }
+  .verdict .big { font-size:20px; font-weight:700; }
+  .verdict p { margin:6px 0 0; font-size:13px; color:#3d4555; }
+  .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px; }
+  .tabs button { border:1px solid var(--line); background:#fff; border-radius:999px;
+                 padding:6px 14px; cursor:pointer; font:inherit; font-size:14px; }
+  .tabs button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .note { background:var(--warnbg); border-radius:10px; padding:8px 12px; font-size:13px;
+          margin:0 0 12px; }
   .tablewrap { overflow:auto; border:1px solid var(--line); border-radius:10px; }
-  table { border-collapse:collapse; width:100%; min-width:900px; }
-  th, td { padding:8px 10px; text-align:left; border-bottom:1px solid var(--line);
-           white-space:nowrap; font-variant-numeric:tabular-nums; }
-  th { position:sticky; top:0; background:var(--card); color:var(--muted); font-weight:600;
-       cursor:pointer; user-select:none; }
-  table.measurement-table { min-width:600px; }
-  .measurement-table caption { text-align:left; padding:10px; color:var(--muted);
-                               white-space:normal; caption-side:top; }
-  td.why { white-space:normal; min-width:260px; max-width:520px; color:var(--muted); }
-  td.summary { white-space:normal; min-width:280px; max-width:420px; font-weight:600; }
-  tr:hover td { background:#1d2129; }
-  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px;
-          border:1px solid var(--line); }
-  .pill.won { color:var(--good); border-color:var(--good); }
-  .pill.lost { color:var(--bad); border-color:var(--bad); }
-  .empty { padding:24px; text-align:center; color:var(--muted); }
-  .clv-hist { width:180px; height:44px; vertical-align:middle; }
-  .clv-note { color:var(--muted); font-size:12px; }
-  footer { padding:12px 20px 24px; color:var(--muted); font-size:12px; }
+  table { border-collapse:collapse; width:100%; }
+  th, td { padding:9px 12px; text-align:left; border-bottom:1px solid var(--line);
+           font-variant-numeric:tabular-nums; vertical-align:top; }
+  th { background:#f9fafb; color:var(--muted); font-size:13px; font-weight:600; }
+  tr:last-child td { border-bottom:0; }
+  td.num, th.num { text-align:right; white-space:nowrap; }
+  td.what { font-weight:600; min-width:240px; }
+  td.why { color:var(--muted); font-size:13px; min-width:220px; }
+  caption { caption-side:top; text-align:left; padding:10px 12px; color:var(--muted);
+            font-size:13px; }
+  .pill { display:inline-block; padding:1px 10px; border-radius:999px; font-size:12px;
+          font-weight:600; white-space:nowrap; }
+  .pill.won { background:var(--goodbg); color:var(--good); }
+  .pill.lost { background:var(--badbg); color:var(--bad); }
+  .pill.open { background:#eef2fb; color:var(--accent); }
+  .pill.skip { background:#f2f4f7; color:var(--muted); }
+  .empty { padding:18px; text-align:center; color:var(--muted); }
+  .two { display:grid; grid-template-columns:repeat(auto-fit,minmax(460px,1fr)); gap:20px; }
+  svg { width:100%; height:200px; display:block; }
+  details { border:1px solid var(--line); border-radius:12px; padding:0 16px; margin-top:12px; }
+  details > summary { cursor:pointer; padding:12px 0; font-weight:600; }
+  details .tablewrap { margin-bottom:14px; }
+  .filter { width:100%; max-width:360px; padding:8px 12px; border:1px solid var(--line);
+            border-radius:8px; font:inherit; margin-bottom:10px; }
+  footer { text-align:center; color:var(--muted); font-size:12px; padding:0 0 30px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Paper-trading dashboard</h1>
-  <span class="sub" id="generated"></span>
-<span class="sub">Paper mode only &mdash; no real orders are placed.</span>
+  <h1>Kalshi bot <span class="badge">paper money only</span></h1>
+  <div class="sub">No real orders are ever placed. <span id="generated"></span></div>
 </header>
 <main>
-  <section class="card">
-    <h2>Positions and measurement</h2>
-    <div class="tabs" style="margin-bottom:8px">
-      <button data-rules="v2">v2</button>
-      <button data-rules="v1">v1 historical</button>
-    </div>
-    <div class="tablewrap"><table id="positions"></table></div>
-    <div id="clv-summary"></div>
-    <div id="measurement-summary"></div>
-  </section>
-  <section class="card">
-    <h2>Ledger-wide overview (all rules versions)</h2>
+  <section class="block">
+    <h2>Right now</h2>
+    <p class="story" id="story"></p>
     <div class="cards" id="cards"></div>
   </section>
-  <section class="card" style="margin-bottom:16px">
-    <h2>Legacy fill-level per league (all rules versions)</h2>
-    <div class="tablewrap"><table id="byleague"></table></div>
-  </section>
-  <div class="charts">
-    <div class="card chart"><h2>Equity (cash + open cost)</h2><svg id="equity"></svg></div>
-    <div class="card chart"><h2>Per-run activity (signals / fills)</h2><svg id="activity"></svg></div>
-  </div>
-  <section>
-    <div class="tabs" style="margin-bottom:8px">
-      <button class="on" data-tab="predictions">Predictions</button>
-      <button data-tab="trades">Trades</button>
-      <button data-tab="runs">Runs</button>
-      <input id="q" placeholder="filter: ticker, strategy, text…">
-      <select id="status">
-        <option value="">all</option>
-        <option value="open">open</option>
-        <option value="won">won</option>
-        <option value="lost">lost</option>
-        <option value="traded">traded only</option>
-      </select>
+
+  <section class="block">
+    <h2>Is it actually working?</h2>
+    <p class="hint">Profit alone can be luck. These checks ask whether the bot is better than Kalshi's own prices.</p>
+    <div class="tabs" id="rules-tabs">
+      <button data-rules="v2">New rules (v2, trading now)</button>
+      <button data-rules="v1">Old rules (v1, before Oct 23)</button>
     </div>
-    <div class="tablewrap"><table id="table"></table></div>
+    <div class="note" id="rules-note" hidden></div>
+    <div class="verdicts" id="verdicts"></div>
+  </section>
+
+  <section class="block">
+    <h2>Open bets</h2>
+    <p class="hint">Bets waiting for the game to finish. "Pays" is what you get back if the bet wins.</p>
+    <div class="tablewrap"><table id="open"></table></div>
+  </section>
+
+  <div class="two">
+    <section class="block">
+      <h2>Recent results</h2>
+      <p class="hint">The latest bets that have finished.</p>
+      <div class="tablewrap"><table id="recent"></table></div>
+    </section>
+    <section class="block">
+      <h2>Account value over time</h2>
+      <p class="hint">Cash plus what open bets cost. The dashed line is the starting balance.</p>
+      <svg id="equity"></svg>
+      <p class="hint" id="last-run"></p>
+    </section>
+  </div>
+
+  <section class="block">
+    <h2>Details</h2>
+    <p class="hint">Everything behind the numbers above. Click a heading to open it.</p>
+    <details>
+      <summary>Every bet, grouped by game outcome</summary>
+      <div class="tablewrap"><table id="positions"></table></div>
+    </details>
+    <details>
+      <summary>Accuracy, calibration and the luck test</summary>
+      <div class="tablewrap"><table id="calibration"></table></div>
+      <div class="tablewrap"><table id="brier"></table></div>
+      <div class="tablewrap"><table id="montecarlo"></table></div>
+      <div class="tablewrap"><table id="concentration"></table></div>
+    </details>
+    <details>
+      <summary>Closing-line value (did the price move our way before kickoff?)</summary>
+      <div id="clv"></div>
+    </details>
+    <details>
+      <summary>Why bets were skipped, and data quality</summary>
+      <div class="tablewrap"><table id="blocks"></table></div>
+      <div class="tablewrap"><table id="quality"></table></div>
+    </details>
+    <details>
+      <summary>Shadow tests (tracked, never traded)</summary>
+      <div class="tablewrap"><table id="maker"></table></div>
+      <div class="tablewrap"><table id="shadow"></table></div>
+      <div class="tablewrap"><table id="experiments"></table></div>
+    </details>
+    <details>
+      <summary>Results by league</summary>
+      <div class="tablewrap"><table id="byleague"></table></div>
+    </details>
+    <details>
+      <summary>Everything the bot considered</summary>
+      <input class="filter" id="q" placeholder="Search team, league or ticker">
+      <div class="tablewrap"><table id="predictions"></table></div>
+    </details>
   </section>
 </main>
-<footer>
-  <b>price</b> is what we (paper) pay for <b>side</b>; <b>fair</b> is the strategy's probability
-  that side wins; <b>edge</b> = fair &minus; price &minus; fees. <b>Brier</b>: lower is better;
-  the strategy has skill only if its Brier beats the market price's.
-</footer>
+<footer>Paper-trading dashboard. Times are shown in your local time zone.</footer>
 <script id="data" type="application/json">__DATA__</script>
 <script>
 (function () {
   const D = JSON.parse(document.getElementById('data').textContent);
-  const P = D.performance;
-  const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const money = (x) => x == null ? '-' : (x < 0 ? '-' : '') + '$' + Math.abs(x).toFixed(2);
-  const f4 = (x) => x == null ? '-' : x.toFixed(4);
-  const when = (s) => s ? s.slice(0, 16).replace('T', ' ') : '-';
-  const sign = (x) => x == null ? '' : x > 0 ? 'good' : x < 0 ? 'bad' : '';
+  const M = D.measurement || {};
+  const P = D.performance || {};
+  const Q = M.quality || {};
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const num = x => typeof x === 'number' && isFinite(x);
+  const money = (x, signed) => {
+    if (!num(x)) return '–';
+    const s = '$' + Math.abs(x).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    if (x < 0) return '−' + s;
+    return signed && x > 0 ? '+' + s : s;
+  };
+  const cents = x => num(x) ? Math.round(x * 100) + '¢' : '–';
+  const pct = x => num(x) ? Math.round(x * 100) + '%' : '–';
+  const signedCents = x => num(x) ? (x > 0 ? '+' : '') + x.toFixed(1) + '¢' : '–';
+  const tone = x => num(x) ? (x > 0 ? 'good' : x < 0 ? 'bad' : '') : 'muted';
+  const when = s => {
+    if (!s) return '–';
+    const iso = /[zZ]|[+-][0-9][0-9]:[0-9][0-9]$/.test(s) ? s : s + 'Z';
+    const d = new Date(iso);
+    return isNaN(d) ? s : d.toLocaleString(undefined, {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'});
+  };
+  const league = t => {
+    const s = String(t || '').split('-')[0].replace('GAME', '').replace(/^KX/, '');
+    const names = {NFL: 'NFL', NCAAF: 'College football', MLB: 'MLB', NBA: 'NBA', NHL: 'NHL', MLS: 'MLS', EPL: 'Premier League', LALIGA: 'La Liga', UCL: 'Champions League', WNBA: 'WNBA', NCAAB: 'College basketball', SERIEA: 'Serie A', BUNDESLIGA: 'Bundesliga', LIGUE1: 'Ligue 1', UFCFIGHT: 'UFC'};
+    return names[s] || s;
+  };
+  const table = (id, caption, heads, rows, emptyText) => {
+    const numeric = heads.map(h => h.charAt(0) === '#');
+    const head = '<tr>' + heads.map((h, i) => '<th class="' + (numeric[i] ? 'num' : '') + '">' + esc(numeric[i] ? h.slice(1) : h) + '</th>').join('') + '</tr>';
+    const body = rows.length ? rows.map(r => '<tr>' + r.map((c, i) => {
+      const cell = typeof c === 'object' && c !== null ? c : {v: c};
+      const cls = [numeric[i] ? 'num' : '', cell.cls || ''].join(' ').trim();
+      return '<td class="' + cls + '">' + (cell.html != null ? cell.html : esc(cell.v)) + '</td>';
+    }).join('') + '</tr>').join('') : '<tr><td class="empty" colspan="' + heads.length + '">' + esc(emptyText || 'Nothing here yet.') + '</td></tr>';
+    $(id).innerHTML = (caption ? '<caption>' + esc(caption) + '</caption>' : '') + '<thead>' + head + '</thead><tbody>' + body + '</tbody>';
+  };
+  const pill = (cls, text) => ({html: '<span class="pill ' + cls + '">' + esc(text) + '</span>'});
 
-  $('generated').textContent = 'Updated ' + when(D.generated_at) + ' UTC';
+  $('generated').textContent = 'Updated ' + when(D.generated_at) + '.';
+
+  const trades = D.trades || [];
+  const openTrades = trades.filter(t => t.pnl == null);
+  const settled = trades.filter(t => t.pnl != null);
+  const positions = M.positions || [];
+  const settledPositions = positions.filter(p => p.result === 'W' || p.result === 'L');
+  const wonPositions = settledPositions.filter(p => p.result === 'W').length;
+  const equity = (P.cash || 0) + (P.open_cost || 0);
+  const change = equity - (P.starting_cash || 0);
+  const openGames = new Set(openTrades.map(t => t.ticker.split('-').slice(0, 2).join('-'))).size;
+  const openBets = new Set(openTrades.map(t => t.ticker + '|' + t.side)).size;
+
+  $('story').innerHTML = 'The bot started with <b>' + money(P.starting_cash) + '</b> of paper money and is now worth <b>' + money(equity) + '</b> (' +
+    '<span class="' + tone(change) + '">' + money(change, true) + '</span>). ' +
+    'It has finished <b>' + settledPositions.length + '</b> bets and won <b>' + wonPositions + '</b>, and has <b>' + openBets + '</b> bets open on ' + openGames + ' games. ' +
+    'Remember: a handful of big wins can make the total look better than the bot really is. See the checks below.';
 
   const cards = [
-    ['Cash', money(P.cash), ''],
-    ['Realized PnL', money(P.realized_pnl), sign(P.realized_pnl)],
-    ['Fees paid', money(P.fees_paid), ''],
-    ['Open positions', P.open_positions + ' (' + money(P.open_cost) + ')', ''],
-    ['Settled / wins', P.settled_count + ' / ' + P.wins, ''],
-    ['Brier strategy vs market', f4(P.brier) + ' vs ' + f4(P.market_brier),
-      P.brier == null ? 'muted' : (P.brier < P.market_brier ? 'good' : 'bad')],
-    ['Signals', D.predictions.length + ' (' + D.predictions.filter(p => p.traded).length + ' traded)', ''],
-    ['Runs', D.runs.length, ''],
+    ['Account value', money(equity), money(change, true) + ' since start', tone(change)],
+    ['Profit from finished bets', money(P.realized_pnl, true), 'after ' + money(P.fees_paid) + ' in Kalshi fees', tone(P.realized_pnl)],
+    ['Bets won', wonPositions + ' of ' + settledPositions.length, settledPositions.length ? pct(wonPositions / settledPositions.length) + ' win rate' : 'none finished yet', ''],
+    ['Open bets', String(openBets), money(P.open_cost) + ' at stake', ''],
+    ['Cash available', money(P.cash), 'not tied up in bets', '']
   ];
-  $('cards').innerHTML = cards.map(([k, v, c]) =>
-    '<div class="card"><div class="k">' + esc(k) + '</div><div class="v ' + c + '">' + esc(v) + '</div></div>').join('');
+  $('cards').innerHTML = cards.map(c => '<div class="stat"><div class="k">' + esc(c[0]) + '</div><div class="v ' + c[3] + '">' + esc(c[1]) + '</div><div class="d">' + esc(c[2]) + '</div></div>').join('');
 
-  function sliceTable(id, rows, key, empty) {
-    $(id).innerHTML = '<thead><tr><th>' + key + '</th><th>open</th><th>settled</th><th>wins</th>' +
-      '<th>realized PnL</th><th>fees</th><th>Brier vs market</th></tr></thead><tbody>' +
-      (rows.length ? rows.map(s => '<tr><td>' + esc(s[key]) + '</td><td>' + s.open_positions + '</td><td>' +
-        s.settled_count + '</td><td>' + s.wins + '</td><td class="' + sign(s.realized_pnl) + '">' + money(s.realized_pnl) +
-        '</td><td>' + money(s.fees_paid) + '</td><td class="' + (s.brier == null ? 'muted' : (s.brier < s.market_brier ? 'good' : 'bad')) +
-        '">' + f4(s.brier) + ' vs ' + f4(s.market_brier) + '</td></tr>').join('')
-        : '<tr><td colspan="7" class="empty">' + empty + '</td></tr>') + '</tbody>';
+  const versions = M.by_version || {};
+  const hasSettled = v => positions.some(p => p.version === v && (p.result === 'W' || p.result === 'L'));
+  let rules = hasSettled('v2') ? 'v2' : 'v1';
+
+  const verdict = (cls, title, big, text) => '<div class="verdict ' + cls + '"><h3>' + esc(title) + '</h3><div class="big">' + esc(big) + '</div><p>' + esc(text) + '</p></div>';
+
+  function clvSummary(V) {
+    const groups = (V.clv || {}).league || {};
+    let n = 0; let total = 0;
+    Object.values(groups).forEach(g => {
+      const mean = num(g.mean) ? g.mean : g.avg;
+      if (num(g.n) && num(mean)) { n += g.n; total += g.n * mean; }
+    });
+    return {n: n, mean: n ? total / n : null};
   }
-  sliceTable('byleague', D.by_league || [], 'league', 'no fills yet');
 
-  function renderPositions(version) {
-    const M = D.measurement || {};
-    const V = (M.by_version || {})[version] || M;
-    const rows = (M.positions || []).filter(p => p.version === version);
-    $('positions').innerHTML = '<thead><tr><th>Summary</th><th>Outcome key</th><th>contracts</th>' +
-      '<th>avg entry</th><th>fair</th><th>result</th><th>P&amp;L</th><th>CLV T-5</th>' +
-      '<th>Odds move</th>' +
-      '<th>game-day proxy CLV</th><th>strategy tags</th></tr></thead><tbody>' +
-      (rows.length ? rows.map(p => '<tr><td class="summary">' + esc(p.summary) + '</td><td>' +
-        esc(p.event + ':' + p.outcome) + '</td><td>' + p.contracts.toFixed(0) + '</td><td>' +
-        (p.price * 100).toFixed(1) + '¢</td><td>' + p.fair.toFixed(3) + '</td><td>' +
-        esc(p.result) + '</td><td>' + money(p.pnl) + '</td><td>' +
-        (p.clv == null ? 'unknown' : p.clv.toFixed(1) + '¢') + '</td><td>' +
-        (p.line_move == null ? 'unknown' : (p.line_move * 100).toFixed(1) + ' pp') + '</td><td>' +
-        (p.clv_gameday == null ? 'unknown' : p.clv_gameday.toFixed(1) + '¢ (proxy)') +
-        '</td><td>' + esc(p.strategy_tags) + '</td></tr>').join('') :
-        '<tr><td colspan="11" class="empty">no positions in this rules-version view</td></tr>') +
-      '</tbody>';
-    const bf = V.brier_fills || {n: 0, value: null, ci95: null};
-    const bp = V.brier_positions || {n: 0, value: null, ci95: null};
-    const dimensions = V.clv || {};
-    const bins = ['<-10c', '-10..-5c', '-5..0c', '0..5c', '5..10c', '10c+'];
-    const clvRows = Object.entries(dimensions).flatMap(([dimension, groups]) =>
-      Object.entries(groups).map(([group, stats]) => {
-        const counts = bins.map(name => stats.histogram[name] || 0);
-        const high = Math.max(1, ...counts);
-        const bars = counts.map((count, index) => {
-          const height = count ? Math.max(1, 34 * count / high) : 0;
-          const x = index * 28 + 2;
-          return '<rect x="' + x + '" y="' + (38 - height) + '" width="20" height="' +
-            height + '" fill="#6ea8fe"><title>' + esc(bins[index] + ': ' + count) +
-            '</title></rect>';
-        }).join('');
-        return '<tr><td>' + esc(dimension) + '</td><td>' + esc(group) + '</td><td>' +
-          stats.n + '</td><td>' + stats.mean.toFixed(2) + '¢</td><td>' +
-          stats.median.toFixed(2) + '¢</td><td><svg class="clv-hist" viewBox="0 0 172 42">' +
-          bars + '</svg></td><td class="clv-note">' +
-          esc(stats.evidence_note || '') + '</td></tr>';
-      })).join('');
-    $('clv-summary').innerHTML = '<h3>CLV by league, entry window, and price band</h3>' +
-      '<div class="tablewrap"><table><thead><tr><th>grouping</th><th>bucket</th><th>n</th>' +
-      '<th>mean</th><th>median</th><th>histogram (¢)</th><th>evidence</th></tr></thead><tbody>' +
-      (clvRows || '<tr><td colspan="7" class="empty">no CLV quotes yet</td></tr>') +
-      '</tbody></table></div>';
-    function measurementTable(caption, headers, dataRows, emptyText = 'No data recorded yet.') {
-      const head = '<thead><tr>' + headers.map(value => '<th>' + esc(value) + '</th>').join('') + '</tr></thead>';
-      const body = dataRows.length ?
-        dataRows.map(row => '<tr>' + row.map(value => '<td>' + esc(value == null ? '-' : value) +
-          '</td>').join('') + '</tr>').join('') :
-        '<tr><td colspan="' + headers.length + '" class="empty">' + esc(emptyText) + '</td></tr>';
-      return '<div class="tablewrap"><table class="measurement-table"><caption>' +
-        esc(caption) + '</caption>' + head + '<tbody>' + body + '</tbody></table></div>';
+  function renderVerdicts() {
+    document.querySelectorAll('#rules-tabs button').forEach(b => b.classList.toggle('on', b.dataset.rules === rules));
+    const V = versions[rules] || {};
+    const mine = positions.filter(p => p.version === rules);
+    const done = mine.filter(p => p.result === 'W' || p.result === 'L');
+    const note = $('rules-note');
+    if (rules === 'v2' && !done.length) {
+      note.hidden = false;
+      note.textContent = 'The new rules started trading on Oct 23 and no bets have finished yet. These checks fill in as games end; they need about 50 finished bets to mean much.';
+    } else { note.hidden = true; }
+    const out = [];
+    const mc = V.monte_carlo;
+    if (mc && mc.market && num(mc.market.p_ge_realized)) {
+      const p = mc.market.p_ge_realized;
+      out.push(verdict(p < 0.05 ? 'good' : 'warn', 'Luck test', pct(p) + ' chance it was luck',
+        'If Kalshi prices were exactly right, random game results would still give a profit this big ' + pct(p) + ' of the time. Under 5% would suggest real skill.'));
+    } else {
+      out.push(verdict('', 'Luck test', 'Not enough bets yet', 'Runs once some bets have finished.'));
     }
-    const ciText = ci => ci && ci.length === 2 ?
-      f4(ci[0]) + ' to ' + f4(ci[1]) : 'not available';
-    const brierRows = [
-      ['Fills', bf.n, f4(bf.value), f4(bf.market_value), ciText(bf.ci95),
-        ciText(bf.market_ci95),
-        bf.n < 50 ? 'too few to be evidence' : ''],
-      ['Positions', bp.n, f4(bp.value), f4(bp.market_value), ciText(bp.ci95),
-        ciText(bp.market_ci95),
-        bp.n < 50 ? 'too few to be evidence' : ''],
-    ];
-    const calibrationRows = Object.entries(V.calibration || {})
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([bucket, stats]) => [
-        bucket, stats.n, Number(stats.expected_wins).toFixed(2), stats.wins,
-      ]);
-    const monteCarlo = V.monte_carlo;
-    const monteCarloRows = monteCarlo ? [
-      ['Market prices', f4(monteCarlo.market.p_ge_realized),
-        money(monteCarlo.market.mean_pnl), monteCarlo.runs],
-      ['Bot fair', f4(monteCarlo.bot_fair.p_ge_realized),
-        money(monteCarlo.bot_fair.mean_pnl), monteCarlo.runs],
-    ] : [];
-    const topThree = V.top_three_pnl || 0;
-    const otherPnl = V.other_pnl || 0;
-    const q = M.quality || {};
-    const qualityRows = (q.blocks || []).map(block => [
-      block.reason, block['7d'], block.all,
-    ]);
-    if (!qualityRows.length) qualityRows.push(['No blocks', 0, 0]);
-    qualityRows.push(
-      ['Depth-limited', 'not tracked by day', q.depth_limited_all_time || 0],
-      ['Edge reviews', 'not tracked by day', q.edge_reviews || 0],
-      ['Mapping failures', 'not tracked by day', q.mapping_failures_all_time || 0],
-      ['Odds credits used / remaining', 'not applicable',
-        (q.odds_used == null ? 'unknown' : q.odds_used) + ' / ' +
-          (q.odds_remaining == null ? 'unknown' : q.odds_remaining)],
-    );
-    const makerCounts = q.maker_shadow || {};
-    const makerRows = ['open', 'filled', 'cancelled'].map(status => [
-      status, makerCounts[status] || 0, '-', '-',
-    ]);
-    const makerPnl = q.maker_shadow_pnl || {};
-    const makerClv = q.maker_shadow_clv || {};
-    makerRows.push(
-      ['Settled P&L', 'n=' + (makerPnl.n || 0), money(makerPnl.value), '-'],
-      ['CLV mean / median', 'n=' + (makerClv.n || 0), '-',
-        makerClv.mean == null ? 'unknown' :
-          makerClv.mean.toFixed(1) + '¢ / ' + makerClv.median.toFixed(1) + '¢'],
-    );
-    const shadowRows = (q.shadow_decisions || []).map(decision => [
-      decision.window, decision.version, decision.n, decision.would_trade,
-    ]);
-    const lineMove = q.line_move_follower || {};
-    const roadDog = q.exp_road_dog || {};
-    $('measurement-summary').innerHTML = [
-      measurementTable(
-        'Calibration by ten-cent bucket compares expected wins with actual wins.',
-        ['Bucket', 'n', 'Expected wins', 'Actual wins'],
-        calibrationRows,
-        'No settled fills are available for calibration.',
-      ),
-      measurementTable(
-        'Brier scores use 2,000 game-bootstrap resamples; samples under 50 are too few to be evidence.',
-        ['Unit', 'n', 'Bot Brier', 'Market Brier', 'Bot 95% CI', 'Market 95% CI', 'Evidence'],
-        brierRows,
-      ),
-      measurementTable(
-        'Monte Carlo estimates the chance of matching realized P&L under market prices and bot fair.',
-        ['Model', 'P(≥ realized)', 'Mean simulated P&L', 'Runs'],
-        monteCarloRows,
-        'No settled fills are available for simulation.',
-      ),
-      measurementTable(
-        'Settled position P&L with all outcomes and after excluding the three largest outcomes.',
-        ['View', 'Realized P&L'],
-        [
-          ['All settled outcomes', money(topThree + otherPnl)],
-          ['Excluding top three', money(otherPnl)],
-          ['Top three contribution', money(topThree)],
-        ],
-      ),
-      measurementTable(
-        'Block reasons show the last seven days and all-time totals; supporting quality checks are all-time or latest.',
-        ['Reason or measure', 'Last 7 days', 'All time / latest'],
-        qualityRows,
-      ),
-      measurementTable(
-        'Maker-shadow counts by status, with settled P&L and available CLV.',
-        ['Status or measure', 'Count / n', 'P&L', 'CLV'],
-        makerRows,
-      ),
-      measurementTable(
-        'Shadow decisions by entry window and rules version, including would-trade counts.',
-        ['Entry window', 'Rules version', 'Decisions', 'Would trade'],
-        shadowRows,
-        'No shadow decisions have been recorded yet.',
-      ),
-      measurementTable(
-        'Line-move follower is shadow-only; no trading until at least 50 observations.',
-        ['Observations', 'Would trade', 'Settled CLV n', 'Mean settled CLV', 'Status'],
-        [[lineMove.observations || 0, lineMove.would_trade || 0,
-          lineMove.settled_clv_n || 0,
-          lineMove.settled_clv_mean == null ? 'unknown' :
-            lineMove.settled_clv_mean.toFixed(1) + '¢',
-          lineMove.note || 'No trading until at least 50 observations.']],
-      ),
-      measurementTable(
-        'Road-dog experiment evaluation at 50 and 100 positions; rankings and neutral-site data are absent.',
-        ['Positions', 'Settled', 'Settled P&L', 'CLV n', 'Mean CLV', 'Evaluation note'],
-        [[roadDog.positions || 0, roadDog.settled || 0, money(roadDog.pnl || 0),
-          roadDog.clv_n || 0,
-          roadDog.clv_mean == null ? 'unknown' : roadDog.clv_mean.toFixed(1) + '¢',
-          roadDog.evaluation_note || 'Evaluate at 50 and 100 positions.']],
-      ),
-    ].join('');
+    const b = V.brier_positions || {};
+    if (num(b.value) && num(b.market_value)) {
+      const better = b.value < b.market_value;
+      const overlap = b.ci95 && b.market_ci95 && b.ci95[0] <= b.market_ci95[1] && b.market_ci95[0] <= b.ci95[1];
+      out.push(verdict(overlap ? 'warn' : better ? 'good' : 'bad', 'Better predictions than Kalshi?',
+        overlap ? 'No clear difference' : better ? 'Yes' : 'No',
+        'Brier score (lower = better forecasts): bot ' + b.value.toFixed(3) + ' vs Kalshi ' + b.market_value.toFixed(3) + ' over ' + b.n + ' bets.' + (overlap ? ' The gap is within the noise.' : '')));
+    } else {
+      out.push(verdict('', 'Better predictions than Kalshi?', 'Not enough bets yet', "Compares the bot's odds against Kalshi prices once games finish."));
+    }
+    if (done.length) {
+      const top = V.top_three_pnl || 0; const rest = V.other_pnl || 0;
+      out.push(verdict(rest >= 0 ? 'good' : 'bad', 'Without the 3 biggest wins', money(rest, true),
+        'The 3 best outcomes made ' + money(top, true) + '. Everything else together made ' + money(rest, true) + '.'));
+    }
+    const c = clvSummary(V);
+    if (c.n) {
+      out.push(verdict(c.n < 50 ? 'warn' : c.mean > 0 ? 'good' : 'bad', 'Beating the closing price?', signedCents(c.mean) + ' per bet',
+        'Average move in Kalshi price between buying and kickoff, over ' + c.n + ' bets. Positive means the market moved our way.' + (c.n < 50 ? ' Too few bets to be evidence yet (need 50).' : '')));
+    } else {
+      out.push(verdict('', 'Beating the closing price?', 'No data yet', 'Measured from Kalshi prices just before kickoff, after each game.'));
+    }
+    $('verdicts').innerHTML = out.join('');
+    renderPositions();
+    renderMeasurement(V);
   }
-  const versionHasData = version =>
-    (D.measurement.positions || []).some(position => position.version === version) ||
-    (((D.measurement.by_version || {})[version] || {}).brier_fills || {}).n > 0;
-  const initialVersion = versionHasData('v2') || !versionHasData('v1') ? 'v2' : 'v1';
-  document.querySelectorAll('[data-rules]').forEach(b => {
-    b.classList.toggle('on', b.dataset.rules === initialVersion);
-    b.onclick = () => {
-      document.querySelectorAll('[data-rules]').forEach(x => x.classList.remove('on'));
-      b.classList.add('on');
-      renderPositions(b.dataset.rules);
-    };
+  document.querySelectorAll('#rules-tabs button').forEach(b => b.addEventListener('click', () => { rules = b.dataset.rules; renderVerdicts(); }));
+
+  const groupOpen = new Map();
+  openTrades.forEach(t => {
+    const k = t.ticker + '|' + t.side;
+    const g = groupOpen.get(k) || {t: t, count: 0, cost: 0, last: t.when};
+    g.count += t.count || 0; g.cost += t.cost || 0;
+    if (t.when > g.last) g.last = t.when;
+    groupOpen.set(k, g);
   });
-  renderPositions(initialVersion);
+  const openRows = [...groupOpen.values()].sort((a, b) => (b.last || '').localeCompare(a.last || '')).map(g => [
+    {v: league(g.t.ticker)},
+    {v: String(g.t.summary || '').split(' — ')[0] + (g.t.side === 'no' ? ' (betting NO)' : ''), cls: 'what'},
+    {v: 'Kalshi ' + pct(g.t.price) + ' · bot ' + pct(g.t.fair)},
+    {v: money(g.cost)},
+    {v: money(g.count), cls: 'good'},
+    {v: when(g.last)}
+  ]);
+  table('open', '', ['League', 'Bet', 'Chance of winning', '#Cost', '#Pays', 'Placed'], openRows, 'No open bets.');
 
-  function lineChart(svg, pts, opts) {
-    const W = 600, H = 180, L = 48, R = 10, T = 10, B = 24;
-    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-    if (pts.length < 1) { svg.innerHTML = '<text x="50%" y="50%" fill="#9aa0aa" text-anchor="middle">no runs yet</text>'; return; }
-    let ys = pts.map(p => p.y); let lo = Math.min(...ys, opts.base ?? Infinity), hi = Math.max(...ys, opts.base ?? -Infinity);
-    if (hi === lo) { hi += 1; lo -= 1; }
-    const x = (i) => L + (pts.length === 1 ? (W - L - R) / 2 : i * (W - L - R) / (pts.length - 1));
-    const y = (v) => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
-    let out = '';
-    for (let k = 0; k <= 4; k++) {
-      const v = lo + (hi - lo) * k / 4, yy = y(v);
-      out += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="#2a2f3a"/>';
-      out += '<text x="' + (L - 6) + '" y="' + (yy + 4) + '" fill="#9aa0aa" font-size="10" text-anchor="end">' + opts.fmt(v) + '</text>';
-    }
-    if (opts.base != null) out += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(opts.base) + '" y2="' + y(opts.base) + '" stroke="#6ea8fe" stroke-dasharray="4 4"/>';
-    out += '<polyline fill="none" stroke="#3ddc84" stroke-width="2" points="' + pts.map((p, i) => x(i) + ',' + y(p.y)).join(' ') + '"/>';
-    pts.forEach((p, i) => { out += '<circle cx="' + x(i) + '" cy="' + y(p.y) + '" r="3" fill="#3ddc84"><title>' + esc(p.label) + '</title></circle>'; });
-    out += '<text x="' + L + '" y="' + (H - 6) + '" fill="#9aa0aa" font-size="10">' + esc(pts[0].t) + '</text>';
-    out += '<text x="' + (W - R) + '" y="' + (H - 6) + '" fill="#9aa0aa" font-size="10" text-anchor="end">' + esc(pts[pts.length - 1].t) + '</text>';
-    svg.innerHTML = out;
-  }
-  function barChart(svg, runs) {
-    const W = 600, H = 180, L = 32, R = 10, T = 10, B = 24;
-    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-    if (!runs.length) { svg.innerHTML = '<text x="50%" y="50%" fill="#9aa0aa" text-anchor="middle">no runs yet</text>'; return; }
-    const hi = Math.max(1, ...runs.map(r => r.signals));
-    const bw = (W - L - R) / runs.length, y = (v) => T + (H - T - B) * (1 - v / hi);
-    let out = '<text x="' + (L - 6) + '" y="' + (T + 4) + '" fill="#9aa0aa" font-size="10" text-anchor="end">' + hi + '</text>';
-    out += '<text x="' + (L - 6) + '" y="' + (H - B + 4) + '" fill="#9aa0aa" font-size="10" text-anchor="end">0</text>';
-    runs.forEach((r, i) => {
-      const x0 = L + i * bw + bw * 0.15, w = Math.max(1, bw * 0.7);
-      out += '<rect x="' + x0 + '" y="' + y(r.signals) + '" width="' + w + '" height="' + (H - B - y(r.signals)) + '" fill="#6ea8fe" opacity=".5"><title>' + esc(when(r.when) + ': ' + r.signals + ' signals, ' + r.filled + ' fills, ' + r.scanned + ' markets') + '</title></rect>';
-      out += '<rect x="' + x0 + '" y="' + y(r.filled) + '" width="' + w + '" height="' + (H - B - y(r.filled)) + '" fill="#3ddc84"/>';
-    });
-    out += '<text x="' + L + '" y="' + (H - 6) + '" fill="#9aa0aa" font-size="10">' + esc(when(runs[0].when)) + '</text>';
-    out += '<text x="' + (W - R) + '" y="' + (H - 6) + '" fill="#9aa0aa" font-size="10" text-anchor="end">' + esc(when(runs[runs.length - 1].when)) + '</text>';
-    svg.innerHTML = out;
-  }
-  lineChart($('equity'), D.runs.map(r => ({ y: r.equity, t: when(r.when), label: when(r.when) + '  ' + money(r.equity) })),
-            { base: P.starting_cash, fmt: (v) => '$' + v.toFixed(0) });
-  barChart($('activity'), D.runs);
+  const recentRows = settled.slice().sort((a, b) => (b.settled_at || b.when || '').localeCompare(a.settled_at || a.when || '')).slice(0, 12).map(t => [
+    t.pnl > 0 ? pill('won', 'Won') : pill('lost', 'Lost'),
+    {v: String(t.summary || '').split(' — ')[0] + (t.side === 'no' ? ' (NO)' : ''), cls: 'what'},
+    {v: money(t.pnl, true), cls: tone(t.pnl)}
+  ]);
+  table('recent', '', ['Result', 'Bet', '#Profit'], recentRows, 'No finished bets yet.');
 
-  // column: [header, display, cssClass, isRawHtml, tdClass, sortKey]; sortKey defaults to display
-  const num = (k) => (r) => r[k] == null ? -Infinity : r[k];
-  const COLS = {
-    predictions: [
-      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['prediction', r => r.summary, null, false, 'summary'], ['strategy', r => r.strategy],
-      ['side', r => r.side], ['price', r => f4(r.price), null, false, null, num('price')], ['fair', r => f4(r.fair), null, false, null, num('fair')],
-      ['edge', r => (r.edge > 0 ? '+' : '') + f4(r.edge), r => sign(r.edge), false, null, num('edge')], ['size', r => r.size, null, false, null, num('size')],
-      ['traded', r => r.traded ? 'yes' : 'no', r => r.traded ? '' : 'muted'],
-      ['result', r => r.result == null ? '<span class="pill">open</span>'
-        : '<span class="pill ' + (r.won ? 'won' : 'lost') + '">' + (r.won ? 'WON' : 'lost') + ' (' + esc(r.result) + ')</span>', null, true, null,
-        r => r.result == null ? 0 : r.won ? 2 : 1],
-      ['why', r => r.why, null, false, 'why'], ['ticker', r => r.ticker, () => 'muted'],
-    ],
-    trades: [
-      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['trade', r => r.summary, null, false, 'summary'], ['strategy', r => r.strategy],
-      ['side', r => r.side], ['price', r => f4(r.price), null, false, null, num('price')], ['contracts', r => r.count, null, false, null, num('count')],
-      ['fee', r => money(r.fee), null, false, null, num('fee')], ['cost', r => money(r.cost), null, false, null, num('cost')], ['fair', r => f4(r.fair), null, false, null, num('fair')],
-      ['result', r => r.result == null ? '<span class="pill">open</span>'
-        : '<span class="pill ' + (r.pnl >= 0 ? 'won' : 'lost') + '">' + esc(r.result) + '</span>', null, true, null,
-        r => r.result == null ? 0 : r.pnl >= 0 ? 2 : 1],
-      ['pnl', r => money(r.pnl), r => sign(r.pnl), false, null, num('pnl')], ['settled (UTC)', r => when(r.settled_at), null, false, null, r => r.settled_at || ''],
-      ['ticker', r => r.ticker, () => 'muted'],
-    ],
-    runs: [
-      ['when (UTC)', r => when(r.when), null, false, null, r => r.when], ['strategies', r => r.strategies], ['markets scanned', r => r.scanned, null, false, null, num('scanned')],
-      ['signals', r => r.signals, null, false, null, num('signals')], ['fills', r => r.filled, null, false, null, num('filled')], ['settled', r => r.settled, null, false, null, num('settled')],
-      ['cash', r => money(r.cash), null, false, null, num('cash')], ['equity', r => money(r.equity), null, false, null, num('equity')],
-    ],
-  };
-  let tab = 'predictions', sortKey = null, sortDir = -1;
-  function rows() {
-    const q = $('q').value.trim().toLowerCase(), st = $('status').value;
-    return D[tab].filter(r => {
-      if (q && !JSON.stringify(r).toLowerCase().includes(q)) return false;
-      if (tab === 'runs' || !st) return true;
-      if (st === 'open') return r.result == null;
-      if (st === 'traded') return tab === 'trades' || r.traded;
-      const won = tab === 'trades' ? (r.pnl != null && r.pnl >= 0) : r.won;
-      return r.result != null && (st === 'won') === !!won;
+  const runs = D.runs || [];
+  (function drawEquity() {
+    const svg = $('equity');
+    const pts = runs.filter(r => num(r.equity));
+    if (pts.length < 2) { svg.outerHTML = '<div class="empty">Not enough runs to chart yet.</div>'; return; }
+    const W = 600, H = 200, pad = 34;
+    const ys = pts.map(r => r.equity).concat([P.starting_cash || pts[0].equity]);
+    const lo = Math.min(...ys), hi = Math.max(...ys), span = hi - lo || 1;
+    const x = i => pad + (W - pad - 8) * i / (pts.length - 1);
+    const y = v => 10 + (H - 30) * (1 - (v - lo) / span);
+    const line = pts.map((r, i) => x(i).toFixed(1) + ',' + y(r.equity).toFixed(1)).join(' ');
+    const last = pts[pts.length - 1].equity;
+    const color = last >= (P.starting_cash || 0) ? '#12875b' : '#c4321f';
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.innerHTML = '<line x1="' + pad + '" x2="' + (W - 8) + '" y1="' + y(P.starting_cash || 0) + '" y2="' + y(P.starting_cash || 0) + '" stroke="#98a2b3" stroke-dasharray="4 4"/>' +
+      '<polyline fill="none" stroke="' + color + '" stroke-width="2.5" points="' + line + '"/>' +
+      '<text x="2" y="16" font-size="11" fill="#667085">' + money(hi) + '</text>' +
+      '<text x="2" y="' + (H - 18) + '" font-size="11" fill="#667085">' + money(lo) + '</text>' +
+      '<text x="' + pad + '" y="' + (H - 2) + '" font-size="11" fill="#667085">' + esc(when(pts[0].when)) + '</text>' +
+      '<text x="' + (W - 8) + '" y="' + (H - 2) + '" font-size="11" fill="#667085" text-anchor="end">' + esc(when(pts[pts.length - 1].when)) + '</text>';
+    const r = runs[runs.length - 1];
+    $('last-run').textContent = 'Last run ' + when(r.when) + ': looked at ' + r.scanned + ' markets, found ' + r.signals + ' possible bets, placed ' + r.filled + '.';
+  })();
+
+  function renderPositions() {
+    const rows = positions.filter(p => p.version === rules).map(p => [
+      p.result === 'W' ? pill('won', 'Won') : p.result === 'L' ? pill('lost', 'Lost') : pill('open', 'Open'),
+      {v: String(p.summary || '').replace(/ in KX[A-Z0-9-]+$/, ''), cls: 'what'},
+      {v: league(p.event)},
+      {v: cents(p.price)},
+      {v: pct(p.fair)},
+      {v: String(Math.round(p.contracts || 0))},
+      p.result === 'W' || p.result === 'L' ? {v: money(p.pnl, true), cls: tone(p.pnl)} : {v: '–'},
+      {v: signedCents(p.clv)}
+    ]);
+    table('positions', 'One row per game outcome. Buying "Team A wins" and "Team B loses" counts as one bet.', ['Result', 'Bet', 'League', '#Avg price', '#Bot chance', '#Contracts', '#Profit', '#Price move to kickoff'], rows, 'No bets under these rules yet.');
+  }
+
+  function renderMeasurement(V) {
+    const cal = Object.entries(V.calibration || {}).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).map(([k, c]) => [
+      k, String(c.n), (c.expected_wins || 0).toFixed(1), String(c.wins), pct(c.predicted_win_rate), pct(c.observed_win_rate)
+    ]);
+    table('calibration', 'Calibration by ten-cent bucket: when the bot says 30%, does it win about 30% of the time?', ['Bot chance', '#Bets', '#Expected wins', '#Actual wins', '#Predicted rate', '#Actual rate'], cal);
+    const bRow = (label, b) => [label, String(b.n || 0), num(b.value) ? b.value.toFixed(4) : '–', b.ci95 ? b.ci95.map(x => x.toFixed(3)).join(' to ') : '–', num(b.market_value) ? b.market_value.toFixed(4) : '–', b.market_ci95 ? b.market_ci95.map(x => x.toFixed(3)).join(' to ') : '–'];
+    table('brier', 'Brier scores use 2,000 game-bootstrap resamples for the 95% ranges. Lower is better.', ['Counted by', '#Bets', '#Bot Brier', 'Bot 95% CI', '#Market Brier', 'Market 95% CI'], [bRow('Each fill', V.brier_fills || {}), bRow('Each position', V.brier_positions || {})]);
+    const mc = V.monte_carlo;
+    const mcRows = mc ? [['Kalshi prices', mc.market], ['Bot fair values', mc.bot_fair]].filter(r => r[1]).map(r => [r[0], String(mc.runs), pct(r[1].p_ge_realized), money(r[1].mean_pnl, true)]) : [];
+    table('montecarlo', 'Monte Carlo estimates the chance of a result at least this good if the given probabilities were true (games simulated together).', ['If the true odds were', '#Runs', '#P(≥ realized)', '#Mean simulated P&L'], mcRows);
+    const total = (V.top_three_pnl || 0) + (V.other_pnl || 0);
+    table('concentration', 'Settled position P&L with all outcomes, the top 3, and everything else.', ['Slice', '#P&L'], [['All outcomes', {v: money(total, true), cls: tone(total)}], ['Top 3 outcomes', {v: money(V.top_three_pnl, true), cls: tone(V.top_three_pnl)}], ['Excluding top 3', {v: money(V.other_pnl, true), cls: tone(V.other_pnl)}]]);
+    const clv = V.clv || {};
+    const parts = [['league', 'By league'], ['window', 'By how early we bought'], ['price_band', 'By price']];
+    $('clv').innerHTML = parts.map(p => '<div class="tablewrap"><table id="clv-' + p[0] + '"></table></div>').join('');
+    parts.forEach(p => {
+      const rows = Object.entries(clv[p[0]] || {}).map(([k, g]) => [p[0] === 'league' ? league(k) : k, String(g.n || 0), signedCents(num(g.mean) ? g.mean : g.avg), signedCents(g.median), g.too_few_to_be_evidence || (g.n || 0) < 50 ? 'too few to be evidence' : '']);
+      table('clv-' + p[0], p[1] + ': Kalshi price at kickoff minus our price, in cents.', ['Group', '#Bets', '#Average', '#Median', 'Note'], rows, 'No closing prices recorded yet.');
     });
   }
-  function render() {
-    const cols = COLS[tab];
-    let rs = rows();
-    if (sortKey != null) {
-      const get = cols[sortKey][5] || cols[sortKey][1];
-      rs = rs.slice().sort((a, b) => { const x = get(a), y = get(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
-    }
-    let h = '<thead><tr>' + cols.map(([n], i) => '<th data-i="' + i + '">' + esc(n) + (sortKey === i ? (sortDir > 0 ? ' ▲' : ' ▼') : '') + '</th>').join('') + '</tr></thead><tbody>';
-    if (!rs.length) h += '<tr><td colspan="' + cols.length + '" class="empty">nothing here yet — the scheduled run adds rows every 30 min</td></tr>';
-    for (const r of rs) h += '<tr>' + cols.map(([, get, cls, raw, td]) =>
-      '<td class="' + (td || '') + ' ' + (cls ? cls(r) : '') + '">' + (raw ? get(r) : esc(get(r) ?? '-')) + '</td>').join('') + '</tr>';
-    $('table').innerHTML = h + '</tbody>';
-    $('table').querySelectorAll('th').forEach(th => th.onclick = () => {
-      const i = +th.dataset.i; sortDir = sortKey === i ? -sortDir : -1; sortKey = i; render();
-    });
+
+  const blockNames = {net_edge: 'Edge too small after fees', price_floor: 'Price under 10¢', price_ceiling: 'Price over 90¢', longshot_edge: 'Longshot without enough edge', big_edge: 'Edge suspiciously large', duplicate_position: 'Already have this bet', mapping_failed: 'Team name not recognised', mapping_mismatch: 'Odds matched to the wrong team', entry_window: 'Too close to the game', wide_spread: 'Bid/ask spread too wide', min_books: 'Too few sportsbooks quoting', book_spread: 'Sportsbooks disagree'};
+  const blockLabel = r => { const base = String(r).split(':')[0]; return (blockNames[r] || blockNames[base] || (base === 'in_play' ? 'Game already started' : r)); };
+  table('blocks', 'Block reasons show the last seven days and all time.', ['Reason', 'Code', '#Last 7 days', '#All time'], (Q.blocks || []).map(b => [blockLabel(b.reason), {v: b.reason, cls: 'why'}, String(b['7d'] || 0), String(b.all || 0)]), 'No bets blocked yet.');
+  table('quality', 'Data quality and Odds API usage.', ['Check', '#Value'], [
+    ['Odds API credits used this month', Q.odds_used == null ? 'unknown' : String(Q.odds_used)],
+    ['Odds API credits left', Q.odds_remaining == null ? 'unknown' : String(Q.odds_remaining)],
+    ['Big edges sent for review', String(Q.edge_reviews || 0)],
+    ['Bets cut down for thin order books (all time)', String(Q.depth_limited_all_time || 0)],
+    ['Team-name mapping failures (all time)', String(Q.mapping_failures_all_time || 0)]
+  ]);
+  const mp = Q.maker_shadow_pnl || {}; const mcv = Q.maker_shadow_clv || {};
+  const makerRows = Object.entries(Q.maker_shadow || {}).map(([k, v]) => [k, String(v)]);
+  makerRows.push(['Settled shadow P&L (' + (mp.n || 0) + ' bets)', money(mp.value, true) + (mp.too_few_to_be_evidence ? ' · too few to be evidence' : '')]);
+  makerRows.push(['Shadow price move to kickoff (' + (mcv.n || 0) + ' bets)', signedCents(mcv.mean)]);
+  table('maker', 'Maker-shadow counts by status: pretend limit orders resting one cent better than the ask.', ['Status', '#Count'], makerRows);
+  table('shadow', 'Shadow decisions by entry window: what each rule set would have bought, without trading.', ['Window', 'Rules', '#Decisions', '#Would trade'], (Q.shadow_decisions || []).map(s => [s.window, s.version, String(s.n), String(s.would_trade || 0)]));
+  const rd = Q.exp_road_dog || {}; const lm = Q.line_move_follower || {};
+  table('experiments', 'Line-move follower is shadow-only; no trading until at least 50 observations. Road-dog experiment evaluation at 50 and 100 positions; rankings and neutral-site data are absent.', ['Experiment', '#Count', '#Profit', '#Avg price move'], [
+    ['Line-move follower (shadow)', String(lm.observations || 0) + ' seen, ' + String(lm.would_trade || 0) + ' would trade', '–', signedCents(lm.settled_clv_mean)],
+    ['Road underdogs (small stakes)', String(rd.positions || 0) + ' bets', money(rd.pnl, true), signedCents(rd.clv_mean)]
+  ]);
+  table('byleague', 'Fill-level results by league, all rules versions.', ['League', '#Finished fills', '#Won', '#Profit', '#Fees', '#Open'], (D.by_league || []).map(l => [league(l.league), String(l.settled_count), String(l.wins), {v: money(l.realized_pnl, true), cls: tone(l.realized_pnl)}, money(l.fees_paid), String(l.open_positions)]));
+
+  const preds = (D.predictions || []).slice().sort((a, b) => (b.when || '').localeCompare(a.when || ''));
+  function renderPreds() {
+    const q = $('q').value.trim().toLowerCase();
+    const rows = preds.filter(p => !q || (p.summary + ' ' + p.ticker + ' ' + league(p.ticker)).toLowerCase().includes(q)).slice(0, 200).map(p => [
+      {v: when(p.when)},
+      p.traded ? pill('open', 'Bought') : pill('skip', 'Skipped'),
+      {v: p.summary, cls: 'what'},
+      {v: (num(p.edge) ? signedCents(p.edge * 100) : '–')},
+      {v: p.why, cls: 'why'}
+    ]);
+    table('predictions', 'Newest first, up to 200 rows.', ['When', 'Action', 'What', '#Edge', 'Why'], rows, 'Nothing matches.');
   }
-  document.querySelectorAll('.tabs button[data-tab]').forEach(b => b.onclick = () => {
-    document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('on'));
-    b.classList.add('on'); tab = b.dataset.tab; sortKey = null; render();
-  });
-  $('q').oninput = render; $('status').onchange = render;
-  render();
+  $('q').addEventListener('input', renderPreds);
+  renderPreds();
+  renderVerdicts();
 })();
 </script>
 </body>
