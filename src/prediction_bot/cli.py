@@ -12,8 +12,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from prediction_bot.analysis import event_datetime as _event_datetime
 from prediction_bot.analysis import start_time
-from prediction_bot.clv import record_clv
+from prediction_bot.clv import backfill_clv_commence_times, record_clv, refresh_clv_statuses
 from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
@@ -254,9 +255,17 @@ def paper(
         except Exception:
             log.exception("Maker-shadow scoring failed; continuing paper cycle")
         try:
+            backfill_clv_commence_times(ledger, client, s, max_calls=50)
+        except Exception:
+            log.exception("CLV commence-time backfill failed; continuing paper cycle")
+        try:
             record_clv(ledger, client, max_calls=50)
         except Exception:
             log.exception("CLV recording failed; continuing paper cycle")
+        try:
+            refresh_clv_statuses(ledger, s)
+        except Exception:
+            log.exception("CLV status refresh failed; continuing paper cycle")
         markets = _fetch(client, series)
         snapshot_markets = markets
         if not series and strategy == ["book_scanner"]:
@@ -589,28 +598,6 @@ def _snapshot_markets(
     by_ticker = {market.ticker: market for market in markets}
     by_ticker.update({market.ticker: market for market in fetch_missing(missing)})
     return list(by_ticker.values())
-
-
-def _event_datetime(event: dict[str, object]) -> datetime | None:
-    for key in (
-        "start_time",
-        "scheduled_start_time",
-        "commence_time",
-        "event_start_time",
-        "game_start_time",
-    ):
-        value = event.get(key)
-        if not isinstance(value, str):
-            continue
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            continue
-        return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
-    ticker = event.get("event_ticker")
-    if ticker:
-        return start_time(str(ticker))[0]
-    return None
 
 
 def _planner_games(

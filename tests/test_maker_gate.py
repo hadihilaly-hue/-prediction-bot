@@ -38,7 +38,7 @@ def _add_fill(
         tags=tags,
     )
     ledger.conn.execute(
-        "UPDATE fills SET clv_kalshi=? WHERE id=(SELECT MAX(id) FROM fills)",
+        "UPDATE fills SET clv_kalshi=?,clv_status='ok' WHERE id=(SELECT MAX(id) FROM fills)",
         (clv,),
     )
     ledger.conn.commit()
@@ -156,6 +156,19 @@ def test_maker_and_non_v3_fills_are_excluded_from_taker_evidence() -> None:
     gate = evaluate_maker_gate(ledger, _settings())
     assert gate.taker_n == 0
     assert gate.reason == "taker_positions"
+
+
+def test_maker_gate_ignores_non_ok_taker_clv() -> None:
+    ledger = Ledger(":memory:", Decimal("1000"))
+    _add_fill(ledger, "valid", "2")
+    _add_fill(ledger, "in-game", "100")
+    ledger.conn.execute("UPDATE fills SET clv_status='in_game' WHERE position_key='in-game'")
+    ledger.conn.commit()
+
+    gate = evaluate_maker_gate(ledger, _settings())
+
+    assert gate.taker_n == 1
+    assert gate.taker_mean == Decimal("2")
 
 
 def test_maker_gate_enforces_scored_and_filled_clv_minima() -> None:

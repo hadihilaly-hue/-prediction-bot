@@ -120,7 +120,10 @@ CREATE TABLE IF NOT EXISTS fills (
     commence_time TEXT,
     fee_model_version TEXT,
     fee_paid TEXT,
-    clv_exit TEXT
+    clv_exit TEXT,
+    clv_status TEXT,
+    commence_time_backfill TEXT,
+    commence_source TEXT
 );
 CREATE TABLE IF NOT EXISTS series_fees (
     series_ticker TEXT PRIMARY KEY,
@@ -306,6 +309,13 @@ CREATE TABLE IF NOT EXISTS clv_fetch_attempts (
     last_attempt_at TEXT NOT NULL,
     status TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS clv_commence_attempts (
+    table_name TEXT NOT NULL,
+    row_id INTEGER NOT NULL,
+    attempted_at TEXT NOT NULL,
+    status TEXT NOT NULL,
+    PRIMARY KEY (table_name, row_id)
+);
 CREATE TABLE IF NOT EXISTS shadow_decisions (
     id INTEGER PRIMARY KEY,
     created_at TEXT NOT NULL,
@@ -323,7 +333,10 @@ CREATE TABLE IF NOT EXISTS shadow_decisions (
     commence_time TEXT,
     clv_kalshi TEXT,
     clv_gameday TEXT,
-    clv_exit TEXT
+    clv_exit TEXT,
+    clv_status TEXT,
+    commence_time_backfill TEXT,
+    commence_source TEXT
 );
 """
 
@@ -500,6 +513,9 @@ class Ledger:
                 "clv_gameday": "TEXT",
                 "clv_exit": "TEXT",
                 "line_move_since_entry": "TEXT",
+                "clv_status": "TEXT",
+                "commence_time_backfill": "TEXT",
+                "commence_source": "TEXT",
             },
             "odds_snapshots": {"max_book_update": "TEXT"},
             "blocks": {"position_key": "TEXT"},
@@ -509,6 +525,9 @@ class Ledger:
                 "clv_kalshi": "TEXT",
                 "clv_gameday": "TEXT",
                 "clv_exit": "TEXT",
+                "clv_status": "TEXT",
+                "commence_time_backfill": "TEXT",
+                "commence_source": "TEXT",
             },
             "maker_shadow": {
                 "commence_time": "TEXT",

@@ -6,8 +6,9 @@ from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from prediction_bot.analysis import parse_event, start_time
+from prediction_bot.analysis import event_datetime, parse_event, start_time
 from prediction_bot.candles import candle_time, candle_value, fetch_candles
+from prediction_bot.config import Settings
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.teams import team_for_code, team_for_odds_name
@@ -17,6 +18,152 @@ ET = ZoneInfo("America/New_York")
 SOURCE = "kalshi_candles_1m"
 T_MINUS = (60, 15, 5)
 log = logging.getLogger(__name__)
+
+
+def _utc_datetime(value: str | datetime) -> datetime:
+    parsed = (
+        value
+        if isinstance(value, datetime)
+        else datetime.fromisoformat(value.replace("Z", "+00:00"))
+    )
+    return (
+        parsed.replace(tzinfo=timezone.utc)
+        if parsed.tzinfo is None
+        else parsed.astimezone(timezone.utc)
+    )
+
+
+def clv_status(
+    created_at: str | datetime,
+    commence: str | datetime | None,
+    sport_buffer_minutes: int,
+    has_clv: bool,
+) -> str:
+    if commence is None:
+        return "no_commence"
+    if _utc_datetime(created_at) >= _utc_datetime(commence) - timedelta(
+        minutes=sport_buffer_minutes
+    ):
+        return "in_game"
+    return "ok" if has_clv else "pending"
+
+
+def refresh_clv_statuses(ledger: Ledger, settings: Settings) -> int:
+    changed = 0
+    for table in ("fills", "shadow_decisions"):
+        rows = ledger.conn.execute(
+            f"SELECT id,created_at,ticker,COALESCE(commence_time,commence_time_backfill),"
+            f"clv_kalshi FROM {table} WHERE clv_status IS NULL OR clv_status='pending' "
+            "OR commence_time_backfill IS NOT NULL"
+        ).fetchall()
+        for row_id, created_at, ticker, commence, clv in rows:
+            series = str(ticker).split("-", 1)[0]
+            sport = KALSHI_SERIES_TO_SPORT.get(series)
+            buffer = settings.kickoff_buffer_default_minutes
+            if sport is not None:
+                buffer = settings.kickoff_buffer_minutes.get(sport, buffer)
+            try:
+                status = clv_status(str(created_at), commence, buffer, clv is not None)
+            except (TypeError, ValueError):
+                log.exception("Invalid CLV timestamps for %s row %s", table, row_id)
+                continue
+            ledger.conn.execute(
+                f"UPDATE {table} SET clv_status=? WHERE id=?",
+                (status, row_id),
+            )
+            changed += 1
+    ledger.conn.commit()
+    return changed
+
+
+def backfill_clv_commence_times(
+    ledger: Ledger,
+    kalshi: KalshiClient,
+    settings: Settings,
+    *,
+    now: datetime | None = None,
+    max_calls: int = 50,
+) -> int:
+    """Backfill commencement into new columns; failed lookups are attempted only once."""
+    now = _utc_datetime(now or datetime.now(timezone.utc))
+    rows_by_series: dict[str, list[tuple[str, int, str]]] = {}
+    for table in ("fills", "shadow_decisions"):
+        event_expression = "COALESCE(event_ticker,'')" if table == "fills" else "''"
+        rows = ledger.conn.execute(
+            f"SELECT id,ticker,{event_expression} FROM {table} "
+            "WHERE commence_time IS NULL AND commence_time_backfill IS NULL "
+            "AND commence_source IS NULL AND NOT EXISTS ("
+            "SELECT 1 FROM clv_commence_attempts a "
+            "WHERE a.table_name=? AND a.row_id=id)",
+            (table,),
+        ).fetchall()
+        for row_id, ticker, raw_event in rows:
+            event_ticker = str(raw_event or "") or str(ticker).rsplit("-", 1)[0]
+            series = event_ticker.split("-", 1)[0] if "-" in event_ticker else ""
+            rows_by_series.setdefault(series, []).append((table, int(row_id), event_ticker))
+
+    backfilled = 0
+    calls = 0
+    statuses = ("settled", "closed", "open")
+    for series, rows in rows_by_series.items():
+        target_events = {row[2] for row in rows}
+        events_by_ticker: dict[str, dict[str, object]] = {}
+        statuses_attempted = 0
+        for status in statuses:
+            if target_events <= events_by_ticker.keys():
+                break
+            if calls >= max_calls:
+                break
+            calls += 1
+            statuses_attempted += 1
+            try:
+                events = kalshi.get_events(
+                    series_ticker=series,
+                    status=status,
+                    with_nested_markets=False,
+                )
+            except Exception:
+                log.exception("Kalshi commencement lookup failed for %s (%s)", series, status)
+                continue
+            for found_event in events:
+                ticker = str(found_event.get("event_ticker", ""))
+                if ticker in target_events:
+                    events_by_ticker[ticker] = found_event
+
+        complete = target_events <= events_by_ticker.keys() or statuses_attempted == len(statuses)
+        for table, row_id, event_ticker in rows:
+            commence: datetime | None = None
+            source: str | None = None
+            event_data = events_by_ticker.get(event_ticker)
+            if event_data is not None:
+                commence = event_datetime(event_data)
+                if commence is not None:
+                    source = "kalshi_event"
+            if commence is None and series == "KXMLBGAME":
+                commence, _ = start_time(event_ticker)
+                if commence is not None:
+                    source = "mlb_ticker"
+
+            if source is None and not complete and series:
+                continue
+            with ledger.conn:
+                if commence is not None and source is not None:
+                    ledger.conn.execute(
+                        f"UPDATE {table} SET commence_time_backfill=?,commence_source=? "
+                        "WHERE id=? AND commence_time IS NULL "
+                        "AND commence_time_backfill IS NULL AND commence_source IS NULL",
+                        (_utc_datetime(commence).isoformat(), source, row_id),
+                    )
+                    if ledger.conn.execute("SELECT changes()").fetchone()[0]:
+                        backfilled += 1
+                ledger.conn.execute(
+                    "INSERT OR IGNORE INTO clv_commence_attempts "
+                    "(table_name,row_id,attempted_at,status) VALUES (?,?,?,?)",
+                    (table, row_id, now.isoformat(), source or "unavailable"),
+                )
+
+    refresh_clv_statuses(ledger, settings)
+    return backfilled
 
 
 def _quote_at(
@@ -65,7 +212,8 @@ def record_clv(
     """Fetch one candle window per eligible ticker and persist fill CLV in cents."""
     now = now or datetime.now(timezone.utc)
     fill_rows = ledger.conn.execute(
-        "SELECT f.id, f.ticker, f.side, f.price, f.count, f.commence_time, "
+        "SELECT f.id, f.ticker, f.side, f.price, f.count,"
+        " COALESCE(f.commence_time,f.commence_time_backfill), "
         "COALESCE(f.event_ticker,''), s.ticker, f.rules_version, f.fair_prob "
         "FROM fills f LEFT JOIN settlements s ON s.ticker=f.ticker "
         "WHERE f.clv_kalshi IS NULL ORDER BY f.id"
@@ -79,18 +227,22 @@ def record_clv(
         "OR m.fill_optimistic_at IS NOT NULL) ORDER BY m.id"
     ).fetchall()
     line_move_rows = ledger.conn.execute(
-        "SELECT d.id,d.ticker,d.side,d.price,d.size,d.commence_time,"
+        "SELECT d.id,d.ticker,d.side,d.price,d.size,"
+        "COALESCE(d.commence_time,d.commence_time_backfill),"
         "'',s.ticker,d.fair,COALESCE(d.rules_version,'v2') "
         "FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
-        "WHERE d.strategy='line_move_follower' AND d.commence_time IS NOT NULL "
+        "WHERE d.strategy='line_move_follower' "
+        "AND COALESCE(d.commence_time,d.commence_time_backfill) IS NOT NULL "
         "AND d.clv_kalshi IS NULL ORDER BY d.id"
     ).fetchall()
     entry_window_rows = ledger.conn.execute(
-        "SELECT d.id,d.ticker,d.side,d.price,d.size,d.commence_time,"
+        "SELECT d.id,d.ticker,d.side,d.price,d.size,"
+        "COALESCE(d.commence_time,d.commence_time_backfill),"
         "'',s.ticker,d.fair,COALESCE(d.rules_version,'v2') "
         "FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
         "WHERE d.reason='entry_window' AND d.rules_version IN ('v2','v3') "
-        "AND d.window IN ('72h+','24-72h','2-24h') AND d.commence_time IS NOT NULL "
+        "AND d.window IN ('72h+','24-72h','2-24h') "
+        "AND COALESCE(d.commence_time,d.commence_time_backfill) IS NOT NULL "
         "AND d.clv_kalshi IS NULL ORDER BY d.id"
     ).fetchall()
     commenced_shadow_decisions = []
@@ -249,7 +401,7 @@ def record_clv(
                     usable_quotes += 1
                     _, bid, ask, mid = quote
                     ledger.conn.execute(
-                        "INSERT OR REPLACE INTO closing_quotes "
+                        "INSERT OR IGNORE INTO closing_quotes "
                         "(ticker, commence_time, t_minus_min, yes_bid, yes_ask, mid, fetched_at, "
                         "source) "
                         "VALUES (?,?,?,?,?,?,?,?)",
@@ -338,8 +490,10 @@ def record_clv(
                 exit_clv = None if side_bid_t5 is None else (side_bid_t5 - price) * 100
                 if table == "fills":
                     ledger.conn.execute(
-                        "UPDATE fills SET clv_kalshi=?, clv_gameday=?,clv_exit=?,"
-                        " line_move_since_entry=? WHERE id=?",
+                        "UPDATE fills SET clv_kalshi=COALESCE(clv_kalshi,?), "
+                        "clv_gameday=COALESCE(clv_gameday,?),"
+                        "clv_exit=COALESCE(clv_exit,?),"
+                        "line_move_since_entry=COALESCE(line_move_since_entry,?) WHERE id=?",
                         (
                             None if clv is None else str(clv),
                             None if day_clv is None else str(day_clv),
@@ -350,7 +504,9 @@ def record_clv(
                     )
                 elif table == "maker_shadow":
                     ledger.conn.execute(
-                        "UPDATE maker_shadow SET clv_kalshi=?,clv_gameday=?,clv_exit=? WHERE id=?",
+                        "UPDATE maker_shadow SET clv_kalshi=COALESCE(clv_kalshi,?),"
+                        "clv_gameday=COALESCE(clv_gameday,?),clv_exit=COALESCE(clv_exit,?) "
+                        "WHERE id=?",
                         (
                             None if clv is None else str(clv),
                             None if day_clv is None else str(day_clv),
@@ -360,7 +516,8 @@ def record_clv(
                     )
                 else:
                     ledger.conn.execute(
-                        "UPDATE shadow_decisions SET clv_kalshi=?,clv_gameday=?,clv_exit=? "
+                        "UPDATE shadow_decisions SET clv_kalshi=COALESCE(clv_kalshi,?),"
+                        "clv_gameday=COALESCE(clv_gameday,?),clv_exit=COALESCE(clv_exit,?) "
                         "WHERE id=?",
                         (
                             None if clv is None else str(clv),

@@ -256,7 +256,8 @@ def test_dashboard_exposes_versioned_window_clv_and_null_small_sample_ci(tmp_pat
             )
             ledger.record_shadow_decision(signal, version, reason="entry_window")
             ledger.conn.execute(
-                "UPDATE shadow_decisions SET clv_kalshi=?,clv_exit=? WHERE ticker=?",
+                "UPDATE shadow_decisions SET clv_kalshi=?,clv_exit=?,clv_status='ok' "
+                "WHERE ticker=?",
                 (str(index + 1), str(index + 2), ticker),
             )
     ledger.conn.commit()
