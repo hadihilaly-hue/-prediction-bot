@@ -546,7 +546,19 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         }
         if not reference:
             return None
-        return reference, side_books, source, self._sharp_dispersion(side_books)
+        spread = self._sharp_dispersion(side_books)
+        if source == "soft_reference":
+            multiplicative = [
+                values["multiplicative"]
+                for values in side_books.values()
+                if "multiplicative" in values
+            ]
+            spread = (
+                max(multiplicative) - min(multiplicative)
+                if len(multiplicative) >= 2
+                else Decimal(0)
+            )
+        return reference, side_books, source, spread
 
     def _fresh_books(
         self,
@@ -907,8 +919,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     mapping_error = True
                     break
                 if not kalshi_name_ok(series, team_id, market.subtitle):
-                    reason = "mapping_mismatch" if self.rules_version == "v3" else "title_mismatch"
-                    self._block(reason, event_ticker, market.ticker, market.subtitle)
+                    self._block("title_mismatch", event_ticker, market.ticker, market.subtitle)
                     mapping_error = True
                     break
                 ids_by_ticker[market.ticker] = team_id
@@ -957,8 +968,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 Decimal(0),
             )
             if total < Decimal("0.98") or total > Decimal("1.02"):
-                reason = "mapping_mismatch" if self.rules_version == "v3" else "mapping_sum"
-                self._block(reason, event_ticker, legs[0].ticker, str(total))
+                self._block("mapping_sum", event_ticker, legs[0].ticker, str(total))
                 continue
             if sport in self.settings.v2_disabled_sports:
                 self._block("league_disabled", event_ticker, legs[0].ticker, sport)
@@ -1015,18 +1025,6 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             ids = set(team_ids)
             for market in legs:
                 outcome_id = ids_by_ticker[market.ticker]
-                if (
-                    self.rules_version == "v3"
-                    and market.open_interest < self.settings.v3_min_open_interest
-                ):
-                    self._block(
-                        "thin_market",
-                        event_ticker,
-                        market.ticker,
-                        f"open_interest={market.open_interest}, "
-                        f"require {self.settings.v3_min_open_interest}",
-                    )
-                    continue
                 for side in (OutcomeSide.yes, OutcomeSide.no):
                     outcome_name = "Draw" if outcome_id == "draw" else names_by_id[outcome_id]
                     position_outcome = (
@@ -1037,6 +1035,21 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         else f"not:{outcome_id}"
                     )
                     position_key = f"{event_ticker}:{position_outcome}"
+                    ask_depth = market.quote.ask_size_for(side)
+                    if self.rules_version == "v3" and (
+                        market.open_interest < self.settings.v3_min_open_interest
+                        or ask_depth < self.settings.v3_min_ask_depth
+                    ):
+                        self._block(
+                            "thin_market",
+                            event_ticker,
+                            market.ticker,
+                            f"open_interest={market.open_interest}, ask_depth={ask_depth}, "
+                            f"require open_interest >= {self.settings.v3_min_open_interest} "
+                            f"and ask_depth >= {self.settings.v3_min_ask_depth}",
+                            position_key,
+                        )
+                        continue
                     if (
                         self.rules_version == "v3"
                         and self.settings.v3_no_reentry
@@ -1060,7 +1073,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     method_fairs, per_book, reference_source, book_spread = reference
                     if book_spread > self.settings.max_book_spread:
                         self._block(
-                            "book_spread" if self.rules_version == "v3" else "dispersion",
+                            "dispersion",
                             event_ticker,
                             market.ticker,
                             str(book_spread),
@@ -1244,7 +1257,8 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     candidates[position_key].append(signal)
         if self.rules_version == "v3" and events_evaluated >= 10:
             quality_blocks = sum(
-                block.reason in {"mapping_mismatch", "book_spread"} for block in self._blocks
+                block.reason in {"title_mismatch", "mapping_sum", "mapping_mismatch", "dispersion"}
+                for block in self._blocks
             )
             fraction = Decimal(quality_blocks) / Decimal(events_evaluated)
             if fraction > self.settings.v3_dq_stop_fraction:

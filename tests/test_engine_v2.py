@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from prediction_bot.engine import Engine
-from prediction_bot.models import OutcomeSide, Signal
+from prediction_bot.models import (
+    MakerShadowCandidate,
+    MakerShadowUpdate,
+    OutcomeSide,
+    Signal,
+)
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.base import Strategy
 from tests.conftest import make_market
@@ -177,3 +183,72 @@ def test_shadow_strategy_is_recorded_without_acting(settings, tmp_path) -> None:
         "SELECT rules_version,strategy,would_trade,reason FROM shadow_decisions"
     ).fetchone()
     assert row == ("v1", "sportsbook_arb", 1, "")
+
+
+def test_v2_shadow_cannot_create_or_update_maker_shadows(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "shadow-maker-isolation.sqlite", Decimal("1000"))
+    now = datetime.now(timezone.utc)
+
+    def candidate(ticker: str, key: str) -> MakerShadowCandidate:
+        return MakerShadowCandidate(
+            created_at=now,
+            ticker=ticker,
+            side=OutcomeSide.yes,
+            event_ticker=ticker.rsplit("-", 1)[0],
+            position_key=key,
+            price=Decimal("0.50"),
+            size=Decimal("2"),
+            fair=Decimal("0.60"),
+            maker_fee=Decimal("0"),
+            expires_at=now + timedelta(hours=2),
+        )
+
+    open_filled = candidate("KXNFLGAME-26OCT25KCLV-KC", "filled-key")
+    open_cancelled = candidate("KXNFLGAME-26OCT25KCLV-LV", "cancelled-key")
+    ledger.record_maker_shadows([open_filled, open_cancelled])
+
+    class MakerShadowSignals(FixedSignals):
+        def seen_maker_shadows(self):  # type: ignore[no-untyped-def]
+            return [candidate("KXNFLGAME-26OCT25KCLV-DEN", "new-key")]
+
+        def seen_maker_shadow_updates(self):  # type: ignore[no-untyped-def]
+            return [
+                MakerShadowUpdate(
+                    now,
+                    open_filled.ticker,
+                    OutcomeSide.yes,
+                    Decimal("0.49"),
+                    None,
+                    Decimal("0.60"),
+                ),
+                MakerShadowUpdate(
+                    now,
+                    open_cancelled.ticker,
+                    OutcomeSide.yes,
+                    Decimal("0.60"),
+                    None,
+                    Decimal("0.10"),
+                ),
+            ]
+
+    primary_signal = Signal(
+        **{
+            **v2_signal().__dict__,
+            "strategy": "sportsbook_v3",
+            "rules_version": "v3",
+        }
+    )
+    primary = FixedSignals(settings, [primary_signal], name="sportsbook_v3")
+    shadow = MakerShadowSignals(settings, [], name="sportsbook_v2")
+    market = make_market(primary_signal.ticker, "0.49", "0.5", subtitle="Las Vegas")
+
+    Engine(
+        settings,
+        object(),
+        [primary],
+        ledger,
+        shadow_strategies=[shadow],
+    ).run_cycle([market])  # type: ignore[arg-type]
+
+    rows = dict(ledger.conn.execute("SELECT ticker,status FROM maker_shadow"))
+    assert rows == {open_filled.ticker: "open", open_cancelled.ticker: "open"}

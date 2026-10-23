@@ -159,6 +159,11 @@ def test_replay_loads_open_interest_from_quote_snapshots(tmp_path) -> None:
         rationale="Las Vegas Raiders consensus 0.60",
     )
     ledger.record_signal(signal_row, acted=True)
+    ledger.conn.execute("ALTER TABLE signals ADD COLUMN available_size TEXT")
+    ledger.conn.execute(
+        "UPDATE signals SET available_size='45' WHERE ticker=?",
+        (signal_row.ticker,),
+    )
     ledger.record_quote_snapshots(
         [
             QuoteSnapshot(
@@ -177,6 +182,30 @@ def test_replay_loads_open_interest_from_quote_snapshots(tmp_path) -> None:
 
     signals, *_ = load_database(path, "2026-09-28")
     assert signals[0].open_interest == Decimal("250")
+    assert signals[0].available_size == Decimal("45")
+
+
+def test_v3_replay_uses_stored_depth_or_marks_it_unknown() -> None:
+    missing = evaluate_signal(signal(), FEES, settings(), [], rules_version="v3")
+    thin = evaluate_signal(
+        replace(signal(), available_size=Decimal("15")),
+        FEES,
+        settings(v3_min_open_interest=Decimal("0"), v3_min_ask_depth=Decimal("50")),
+        [],
+        rules_version="v3",
+    )
+    deep = evaluate_signal(
+        replace(signal(), available_size=Decimal("50")),
+        FEES,
+        settings(v3_min_open_interest=Decimal("0"), v3_min_ask_depth=Decimal("50")),
+        [],
+        rules_version="v3",
+    )
+
+    assert "depth" in missing.unknown
+    assert "thin_market" in thin.reasons
+    assert "depth" not in deep.unknown
+    assert "thin_market" not in deep.reasons
 
 
 def test_v3_replay_generates_v2_comparison_for_legacy_ledger(tmp_path) -> None:

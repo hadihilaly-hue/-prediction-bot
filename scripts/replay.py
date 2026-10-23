@@ -111,6 +111,7 @@ class ReplaySignal:
     position_key: str | None = None
     tags: str | None = None
     open_interest: Decimal | None = None
+    available_size: Decimal | None = None
 
     @property
     def event_ticker(self) -> str:
@@ -332,6 +333,13 @@ def evaluate_signal(
             decision.unknown.remove("open_interest")
             if signal.open_interest < settings.v3_min_open_interest:
                 decision.reasons.append("thin_market")
+        if signal.available_size is not None:
+            decision.unknown = [rule for rule in decision.unknown if rule != "depth"]
+            if (
+                signal.available_size < settings.v3_min_ask_depth
+                and "thin_market" not in decision.reasons
+            ):
+                decision.reasons.append("thin_market")
     else:
         fair = longshot_haircut(fair_pre, hours_to_proxy, settings.longshot_haircut)
     decision.fair = fair
@@ -438,6 +446,7 @@ def load_database(
         "position_key",
         "tags",
         "open_interest",
+        "available_size",
     )
     signal_select = ",".join(signal_fields) + "," + ",".join(
         field if field in signal_columns else f"NULL AS {field}" for field in optional_fields
@@ -455,6 +464,11 @@ def load_database(
             None
             if row["open_interest"] is None
             else Decimal(str(row["open_interest"]))
+        )
+        available_size = (
+            None
+            if row["available_size"] is None
+            else Decimal(str(row["available_size"]))
         )
         if open_interest is None and "quote_snapshots" in tables:
             snapshot_columns = _table_columns(conn, "quote_snapshots")
@@ -486,6 +500,7 @@ def load_database(
                 None if row["position_key"] is None else str(row["position_key"]),
                 None if row["tags"] is None else str(row["tags"]),
                 open_interest,
+                available_size,
             )
         )
     fills: list[dict[str, Any]] = []
@@ -1051,7 +1066,9 @@ def render_v3_report(
         "Longshot haircut timing uses ticker date at 12:00 ET as a commencement proxy. "
         "Only MLB ticker ET starts and published Appendix D kickoffs are used as exact starts.",
         "V3 uses stored per-book and de-vig data when available; otherwise it retains the "
-        "stored fair and marks unavailable gates as unknown. The stored Kalshi quote stands "
+        "stored fair and marks unavailable gates as unknown. Stored available_size is used "
+        "for the v3 depth floor when present; otherwise depth is marked unknown. The stored "
+        "Kalshi quote stands "
         "in for the free orderbook refetch. Historical OI, freshness, run-level DQ, and "
         "same-day activity are unavailable where the ledger did not persist them, so this "
         "replay is an upper-bound comparison rather than a full historical v3 simulation.",

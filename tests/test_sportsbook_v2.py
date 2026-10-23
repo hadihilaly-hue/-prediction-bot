@@ -132,6 +132,7 @@ def v3_odds_event(
     soft_only: bool = False,
     dk_outlier: bool = False,
     sharp_spread: bool = False,
+    single_sharp: bool = False,
     miami_probability: Decimal = Decimal("0.65"),
 ) -> dict[str, object]:
     event = odds_event(
@@ -151,6 +152,8 @@ def v3_odds_event(
         assert isinstance(book, dict)
         key = str(book["key"])
         if soft_only and key not in {"draftkings", "fanduel"}:
+            continue
+        if single_sharp and key not in {"pinnacle", "draftkings", "fanduel"}:
             continue
         book["last_update"] = updated
         outcomes = book["markets"][0]["outcomes"]
@@ -174,7 +177,11 @@ def v3_odds_event(
     return event
 
 
-def v3_markets(open_interest: str = "200", yes_price: str = "0.56") -> list[Market]:
+def v3_markets(
+    open_interest: str = "200",
+    yes_price: str = "0.56",
+    yes_ask_size: str = "50",
+) -> list[Market]:
     return [
         make_market(
             "KXNFLGAME-26OCT25MIAMIN-MIA",
@@ -182,6 +189,7 @@ def v3_markets(open_interest: str = "200", yes_price: str = "0.56") -> list[Mark
             yes_price,
             subtitle="Miami",
             open_interest=Decimal(open_interest),
+            yes_ask_size=Decimal(yes_ask_size),
         ),
         make_market(
             "KXNFLGAME-26OCT25MIAMIN-MIN",
@@ -189,6 +197,7 @@ def v3_markets(open_interest: str = "200", yes_price: str = "0.56") -> list[Mark
             "0.36",
             subtitle="Minnesota",
             open_interest=Decimal(open_interest),
+            yes_ask_size=Decimal(yes_ask_size),
         ),
     ]
 
@@ -245,7 +254,32 @@ def test_v3_draftkings_outlier_does_not_trigger_sharp_dispersion(settings) -> No
     )
     signals = strategy.evaluate(v3_markets())
     assert signals
-    assert not any(block.reason == "book_spread" for block in strategy.seen_blocks())
+    assert not any(block.reason == "dispersion" for block in strategy.seen_blocks())
+
+
+def test_v3_soft_reference_uses_all_book_spread_gate(settings) -> None:  # type: ignore[no-untyped-def]
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event(soft_only=True, dk_outlier=True)]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+    assert strategy.evaluate(v3_markets()) == []
+    assert any(block.reason == "dispersion" for block in strategy.seen_blocks())
+
+
+def test_v3_one_sharp_book_does_not_apply_dispersion_gate(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.max_gross_edge = Decimal("0.20")
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event(single_sharp=True, dk_outlier=True)]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+    strategy.evaluate(v3_markets())
+    assert not any(block.reason == "dispersion" for block in strategy.seen_blocks())
 
 
 def test_v3_soft_reference_is_tagged(settings) -> None:  # type: ignore[no-untyped-def]
@@ -275,7 +309,8 @@ def test_v3_discards_stale_books_and_blocks_when_too_few_remain(settings) -> Non
     assert any(block.reason == "stale_books" for block in strategy.seen_blocks())
 
 
-def test_v3_blocks_below_open_interest_floor(settings) -> None:  # type: ignore[no-untyped-def]
+def test_v3_deep_book_with_zero_open_interest_passes(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.max_gross_edge = Decimal("0.20")
     strategy = SportsbookV3Strategy(
         settings,
         FakeOdds([v3_odds_event()]),
@@ -283,8 +318,23 @@ def test_v3_blocks_below_open_interest_floor(settings) -> None:  # type: ignore[
         ledger=Ledger(":memory:", Decimal("1000")),
         clock=fixed_clock("2026-10-22T10:00:00Z"),
     )
-    assert strategy.evaluate(v3_markets(open_interest="99")) == []
-    assert any(block.reason == "thin_market" for block in strategy.seen_blocks())
+    assert strategy.evaluate(v3_markets(open_interest="0"))
+    assert not any(block.reason == "thin_market" for block in strategy.seen_blocks())
+
+
+def test_v3_blocks_a_15_contract_ask_depth(settings) -> None:  # type: ignore[no-untyped-def]
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event()]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+    assert strategy.evaluate(v3_markets(yes_ask_size="15")) == []
+    assert any(
+        block.reason == "thin_market" and "ask_depth=15" in block.detail
+        for block in strategy.seen_blocks()
+    )
 
 
 def v3_position_key() -> str:
@@ -410,6 +460,7 @@ def test_v3_data_quality_stop_suppresses_entries_when_mapping_failures_dominate(
         clock=lambda: now,
     )
     assert strategy.evaluate(markets) == []
+    assert any(block.reason == "title_mismatch" for block in strategy.seen_blocks())
     assert any(block.reason == "dq_stop" for block in strategy.seen_blocks())
 
 
@@ -527,6 +578,8 @@ def test_settings_and_provider_parsers_preserve_v2_fields() -> None:
     assert settings.v2_event_bankroll_fraction == Decimal("0.02")
     assert settings.min_books == 2
     assert settings.max_book_spread == Decimal("0.03")
+    assert settings.v3_min_open_interest == Decimal("0")
+    assert settings.v3_min_ask_depth == Decimal("50")
     assert settings.longshot_haircut == "slope"
 
     market = parse_market(

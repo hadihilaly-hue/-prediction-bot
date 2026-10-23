@@ -348,7 +348,7 @@ def _measurement_data(ledger: Ledger) -> dict[str, object]:
         }
 
     by_version: dict[str, dict[str, object]] = {}
-    for version in ("v2", "v1"):
+    for version in ("v3", "v2", "v1"):
         version_positions = [p for p in positions if p["version"] == version]
         version_fills = [fill for fill, v, *_ in fills if v == version]
         version_settled_fills = [fill for fill in version_fills if fill.won is not None]
