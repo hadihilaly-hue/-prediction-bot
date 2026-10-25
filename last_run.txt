@@ -1,1 +1,3 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1592.70
+v3 execution: auto -> taker (taker_positions: 0/50)
+ scanned=1416 signals=0 filled=0 orders_placed=0 settled=0 cash=1592.70
