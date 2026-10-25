@@ -13,6 +13,11 @@ from zoneinfo import ZoneInfo
 from prediction_bot.config import Settings
 from prediction_bot.devig import devig_all, longshot_haircut
 from prediction_bot.fees import SeriesFeeCache, maker_fee, taker_fee, taker_fee_rate
+from prediction_bot.injuries import (
+    ESPN_VERIFIED_SPORTS,
+    InjuryClient,
+    injury_gate_reasons,
+)
 from prediction_bot.models import (
     Block,
     EdgeReview,
@@ -27,7 +32,12 @@ from prediction_bot.odds import KALSHI_SERIES_TO_SPORT, ConsensusOdds, OddsClien
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.settlement_rules import SETTLEMENT_RULES, normalize_rules_text
 from prediction_bot.strategies.sportsbook_arb import DRAW_NAMES, SportsbookArbStrategy
-from prediction_bot.teams import kalshi_name_ok, team_for_code, team_for_odds_name
+from prediction_bot.teams import (
+    kalshi_name_ok,
+    team_for_code,
+    team_for_espn_name,
+    team_for_odds_name,
+)
 from prediction_bot.venues.kalshi import KalshiClient
 
 log = logging.getLogger(__name__)
@@ -113,6 +123,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._near_miss_decisions: list[tuple[Signal, str]] = []
         self._line_move_decisions: list[Signal] = []
         self._feed_pull_candidates: dict[str, int] = {}
+        self._injury_skip_logged: set[str] = set()
 
     def seen_blocks(self) -> list[Block]:
         return list(self._blocks)
@@ -376,6 +387,69 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         )
         self._blocks.append(block)
         log.info("BLOCK %s %s %s: %s", self.name, event_ticker, reason, detail)
+
+    def _injury_gate_check(
+        self,
+        event_ticker: str,
+        position_key: str,
+        ticker: str,
+        client: InjuryClient | None,
+    ) -> tuple[bool, bool]:
+        """Pre-entry injury gate: returns (blocked, would_block).
+
+        Only sports with a verified ESPN feed are checked; anything else
+        records injury_gate_skipped in the block detail (once per event per
+        run) so coverage stays visible. 'off' mode does nothing at all. In
+        'log' mode a triggered reason writes an injury_gate block row but lets
+        the trade through tagged injury_gate_would_block; 'block' mode blocks
+        injury_uncertain_own, and injury_uncertain_opp only when
+        injury_gate_block_opponent is on.
+        """
+        mode = self.settings.injury_gate
+        if mode == "off" or client is None:
+            return False, False
+
+        def skip(why: str) -> tuple[bool, bool]:
+            if event_ticker not in self._injury_skip_logged:
+                self._injury_skip_logged.add(event_ticker)
+                self._block("injury_gate", event_ticker, ticker, why, position_key)
+            return False, False
+
+        sport = KALSHI_SERIES_TO_SPORT.get(event_ticker.split("-", 1)[0])
+        if sport not in ESPN_VERIFIED_SPORTS:
+            return skip(f"injury_gate_skipped:{sport}")
+        outcome = position_key.rsplit(":", 1)[-1]
+        if outcome.startswith("not:"):
+            return skip("injury_gate_skipped:multi_outcome")
+        team_ids: set[str] = set()
+        if self.ledger is not None:
+            _sport, team_ids = self.ledger.event_teams(event_ticker)
+        opponent = next((team for team in team_ids if team != outcome), None)
+        entries = client.fetch_injuries(sport)
+        own_entries = [e for e in entries if team_for_espn_name(sport, e.team) == outcome]
+        opp_entries = [
+            e
+            for e in entries
+            if opponent is not None and team_for_espn_name(sport, e.team) == opponent
+        ]
+        blocked = False
+        would_block = False
+        for reason, detail in injury_gate_reasons(sport, own_entries, opp_entries):
+            hard_block = mode == "block" and (
+                reason == "injury_uncertain_own" or self.settings.injury_gate_block_opponent
+            )
+            self._block(
+                "injury_gate",
+                event_ticker,
+                ticker,
+                f"{reason}: {detail}",
+                position_key,
+            )
+            if hard_block:
+                blocked = True
+            else:
+                would_block = True
+        return blocked, would_block
 
     def _in_play_reasons(
         self,
@@ -1613,6 +1687,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 self._finish_feed_pulls([])
                 return []
         out: list[Signal] = []
+        # One injury fetch per verified sport per run; ESPN is free.
+        injury_client = InjuryClient() if self.settings.injury_gate != "off" else None
+        self._injury_skip_logged = set()
         reserved_position: dict[str, Decimal] = {}
         reserved_event: dict[str, Decimal] = {}
         reserved_day = Decimal(0)
@@ -1710,18 +1787,30 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     else "missing bid",
                 )
             else:
+                blocked, would_block = self._injury_gate_check(
+                    selected_shadow.event_ticker or "",
+                    position_key,
+                    selected_shadow.ticker,
+                    injury_client,
+                )
                 sized = None
-                for candidate in trade_candidates:
-                    sized = self._size_v2_signal(
-                        candidate,
-                        reserved_position=reserved_position,
-                        reserved_event=reserved_event,
-                        reserved_day=reserved_day,
-                        reserved_total=reserved_total,
-                        reserved_cash=reserved_cash,
+                if not blocked:
+                    for candidate in trade_candidates:
+                        sized = self._size_v2_signal(
+                            candidate,
+                            reserved_position=reserved_position,
+                            reserved_event=reserved_event,
+                            reserved_day=reserved_day,
+                            reserved_total=reserved_total,
+                            reserved_cash=reserved_cash,
+                        )
+                        if sized is not None:
+                            break
+                if sized is not None and would_block:
+                    sized = replace(
+                        sized,
+                        tags=(*(sized.tags or ()), "injury_gate_would_block"),
                     )
-                    if sized is not None:
-                        break
                 if sized is not None:
                     if sized.event_ticker in entry_window_events:
                         self._entry_window_decisions.append(sized)
