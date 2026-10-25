@@ -157,6 +157,13 @@ class InjuryClient:
     def __init__(self, client: httpx.Client | None = None) -> None:
         self._client = client or httpx.Client(timeout=15.0)
         self._memo: dict[str, list[InjuryEntry]] = {}
+        self._ok: dict[str, bool] = {}
+
+    def fetched_ok(self, sport: str) -> bool:
+        """True once fetch_injuries got a 200 back for the sport. A healthy
+        league and a dead feed both yield [] entries; only the former counts
+        as coverage."""
+        return self._ok.get(sport, False)
 
     def fetch_injuries(self, sport: str) -> list[InjuryEntry]:
         """Injury list for an Odds API sport key; [] when the sport has no path
@@ -165,9 +172,11 @@ class InjuryClient:
             path = ESPN_SPORT_PATHS.get(sport)
             if path is None:
                 self._memo[sport] = []
+                self._ok[sport] = False
                 return []
             url = f"{ESPN_BASE}/{path}/injuries"
             data: object = None
+            self._ok[sport] = False
             for attempt in range(2):
                 try:
                     resp = self._client.get(url)
@@ -175,6 +184,7 @@ class InjuryClient:
                         log.warning("espn injuries: %s returned HTTP %d", sport, resp.status_code)
                         break
                     data = resp.json()
+                    self._ok[sport] = True
                     break
                 except httpx.HTTPError as e:
                     log.warning("espn injuries: %s fetch failed (%s)", sport, e)
@@ -239,6 +249,25 @@ def snapshot_injuries(
         for sport, team_id in sorted(wanted)
         for entry in entries[sport]
         if team_for_espn_name(sport, entry.team) == team_id
+    ]
+    # Teams with no listed injuries still count as covered (we checked and they
+    # were clean): write one empty row per covered team so flag_for_fill can
+    # tell "checked, no hit" apart from "no coverage" (unknown). Only when the
+    # feed actually answered — a failed fetch leaves fills unknown.
+    covered = {(sport, team_id) for sport, team_id in wanted if client.fetched_ok(sport)}
+    hit_teams = {(row.sport, row.team_id) for row in rows}
+    rows += [
+        InjurySnapshotRow(
+            sport=sport,
+            team_id=team_id,
+            athlete="",
+            position="",
+            status="",
+            status_type="",
+            reported_at=None,
+            detail="",
+        )
+        for sport, team_id in sorted(covered - hit_teams)
     ]
     return ledger.record_injury_snapshots(rows, run_id=run_id, at=now)
 
@@ -350,9 +379,13 @@ def _cfb_proxy_flag(
     ).fetchall()
     if not rows:
         return None, None, None
-    entry_prob = float(rows[0][1])
+    # Both endpoints must be strictly pre-kickoff: odds that first appear after
+    # kickoff are not an entry baseline and say nothing about the hold window.
     pre_kickoff = [row for row in rows if str(row[0]) < commence_iso]
-    last_prob = float(pre_kickoff[-1][1]) if pre_kickoff else entry_prob
+    if not pre_kickoff:
+        return None, None, None
+    entry_prob = float(pre_kickoff[0][1])
+    last_prob = float(pre_kickoff[-1][1])
     move = last_prob - entry_prob
     if move <= -CFB_PROXY_MOVE:
         detail = (

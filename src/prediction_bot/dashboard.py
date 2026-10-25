@@ -1495,8 +1495,8 @@ _TEMPLATE = """<!doctype html>
   }
   const injuryRows = (rows) => rows.map(r => [leagueName(r.sport), r.bucket, String(r.n || 0), {v: signedCents(num(r.mean_clv) ? r.mean_clv : null), cls: tone(r.mean_clv)}, {v: signedCents(num(r.mean_pnl) ? r.mean_pnl * 100 : null), cls: tone(r.mean_pnl)}, num(r.win_rate) ? (r.win_rate * 100).toFixed(0) + '%' : '–']);
   const headsInj = ['League', 'Injury flag', 'Bets', 'Mean CLV', 'Mean P&L per bet', 'Win rate'];
-  table('injuries', 'Settled bets with a closing-line value, by whether a key-position injury landed between entry and kickoff (ESPN).', headsInj, injuryRows((data.injuries || {}).espn || []), 'No settled bets with a CLV value yet.');
-  table('injuriesproxy', 'College football proxy: consensus line moved 4¢+ against our side before kickoff (not real injury data).', headsInj, injuryRows((data.injuries || {}).proxy || []), 'No settled college-football bets with a CLV value yet.');
+  table('injuries', 'Settled bets with a closing-line value, by whether a key-position injury landed between entry and kickoff (ESPN).', headsInj, injuryRows((D.injuries || {}).espn || []), 'No settled bets with a CLV value yet.');
+  table('injuriesproxy', 'College football proxy: consensus line moved 4¢+ against our side before kickoff (not real injury data).', headsInj, injuryRows((D.injuries || {}).proxy || []), 'No settled college-football bets with a CLV value yet.');
   $('q').addEventListener('input', renderPreds);
   renderPreds();
   renderVerdicts();

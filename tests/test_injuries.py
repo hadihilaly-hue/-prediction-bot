@@ -312,3 +312,46 @@ def test_injury_snapshot_events_window(tmp_path: Path) -> None:
     _nfl_fill(led)
     events = led.injury_snapshot_events(datetime(2026, 10, 25, tzinfo=timezone.utc))
     assert events == [NFL_EVENT]
+
+
+def test_tag_injuries_empty_list_is_noop(tmp_path: Path) -> None:
+    led = _ledger(tmp_path)
+    _nfl_fill(led)
+    assert led.tag_injuries([]) == 0
+    flag, _, _ = _flag(led)
+    assert flag is None  # untouched, not recomputed against the whole ledger
+
+
+def test_cfb_proxy_post_kickoff_odds_only_is_unknown(tmp_path: Path) -> None:
+    led = _ledger(tmp_path)
+    _cfb_fill(led)
+    _odds_row(led, KICKOFF.replace(hour=13), "0.60")  # first odds after kickoff
+    led.tag_injuries([CFB_TICKER])
+    flag, _, _ = _flag(led, CFB_TICKER)
+    assert flag is None  # no pre-kickoff comparison exists, not "clean"
+
+
+def test_snapshot_marks_clean_teams_as_covered(tmp_path: Path) -> None:
+    led = _ledger(tmp_path)
+    _nfl_fill(led)
+    empty_feed = {"injuries": []}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=empty_feed)
+
+    n = snapshot_injuries(led, _client(handler))
+    assert n == 2  # one coverage row per team in the event, no injuries listed
+    led.settle(NFL_TICKER, OutcomeSide.yes)
+    flag, _, source = _flag(led)
+    assert flag == 0
+    assert source == "espn"
+
+
+def test_snapshot_failed_feed_leaves_unknown(tmp_path: Path) -> None:
+    led = _ledger(tmp_path)
+    _nfl_fill(led)
+    n = snapshot_injuries(led, _client(lambda request: httpx.Response(503)))
+    assert n == 0
+    led.settle(NFL_TICKER, OutcomeSide.yes)
+    flag, _, _ = _flag(led)
+    assert flag is None

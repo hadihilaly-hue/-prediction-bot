@@ -1482,7 +1482,10 @@ class Ledger:
         from prediction_bot.teams import team_for_code
 
         where = ""
-        if tickers:
+        if tickers is not None:
+            # An explicit empty selection means nothing to tag — not "all".
+            if not tickers:
+                return 0
             where = f"WHERE ticker IN ({','.join('?' for _ in tickers)})"
         rows = self.conn.execute(
             "SELECT id, created_at, ticker, side, position_key, event_ticker, commence_time"

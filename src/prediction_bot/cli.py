@@ -585,6 +585,9 @@ def paper(
         )
         try:
             snapshot_injuries(ledger, injury_client, run_id=run_id)
+            # Retag everything so fills settled before this cycle's first
+            # relevant snapshot pick up the fresh coverage.
+            ledger.tag_injuries()
         except Exception:
             log.exception("Injury snapshot failed; continuing paper cycle")
         console.print(
