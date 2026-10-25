@@ -187,7 +187,8 @@ CREATE TABLE IF NOT EXISTS paper_orders (
     status_at TEXT NOT NULL,
     filled_at TEXT,
     fill_rule TEXT,
-    cancel_reason TEXT
+    cancel_reason TEXT,
+    tags TEXT
 );
 CREATE TABLE IF NOT EXISTS execution_mode_log (
     id INTEGER PRIMARY KEY,
@@ -450,6 +451,7 @@ class PaperOrder:
     filled_at: datetime | None
     fill_rule: str | None
     cancel_reason: str | None
+    tags: tuple[str, ...] | None
 
 
 @dataclass(frozen=True)
@@ -607,6 +609,7 @@ class Ledger:
                 "requests_last": "INTEGER",
                 "gate_candidates": "INTEGER",
             },
+            "paper_orders": {"tags": "TEXT"},
             "blocks": {"position_key": "TEXT"},
             "edge_reviews": {"position_key": "TEXT"},
             "runs": {
@@ -883,6 +886,7 @@ class Ledger:
             filled_at=datetime.fromisoformat(str(row[16])) if row[16] else None,
             fill_rule=None if row[17] is None else str(row[17]),
             cancel_reason=None if row[18] is None else str(row[18]),
+            tags=tuple(sorted(str(row[19]).split(","))) if row[19] else None,
         )
 
     @staticmethod
@@ -890,7 +894,7 @@ class Ledger:
         return (
             "id,created_at,strategy,rules_version,ticker,side,position_key,event_ticker,"
             "price,size,fair,maker_fee,expires_at,commence_time,status,status_at,filled_at,"
-            "fill_rule,cancel_reason"
+            "fill_rule,cancel_reason,tags"
         )
 
     def record_paper_order(
@@ -901,8 +905,8 @@ class Ledger:
         now = self._utc(signal.created_at).isoformat()
         cur = self.conn.execute(
             "INSERT INTO paper_orders (created_at,strategy,rules_version,ticker,side,position_key,"
-            "event_ticker,price,size,fair,maker_fee,expires_at,commence_time,status,status_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?)",
+            "event_ticker,price,size,fair,maker_fee,expires_at,commence_time,status,status_at,"
+            "tags) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'open',?,?)",
             (
                 now,
                 signal.strategy,
@@ -918,6 +922,7 @@ class Ledger:
                 self._utc(expires_at).isoformat(),
                 self._utc(signal.commence_time).isoformat() if signal.commence_time else None,
                 now,
+                ",".join(sorted(signal.tags)) if signal.tags else None,
             ),
         )
         self.conn.commit()
@@ -1094,7 +1099,7 @@ class Ledger:
                     order.rules_version,
                     order.position_key,
                     order.event_ticker,
-                    "maker",
+                    ",".join(sorted({"maker", *(order.tags or ())})),
                     self._utc(order.commence_time).isoformat() if order.commence_time else None,
                     "kalshi-series-v1",
                     str(order.maker_fee),

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -322,6 +323,8 @@ def test_injury_snapshot_events_window(tmp_path: Path) -> None:
     _nfl_fill(led)
     events = led.injury_snapshot_events(datetime(2026, 10, 25, tzinfo=timezone.utc))
     assert events == [NFL_EVENT]
+
+
 def test_tag_injuries_empty_list_is_noop(tmp_path: Path) -> None:
     led = _ledger(tmp_path)
     _nfl_fill(led)
@@ -402,6 +405,9 @@ class _FakeInjuries:
 
     def fetch_injuries(self, sport: str) -> list[InjuryEntry]:
         return self._entries
+
+    def fetched_ok(self, sport: str) -> bool:
+        return True
 
 
 def _v3(settings, entries, monkeypatch):  # type: ignore[no-untyped-def]
@@ -490,3 +496,19 @@ def test_gate_skips_unverified_sport(settings) -> None:  # type: ignore[no-untyp
         b.reason == "injury_gate" and "injury_gate_skipped" in b.detail
         for b in strategy.seen_blocks()
     )
+
+
+def test_maker_fill_keeps_gate_tag(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # Maker-first fills used to record tags='maker' only, which dropped
+    # injury_gate_would_block from the dashboard cohort.
+    strategy = _v3(settings, [], monkeypatch)
+    signal = strategy.evaluate(v3_markets())[0]
+    tagged = replace(signal, tags=(*(signal.tags or ()), "injury_gate_would_block"))
+    led = strategy.ledger
+    order_id = led.record_paper_order(
+        tagged, Decimal("0.56"), Decimal("0.01"), ENTRY.replace(hour=20)
+    )
+    assert led.fill_paper_order(order_id, ENTRY.replace(hour=20))
+    row = led.conn.execute("SELECT tags FROM fills").fetchone()
+    assert "injury_gate_would_block" in str(row[0])
+    assert "maker" in str(row[0])
