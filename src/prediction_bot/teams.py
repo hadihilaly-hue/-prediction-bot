@@ -22,6 +22,10 @@ def _validate_aliases(
                 owner = names.setdefault(name, team_id)
                 if owner != team_id:
                     raise ValueError(f"Odds name {name!r} maps to multiple teams in {sport}")
+            for name in aliases.get("espn_names", []):
+                owner = names.setdefault(name, team_id)
+                if owner != team_id:
+                    raise ValueError(f"ESPN name {name!r} maps to multiple teams in {sport}")
     return data
 
 
@@ -72,6 +76,24 @@ def team_for_odds_name(sport: str, name: str) -> str | None:
         ),
         None,
     )
+
+
+def team_for_espn_name(sport: str, name: str) -> str | None:
+    name = name.strip()
+    return next(
+        (
+            team_id
+            for team_id, aliases in _TEAMS.get(sport, {}).items()
+            if name in aliases.get("espn_names", [])
+        ),
+        None,
+    )
+
+
+def odds_name_for(sport: str, team_id: str) -> str | None:
+    """The primary Odds API display name for a team id, or None."""
+    names = _TEAMS.get(sport, {}).get(team_id, {}).get("odds_names", [])
+    return names[0] if names else None
 
 
 def kalshi_name_ok(series: str, team_id: str, yes_sub_title: str) -> bool:

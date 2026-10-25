@@ -1232,6 +1232,9 @@
       ],
       "odds_names": [
         "Arizona Cardinals"
+      ],
+      "espn_names": [
+        "Arizona Cardinals"
       ]
     },
     "atlanta-falcons": {
@@ -1242,6 +1245,9 @@
         "Atlanta"
       ],
       "odds_names": [
+        "Atlanta Falcons"
+      ],
+      "espn_names": [
         "Atlanta Falcons"
       ]
     },
@@ -1254,6 +1260,9 @@
       ],
       "odds_names": [
         "Baltimore Ravens"
+      ],
+      "espn_names": [
+        "Baltimore Ravens"
       ]
     },
     "buffalo-bills": {
@@ -1264,6 +1273,9 @@
         "Buffalo"
       ],
       "odds_names": [
+        "Buffalo Bills"
+      ],
+      "espn_names": [
         "Buffalo Bills"
       ]
     },
@@ -1276,6 +1288,9 @@
       ],
       "odds_names": [
         "Carolina Panthers"
+      ],
+      "espn_names": [
+        "Carolina Panthers"
       ]
     },
     "chicago-bears": {
@@ -1286,6 +1301,9 @@
         "Chicago"
       ],
       "odds_names": [
+        "Chicago Bears"
+      ],
+      "espn_names": [
         "Chicago Bears"
       ]
     },
@@ -1298,6 +1316,9 @@
       ],
       "odds_names": [
         "Cincinnati Bengals"
+      ],
+      "espn_names": [
+        "Cincinnati Bengals"
       ]
     },
     "cleveland-browns": {
@@ -1308,6 +1329,9 @@
         "Cleveland"
       ],
       "odds_names": [
+        "Cleveland Browns"
+      ],
+      "espn_names": [
         "Cleveland Browns"
       ]
     },
@@ -1320,6 +1344,9 @@
       ],
       "odds_names": [
         "Dallas Cowboys"
+      ],
+      "espn_names": [
+        "Dallas Cowboys"
       ]
     },
     "denver-broncos": {
@@ -1330,6 +1357,9 @@
         "Denver"
       ],
       "odds_names": [
+        "Denver Broncos"
+      ],
+      "espn_names": [
         "Denver Broncos"
       ]
     },
@@ -1342,6 +1372,9 @@
       ],
       "odds_names": [
         "Detroit Lions"
+      ],
+      "espn_names": [
+        "Detroit Lions"
       ]
     },
     "green-bay-packers": {
@@ -1352,6 +1385,9 @@
         "Green Bay"
       ],
       "odds_names": [
+        "Green Bay Packers"
+      ],
+      "espn_names": [
         "Green Bay Packers"
       ]
     },
@@ -1364,6 +1400,9 @@
       ],
       "odds_names": [
         "Houston Texans"
+      ],
+      "espn_names": [
+        "Houston Texans"
       ]
     },
     "indianapolis-colts": {
@@ -1374,6 +1413,9 @@
         "Indianapolis"
       ],
       "odds_names": [
+        "Indianapolis Colts"
+      ],
+      "espn_names": [
         "Indianapolis Colts"
       ]
     },
@@ -1386,6 +1428,9 @@
       ],
       "odds_names": [
         "Jacksonville Jaguars"
+      ],
+      "espn_names": [
+        "Jacksonville Jaguars"
       ]
     },
     "kansas-city-chiefs": {
@@ -1396,6 +1441,9 @@
         "Kansas City"
       ],
       "odds_names": [
+        "Kansas City Chiefs"
+      ],
+      "espn_names": [
         "Kansas City Chiefs"
       ]
     },
@@ -1408,6 +1456,9 @@
       ],
       "odds_names": [
         "Las Vegas Raiders"
+      ],
+      "espn_names": [
+        "Las Vegas Raiders"
       ]
     },
     "los-angeles-chargers": {
@@ -1418,6 +1469,9 @@
         "Los Angeles C"
       ],
       "odds_names": [
+        "Los Angeles Chargers"
+      ],
+      "espn_names": [
         "Los Angeles Chargers"
       ]
     },
@@ -1430,6 +1484,9 @@
       ],
       "odds_names": [
         "Los Angeles Rams"
+      ],
+      "espn_names": [
+        "Los Angeles Rams"
       ]
     },
     "miami-dolphins": {
@@ -1440,6 +1497,9 @@
         "Miami"
       ],
       "odds_names": [
+        "Miami Dolphins"
+      ],
+      "espn_names": [
         "Miami Dolphins"
       ]
     },
@@ -1452,6 +1512,9 @@
       ],
       "odds_names": [
         "Minnesota Vikings"
+      ],
+      "espn_names": [
+        "Minnesota Vikings"
       ]
     },
     "new-england-patriots": {
@@ -1462,6 +1525,9 @@
         "New England"
       ],
       "odds_names": [
+        "New England Patriots"
+      ],
+      "espn_names": [
         "New England Patriots"
       ]
     },
@@ -1474,6 +1540,9 @@
       ],
       "odds_names": [
         "New Orleans Saints"
+      ],
+      "espn_names": [
+        "New Orleans Saints"
       ]
     },
     "new-york-giants": {
@@ -1484,6 +1553,9 @@
         "New York G"
       ],
       "odds_names": [
+        "New York Giants"
+      ],
+      "espn_names": [
         "New York Giants"
       ]
     },
@@ -1496,6 +1568,9 @@
       ],
       "odds_names": [
         "New York Jets"
+      ],
+      "espn_names": [
+        "New York Jets"
       ]
     },
     "philadelphia-eagles": {
@@ -1506,6 +1581,9 @@
         "Philadelphia"
       ],
       "odds_names": [
+        "Philadelphia Eagles"
+      ],
+      "espn_names": [
         "Philadelphia Eagles"
       ]
     },
@@ -1518,6 +1596,9 @@
       ],
       "odds_names": [
         "Pittsburgh Steelers"
+      ],
+      "espn_names": [
+        "Pittsburgh Steelers"
       ]
     },
     "san-francisco-49ers": {
@@ -1528,6 +1609,9 @@
         "San Francisco"
       ],
       "odds_names": [
+        "San Francisco 49ers"
+      ],
+      "espn_names": [
         "San Francisco 49ers"
       ]
     },
@@ -1540,6 +1624,9 @@
       ],
       "odds_names": [
         "Seattle Seahawks"
+      ],
+      "espn_names": [
+        "Seattle Seahawks"
       ]
     },
     "tampa-bay-buccaneers": {
@@ -1550,6 +1637,9 @@
         "Tampa Bay"
       ],
       "odds_names": [
+        "Tampa Bay Buccaneers"
+      ],
+      "espn_names": [
         "Tampa Bay Buccaneers"
       ]
     },
@@ -1562,6 +1652,9 @@
       ],
       "odds_names": [
         "Tennessee Titans"
+      ],
+      "espn_names": [
+        "Tennessee Titans"
       ]
     },
     "washington-commanders": {
@@ -1572,6 +1665,9 @@
         "Washington"
       ],
       "odds_names": [
+        "Washington Commanders"
+      ],
+      "espn_names": [
         "Washington Commanders"
       ]
     }

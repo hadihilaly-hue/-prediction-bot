@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import re
 import sqlite3
 from collections import deque
 from collections.abc import Mapping, Sequence
@@ -23,7 +25,10 @@ from prediction_bot.models import (
 
 if TYPE_CHECKING:
     from prediction_bot.feed_selection import FeedStat
+    from prediction_bot.injuries import InjurySnapshotRow
     from prediction_bot.odds import ConsensusOdds
+
+log = logging.getLogger(__name__)
 
 
 def describe(
@@ -204,6 +209,21 @@ CREATE TABLE IF NOT EXISTS settlements (
     result TEXT NOT NULL,
     pnl TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS injury_snapshots (
+    id INTEGER PRIMARY KEY,
+    fetched_at TEXT NOT NULL,
+    sport TEXT NOT NULL,
+    team_id TEXT NOT NULL,
+    athlete TEXT NOT NULL,
+    position TEXT,
+    status TEXT,
+    status_type TEXT,
+    reported_at TEXT,
+    detail TEXT,
+    run_id INTEGER
+);
+CREATE INDEX IF NOT EXISTS injury_snapshots_team_reported
+    ON injury_snapshots(team_id, reported_at);
 CREATE TABLE IF NOT EXISTS halts (
     day TEXT PRIMARY KEY,
     reason TEXT NOT NULL
@@ -578,6 +598,9 @@ class Ledger:
                 "clv_status": "TEXT",
                 "commence_time_backfill": "TEXT",
                 "commence_source": "TEXT",
+                "injury_flag": "INTEGER",
+                "injury_detail": "TEXT",
+                "injury_source": "TEXT",
             },
             "odds_snapshots": {"max_book_update": "TEXT"},
             "feed_pulls": {
@@ -1358,7 +1381,160 @@ class Ledger:
         )
         self._set_cash(self.cash + payout)
         self.conn.commit()
+        try:
+            self.tag_injuries([ticker])
+        except Exception:
+            log.exception("injury tagging failed for %s", ticker)
         return pnl
+
+    # ---- injury snapshots / fill tagging ------------------------------------
+
+    def record_injury_snapshots(
+        self,
+        rows: Sequence[InjurySnapshotRow],
+        run_id: int | None = None,
+        at: datetime | None = None,
+    ) -> int:
+        """Append the current ESPN injury rows for the relevant teams."""
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        self.conn.executemany(
+            "INSERT INTO injury_snapshots (fetched_at, sport, team_id, athlete, position,"
+            " status, status_type, reported_at, detail, run_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            [
+                (
+                    stamp,
+                    row.sport,
+                    row.team_id,
+                    row.athlete,
+                    row.position,
+                    row.status,
+                    row.status_type,
+                    self._utc(row.reported_at).isoformat() if row.reported_at else None,
+                    row.detail,
+                    run_id,
+                )
+                for row in rows
+            ],
+        )
+        self.conn.commit()
+        return len(rows)
+
+    def injury_snapshot_events(self, now: datetime) -> list[str]:
+        """Event tickers whose teams need an injury snapshot this run: every
+        event with an open position, settled in the last day (so a game that
+        settles mid-run still gets covered), or signalled in the last 7 days."""
+        cutoff_signal = self._utc(now - timedelta(days=7)).isoformat()
+        cutoff_settle = self._utc(now - timedelta(days=1)).isoformat()
+        rows = self.conn.execute(
+            "SELECT DISTINCT f.event_ticker FROM fills f"
+            " LEFT JOIN settlements s ON s.ticker = f.ticker"
+            " WHERE f.event_ticker IS NOT NULL AND f.event_ticker != ''"
+            " AND (s.ticker IS NULL OR s.settled_at >= ?)"
+            " UNION SELECT DISTINCT event_ticker FROM signals"
+            " WHERE event_ticker IS NOT NULL AND event_ticker != '' AND created_at >= ?",
+            (cutoff_settle, cutoff_signal),
+        ).fetchall()
+        return [str(row[0]) for row in rows]
+
+    def event_teams(self, event_ticker: str) -> tuple[str | None, set[str]]:
+        """(sport, team ids) for an event. Resolved from leg codes on the
+        event's fills/signals plus the two team codes glued into the event
+        ticker suffix (e.g. KXNFLGAME-25OCT26DETKC -> DET + KC), which covers
+        legs we never signalled."""
+        from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
+        from prediction_bot.teams import team_for_code
+
+        series = event_ticker.split("-", 1)[0]
+        sport = KALSHI_SERIES_TO_SPORT.get(series)
+        if sport is None:
+            return None, set()
+        team_ids: set[str] = set()
+        rows = self.conn.execute(
+            "SELECT DISTINCT ticker FROM fills WHERE event_ticker=?"
+            " UNION SELECT DISTINCT ticker FROM signals WHERE event_ticker=?",
+            (event_ticker, event_ticker),
+        ).fetchall()
+        for row in rows:
+            ticker = str(row[0])
+            if ticker.startswith(event_ticker + "-"):
+                team = team_for_code(series, ticker[len(event_ticker) + 1 :])
+                if team is not None:
+                    team_ids.add(team)
+        if len(team_ids) < 2:
+            suffix = event_ticker.split("-", 1)[1]
+            match = re.match(r"^\d{2}[A-Z]{3}\d{2}(.*)$", suffix)
+            glued = match.group(1) if match else ""
+            if glued:
+                splits = [
+                    (a, b)
+                    for i in range(1, len(glued))
+                    if (a := team_for_code(series, glued[:i])) is not None
+                    and (b := team_for_code(series, glued[i:])) is not None
+                ]
+                if len(set(splits)) == 1:
+                    team_ids.update(splits[0])
+        return sport, team_ids
+
+    def tag_injuries(self, tickers: Sequence[str] | None = None) -> int:
+        """(Re)compute the injury tag on every fill for `tickers` (all fills
+        when None). Idempotent: called at settlement and by the backfill."""
+        from prediction_bot.injuries import flag_for_fill
+        from prediction_bot.teams import team_for_code
+
+        where = ""
+        if tickers:
+            where = f"WHERE ticker IN ({','.join('?' for _ in tickers)})"
+        rows = self.conn.execute(
+            "SELECT id, created_at, ticker, side, position_key, event_ticker, commence_time"
+            f" FROM fills {where}",
+            tuple(tickers or ()),
+        ).fetchall()
+        tagged = 0
+        for fill_id, created, ticker, side, position_key, event_ticker, commence in rows:
+            sport, teams = self.event_teams(str(event_ticker)) if event_ticker else (None, set())
+            series = str(ticker).split("-", 1)[0]
+            leg_team = (
+                team_for_code(series, str(ticker)[len(str(event_ticker)) + 1 :])
+                if event_ticker and str(ticker).startswith(str(event_ticker) + "-")
+                else None
+            )
+            own_team: str | None = None
+            opponent: str | None = None
+            if leg_team is not None:
+                others = teams - {leg_team}
+                if OutcomeSide(side) == OutcomeSide.yes:
+                    own_team = leg_team
+                    opponent = next(iter(others), None)
+                else:
+                    # Buying "<leg> NO" in a 2-team event is a position on the
+                    # other team winning.
+                    opponent = leg_team
+                    own_team = next(iter(others), None)
+            elif position_key and ":" in str(position_key):
+                outcome = str(position_key).rsplit(":", 1)[1]
+                if outcome.startswith("not:"):
+                    opponent = outcome[4:]
+                    own_team = next(iter(teams - {opponent}), None)
+                else:
+                    own_team = outcome
+                    opponent = next(iter(teams - {own_team}), None)
+            created_dt = datetime.fromisoformat(str(created))
+            commence_dt = datetime.fromisoformat(str(commence)) if commence else None
+            flag, detail, source = flag_for_fill(
+                self.conn,
+                sport=sport,
+                own_team=own_team,
+                opponent=opponent,
+                created_at=created_dt,
+                commence_time=commence_dt,
+            )
+            self.conn.execute(
+                "UPDATE fills SET injury_flag=?, injury_detail=?, injury_source=? WHERE id=?",
+                (flag, detail, source, fill_id),
+            )
+            tagged += 1
+        self.conn.commit()
+        return tagged
 
     # ---- reporting ----------------------------------------------------------
 
@@ -1969,10 +2145,10 @@ class Ledger:
         odds_used: int | None = None,
         odds_remaining: int | None = None,
         trigger_reason: str | None = None,
-    ) -> None:
+    ) -> int:
         """Snapshot one engine cycle so the dashboard can chart activity and equity over time."""
         open_cost = sum((p.cost for p in self.positions()), Decimal(0))
-        self.conn.execute(
+        cur = self.conn.execute(
             "INSERT INTO runs (ran_at, strategies, scanned, signals, filled, settled, cash,"
             " open_cost, odds_used, odds_remaining, trigger_reason) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (
@@ -1990,6 +2166,7 @@ class Ledger:
             ),
         )
         self.conn.commit()
+        return int(cur.lastrowid or 0)
 
     def record_shadow_decision(self, sig: Signal, rules_version: str, reason: str = "") -> None:
         commence = sig.commence_time

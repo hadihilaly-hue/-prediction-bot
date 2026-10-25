@@ -31,6 +31,7 @@ from prediction_bot.feed_selection import (
     select_entry_feeds,
     select_rotation_feeds,
 )
+from prediction_bot.injuries import InjuryClient, snapshot_injuries
 from prediction_bot.maker_gate import MakerGate, evaluate_maker_gate
 from prediction_bot.maker_scoring import score_maker_shadows
 from prediction_bot.models import Market, OutcomeSide, Signal
@@ -438,6 +439,7 @@ def paper(
             allow_live=False,
             shadow_strategies=shadow_strategies,
         )
+        injury_client = InjuryClient()
         if pacer is not None:
             pacer.start_run()
         settled = engine.settle_open_positions()
@@ -569,7 +571,7 @@ def paper(
             ledger.finish_odds_trigger(trigger, status)
         if pacer is not None:
             pacer.finish_run()
-        ledger.record_run(
+        run_id = ledger.record_run(
             strategy,
             res.markets_scanned,
             len(res.signals),
@@ -581,6 +583,10 @@ def paper(
             else None,
             trigger_reason=f"move:{trigger}" if trigger is not None else None,
         )
+        try:
+            snapshot_injuries(ledger, injury_client, run_id=run_id)
+        except Exception:
+            log.exception("Injury snapshot failed; continuing paper cycle")
         console.print(
             f"[cycle {n}] scanned={res.markets_scanned} signals={len(res.signals)}"
             f" filled={len(res.acted) + res.paper_fills_resolved}"
