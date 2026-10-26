@@ -789,7 +789,7 @@ def _injury_data(ledger: Ledger) -> dict[str, object]:
     rows = ledger.conn.execute(
         "SELECT f.event_ticker, f.injury_flag, f.injury_detail, f.injury_source,"
         " COALESCE(f.clv_kalshi_bid, f.clv_kalshi, f.clv_exit),"
-        " f.price, f.count, f.fee, f.side, s.result"
+        " f.price, f.count, f.fee, f.side, s.result, f.tags"
         " FROM fills f JOIN settlements s ON s.ticker = f.ticker"
     ).fetchall()
 
@@ -831,9 +831,18 @@ def _injury_data(ledger: Ledger) -> dict[str, object]:
         count = float(row[6])
         won = str(row[8]) == str(row[9])
         wins[key] = wins.get(key, 0) + (1 if won else 0)
-        pnls.setdefault(key, []).append(
-            (1.0 if won else 0.0) - float(row[5]) - float(row[7]) / max(count, 1e-9)
+        pnl = (1.0 if won else 0.0) - float(row[5]) - float(row[7]) / max(count, 1e-9)
+        pnls.setdefault(key, []).append(pnl)
+        # Phase 2 gate measurement: tagged vs untagged over the same period.
+        gate_label = (
+            "gate would have blocked"
+            if "injury_gate_would_block" in str(row[10] or "")
+            else "not flagged by the gate"
         )
+        gkey = ("gate", f"all|{gate_label}")
+        clvs.setdefault(gkey, []).append(float(row[4]))
+        wins[gkey] = wins.get(gkey, 0) + (1 if won else 0)
+        pnls.setdefault(gkey, []).append(pnl)
 
     def pack(kind: str) -> list[dict[str, object]]:
         out = []
@@ -854,7 +863,7 @@ def _injury_data(ledger: Ledger) -> dict[str, object]:
             )
         return out
 
-    return {"espn": pack("espn"), "proxy": pack("proxy")}
+    return {"espn": pack("espn"), "proxy": pack("proxy"), "gate": pack("gate")}
 
 
 def dashboard_data(ledger: Ledger, settings: Settings | None = None) -> dict[str, object]:
@@ -1120,6 +1129,8 @@ _TEMPLATE = """<!doctype html>
       <div class="tablewrap"><table id="injuries"></table></div>
       <p class="hint">College football has no league-wide injury report, so we use a proxy: the book consensus moving 4¢+ against our side before kickoff. It is not real injury data and is never merged with the NFL rows above.</p>
       <div class="tablewrap"><table id="injuriesproxy"></table></div>
+      <p class="hint">Pre-entry gate check: the gate runs in log mode, so bets it flagged still went through. If the flagged group shows worse CLV with 20+ bets, we flip to block.</p>
+      <div class="tablewrap"><table id="injuriesgate"></table></div>
     </details>
     <details>
       <summary>Results by league</summary>
@@ -1497,6 +1508,7 @@ _TEMPLATE = """<!doctype html>
   const headsInj = ['League', 'Injury flag', 'Bets', 'Mean CLV', 'Mean P&L per bet', 'Win rate'];
   table('injuries', 'Settled bets with a closing-line value, by whether a key-position injury landed between entry and kickoff (ESPN).', headsInj, injuryRows((D.injuries || {}).espn || []), 'No settled bets with a CLV value yet.');
   table('injuriesproxy', 'College football proxy: consensus line moved 4¢+ against our side before kickoff (not real injury data).', headsInj, injuryRows((D.injuries || {}).proxy || []), 'No settled college-football bets with a CLV value yet.');
+  table('injuriesgate', 'Bets the injury gate would have blocked (it ran in log mode, so they still traded) vs the rest.', headsInj, injuryRows((D.injuries || {}).gate || []), 'No settled bets with a CLV value yet.');
   $('q').addEventListener('input', renderPreds);
   renderPreds();
   renderVerdicts();

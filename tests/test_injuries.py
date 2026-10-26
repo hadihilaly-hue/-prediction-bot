@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -11,12 +12,22 @@ import httpx
 
 from prediction_bot.injuries import (
     InjuryClient,
+    InjuryEntry,
     InjurySnapshotRow,
     parse_injuries,
     snapshot_injuries,
 )
 from prediction_bot.models import OutcomeSide
 from prediction_bot.paper.ledger import Ledger
+from prediction_bot.strategies import sportsbook_v2 as _v2mod
+from tests.test_sportsbook_v2 import (
+    FakeOdds,
+    FakeV3Kalshi,
+    SportsbookV3Strategy,
+    fixed_clock,
+    v3_markets,
+    v3_odds_event,
+)
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "espn_injuries_nfl.json").read_text())
 
@@ -355,3 +366,149 @@ def test_snapshot_failed_feed_leaves_unknown(tmp_path: Path) -> None:
     led.settle(NFL_TICKER, OutcomeSide.yes)
     flag, _, _ = _flag(led)
     assert flag is None
+
+
+# --- Phase 2: the pre-entry gate ---------------------------------------------
+
+OWN_QB = InjuryEntry(
+    team="Miami Dolphins",
+    athlete="Tua Tagovailoa",
+    position="QB",
+    status="Questionable",
+    status_type="INJURY_STATUS_QUESTIONABLE",
+    reported_at=None,
+    detail="",
+)
+OPP_QB = InjuryEntry(
+    team="Minnesota Vikings",
+    athlete="J.J. McCarthy",
+    position="QB",
+    status="Questionable",
+    status_type="INJURY_STATUS_QUESTIONABLE",
+    reported_at=None,
+    detail="",
+)
+OWN_OUT = InjuryEntry(
+    team="Miami Dolphins",
+    athlete="Tua Tagovailoa",
+    position="QB",
+    status="Out",
+    status_type="INJURY_STATUS_OUT",
+    reported_at=None,
+    detail="",
+)
+
+
+class _FakeInjuries:
+    def __init__(self, entries: list[InjuryEntry]) -> None:
+        self._entries = entries
+
+    def fetch_injuries(self, sport: str) -> list[InjuryEntry]:
+        return self._entries
+
+    def fetched_ok(self, sport: str) -> bool:
+        return True
+
+
+def _v3(settings, entries, monkeypatch):  # type: ignore[no-untyped-def]
+    settings.max_gross_edge = Decimal("0.20")
+    monkeypatch.setattr(_v2mod, "InjuryClient", lambda: _FakeInjuries(entries))
+    return SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event()]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+
+
+def _gate_blocks(strategy):  # type: ignore[no-untyped-def]
+    return [b for b in strategy.seen_blocks() if b.reason == "injury_gate"]
+
+
+def test_gate_off_does_nothing(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    strategy = _v3(settings, [OWN_QB], monkeypatch)
+    signals = strategy.evaluate(v3_markets())
+    assert signals
+    assert _gate_blocks(strategy) == []
+    assert not any("injury_gate_would_block" in (s.tags or ()) for s in signals)
+
+
+def test_gate_log_tags_but_trades(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    settings.injury_gate = "log"
+    strategy = _v3(settings, [OWN_QB], monkeypatch)
+    signals = strategy.evaluate(v3_markets())
+    assert signals
+    assert any(
+        "injury_uncertain_own" in b.detail and "Tagovailoa" in b.detail
+        for b in _gate_blocks(strategy)
+    )
+    assert any("injury_gate_would_block" in (s.tags or ()) for s in signals)
+
+
+def test_gate_block_blocks_own(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    settings.injury_gate = "block"
+    strategy = _v3(settings, [OWN_QB], monkeypatch)
+    signals = strategy.evaluate(v3_markets())
+    assert not any("miami" in (s.position_key or "") for s in signals)
+    assert any("injury_uncertain_own" in b.detail for b in _gate_blocks(strategy))
+
+
+def test_gate_block_ignores_out(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # Out is already priced — only unresolved statuses (Q/D) gate.
+    settings.injury_gate = "block"
+    strategy = _v3(settings, [OWN_OUT], monkeypatch)
+    signals = strategy.evaluate(v3_markets())
+    assert any("miami" in (s.position_key or "") for s in signals)
+    assert not any("injury_uncertain_own" in b.detail for b in _gate_blocks(strategy))
+
+
+def test_gate_opp_logs_only_by_default(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    settings.injury_gate = "block"
+    strategy = _v3(settings, [OPP_QB], monkeypatch)
+    signals = strategy.evaluate(v3_markets())
+    assert any("miami" in (s.position_key or "") for s in signals)
+    assert any("injury_gate_would_block" in (s.tags or ()) for s in signals)
+    assert any("injury_uncertain_opp" in b.detail for b in _gate_blocks(strategy))
+
+
+def test_gate_opp_blocks_when_enabled(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    settings.injury_gate = "block"
+    settings.injury_gate_block_opponent = True
+    strategy = _v3(settings, [OPP_QB], monkeypatch)
+    signals = strategy.evaluate(v3_markets())
+    assert not any("miami" in (s.position_key or "") for s in signals)
+
+
+def test_gate_skips_unverified_sport(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.injury_gate = "block"
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+    )
+    blocked, would = strategy._injury_gate_check(
+        CFB_EVENT, f"{CFB_EVENT}:alabama-crimson-tide", CFB_TICKER, _FakeInjuries([])
+    )
+    assert (blocked, would) == (False, False)
+    assert any(
+        b.reason == "injury_gate" and "injury_gate_skipped" in b.detail
+        for b in strategy.seen_blocks()
+    )
+
+
+def test_maker_fill_keeps_gate_tag(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # Maker-first fills used to record tags='maker' only, which dropped
+    # injury_gate_would_block from the dashboard cohort.
+    strategy = _v3(settings, [], monkeypatch)
+    signal = strategy.evaluate(v3_markets())[0]
+    tagged = replace(signal, tags=(*(signal.tags or ()), "injury_gate_would_block"))
+    led = strategy.ledger
+    order_id = led.record_paper_order(
+        tagged, Decimal("0.56"), Decimal("0.01"), ENTRY.replace(hour=20)
+    )
+    assert led.fill_paper_order(order_id, ENTRY.replace(hour=20))
+    row = led.conn.execute("SELECT tags FROM fills").fetchone()
+    assert "injury_gate_would_block" in str(row[0])
+    assert "maker" in str(row[0])

@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -270,6 +271,36 @@ def snapshot_injuries(
         for sport, team_id in sorted(covered - hit_teams)
     ]
     return ledger.record_injury_snapshots(rows, run_id=run_id, at=now)
+
+
+def injury_gate_reasons(
+    sport: str,
+    own_entries: Sequence[InjuryEntry],
+    opp_entries: Sequence[InjuryEntry],
+) -> list[tuple[str, str]]:
+    """(reason, detail) pairs for the pre-entry gate.
+
+    Only unresolved key-position statuses (Questionable/Doubtful) count — Out
+    is already in the price and must not block. injury_uncertain_own is the
+    team we are buying; injury_uncertain_opp the opponent.
+    """
+    key_positions = KEY_POSITIONS.get(sport, frozenset())
+    reasons: list[tuple[str, str]] = []
+    for reason, entries in (
+        ("injury_uncertain_own", own_entries),
+        ("injury_uncertain_opp", opp_entries),
+    ):
+        hits = [
+            entry
+            for entry in entries
+            if entry.position in key_positions and entry.status in UNCERTAIN_STATUSES
+        ]
+        if hits:
+            detail = ", ".join(
+                f"{entry.athlete} ({entry.position}) {entry.status}" for entry in hits[:3]
+            )
+            reasons.append((reason, detail))
+    return reasons
 
 
 def flag_for_fill(

@@ -128,7 +128,7 @@ def test_later_trade_through_candle_creates_maker_fill_at_candle_time(tmp_path) 
         "10",
         "0.05",
         "v3",
-        "maker",
+        "maker,value",
     )
     assert ledger.conn.execute("SELECT fill_rule FROM paper_orders").fetchone()[0] == (
         "trade_through"

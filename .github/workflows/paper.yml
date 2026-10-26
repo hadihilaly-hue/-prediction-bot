@@ -52,6 +52,9 @@ jobs:
           # Hard stops: flip the repo variable PBOT_KILL_SWITCH to "true" to halt all entries.
           PBOT_KILL_SWITCH: ${{ vars.PBOT_KILL_SWITCH || 'false' }}
           PBOT_MAX_DAILY_LOSS: ${{ vars.PBOT_MAX_DAILY_LOSS || '50' }}
+          # Injury gate starts in log: trades are tagged injury_gate_would_block so
+          # the dashboard can compare their CLV before we ever flip to block.
+          PBOT_INJURY_GATE: ${{ vars.PBOT_INJURY_GATE || 'log' }}
           PBOT_ODDS_API_KEY: ${{ secrets.PBOT_ODDS_API_KEY }}
           # Twelve sportsbook slots a day: each spends only its share of the free-tier quota
           # left this month, on feeds whose games can clear min_lead_hours.

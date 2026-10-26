@@ -120,6 +120,14 @@ class Settings(BaseSettings):
         ),
     )
     v2_kelly_fraction: Decimal = Decimal("0.25")
+    # Pre-entry injury gate (ESPN feed, NFL only for now). off = no fetch;
+    # log = write injury_gate blocks but let trades through tagged
+    # injury_gate_would_block; block = actually block injury_uncertain_own.
+    # Flip to block only once the tagged cohort shows worse CLV with >=20 fills.
+    injury_gate: Literal["off", "log", "block"] = "off"
+    # Opponent uncertainty is as likely to help as hurt: it only logs unless
+    # this is on (and the gate is in block mode).
+    injury_gate_block_opponent: bool = False
     v2_position_bankroll_fraction: Decimal = Decimal("0.02")
     v2_event_bankroll_fraction: Decimal = Decimal("0.02")
     v2_daily_bankroll_fraction: Decimal = Decimal("0.10")
