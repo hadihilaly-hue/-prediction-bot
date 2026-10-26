@@ -976,6 +976,8 @@ def dashboard_data(ledger: Ledger, settings: Settings | None = None) -> dict[str
                 "settled_at": t.settled_at,
                 "pnl": _num(t.pnl),
                 "commence": t.commence,
+                "event_title": t.event_title,
+                "rules_version": t.rules_version,
             }
             for t in ledger.trades()
         ],
@@ -1060,6 +1062,9 @@ _TEMPLATE = """<!doctype html>
   tr:last-child td { border-bottom:0; }
   td.num, th.num { text-align:right; white-space:nowrap; }
   td.what { font-weight:600; min-width:240px; }
+  td.what .hint { font-weight:400; margin:2px 0 0; }
+  #open td { white-space:normal; }
+  #open td.num { white-space:nowrap; }
   td.why { color:var(--muted); font-size:13px; min-width:220px; }
   caption { caption-side:top; text-align:left; padding:10px 12px; color:var(--muted);
             font-size:13px; }
@@ -1109,7 +1114,7 @@ _TEMPLATE = """<!doctype html>
 
   <section class="block">
     <h2>Open bets</h2>
-    <p class="hint">Bets waiting for the game to finish. "Pays" is what you get back if the bet wins.</p>
+    <p class="hint">Bets waiting for the game to finish. Each row is one bet: the match, what has to happen for it to win, how many contracts at what price, and what you win or lose. A contract pays $1 if the bet wins and $0 if it loses. All paper money.</p>
     <div class="tablewrap"><table id="open"></table></div>
   </section>
 
@@ -1423,11 +1428,56 @@ _TEMPLATE = """<!doctype html>
 
   document.querySelectorAll('#rules-tabs button').forEach(b => b.addEventListener('click', () => { rules = b.dataset.rules; renderVerdicts(); }));
 
+  const SOCCER = /^KX(MLS|EPL|LALIGA|SERIEA|BUNDESLIGA|LIGUE1|UCL|UEL|UECL|LIGAMX)/;
+  const STRATEGY_NAMES = {sportsbook_arb: 'sportsbook gap', underdog_value: 'underdog value', sportsbook_v2: 'sportsbook v2', sportsbook_v3: 'sportsbook v3'};
+  const rulesOf = t => t.rules_version || ((/_v([0-9])$/.exec(t.strategy || '') || [])[1] ? 'v' + /_v([0-9])$/.exec(t.strategy)[1] : 'v1');
+  const legName = t => String(t.summary || '').split(' — ')[0].replace(/ +wins?$/i, '').trim();
+  const otherTeam = (title, name) => {
+    const parts = String(title || '').split(/ +(?:vs[.]?|v|at|@) +/i).map(x => x.trim()).filter(Boolean);
+    if (parts.length !== 2) return null;
+    const n = name.toLowerCase();
+    const hit = parts.map(x => x.toLowerCase().startsWith(n) || n.startsWith(x.toLowerCase()));
+    if (hit[0] && !hit[1]) return parts[1];
+    if (hit[1] && !hit[0]) return parts[0];
+    return null;
+  };
+  const betText = g => {
+    const t = g.t, name = legName(t), ticker = String(t.ticker || ''), soccer = SOCCER.test(ticker);
+    const tie = /-TIE$/.test(ticker) || /^(tie|draw)/i.test(name);
+    const fight = /^KXUFC/.test(ticker), teamGame = !fight && /GAME-/.test(ticker);
+    const other = tie ? null : otherTeam(t.event_title, name);
+    const market = String(t.summary || '').split(' — ')[0] || t.ticker;
+    const no = t.side === 'no';
+    let main, how;
+    if (tie) {
+      main = no ? 'No draw' : 'Draw';
+      how = no ? 'You win if either team is ahead after 90 minutes + stoppage time.' : 'You win if the match is level after 90 minutes + stoppage time.';
+    } else if (fight) {
+      main = name + (no ? ' not to win the fight' : ' to win the fight');
+      how = no ? 'You win if ' + name + ' does not win' + (other ? ' (' + other + ' wins, or no winner)' : '') + '.' : 'You win if ' + name + ' wins the fight.';
+    } else if (soccer) {
+      main = name + (no ? ' not to win' : ' to win');
+      how = no
+        ? 'You win if ' + (other ? other + ' wins or it ends in a draw' : name + ' draws or loses') + ' after 90 minutes + stoppage time.'
+        : 'You win only if ' + name + ' is ahead after 90 minutes + stoppage time; a draw loses.';
+    } else if (teamGame) {
+      main = name + (no ? ' not to win' : ' to win');
+      how = no ? 'You win if ' + (other || 'the other team') + ' wins (overtime counts).' : 'You win if ' + name + ' wins (overtime counts).';
+    } else {
+      main = no ? 'NO on “' + market + '”' : 'YES on “' + market + '”';
+      how = no ? 'You win if this does not happen.' : 'You win if this happens.';
+    }
+    return {html: '<div>' + esc(main) + '</div><div class="hint">' + esc(how) + '</div><div class="hint">Kalshi market “' + esc(market) + '”, bought ' + esc(String(t.side || '').toUpperCase()) + '</div>', cls: 'what'};
+  };
   const groupOpen = new Map();
   openTrades.forEach(t => {
     const k = t.ticker + '|' + t.side;
-    const g = groupOpen.get(k) || {t: t, count: 0, cost: 0, last: t.when, commence: null};
+    const g = groupOpen.get(k) || {t: t, count: 0, cost: 0, last: t.when, commence: null, rules: [], strategies: [], prices: [], pc: 0, fc: 0, fn: 0};
     g.count += t.count || 0; g.cost += t.cost || 0;
+    if (num(t.price)) { g.pc += t.price * (t.count || 0); g.prices.push(Math.round(t.price * 100)); }
+    if (num(t.fair)) { g.fc += t.fair * (t.count || 0); g.fn += t.count || 0; }
+    g.rules.push(rulesOf(t)); g.strategies.push(t.strategy);
+    if (!g.t.event_title && t.event_title) g.t = Object.assign({}, g.t, {event_title: t.event_title});
     if (t.when > g.last) g.last = t.when;
     if (!g.commence && t.commence) g.commence = t.commence;
     groupOpen.set(k, g);
@@ -1447,20 +1497,34 @@ _TEMPLATE = """<!doctype html>
     }
     return {start, live: 'awaiting result', cls: ''};
   };
+  const MONTHS = {JAN: 'Jan', FEB: 'Feb', MAR: 'Mar', APR: 'Apr', MAY: 'May', JUN: 'Jun', JUL: 'Jul', AUG: 'Aug', SEP: 'Sep', OCT: 'Oct', NOV: 'Nov', DEC: 'Dec'};
+  const tickerDate = ticker => {
+    const m = /^[0-9]{2}([A-Z]{3})([0-9]{2})/.exec(String(ticker || '').split('-')[1] || '');
+    return m && MONTHS[m[1]] ? MONTHS[m[1]] + ' ' + Number(m[2]) : null;
+  };
   const openRows = [...groupOpen.values()].sort((a, b) => (b.last || '').localeCompare(a.last || '')).map(g => {
     const k = kickoffInfo(g.commence);
+    const day = tickerDate(g.t.ticker);
+    const starts = g.commence
+      ? 'Starts ' + k.start + ' · <span class="' + k.cls + '">' + esc(k.live) + '</span>'
+      : (day ? 'Game day ' + esc(day) + ' (kickoff time not recorded)' : 'Kickoff time not recorded');
+    const game = g.t.event_title || String(g.t.ticker || '').split('-').slice(0, -1).join('-');
+    const rules = [...new Set(g.rules)].join(', ');
+    const strategies = [...new Set(g.strategies)].map(s => STRATEGY_NAMES[s] || s).join(' + ');
+    const fills = g.strategies.length;
+    const avgPrice = g.count ? g.pc / g.count : g.t.price, avgFair = g.fn ? g.fc / g.fn : g.t.fair;
+    const mixed = new Set(g.prices).size > 1;
     return [
-      {v: league(g.t.ticker)},
-      {v: String(g.t.summary || '').split(' — ')[0] + (g.t.side === 'no' ? ' (betting NO)' : ''), cls: 'what'},
-      {v: k.start},
-      {v: k.live, cls: k.cls},
-      {v: 'Kalshi ' + pct(g.t.price) + ' · bot ' + pct(g.t.fair)},
-      {v: money(g.cost)},
-      {v: money(g.count), cls: 'good'},
-      {v: when(g.last)}
+      {html: '<div class="hint">' + esc(league(g.t.ticker)) + '</div><div>' + esc(game) + '</div><div class="hint">' + starts + '</div>', cls: 'what'},
+      betText(g),
+      {html: esc(String(g.count)) + ' × ' + (mixed ? 'avg ' : '') + esc(cents(avgPrice)) + '<div class="hint">= ' + esc(money(g.cost)) + ' cost' + (mixed ? ' (bought at ' + esc([...new Set(g.prices)].sort((x, y) => x - y).join('¢, ') + '¢') + ')' : '') + '</div>', cls: 'num'},
+      {html: 'Kalshi ' + esc(pct(avgPrice)) + '<div class="hint">bot ' + esc(pct(avgFair)) + '</div>'},
+      {html: '<span class="good">' + esc(money(g.count - g.cost, true)) + '</span><div class="hint">get back ' + esc(money(g.count)) + '</div>', cls: 'num'},
+      {v: money(-g.cost), cls: 'bad num'},
+      {html: esc(when(g.last)) + '<div class="hint">' + esc(rules === 'v1' ? 'old v1 rules' : rules + ' rules') + (strategies ? ': ' + esc(strategies) : '') + (fills > 1 ? ' (' + fills + ' buys)' : '') + '</div>'}
     ];
   });
-  table('open', '', ['League', 'Bet', 'Game starts', 'Live', 'Chance of winning', '#Cost', '#Pays', 'Placed'], openRows, 'No open bets.');
+  table('open', '', ['Game', 'Your bet', 'Contracts × price', 'Chance of winning', 'If it wins', 'If it loses', 'Placed'], openRows, 'No open bets.');
 
   const recentRows = settled.slice().sort((a, b) => (b.settled_at || b.when || '').localeCompare(a.settled_at || a.when || '')).slice(0, 12).map(t => [
     t.pnl > 0 ? pill('won', 'Won') : pill('lost', 'Lost'),

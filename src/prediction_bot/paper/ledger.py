@@ -6,7 +6,7 @@ import logging
 import re
 import sqlite3
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -239,6 +239,12 @@ CREATE TABLE IF NOT EXISTS markets (
     ticker TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     subtitle TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS event_titles (
+    event_ticker TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    sub_title TEXT,
+    fetched_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY,
@@ -518,6 +524,8 @@ class Trade:
     settled_at: str | None
     title: str = ""
     commence: str | None = None
+    event_title: str | None = None
+    rules_version: str | None = None
 
     @property
     def summary(self) -> str:
@@ -1227,6 +1235,29 @@ class Ledger:
         )
         self.conn.commit()
 
+    def remember_event_titles(self, rows: Sequence[tuple[str, str, str | None]]) -> None:
+        stamp = self._utc(datetime.now(timezone.utc)).isoformat()
+        self.conn.executemany(
+            "INSERT OR REPLACE INTO event_titles "
+            "(event_ticker,title,sub_title,fetched_at) VALUES (?,?,?,?)",
+            [(event_ticker, title, sub_title, stamp) for event_ticker, title, sub_title in rows],
+        )
+        if rows:
+            self.conn.commit()
+
+    def event_titles(self) -> dict[str, tuple[str, str | None]]:
+        rows = self.conn.execute("SELECT event_ticker,title,sub_title FROM event_titles")
+        return {
+            str(event_ticker): (str(title), None if sub_title is None else str(sub_title))
+            for event_ticker, title, sub_title in rows
+        }
+
+    def missing_event_titles(self, event_tickers: Iterable[str]) -> list[str]:
+        known = self.event_titles()
+        return list(
+            dict.fromkeys(ticker for ticker in event_tickers if ticker and ticker not in known)
+        )
+
     def record_signal(self, sig: Signal, acted: bool) -> int:
         cur = self.conn.execute(
             "INSERT INTO signals (created_at, strategy, ticker, side, fair_prob, limit_price,"
@@ -1363,6 +1394,17 @@ class Ledger:
             " ORDER BY t"
         ).fetchall()
         return [r[0] for r in rows]
+
+    def unsettled_event_tickers(self) -> list[str]:
+        event_tickers: list[str] = []
+        for ticker in self.unsettled_tickers():
+            row = self.conn.execute(
+                "SELECT event_ticker FROM fills WHERE ticker=? AND event_ticker IS NOT NULL"
+                " AND event_ticker != '' ORDER BY id DESC LIMIT 1",
+                (ticker,),
+            ).fetchone()
+            event_tickers.append(str(row[0]) if row else ticker.rsplit("-", 1)[0])
+        return list(dict.fromkeys(event_tickers))
 
     def untitled_tickers(self) -> list[str]:
         """Tickers with a fill or signal but no remembered market title yet."""
@@ -1594,10 +1636,12 @@ class Ledger:
 
     def trades(self) -> list[Trade]:
         """Every paper fill (newest first) with the settlement result once known."""
+        event_titles = self.event_titles()
         rows = self.conn.execute(
             "SELECT f.created_at, f.strategy, f.ticker, f.side, f.price, f.count, f.fee,"
             " f.fair_prob, s.result, s.settled_at, m.title,"
-            " COALESCE(f.commence_time, f.commence_time_backfill) FROM fills f"
+            " COALESCE(f.commence_time, f.commence_time_backfill), f.rules_version,"
+            " f.event_ticker FROM fills f"
             " LEFT JOIN settlements s ON s.ticker = f.ticker"
             " LEFT JOIN markets m ON m.ticker = f.ticker ORDER BY f.id DESC"
         )
@@ -1615,6 +1659,9 @@ class Ledger:
                 settled_at=r[9],
                 title=r[10] or "",
                 commence=r[11],
+                event_title=event_titles.get(str(r[13] or r[2].rsplit("-", 1)[0]), ("", None))[0]
+                or None,
+                rules_version=None if r[12] is None else str(r[12]),
             )
             for r in rows
         ]

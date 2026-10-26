@@ -162,6 +162,70 @@ def test_ledger_trades_runs_and_dashboard(tmp_path) -> None:  # type: ignore[no-
     assert "<\\/script><img" in page  # data stays inside the JSON block, escaped by the JS
 
 
+def test_event_titles_round_trip_and_missing_lookup(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "event-titles.sqlite", Decimal("100"))
+
+    assert ledger.missing_event_titles(["event-a", "event-b", "event-a"]) == [
+        "event-a",
+        "event-b",
+    ]
+    ledger.remember_event_titles(
+        [
+            ("event-a", "Barcelona vs Alaves", "BAR vs ALA (Oct 31)"),
+            ("event-b", "Team B vs Team C", None),
+        ]
+    )
+
+    assert ledger.event_titles() == {
+        "event-a": ("Barcelona vs Alaves", "BAR vs ALA (Oct 31)"),
+        "event-b": ("Team B vs Team C", None),
+    }
+    assert ledger.missing_event_titles(["event-a", "event-c", "event-b"]) == ["event-c"]
+
+    ledger.remember_event_titles([("event-a", "Updated title", None)])
+    assert ledger.event_titles()["event-a"] == ("Updated title", None)
+
+
+def test_dashboard_trade_payload_includes_event_title_and_rules_version(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    from prediction_bot.dashboard import dashboard_data
+
+    ledger = Ledger(tmp_path / "dashboard-event-titles.sqlite", Decimal("100"))
+    ledger.record_fill(
+        "sportsbook_v3",
+        "KXSOCCERGAME-26OCT31BARALA-BAR",
+        OutcomeSide.yes,
+        Decimal("0.4"),
+        Decimal(2),
+        Decimal("0.1"),
+        Decimal("0.6"),
+        rules_version="v3",
+        event_ticker="KXSOCCERGAME-26OCT31BARALA",
+    )
+    ledger.record_fill(
+        "old",
+        "OLD-MATCH-LEG",
+        OutcomeSide.no,
+        Decimal("0.3"),
+        Decimal(1),
+        Decimal("0.1"),
+        Decimal("0.5"),
+    )
+    ledger.remember_event_titles(
+        [("KXSOCCERGAME-26OCT31BARALA", "Barcelona vs Alaves", "BAR vs ALA (Oct 31)")]
+    )
+
+    trades = {
+        trade["ticker"]: trade
+        for trade in dashboard_data(ledger)["trades"]  # type: ignore[index]
+    }
+    assert trades["KXSOCCERGAME-26OCT31BARALA-BAR"]["event_title"] == "Barcelona vs Alaves"
+    assert trades["KXSOCCERGAME-26OCT31BARALA-BAR"]["rules_version"] == "v3"
+    assert trades["OLD-MATCH-LEG"]["event_title"] is None
+    assert trades["OLD-MATCH-LEG"]["rules_version"] is None
+
+
 def test_predictions_and_trades_read_as_plain_english(tmp_path) -> None:  # type: ignore[no-untyped-def]
     from prediction_bot.dashboard import dashboard_data, render_dashboard
 
@@ -239,6 +303,81 @@ def test_settle_backfills_titles_for_old_rows(settings) -> None:  # type: ignore
     assert venue.asked == [["E-A", "E-B"]]
     assert {t.ticker: t.title for t in ledger.trades()} == {"E-A": "A wins", "E-B": "B wins"}
     assert ledger.untitled_tickers() == []
+
+
+def test_settle_fetches_missing_unsettled_event_titles_with_cap_and_isolated_errors(
+    tmp_path, settings
+) -> None:  # type: ignore[no-untyped-def]
+    ledger = Ledger(tmp_path / "settle-event-titles.sqlite", Decimal("1000"))
+    ledger.remember_event_titles([("event-known", "Known match", None)])
+    ledger.record_fill(
+        "s",
+        "KNOWN-LEG",
+        OutcomeSide.yes,
+        Decimal("0.5"),
+        Decimal(1),
+        Decimal(0),
+        Decimal("0.6"),
+        event_ticker="event-known",
+    )
+    ledger.record_fill(
+        "s",
+        "KXSETTLED-LEG",
+        OutcomeSide.yes,
+        Decimal("0.5"),
+        Decimal(1),
+        Decimal(0),
+        Decimal("0.6"),
+    )
+    ledger.record_fill(
+        "s",
+        "AAA-LEG",
+        OutcomeSide.yes,
+        Decimal("0.5"),
+        Decimal(1),
+        Decimal(0),
+        Decimal("0.6"),
+    )
+    for index in range(20):
+        ledger.record_fill(
+            "s",
+            f"TICKER-{index:02d}-LEG",
+            OutcomeSide.yes,
+            Decimal("0.5"),
+            Decimal(1),
+            Decimal(0),
+            Decimal("0.6"),
+            event_ticker=f"event-{index:02d}",
+        )
+
+    class Venue:
+        event_requests: list[str] = []
+
+        def get_markets(self, status: str | None, tickers: list[str] | None) -> list[Market]:
+            return [make_market("KXSETTLED-LEG", "0.5", "0.5", result="yes")]
+
+        def get_event(self, event_ticker: str) -> dict[str, str]:
+            self.event_requests.append(event_ticker)
+            if event_ticker == "event-00":
+                raise RuntimeError("temporary event endpoint failure")
+            return {"title": f"{event_ticker} vs opponent", "sub_title": "Match details"}
+
+    venue = Venue()
+    result = Engine(settings, venue, [], ledger).settle_open_positions()  # type: ignore[arg-type]
+
+    assert result == {"KXSETTLED-LEG": Decimal("0.5")}
+    assert ledger.unsettled_tickers()
+    assert len(venue.event_requests) == 20
+    assert "event-known" not in venue.event_requests
+    assert "KXSETTLED" not in venue.event_requests
+    assert "event-19" not in venue.event_requests
+    assert "event-00" in venue.event_requests
+
+    stored = ledger.event_titles()
+    assert stored["event-known"] == ("Known match", None)
+    assert stored["AAA"] == ("AAA vs opponent", "Match details")
+    assert "event-00" not in stored
+    assert stored["event-01"] == ("event-01 vs opponent", "Match details")
 
 
 def test_ledger_rejects_overspend(tmp_path) -> None:  # type: ignore[no-untyped-def]

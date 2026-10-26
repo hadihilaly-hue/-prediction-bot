@@ -66,6 +66,24 @@ def test_get_markets_paginates(httpx_mock: HTTPXMock) -> None:
     assert [m.ticker for m in ms] == ["KXNFLGAME-26OCT01AB-A", "X-B"]
 
 
+def test_get_event_returns_event_object(httpx_mock: HTTPXMock) -> None:
+    event_ticker = "KXSOCCERGAME-26OCT31BARALA"
+    event = {
+        "ticker": event_ticker,
+        "title": "Barcelona vs Alaves",
+        "sub_title": "BAR vs ALA (Oct 31)",
+    }
+    httpx_mock.add_response(
+        url=f"{KALSHI_DEMO_REST}/events/{event_ticker}",
+        json={"event": event},
+    )
+
+    assert KalshiClient().get_event(event_ticker) == event
+    request = httpx_mock.get_requests()[0]
+    assert request.method == "GET"
+    assert request.url.path.endswith(f"/events/{event_ticker}")
+
+
 def test_retries_on_429_then_raises_on_4xx(httpx_mock: HTTPXMock, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setattr("prediction_bot.venues.kalshi.time.sleep", lambda _s: None)
     httpx_mock.add_response(status_code=429)
