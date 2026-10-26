@@ -157,6 +157,14 @@ class Settings(BaseSettings):
     odds_measurement_windows: bool = False
     odds_weekday_prior: bool = True
     odds_trigger_daily_cap: int = 4
+    # Credit cadence: 'calendar' blends the static day weights in
+    # cadence_calendar.json with the daily /events count; 'off' uses static
+    # weights only (no events calls); 'legacy' is the old flat share. See
+    # docs/injury_feeds.md-era cadence brief; dashboard section lands in PR 2.
+    cadence_mode: Literal["calendar", "legacy", "off"] = "calendar"
+    cadence_calendar_path: Path = Path("data/cadence_calendar.json")
+    # One-off manual bumps: "YYYY-MM-DD=weight[,YYYY-MM-DD=weight]".
+    cadence_day_override: str = ""
 
     # Paper trading
     paper_db_path: Path = Path("data/paper.sqlite")

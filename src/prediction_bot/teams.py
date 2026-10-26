@@ -66,6 +66,15 @@ def team_name_for_code(series: str, code: str) -> str | None:
     return names[0] if names else team_id.replace("-", " ").title()
 
 
+def mapped_odds_names(sport: str) -> set[str] | None:
+    """All Odds API display names we can map for a sport, or None if the sport
+    has no entries (unmapped sports can't use the events-count dyn layer)."""
+    teams = _TEAMS.get(sport)
+    if not teams:
+        return None
+    return {name for aliases in teams.values() for name in aliases["odds_names"]}
+
+
 def team_for_odds_name(sport: str, name: str) -> str | None:
     name = name.strip()
     return next(

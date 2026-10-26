@@ -1,0 +1,527 @@
+{"_comment": "Static credit-weight calendar for the sportsbook odds pacer. Weights are multipliers on a day's baseline share of the month's credits; the dynamic events count refines within these. Dates are UTC calendar days of the GAME; the pacer shifts each entry back 3-7 days to find the pull window. Season ranges are inclusive. Verified items cite a source; items marked verify=true are from general knowledge and must be confirmed before shipping.",
+  "credits_per_month": 500,
+  "entry_window_hours": [
+    72,
+    168
+  ],
+  "seasons": {
+    "americanfootball_nfl": [
+      {
+        "start": "2026-09-09",
+        "end": "2027-01-10",
+        "note": "regular season; Week 18 ends Jan 10 2027",
+        "source": "wikipedia 2026 NFL season"
+      },
+      {
+        "start": "2027-01-16",
+        "end": "2027-02-14",
+        "note": "playoffs; WC Jan 16-18, Div Jan 23-24, Conf Jan 31, SB LXI Feb 14 SoFi",
+        "source": "wikipedia 2026 NFL season"
+      },
+      {
+        "start": "2027-09-09",
+        "end": "2028-01-09",
+        "note": "2027 season, dates assumed from 2026 pattern",
+        "verify": true
+      }
+    ],
+    "americanfootball_ncaaf": [
+      {
+        "start": "2026-08-29",
+        "end": "2026-11-28",
+        "note": "regular season; Week 0 Aug 29, Week 1 Sep 5, rivalry weekend Nov 27-28",
+        "verify": true
+      },
+      {
+        "start": "2026-12-04",
+        "end": "2026-12-05",
+        "note": "conference championships (11 games, Fri Dec 4 + Sat Dec 5)",
+        "source": "fbschedules conference championship page"
+      },
+      {
+        "start": "2026-12-12",
+        "end": "2026-12-12",
+        "note": "Army-Navy",
+        "verify": true
+      },
+      {
+        "start": "2026-12-15",
+        "end": "2027-01-02",
+        "note": "bowls (47 FBS); CFP first round Dec 18-19; QF Dec 30 + Jan 1; last non-CFP bowl Jan 2",
+        "source": "wikipedia 2026-27 bowl games"
+      },
+      {
+        "start": "2027-01-14",
+        "end": "2027-01-25",
+        "note": "CFP semis Jan 14 (Orange) and Jan 15 (Sugar); title game Jan 25 Las Vegas",
+        "source": "wikipedia 2026-27 bowl games"
+      },
+      {
+        "start": "2027-08-28",
+        "end": "2027-11-27",
+        "note": "2027 season, assumed",
+        "verify": true
+      }
+    ],
+    "icehockey_nhl": [
+      {
+        "start": "2026-09-29",
+        "end": "2027-04-10",
+        "note": "regular season; All-Star Feb 5-6 2027 (no games ~Feb 4-8); Global Series Nov 12/14 and Dec 18/20",
+        "source": "nbcsportsbayarea NHL key dates"
+      },
+      {
+        "start": "2027-04-12",
+        "end": "2027-06-20",
+        "note": "playoffs, dates assumed",
+        "verify": true
+      }
+    ],
+    "baseball_mlb": [
+      {
+        "start": "2027-03-24",
+        "end": "2027-10-03",
+        "note": "Opening Day Mar 24 2027 IF a CBA is in place; no labor deal as of reporting. Treat as off until confirmed.",
+        "source": "smdailyjournal MLB 2027 opening day",
+        "verify": true
+      }
+    ],
+    "soccer_epl": [
+      {
+        "start": "2026-08-23",
+        "end": "2027-05-30",
+        "note": "33 weekend rounds + 5 midweek sets; plays through Christmas",
+        "source": "liverpoolfc 2026-27 key dates"
+      }
+    ],
+    "soccer_germany_bundesliga": [
+      {
+        "start": "2026-08-28",
+        "end": "2026-12-20",
+        "note": "MD1-14",
+        "source": "bundesliga.com calendar"
+      },
+      {
+        "start": "2027-01-08",
+        "end": "2027-05-22",
+        "note": "MD15-34; midweek round Mar 2-4; no games May 1",
+        "source": "bundesliga.com calendar"
+      }
+    ],
+    "soccer_spain_la_liga": [
+      {
+        "start": "2026-08-14",
+        "end": "2027-05-23",
+        "note": "short Christmas pause ~Dec 22-Jan 2",
+        "verify": true
+      }
+    ],
+    "soccer_italy_serie_a": [
+      {
+        "start": "2026-08-22",
+        "end": "2027-05-23",
+        "note": "plays Dec 28-30 then short pause",
+        "verify": true
+      }
+    ],
+    "soccer_france_ligue_one": [
+      {
+        "start": "2026-08-21",
+        "end": "2027-05-22",
+        "note": "winter pause ~Dec 21-Jan 3",
+        "verify": true
+      }
+    ],
+    "soccer_uefa_champs_league": [
+      {
+        "dates": [
+          "2026-09-08",
+          "2026-09-09",
+          "2026-09-10",
+          "2026-10-13",
+          "2026-10-14",
+          "2026-10-20",
+          "2026-10-21",
+          "2026-11-03",
+          "2026-11-04",
+          "2026-11-24",
+          "2026-11-25",
+          "2026-12-08",
+          "2026-12-09",
+          "2027-01-19",
+          "2027-01-20",
+          "2027-01-27"
+        ],
+        "note": "league phase; Jan 27 is all 18 games at once",
+        "source": "liverpoolfc 2026-27 key dates"
+      },
+      {
+        "dates": [
+          "2027-02-16",
+          "2027-02-17",
+          "2027-02-23",
+          "2027-02-24",
+          "2027-03-09",
+          "2027-03-10",
+          "2027-03-16",
+          "2027-03-17",
+          "2027-04-06",
+          "2027-04-07",
+          "2027-04-13",
+          "2027-04-14",
+          "2027-04-27",
+          "2027-04-28",
+          "2027-05-04",
+          "2027-05-05",
+          "2027-06-05"
+        ],
+        "note": "KO playoffs, R16, QF, SF, final Jun 5 Madrid",
+        "source": "liverpoolfc 2026-27 key dates"
+      }
+    ],
+    "soccer_uefa_europa_league": [
+      {
+        "note": "Thursdays in the same weeks as UCL league-phase matchdays; shift each UCL Tue/Wed date to the Thursday",
+        "verify": true
+      }
+    ],
+    "soccer_uefa_europa_conference_league": [
+      {
+        "note": "Thursdays, league phase has 6 matchdays not 8; same weeks as UEL except two",
+        "verify": true
+      }
+    ],
+    "soccer_usa_mls": [
+      {
+        "start": "2026-10-24",
+        "end": "2026-12-12",
+        "note": "2026 playoffs through MLS Cup in December (exact Cup date not confirmed)",
+        "source": "nbcsportsbayarea MLS sprint season",
+        "verify": true
+      },
+      {
+        "start": "2027-02-20",
+        "end": "2027-05-30",
+        "note": "2027 sprint season: 14 games per team Feb-May, then single-elimination playoffs; exact dates not published",
+        "source": "nbcsportsbayarea MLS sprint season",
+        "verify": true
+      },
+      {
+        "start": "2027-07-15",
+        "end": "2027-12-05",
+        "note": "2027-28 fall start, July; break early Dec-mid Feb",
+        "source": "nbcsportsbayarea MLS sprint season",
+        "verify": true
+      }
+    ],
+    "soccer_mexico_ligamx": [
+      {
+        "start": "2026-07-10",
+        "end": "2026-11-22",
+        "note": "Apertura 2026 regular season ends Nov 22"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-12-27",
+        "note": "Liguilla QF Nov 25-29, SF Dec 2-6, final ~Dec 13 or ~Dec 27 (unconfirmed)",
+        "source": "excelsior Apertura 2026 guide"
+      },
+      {
+        "start": "2027-01-08",
+        "end": "2027-05-30",
+        "note": "Clausura 2027, assumed",
+        "verify": true
+      }
+    ],
+    "mma_mixed_martial_arts": [
+      {
+        "start": "2026-01-01",
+        "end": "2027-12-31",
+        "note": "UFC most Saturdays; typical dark Saturdays: the one after Christmas and 1-2 in early January; lines post 2-4 weeks out so every week is enterable",
+        "verify": true
+      }
+    ],
+    "golf_majors": [
+      {
+        "dates": [
+          "2027-04-08",
+          "2027-05-20",
+          "2027-06-17",
+          "2027-07-15"
+        ],
+        "note": "Masters Apr 8-11 Augusta, PGA May 20-23 Frisco, US Open Jun 17-20 Pebble Beach, Open Jul 15-18 St Andrews. Outrights post weeks ahead; one pull in the week before each is enough.",
+        "source": "skysports majors 2027 (dates listed under 2026 champions, venues match 2027 rota)",
+        "verify": true
+      }
+    ]
+  },
+  "blackouts": [
+    {
+      "sports": [
+        "soccer_epl",
+        "soccer_germany_bundesliga",
+        "soccer_spain_la_liga",
+        "soccer_italy_serie_a",
+        "soccer_france_ligue_one",
+        "soccer_uefa_champs_league",
+        "soccer_uefa_europa_league",
+        "soccer_uefa_europa_conference_league",
+        "soccer_mexico_ligamx"
+      ],
+      "start": "2026-11-09",
+      "end": "2026-11-17",
+      "note": "FIFA window (2 matches)",
+      "source": "FIFA 2026-30 calendar via notjustok"
+    },
+    {
+      "sports": [
+        "soccer_epl",
+        "soccer_germany_bundesliga",
+        "soccer_spain_la_liga",
+        "soccer_italy_serie_a",
+        "soccer_france_ligue_one",
+        "soccer_uefa_champs_league",
+        "soccer_uefa_europa_league",
+        "soccer_uefa_europa_conference_league",
+        "soccer_mexico_ligamx"
+      ],
+      "start": "2027-03-22",
+      "end": "2027-03-30",
+      "note": "FIFA window (2 matches)",
+      "source": "FIFA 2026-30 calendar via notjustok"
+    },
+    {
+      "sports": [
+        "soccer_epl",
+        "soccer_germany_bundesliga",
+        "soccer_spain_la_liga",
+        "soccer_italy_serie_a",
+        "soccer_france_ligue_one"
+      ],
+      "start": "2027-06-07",
+      "end": "2027-06-15",
+      "note": "FIFA window; domestic seasons already over",
+      "source": "FIFA 2026-30 calendar via notjustok"
+    },
+    {
+      "sports": [
+        "soccer_epl",
+        "soccer_germany_bundesliga",
+        "soccer_spain_la_liga",
+        "soccer_italy_serie_a",
+        "soccer_france_ligue_one",
+        "soccer_uefa_champs_league",
+        "soccer_uefa_europa_league",
+        "soccer_uefa_europa_conference_league"
+      ],
+      "start": "2027-09-20",
+      "end": "2027-10-05",
+      "note": "merged Sept/Oct FIFA window (16 days, up to 4 matches); 2026 instance was Sep 21-Oct 6",
+      "source": "FIFA 2026-30 calendar via notjustok",
+      "verify": true
+    },
+    {
+      "sports": [
+        "icehockey_nhl"
+      ],
+      "start": "2026-12-24",
+      "end": "2026-12-26",
+      "note": "holiday break",
+      "verify": true
+    },
+    {
+      "sports": [
+        "icehockey_nhl"
+      ],
+      "start": "2027-02-04",
+      "end": "2027-02-08",
+      "note": "All-Star break around Feb 5-6",
+      "source": "nbcsportsbayarea NHL key dates"
+    },
+    {
+      "sports": [
+        "mma_mixed_martial_arts"
+      ],
+      "start": "2026-12-20",
+      "end": "2027-01-08",
+      "note": "UFC typically dark between the mid-Dec card and mid-Jan",
+      "verify": true
+    }
+  ],
+  "weekly_profile": {
+    "_comment": "Pull-day weights for games on each weekday, already shifted into the 72-168h window. Row = sport, key = pull weekday (Mon..Sun), value = relative weight.",
+    "americanfootball_nfl": {
+      "Mon": 1.5,
+      "Tue": 1.5,
+      "Wed": 1.2,
+      "Thu": 0.6,
+      "Fri": 0.3,
+      "Sat": 0.3,
+      "Sun": 0.5,
+      "note": "Sun/Mon games enterable Mon-Thu; Thu game enterable prior Thu-Mon; next-week lines post Sun night"
+    },
+    "americanfootball_ncaaf": {
+      "Mon": 1.5,
+      "Tue": 1.5,
+      "Wed": 1.2,
+      "Thu": 0.5,
+      "Fri": 0.2,
+      "Sat": 0.2,
+      "Sun": 0.8,
+      "note": "Sat games enterable Sun-Wed; add Fri/Sat weight in Nov for Tue/Wed MACtion"
+    },
+    "soccer_weekend_leagues": {
+      "Mon": 1.2,
+      "Tue": 1.2,
+      "Wed": 1,
+      "Thu": 0.8,
+      "Fri": 0.3,
+      "Sat": 0.3,
+      "Sun": 0.6,
+      "note": "lines post 7-10 days out; Sat/Sun rounds enterable Mon-Thu"
+    },
+    "soccer_uefa_midweek": {
+      "Wed": 1,
+      "Thu": 1.2,
+      "Fri": 1.2,
+      "Sat": 1,
+      "Sun": 0.5,
+      "Mon": 0.2,
+      "Tue": 0.1,
+      "note": "Tue/Wed games enterable prior Wed-Sat; apply only in listed matchday weeks"
+    },
+    "icehockey_nhl": {
+      "Mon": 0.3,
+      "Tue": 0.3,
+      "Wed": 0.3,
+      "Thu": 0.3,
+      "Fri": 0.3,
+      "Sat": 0.3,
+      "Sun": 0.3,
+      "note": "books rarely post NHL lines 72h out; keep near zero until feed_stats shows lead_p50_h >= 72"
+    },
+    "mma_mixed_martial_arts": {
+      "Mon": 1,
+      "Tue": 1,
+      "Wed": 0.8,
+      "Thu": 0.3,
+      "Fri": 0.1,
+      "Sat": 0.1,
+      "Sun": 0.8,
+      "note": "Sat cards enterable Sun-Wed; one pull a week is usually enough since lines barely move"
+    }
+  },
+  "clusters": [
+    {
+      "pull_start": "2026-11-21",
+      "pull_end": "2026-11-25",
+      "weight": 2,
+      "why": "Thanksgiving NFL Wed Nov 25 / Thu Nov 26 / Fri Nov 27 plus CFB rivalry weekend Nov 27-28; soccer returns from FIFA break Nov 18 with a full weekend Nov 21-22 and UCL Nov 24-25"
+    },
+    {
+      "pull_start": "2026-11-29",
+      "pull_end": "2026-12-02",
+      "weight": 1.6,
+      "why": "11 CFB conference championships Dec 4-5; NFL Week 13 Dec 6; Liga MX semis Dec 2-6"
+    },
+    {
+      "pull_start": "2026-12-13",
+      "pull_end": "2026-12-16",
+      "weight": 1.8,
+      "why": "CFP first round Dec 18-19 (campus sites), NFL Saturday doubleheader Dec 19 + Sunday Dec 20, Bundesliga last matchday Dec 18-20, NHL Global Series Dec 18/20"
+    },
+    {
+      "pull_start": "2026-12-19",
+      "pull_end": "2026-12-24",
+      "weight": 1.8,
+      "why": "NFL Dec 24-27 (Thu/Fri/Sun), EPL Boxing Day Dec 26 and midweek Dec 28-30, possible Liga MX final Dec 27, bowl games daily"
+    },
+    {
+      "pull_start": "2026-12-26",
+      "pull_end": "2026-12-30",
+      "weight": 1.6,
+      "why": "CFP quarterfinals Dec 30 and Jan 1 (3 games), NFL Week 17 Jan 3, EPL Jan 1-2"
+    },
+    {
+      "pull_start": "2027-01-04",
+      "pull_end": "2027-01-07",
+      "weight": 1.4,
+      "why": "NFL Week 18 Jan 9-10 (16 games, three flexed to Saturday); Bundesliga returns Jan 8; Liga MX Clausura opens"
+    },
+    {
+      "pull_start": "2027-01-11",
+      "pull_end": "2027-01-14",
+      "weight": 1.3,
+      "why": "NFL Wild Card Jan 16-18 (lines post Jan 10 night, so the window is Jan 11-14 only), CFP semis Jan 14-15"
+    },
+    {
+      "pull_start": "2027-01-20",
+      "pull_end": "2027-01-24",
+      "weight": 1.4,
+      "why": "UCL Jan 27: all 18 league-phase games on one night, plus NFL Divisional Jan 23-24"
+    },
+    {
+      "pull_start": "2027-02-07",
+      "pull_end": "2027-02-11",
+      "weight": 1.2,
+      "why": "Super Bowl Feb 14 (line posts Jan 31; many Kalshi retail buyers); UCL KO playoff first legs Feb 16-17"
+    },
+    {
+      "pull_start": "2027-04-01",
+      "pull_end": "2027-04-04",
+      "weight": 1.2,
+      "why": "Masters outright Apr 8-11, UCL QF Apr 6-7, NHL final week before Apr 10"
+    },
+    {
+      "pull_start": "2027-05-24",
+      "pull_end": "2027-05-27",
+      "weight": 1.2,
+      "why": "EPL final day May 30 (10 games simultaneous, relegation/Europe stakes), Liga MX and MLS sprint finals"
+    },
+    {
+      "pull_start": "2027-09-01",
+      "pull_end": "2027-09-08",
+      "weight": 1.8,
+      "why": "NFL Week 1 + CFB Weeks 1-2 + all European leagues on; the densest week of the year",
+      "verify": true
+    }
+  ],
+  "dead_zones": [
+    {
+      "start": "2026-11-09",
+      "end": "2026-11-17",
+      "why": "FIFA window: zero soccer. Only NFL/CFB/NHL/UFC. Spend ~60% of a normal day."
+    },
+    {
+      "start": "2026-12-06",
+      "end": "2026-12-11",
+      "why": "CFB gap between championships and bowls (Army-Navy Dec 12 only); NFL normal."
+    },
+    {
+      "start": "2027-01-26",
+      "end": "2027-02-06",
+      "why": "CFB over, NFL has one game (Super Bowl), NHL All-Star break Feb 4-8. Soccer carries the week."
+    },
+    {
+      "start": "2027-02-15",
+      "end": "2027-03-21",
+      "why": "No football. Soccer + NHL only; MLS sprint and Liga MX help. Spend ~50% of a fall day, bank nothing (credits reset monthly) so use spare on 2 feeds per run."
+    },
+    {
+      "start": "2027-03-22",
+      "end": "2027-03-30",
+      "why": "FIFA window. NHL + MLB (if it opens Mar 24) only."
+    },
+    {
+      "start": "2027-06-06",
+      "end": "2027-08-20",
+      "why": "Summer: UFC, golf (US Open Jun 17, Open Jul 15), MLB if playing, Liga MX Apertura from mid-July, MLS from mid-July. Lowest value of the year; 2-4 pulls a day."
+    },
+    {
+      "start": "2027-09-20",
+      "end": "2027-10-05",
+      "why": "Merged Sept/Oct FIFA window: zero soccer for 16 days. Football is on, so still a normal NFL/CFB week.",
+      "verify": true
+    }
+  ]
+}

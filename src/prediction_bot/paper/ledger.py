@@ -6,7 +6,7 @@ import sqlite3
 from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -299,6 +299,18 @@ CREATE INDEX IF NOT EXISTS feed_skips_feed_created_at
 CREATE TABLE IF NOT EXISTS odds_pacer_state (
     id INTEGER PRIMARY KEY CHECK(id=1),
     carry REAL NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS cadence_days (
+    day TEXT PRIMARY KEY,
+    static_w REAL,
+    dyn_count INTEGER,
+    dyn_json TEXT,
+    blended_w REAL,
+    budget REAL,
+    pulled INTEGER NOT NULL DEFAULT 0,
+    feeds_json TEXT,
+    mode TEXT,
     updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS odds_triggers (
@@ -1739,6 +1751,64 @@ class Ledger:
             "INSERT INTO odds_pacer_state(id,carry,updated_at) VALUES(1,?,?) "
             "ON CONFLICT(id) DO UPDATE SET carry=excluded.carry,updated_at=excluded.updated_at",
             (max(-1.0, min(float(carry), 1.0)), stamp),
+        )
+        self.conn.commit()
+
+    def cadence_day(self, day: date) -> dict[str, object] | None:
+        row = self.conn.execute(
+            "SELECT day,static_w,dyn_count,dyn_json,blended_w,budget,pulled,feeds_json,mode"
+            " FROM cadence_days WHERE day=?",
+            (day.isoformat(),),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "day": row[0],
+            "static_w": row[1],
+            "dyn_count": row[2],
+            "dyn_json": row[3],
+            "blended_w": row[4],
+            "budget": row[5],
+            "pulled": row[6],
+            "feeds_json": row[7],
+            "mode": row[8],
+        }
+
+    def record_cadence_day(
+        self,
+        day: date,
+        *,
+        static_w: float,
+        dyn_count: int | None,
+        dyn_json: str | None,
+        blended_w: float,
+        budget: float,
+        mode: str,
+        at: datetime | None = None,
+    ) -> None:
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        self.conn.execute(
+            "INSERT INTO cadence_days"
+            " (day,static_w,dyn_count,dyn_json,blended_w,budget,pulled,feeds_json,mode,updated_at)"
+            " VALUES(?,?,?,?,?,?,0,NULL,?,?)"
+            " ON CONFLICT(day) DO UPDATE SET static_w=excluded.static_w,"
+            " dyn_count=COALESCE(excluded.dyn_count, cadence_days.dyn_count),"
+            " dyn_json=COALESCE(excluded.dyn_json, cadence_days.dyn_json),"
+            " blended_w=excluded.blended_w,budget=excluded.budget,mode=excluded.mode,"
+            " updated_at=excluded.updated_at",
+            (day.isoformat(), static_w, dyn_count, dyn_json, blended_w, budget, mode, stamp),
+        )
+        self.conn.commit()
+
+    def record_cadence_pulls(
+        self, day: date, pulled: int, feeds_json: str, at: datetime | None = None
+    ) -> None:
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        self.conn.execute(
+            "INSERT INTO cadence_days (day,pulled,feeds_json,updated_at) VALUES(?,?,?,?)"
+            " ON CONFLICT(day) DO UPDATE SET pulled=cadence_days.pulled+excluded.pulled,"
+            " feeds_json=excluded.feeds_json,updated_at=excluded.updated_at",
+            (day.isoformat(), pulled, feeds_json, stamp),
         )
         self.conn.commit()
 
