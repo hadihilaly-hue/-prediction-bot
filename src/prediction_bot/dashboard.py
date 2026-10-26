@@ -1426,9 +1426,10 @@ _TEMPLATE = """<!doctype html>
   const groupOpen = new Map();
   openTrades.forEach(t => {
     const k = t.ticker + '|' + t.side;
-    const g = groupOpen.get(k) || {t: t, count: 0, cost: 0, last: t.when};
+    const g = groupOpen.get(k) || {t: t, count: 0, cost: 0, last: t.when, commence: null};
     g.count += t.count || 0; g.cost += t.cost || 0;
     if (t.when > g.last) g.last = t.when;
+    if (!g.commence && t.commence) g.commence = t.commence;
     groupOpen.set(k, g);
   });
   const kickoffInfo = (iso) => {
@@ -1447,7 +1448,7 @@ _TEMPLATE = """<!doctype html>
     return {start, live: 'awaiting result', cls: ''};
   };
   const openRows = [...groupOpen.values()].sort((a, b) => (b.last || '').localeCompare(a.last || '')).map(g => {
-    const k = kickoffInfo(g.t.commence);
+    const k = kickoffInfo(g.commence);
     return [
       {v: league(g.t.ticker)},
       {v: String(g.t.summary || '').split(' — ')[0] + (g.t.side === 'no' ? ' (betting NO)' : ''), cls: 'what'},
