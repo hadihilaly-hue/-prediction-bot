@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import json
 import sqlite3
 from collections import deque
 from collections.abc import Mapping, Sequence
@@ -1801,14 +1802,36 @@ class Ledger:
         self.conn.commit()
 
     def record_cadence_pulls(
-        self, day: date, pulled: int, feeds_json: str, at: datetime | None = None
+        self,
+        day: date,
+        pulled: int,
+        feeds_json: str,
+        at: datetime | None = None,
+        mode: str | None = None,
     ) -> None:
         stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        row = self.conn.execute(
+            "SELECT feeds_json FROM cadence_days WHERE day=?", (day.isoformat(),)
+        ).fetchone()
+        feeds: list[str] = []
+        if row is not None and row[0]:
+            try:
+                feeds = list(json.loads(row[0]))
+            except (ValueError, TypeError):
+                feeds = []
+        try:
+            feeds += list(json.loads(feeds_json))
+        except (ValueError, TypeError):
+            pass
+        merged = json.dumps(sorted(set(feeds)))
         self.conn.execute(
-            "INSERT INTO cadence_days (day,pulled,feeds_json,updated_at) VALUES(?,?,?,?)"
+            "INSERT INTO cadence_days (day,pulled,feeds_json,mode,updated_at)"
+            " VALUES(?,?,?,?,?)"
             " ON CONFLICT(day) DO UPDATE SET pulled=cadence_days.pulled+excluded.pulled,"
-            " feeds_json=excluded.feeds_json,updated_at=excluded.updated_at",
-            (day.isoformat(), pulled, feeds_json, stamp),
+            " feeds_json=excluded.feeds_json,"
+            " mode=COALESCE(excluded.mode, cadence_days.mode),"
+            " updated_at=excluded.updated_at",
+            (day.isoformat(), pulled, merged, mode, stamp),
         )
         self.conn.commit()
 
