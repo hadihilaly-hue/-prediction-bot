@@ -123,10 +123,14 @@ class CadenceCalendar:
                     windows += [
                         Window(_day(d), _day(d), str(r.get("note") or "")) for d in r["dates"]
                     ]
-                else:
+                elif "start" in r and "end" in r:
                     windows.append(
                         Window(_day(r["start"]), _day(r["end"]), str(r.get("note") or ""))
                     )
+                else:
+                    # Note-only entries (e.g. UEL/UECL derived-date notes):
+                    # no concrete range, so the sport simply never activates.
+                    log.info("cadence: skipping note-only season entry for %s", sport)
             self._seasons[str(sport)] = windows
         self._blackouts: dict[str, list[Window]] = {}
         for b in data.get("blackouts") or []:
@@ -267,7 +271,7 @@ def blend(static: float, dyn: int | None, median_dyn: float) -> float:
     gets half its static share, and a degenerate median leaves static alone."""
     if dyn is None or median_dyn <= 0:
         return static
-    return static * (0.5 + 0.5 * dyn / median_dyn)
+    return static * min(1.5, 0.5 + 0.5 * dyn / median_dyn)
 
 
 def build_plan(
@@ -329,7 +333,7 @@ def build_plan(
         dyn_count=None if dyn is None else dyn.get(today),
         blended_w=weights[today],
         budget=budget,
-        share=budget / slots * breadth,
+        share=min(DAY_PULLS_CAP, budget * breadth) / slots,
         slots_left=slots,
         breadth=breadth,
         weights=weights,

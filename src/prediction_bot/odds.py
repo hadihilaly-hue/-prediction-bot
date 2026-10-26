@@ -505,14 +505,20 @@ class OddsPacer:
         commence_from = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
         commence_from += timedelta(days=self.calendar.shift_lo)
         commence_to = commence_from + timedelta(days=10)
+        sports: set[str] = set()
+        for i in range(7):
+            sports |= self.calendar.active_sports(today + timedelta(days=i))
         events: list[dict[str, Any]] = []
-        for sport in sorted(self.calendar.active_sports(today)):
+        for sport in sorted(sports):
             if mapped_odds_names(sport) is None:
                 continue
-            events += [
-                {"sport_key": sport, **e}
-                for e in self.client.events(sport, commence_from, commence_to)
-            ]
+            try:
+                events += [
+                    {"sport_key": sport, **e}
+                    for e in self.client.events(sport, commence_from, commence_to)
+                ]
+            except httpx.HTTPError:
+                log.warning("odds api events fetch failed for %s; skipping", sport)
         if not self.client.events_free:
             log.warning("odds api: /events is not free; cadence dyn layer disabled")
             return None

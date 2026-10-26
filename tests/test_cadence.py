@@ -315,3 +315,84 @@ def test_events_free_check_disables_dyn(tmp_path) -> None:
     assert not client.events_free
     row = ledger.cadence_day(date(2026, 10, 5))
     assert row is not None and row["dyn_json"] is None
+
+
+# --- review regression coverage ---
+
+
+def test_note_only_season_entries_do_not_crash_load() -> None:
+    data = {
+        **FIXTURE_CALENDAR,
+        "seasons": {
+            **FIXTURE_CALENDAR["seasons"],
+            "soccer_uefa_europa_league": [{"note": "derived from UCL weeks"}],
+        },
+    }
+    c = CadenceCalendar(data)
+    assert "soccer_uefa_europa_league" not in c.active_sports(date(2026, 10, 5))
+
+
+def test_events_http_error_falls_back_to_static(tmp_path) -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "/events" in str(req.url):
+            return httpx.Response(503)
+        return httpx.Response(
+            200, json=[], headers={"x-requests-remaining": "300", "x-requests-used": "1"}
+        )
+
+    client = OddsClient("k", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    ledger = Ledger(tmp_path / "err.sqlite", Decimal("100"))
+    real_cal = CadenceCalendar(
+        {
+            **FIXTURE_CALENDAR,
+            "seasons": {"americanfootball_nfl": [{"start": "2026-09-01", "end": "2027-01-31"}]},
+        }
+    )
+    pacer = OddsPacer(
+        client,
+        runs_per_day=12,
+        ledger=ledger,
+        cadence_mode="calendar",
+        calendar=real_cal,
+    )
+    # 503 on /events must not propagate through start_run
+    assert pacer.start_run(datetime(2026, 10, 5, 0, 0, tzinfo=timezone.utc)) >= 0
+
+
+def test_dyn_fetch_covers_sports_starting_this_week() -> None:
+    calls: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "/events" in str(req.url):
+            calls.append(str(req.url))
+        return httpx.Response(
+            200, json=[], headers={"x-requests-remaining": "300", "x-requests-used": "1"}
+        )
+
+    client = OddsClient("k", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    # NFL season starts Oct 8: inactive today (Oct 5 window ends Oct 12... it IS
+    # active), so use a season starting inside later pull days' windows instead.
+    real_cal = CadenceCalendar(
+        {
+            **FIXTURE_CALENDAR,
+            "seasons": {"americanfootball_nfl": [{"start": "2026-10-11", "end": "2027-01-31"}]},
+        }
+    )
+    pacer = OddsPacer(client, runs_per_day=12, cadence_mode="calendar", calendar=real_cal)
+    counts = pacer._dyn_counts(date(2026, 10, 5))
+    # Oct 11 is inside pull days Oct 4-8's windows -> NFL must be fetched even
+    # though it is not active for a pull on Oct 5 itself.
+    assert any("americanfootball_nfl" in u for u in calls)
+    assert counts is not None
+
+
+def test_breadth_respects_day_cap() -> None:
+    c = cal()
+    now = datetime(2026, 10, 21, 0, 0, tzinfo=timezone.utc)
+    plan = build_plan(now, 460, 12, c)
+    assert plan.breadth == 2.0
+    assert plan.share * plan.slots_left <= 40.0
+
+
+def test_dyn_clamped_to_plus_fifty_percent() -> None:
+    assert blend(4.0, 18, 6.0) == 6.0  # 3x median still capped at +50%
