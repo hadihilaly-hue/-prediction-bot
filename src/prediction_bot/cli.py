@@ -14,6 +14,7 @@ from rich.table import Table
 
 from prediction_bot.analysis import event_datetime as _event_datetime
 from prediction_bot.analysis import start_time
+from prediction_bot.cadence import CadenceCalendar, parse_day_overrides
 from prediction_bot.clv import backfill_clv_commence_times, record_clv, refresh_clv_statuses
 from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
@@ -384,11 +385,23 @@ def paper(
             if s.odds_planner == "event_driven"
             else 86400 / max(interval, 1)
         )
+        calendar = None
+        if s.cadence_mode != "legacy":
+            try:
+                calendar = CadenceCalendar.load(s.cadence_calendar_path)
+            except (OSError, ValueError, KeyError):
+                log.exception(
+                    "cadence calendar load failed (%s); falling back to legacy pacing",
+                    s.cadence_calendar_path,
+                )
         pacer = OddsPacer(
             odds,
             max(per_day, s.odds_runs_per_day),
             ledger=ledger,
             trigger_mode=trigger is not None,
+            cadence_mode=s.cadence_mode,
+            calendar=calendar,
+            day_overrides=parse_day_overrides(s.cadence_day_override),
         )
     shadow_names = list(s.shadow_strategies)
     if s.rules_version == "v3" and "sportsbook_v3" in strategy:
@@ -570,7 +583,7 @@ def paper(
             status = "pulled" if odds is not None and odds.odds_requests_made > 0 else "skipped"
             ledger.finish_odds_trigger(trigger, status)
         if pacer is not None:
-            pacer.finish_run()
+            pacer.finish_run(feeds=sorted(odds.allowed_sports or []) if odds is not None else None)
         run_id = ledger.record_run(
             strategy,
             res.markets_scanned,

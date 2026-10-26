@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import re
@@ -9,7 +10,7 @@ import time
 import unicodedata
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any, cast
@@ -19,6 +20,7 @@ import httpx
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from prediction_bot.cadence import CadenceCalendar
     from prediction_bot.paper.ledger import Ledger
 
 
@@ -409,6 +411,12 @@ class OddsClient:
         return cast(list[dict[str, Any]], resp.json())
 
 
+def _utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 class OddsPacer:
     """Sets `client.budget` at the start of each run to that run's share of the quota
     left this month. Unspent fractions carry over, so a frequent loop (share < 1 request
@@ -421,12 +429,106 @@ class OddsPacer:
         runs_per_day: float,
         ledger: Ledger | None = None,
         trigger_mode: bool = False,
+        cadence_mode: str = "legacy",
+        calendar: CadenceCalendar | None = None,
+        day_overrides: dict[date, float] | None = None,
     ) -> None:
         self.client = client
         self.runs_per_day = runs_per_day
         self.ledger = ledger
         self.trigger_mode = trigger_mode
+        self.cadence_mode = cadence_mode if calendar is not None else "legacy"
+        self.calendar = calendar
+        self.day_overrides = day_overrides or {}
         self.credit = 0.0
+
+    def _cadence_start(self, left: int, now: datetime) -> int:
+        from prediction_bot.cadence import build_plan
+
+        assert self.calendar is not None
+        today = _utc(now).date()
+        dyn: dict[date, int] | None = None
+        if self.cadence_mode == "calendar":
+            dyn = self._dyn_counts(today)
+        plan = build_plan(
+            now,
+            left,
+            self.runs_per_day,
+            self.calendar,
+            dyn=dyn,
+            overrides=self.day_overrides,
+        )
+        self.credit = min(self.credit + plan.share, float(max(0, left)))
+        # Cadence rounds the carried share: <0.5 nothing, then up to 3 feeds.
+        self.client.budget = max(0, min(3, int(math.floor(self.credit + 0.5))))
+        if self.ledger is not None:
+            self.ledger.record_cadence_day(
+                plan.day,
+                static_w=plan.static_w,
+                dyn_count=plan.dyn_count,
+                dyn_json=json.dumps({d.isoformat(): n for d, n in (dyn or {}).items()})
+                if dyn is not None
+                else None,
+                blended_w=plan.blended_w,
+                budget=plan.budget,
+                mode=self.cadence_mode,
+                at=now,
+            )
+        log.info(
+            "odds api: %d requests left; cadence %s budget %.2f share %.2f -> %d feeds",
+            left,
+            self.cadence_mode,
+            plan.budget,
+            plan.share,
+            self.client.budget,
+        )
+        return self.client.budget
+
+    def _dyn_counts(self, today: date) -> dict[date, int] | None:
+        """One free /events call per active sport per day, cached in cadence_days."""
+        assert self.calendar is not None
+        from prediction_bot.cadence import dynamic_counts
+        from prediction_bot.teams import mapped_odds_names
+
+        if self.ledger is not None:
+            cached = self.ledger.cadence_day(today)
+            if cached is not None and cached.get("dyn_json"):
+                try:
+                    return {
+                        date.fromisoformat(d): int(n)
+                        for d, n in json.loads(str(cached["dyn_json"])).items()
+                    }
+                except (ValueError, TypeError):
+                    pass
+        if self.client.requests_used is not None:
+            self.client._events_requests_used_baseline = int(self.client.requests_used)
+        commence_from = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+        commence_from += timedelta(days=self.calendar.shift_lo)
+        commence_to = commence_from + timedelta(days=10)
+        events: list[dict[str, Any]] = []
+        for sport in sorted(self.calendar.active_sports(today)):
+            if mapped_odds_names(sport) is None:
+                continue
+            events += [
+                {"sport_key": sport, **e}
+                for e in self.client.events(sport, commence_from, commence_to)
+            ]
+        if not self.client.events_free:
+            log.warning("odds api: /events is not free; cadence dyn layer disabled")
+            return None
+        dyn = dynamic_counts(events, today, self.calendar, mapped_odds_names)
+        if self.ledger is not None:
+            self.ledger.record_cadence_day(
+                today,
+                static_w=self.calendar.static_weight(today),
+                dyn_count=dyn.get(today),
+                dyn_json=json.dumps({d.isoformat(): n for d, n in dyn.items()}),
+                blended_w=self.calendar.static_weight(today),
+                budget=0.0,
+                mode=self.cadence_mode,
+                at=datetime.now(timezone.utc),
+            )
+        return dyn
 
     def start_run(self, now: datetime | None = None) -> int:
         if self.ledger is None:
@@ -456,6 +558,8 @@ class OddsPacer:
             )
             log.info("odds api: trigger run budget %d", self.client.budget)
             return self.client.budget
+        if self.cadence_mode != "legacy":
+            return self._cadence_start(left, now or datetime.now(timezone.utc))
         share = run_share(left, self.runs_per_day, now)
         self.credit = min(self.credit + share, float(max(0, left)))
         self.client.budget = max(0, math.floor(self.credit + 1e-9))
@@ -465,8 +569,15 @@ class OddsPacer:
         log.info("odds api: %d requests left this month, run budget %d", left, self.client.budget)
         return self.client.budget
 
-    def finish_run(self, now: datetime | None = None) -> None:
+    def finish_run(self, now: datetime | None = None, feeds: list[str] | None = None) -> None:
         if self.ledger is None:
             return
         carry = max(-1.0, min(self.credit - self.client.requests_made, 1.0))
         self.ledger.record_odds_pacer_carry(carry, now)
+        if self.cadence_mode != "legacy" and self.calendar is not None:
+            self.ledger.record_cadence_pulls(
+                _utc(now or datetime.now(timezone.utc)).date(),
+                self.client.odds_requests_made,
+                json.dumps(sorted(feeds or [])),
+                now,
+            )
