@@ -1,3 +1,13 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1592.70
 v3 execution: auto -> taker (taker_positions: 0/50)
- scanned=1589 signals=0 filled=0 orders_placed=0 settled=0 cash=1592.70
+ scanned=1589 signals=1 filled=1 orders_placed=0 settled=0 cash=1560.02
+┏━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━┓
+┃ strategy   ┃ ticker    ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why        ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━┩
+│ sportsboo… │ KXNFLGAM… │ no   │ 0.6800 │ 0.7290 │ 0.0338 │ 47   │ Arizona    │
+│            │           │      │        │        │        │      │ Cardinals  │
+│            │           │      │        │        │        │      │ soft_refe… │
+│            │           │      │        │        │        │      │ reference, │
+│            │           │      │        │        │        │      │ 2 books,   │
+│            │           │      │        │        │        │      │ fair 0.    │
+└────────────┴───────────┴──────┴────────┴────────┴────────┴──────┴────────────┘

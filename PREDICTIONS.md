@@ -1,10 +1,11 @@
 # Paper-trading predictions
 
-Updated 2026-10-26 14:34 UTC. Cash **$1592.70** (started $1000.00), realized PnL **$653.38**, fees $64.94, settled 80, wins 27, open positions 3.
+Updated 2026-10-26 15:15 UTC. Cash **$1560.02** (started $1000.00), realized PnL **$653.38**, fees $65.66, settled 80, wins 27, open positions 4.
 
 Brier (lower is better): strategy 0.2529 vs market price 0.2573.
 
 - `sportsbook_arb`: settled 59, wins 18, realized PnL $207.24, Brier 0.2037 vs market 0.2049
+- `sportsbook_v3`: settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `underdog_value`: settled 21, wins 9, realized PnL $446.14, Brier 0.3596 vs market 0.3710
 
 Per league (Kalshi series):
@@ -14,7 +15,7 @@ Per league (Kalshi series):
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 2, wins 0, realized PnL $-2.30, Brier 0.3770 vs market 0.0324
 - `KXNCAAFGAME`: open 0, settled 40, wins 13, realized PnL $481.69, Brier 0.2044 vs market 0.2152
-- `KXNFLGAME`: open 0, settled 27, wins 7, realized PnL $-262.97, Brier 0.2322 vs market 0.2141
+- `KXNFLGAME`: open 1, settled 27, wins 7, realized PnL $-262.97, Brier 0.2322 vs market 0.2141
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
@@ -22,6 +23,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-26 15:14 | sportsbook\_v3 | Arizona wins — NO: Kalshi says 68%, we say 73%; bought at 68¢ | no | 0.6800 | 0.7290 | +0.0338 | 47 | yes | open | Arizona Cardinals soft\_reference reference, 2 books, fair 0.729 | KXNFLGAME-26NOV01ARIDAL-ARI |
 | 2026-10-22 22:23 | underdog\_value | Barcelona wins — NO: Kalshi says 14%, we say 18%; would buy at 14¢ | no | 0.1400 | 0.1822 | +0.0322 | 100 | no | open | underdog \(7.1x payout\); Barcelona consensus 0.818 from 3 books \(Barcelona vs Alavés\) | KXLALIGAGAME-26OCT31BARALA-BAR |
 | 2026-10-22 22:23 | sportsbook\_arb | Barcelona wins — NO: Kalshi says 14%, we say 18%; would buy at 14¢ | no | 0.1400 | 0.1822 | +0.0322 | 100 | no | open | Barcelona consensus 0.818 from 3 books \(Barcelona vs Alavés\) | KXLALIGAGAME-26OCT31BARALA-BAR |
 | 2026-10-22 15:54 | underdog\_value | Barcelona wins — NO: Kalshi says 14%, we say 18%; bought at 14¢ | no | 0.1400 | 0.1799 | +0.0299 | 100 | yes | open | underdog \(7.1x payout\); Barcelona consensus 0.820 from 3 books \(Barcelona vs Alavés\) | KXLALIGAGAME-26OCT31BARALA-BAR |
