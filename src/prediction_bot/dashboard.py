@@ -779,9 +779,88 @@ def _single_sharp_clv_data(ledger: Ledger) -> dict[str, object]:
     }
 
 
+def _injury_data(ledger: Ledger) -> dict[str, object]:
+    """CLV / P&L / win rate on settled fills, split by the injury tag.
+
+    ESPN-tagged rows (NFL) and line_move_proxy rows (CFB) are kept in separate
+    groups — the proxy is a line-movement stand-in, never merged with real
+    injury data. Only fills with a CLV value count, per the spec.
+    """
+    rows = ledger.conn.execute(
+        "SELECT f.event_ticker, f.injury_flag, f.injury_detail, f.injury_source,"
+        " COALESCE(f.clv_kalshi_bid, f.clv_kalshi, f.clv_exit),"
+        " f.price, f.count, f.fee, f.side, s.result"
+        " FROM fills f JOIN settlements s ON s.ticker = f.ticker"
+    ).fetchall()
+
+    def bucket(row: tuple[object, ...]) -> tuple[str, str] | None:
+        event_ticker, flag, detail, source, clv = row[0], row[1], row[2], row[3], row[4]
+        if clv is None:
+            return None
+        series = str(event_ticker or "").split("-", 1)[0]
+        sport = KALSHI_SERIES_TO_SPORT.get(series, "unknown")
+        if source == "line_move_proxy":
+            if flag == 1:
+                label = "line moved 4¢+ against us (proxy)"
+            elif flag == 0:
+                label = "no adverse move (proxy)"
+            else:
+                label = "no line data (proxy)"
+            return "proxy", f"{sport}|{label}"
+        if flag == 1:
+            label = (
+                "our team's player hit"
+                if str(detail or "").startswith("own:")
+                else "opponent's player hit"
+            )
+        elif flag == 0:
+            label = "no key injury reported"
+        else:
+            label = "unknown (no injury coverage)"
+        return "espn", f"{sport}|{label}"
+
+    clvs: dict[tuple[str, str], list[float]] = {}
+    pnls: dict[tuple[str, str], list[float]] = {}
+    wins: dict[tuple[str, str], int] = {}
+    for row in rows:
+        b = bucket(row)
+        if b is None:
+            continue
+        key = (b[0], b[1])
+        clvs.setdefault(key, []).append(float(row[4]))
+        count = float(row[6])
+        won = str(row[8]) == str(row[9])
+        wins[key] = wins.get(key, 0) + (1 if won else 0)
+        pnls.setdefault(key, []).append(
+            (1.0 if won else 0.0) - float(row[5]) - float(row[7]) / max(count, 1e-9)
+        )
+
+    def pack(kind: str) -> list[dict[str, object]]:
+        out = []
+        for (k, key), vals in sorted(clvs.items()):
+            if k != kind:
+                continue
+            sport, label = key.split("|", 1)
+            n = len(vals)
+            out.append(
+                {
+                    "sport": sport,
+                    "bucket": label,
+                    "n": n,
+                    "mean_clv": statistics.mean(vals),
+                    "mean_pnl": statistics.mean(pnls[(k, key)]),
+                    "win_rate": wins[(k, key)] / n,
+                }
+            )
+        return out
+
+    return {"espn": pack("espn"), "proxy": pack("proxy")}
+
+
 def dashboard_data(ledger: Ledger, settings: Settings | None = None) -> dict[str, object]:
     perf = ledger.performance()
     return {
+        "injuries": _injury_data(ledger),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "measurement": _measurement_data(ledger, settings),
         "performance": {
@@ -1034,6 +1113,13 @@ _TEMPLATE = """<!doctype html>
       <div class="tablewrap"><table id="maker"></table></div>
       <div class="tablewrap"><table id="shadow"></table></div>
       <div class="tablewrap"><table id="experiments"></table></div>
+    </details>
+    <details>
+      <summary>Injuries during the hold</summary>
+      <p class="hint">Did injury news between entry and kickoff cost us? A bet is flagged when a key-position player went Out or Doubtful in that window. \u201cUnknown\u201d means we had no injury coverage for that game yet \u2014 ESPN only shows the current list, so the backfill can only tag open positions and historical bets stay unknown.</p>
+      <div class="tablewrap"><table id="injuries"></table></div>
+      <p class="hint">College football has no league-wide injury report, so we use a proxy: the book consensus moving 4¢+ against our side before kickoff. It is not real injury data and is never merged with the NFL rows above.</p>
+      <div class="tablewrap"><table id="injuriesproxy"></table></div>
     </details>
     <details>
       <summary>Results by league</summary>
@@ -1407,6 +1493,10 @@ _TEMPLATE = """<!doctype html>
     ]);
     table('predictions', 'Newest first, up to 200 rows.', ['When', 'Action', 'What', '#Edge', 'Why'], rows, 'Nothing matches.');
   }
+  const injuryRows = (rows) => rows.map(r => [leagueName(r.sport), r.bucket, String(r.n || 0), {v: signedCents(num(r.mean_clv) ? r.mean_clv : null), cls: tone(r.mean_clv)}, {v: signedCents(num(r.mean_pnl) ? r.mean_pnl * 100 : null), cls: tone(r.mean_pnl)}, num(r.win_rate) ? (r.win_rate * 100).toFixed(0) + '%' : '–']);
+  const headsInj = ['League', 'Injury flag', 'Bets', 'Mean CLV', 'Mean P&L per bet', 'Win rate'];
+  table('injuries', 'Settled bets with a closing-line value, by whether a key-position injury landed between entry and kickoff (ESPN).', headsInj, injuryRows((D.injuries || {}).espn || []), 'No settled bets with a CLV value yet.');
+  table('injuriesproxy', 'College football proxy: consensus line moved 4¢+ against our side before kickoff (not real injury data).', headsInj, injuryRows((D.injuries || {}).proxy || []), 'No settled college-football bets with a CLV value yet.');
   $('q').addEventListener('input', renderPreds);
   renderPreds();
   renderVerdicts();

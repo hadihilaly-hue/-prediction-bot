@@ -1,0 +1,73 @@
+{
+  "season": {"type": 1, "year": 2026},
+  "week": {"number": 8},
+  "injuries": [
+    {
+      "id": "team-kc",
+      "displayName": "Kansas City Chiefs",
+      "injuries": [
+        {
+          "id": "1",
+          "status": "Out",
+          "type": {"id": "1", "name": "INJURY_STATUS_OUT", "description": "Out", "abbreviation": "O"},
+          "date": "2026-10-25T18:48Z",
+          "details": {"type": "Hamstring", "location": "Leg", "detail": "Hamstring", "fantasyStatus": {"description": "Out"}},
+          "shortComment": "Mahomes (hamstring) is out Sunday",
+          "longComment": "",
+          "athlete": {"id": "3139477", "displayName": "Patrick Mahomes", "position": {"abbreviation": "QB"}}
+        },
+        {
+          "id": "2",
+          "status": "Questionable",
+          "type": {"id": "2", "name": "INJURY_STATUS_QUESTIONABLE", "description": "Questionable", "abbreviation": "Q"},
+          "date": "2026-10-24T15:00Z",
+          "details": {"type": "Knee", "location": "Leg", "detail": "Knee", "fantasyStatus": {"description": "Questionable"}},
+          "shortComment": "Kelce (knee) questionable",
+          "longComment": "",
+          "athlete": {"id": "15847", "displayName": "Travis Kelce", "position": {"abbreviation": "TE"}}
+        },
+        {
+          "id": "3",
+          "status": "Out",
+          "type": {"id": "1", "name": "INJURY_STATUS_OUT", "description": "Out", "abbreviation": "O"},
+          "date": "2026-10-23T12:00Z",
+          "details": {"type": "Ankle", "location": "Leg", "detail": "Ankle", "fantasyStatus": {"description": "Out"}},
+          "shortComment": "Thornhill (ankle) out",
+          "longComment": "",
+          "athlete": {"id": "25800", "displayName": "Juan Thornhill", "position": {"abbreviation": "S"}}
+        }
+      ]
+    },
+    {
+      "id": "team-det",
+      "displayName": "Detroit Lions",
+      "injuries": [
+        {
+          "id": "4",
+          "status": "Doubtful",
+          "type": {"id": "3", "name": "INJURY_STATUS_DOUBTFUL", "description": "Doubtful", "abbreviation": "D"},
+          "date": "2026-10-25T10:00Z",
+          "details": {"type": "Shoulder", "location": "Arm", "detail": "Shoulder", "fantasyStatus": {"description": "Doubtful"}},
+          "shortComment": "Sewell (shoulder) doubtful",
+          "longComment": "",
+          "athlete": {"id": "4428268", "displayName": "Penei Sewell", "position": {"abbreviation": "OT"}}
+        },
+        {
+          "id": "5",
+          "status": "Out",
+          "type": {"id": "1", "name": "INJURY_STATUS_OUT", "description": "Out", "abbreviation": "O"},
+          "date": "2026-10-22T09:00Z",
+          "details": {"type": "Knee", "location": "Leg", "detail": "Knee", "fantasyStatus": {"description": "Out"}},
+          "shortComment": "Gibbs (knee) out",
+          "longComment": "",
+          "athlete": {"id": "4710292", "displayName": "Jahmyr Gibbs", "position": {"abbreviation": "RB"}}
+        }
+      ]
+    },
+    {
+      "id": "team-phi",
+      "displayName": "Philadelphia Eagles",
+      "injuries": []
+    }
+  ]
+}
