@@ -1442,29 +1442,40 @@ _TEMPLATE = """<!doctype html>
     return null;
   };
   const betText = g => {
-    const t = g.t, name = legName(t), soccer = SOCCER.test(t.ticker || ''), tie = /^tie/i.test(name);
+    const t = g.t, name = legName(t), ticker = String(t.ticker || ''), soccer = SOCCER.test(ticker);
+    const tie = /-TIE$/.test(ticker) || /^(tie|draw)/i.test(name);
+    const fight = /^KXUFC/.test(ticker), teamGame = !fight && /GAME-/.test(ticker);
     const other = tie ? null : otherTeam(t.event_title, name);
     const market = String(t.summary || '').split(' — ')[0] || t.ticker;
+    const no = t.side === 'no';
     let main, how;
     if (tie) {
-      main = t.side === 'no' ? 'No draw' : 'Draw';
-      how = t.side === 'no' ? 'You win if either team wins in regular time (90 min + stoppage).' : 'You win if the match is level after 90 minutes + stoppage time.';
-    } else if (t.side === 'no') {
-      main = name + ' not to win';
-      how = soccer
+      main = no ? 'No draw' : 'Draw';
+      how = no ? 'You win if either team is ahead after 90 minutes + stoppage time.' : 'You win if the match is level after 90 minutes + stoppage time.';
+    } else if (fight) {
+      main = name + (no ? ' not to win the fight' : ' to win the fight');
+      how = no ? 'You win if ' + name + ' does not win' + (other ? ' (' + other + ' wins, or no winner)' : '') + '.' : 'You win if ' + name + ' wins the fight.';
+    } else if (soccer) {
+      main = name + (no ? ' not to win' : ' to win');
+      how = no
         ? 'You win if ' + (other ? other + ' wins or it ends in a draw' : name + ' draws or loses') + ' after 90 minutes + stoppage time.'
-        : 'You win if ' + (other || 'the other team') + ' wins.';
+        : 'You win only if ' + name + ' is ahead after 90 minutes + stoppage time; a draw loses.';
+    } else if (teamGame) {
+      main = name + (no ? ' not to win' : ' to win');
+      how = no ? 'You win if ' + (other || 'the other team') + ' wins (overtime counts).' : 'You win if ' + name + ' wins (overtime counts).';
     } else {
-      main = name + ' to win';
-      how = soccer ? 'You win only if ' + name + ' is ahead after 90 minutes + stoppage time; a draw loses.' : 'You win if ' + name + ' wins (overtime counts).';
+      main = no ? 'NO on “' + market + '”' : 'YES on “' + market + '”';
+      how = no ? 'You win if this does not happen.' : 'You win if this happens.';
     }
     return {html: '<div>' + esc(main) + '</div><div class="hint">' + esc(how) + '</div><div class="hint">Kalshi market “' + esc(market) + '”, bought ' + esc(String(t.side || '').toUpperCase()) + '</div>', cls: 'what'};
   };
   const groupOpen = new Map();
   openTrades.forEach(t => {
     const k = t.ticker + '|' + t.side;
-    const g = groupOpen.get(k) || {t: t, count: 0, cost: 0, last: t.when, commence: null, rules: [], strategies: []};
+    const g = groupOpen.get(k) || {t: t, count: 0, cost: 0, last: t.when, commence: null, rules: [], strategies: [], prices: [], pc: 0, fc: 0, fn: 0};
     g.count += t.count || 0; g.cost += t.cost || 0;
+    if (num(t.price)) { g.pc += t.price * (t.count || 0); g.prices.push(Math.round(t.price * 100)); }
+    if (num(t.fair)) { g.fc += t.fair * (t.count || 0); g.fn += t.count || 0; }
     g.rules.push(rulesOf(t)); g.strategies.push(t.strategy);
     if (!g.t.event_title && t.event_title) g.t = Object.assign({}, g.t, {event_title: t.event_title});
     if (t.when > g.last) g.last = t.when;
@@ -1501,11 +1512,13 @@ _TEMPLATE = """<!doctype html>
     const rules = [...new Set(g.rules)].join(', ');
     const strategies = [...new Set(g.strategies)].map(s => STRATEGY_NAMES[s] || s).join(' + ');
     const fills = g.strategies.length;
+    const avgPrice = g.count ? g.pc / g.count : g.t.price, avgFair = g.fn ? g.fc / g.fn : g.t.fair;
+    const mixed = new Set(g.prices).size > 1;
     return [
       {html: '<div class="hint">' + esc(league(g.t.ticker)) + '</div><div>' + esc(game) + '</div><div class="hint">' + starts + '</div>', cls: 'what'},
       betText(g),
-      {html: esc(String(g.count)) + ' × ' + esc(cents(g.t.price)) + '<div class="hint">= ' + esc(money(g.cost)) + ' cost</div>', cls: 'num'},
-      {html: 'Kalshi ' + esc(pct(g.t.price)) + '<div class="hint">bot ' + esc(pct(g.t.fair)) + '</div>'},
+      {html: esc(String(g.count)) + ' × ' + (mixed ? 'avg ' : '') + esc(cents(avgPrice)) + '<div class="hint">= ' + esc(money(g.cost)) + ' cost' + (mixed ? ' (bought at ' + esc([...new Set(g.prices)].sort((x, y) => x - y).join('¢, ') + '¢') + ')' : '') + '</div>', cls: 'num'},
+      {html: 'Kalshi ' + esc(pct(avgPrice)) + '<div class="hint">bot ' + esc(pct(avgFair)) + '</div>'},
       {html: '<span class="good">' + esc(money(g.count - g.cost, true)) + '</span><div class="hint">get back ' + esc(money(g.count)) + '</div>', cls: 'num'},
       {v: money(-g.cost), cls: 'bad num'},
       {html: esc(when(g.last)) + '<div class="hint">' + esc(rules === 'v1' ? 'old v1 rules' : rules + ' rules') + (strategies ? ': ' + esc(strategies) : '') + (fills > 1 ? ' (' + fills + ' buys)' : '') + '</div>'}
