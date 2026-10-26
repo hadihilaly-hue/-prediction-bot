@@ -685,4 +685,25 @@ class Engine:
             for m in batch:
                 if m.is_settled and m.ticker in unsettled:
                     out[m.ticker] = self.ledger.settle(m.ticker, OutcomeSide(m.result))
+        missing_event_tickers = self.ledger.missing_event_titles(
+            self.ledger.unsettled_event_tickers()
+        )
+        for event_ticker in missing_event_tickers[:20]:
+            try:
+                event = self.kalshi.get_event(event_ticker)
+                title = event.get("title")
+                if not isinstance(title, str) or not title.strip():
+                    continue
+                sub_title = event.get("sub_title")
+                self.ledger.remember_event_titles(
+                    [
+                        (
+                            event_ticker,
+                            title,
+                            sub_title if isinstance(sub_title, str) else None,
+                        )
+                    ]
+                )
+            except Exception:
+                log.exception("event title lookup failed for %s", event_ticker)
         return out

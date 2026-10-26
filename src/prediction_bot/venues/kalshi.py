@@ -187,6 +187,9 @@ class KalshiClient:
     def get_market(self, ticker: str) -> Market:
         return parse_market(self._request("GET", f"/markets/{ticker}")["market"])
 
+    def get_event(self, event_ticker: str) -> dict[str, Any]:
+        return cast(dict[str, Any], self._request("GET", f"/events/{event_ticker}")["event"])
+
     def get_candlesticks(
         self,
         series_ticker: str,
