@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import contextlib
+import json
 import logging
 import re
-import json
 import sqlite3
 from collections import deque
 from collections.abc import Mapping, Sequence
@@ -1815,14 +1816,10 @@ class Ledger:
         ).fetchone()
         feeds: list[str] = []
         if row is not None and row[0]:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 feeds = list(json.loads(row[0]))
-            except (ValueError, TypeError):
-                feeds = []
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             feeds += list(json.loads(feeds_json))
-        except (ValueError, TypeError):
-            pass
         merged = json.dumps(sorted(set(feeds)))
         self.conn.execute(
             "INSERT INTO cadence_days (day,pulled,feeds_json,mode,updated_at)"
