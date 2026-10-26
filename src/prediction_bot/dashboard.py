@@ -975,6 +975,7 @@ def dashboard_data(ledger: Ledger, settings: Settings | None = None) -> dict[str
                 "result": None if t.result is None else t.result.value,
                 "settled_at": t.settled_at,
                 "pnl": _num(t.pnl),
+                "commence": t.commence,
             }
             for t in ledger.trades()
         ],
@@ -1430,15 +1431,35 @@ _TEMPLATE = """<!doctype html>
     if (t.when > g.last) g.last = t.when;
     groupOpen.set(k, g);
   });
-  const openRows = [...groupOpen.values()].sort((a, b) => (b.last || '').localeCompare(a.last || '')).map(g => [
-    {v: league(g.t.ticker)},
-    {v: String(g.t.summary || '').split(' — ')[0] + (g.t.side === 'no' ? ' (betting NO)' : ''), cls: 'what'},
-    {v: 'Kalshi ' + pct(g.t.price) + ' · bot ' + pct(g.t.fair)},
-    {v: money(g.cost)},
-    {v: money(g.count), cls: 'good'},
-    {v: when(g.last)}
-  ]);
-  table('open', '', ['League', 'Bet', 'Chance of winning', '#Cost', '#Pays', 'Placed'], openRows, 'No open bets.');
+  const kickoffInfo = (iso) => {
+    if (!iso) return {start: '–', live: '–', cls: ''};
+    const t = new Date(iso), mins = Math.round((t - Date.now()) / 60000);
+    const start = t.toLocaleString(undefined, {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'});
+    if (mins > 0) {
+      const h = Math.floor(mins / 60), m = mins % 60;
+      return {start, live: 'starts in ' + (h ? h + 'h ' + m + 'm' : m + 'm'), cls: 'warn'};
+    }
+    const ago = -mins;
+    if (ago < 240) {
+      const h = Math.floor(ago / 60), m = ago % 60;
+      return {start, live: 'live — started ' + (h ? h + 'h ' : '') + m + 'm ago', cls: 'good'};
+    }
+    return {start, live: 'awaiting result', cls: ''};
+  };
+  const openRows = [...groupOpen.values()].sort((a, b) => (b.last || '').localeCompare(a.last || '')).map(g => {
+    const k = kickoffInfo(g.t.commence);
+    return [
+      {v: league(g.t.ticker)},
+      {v: String(g.t.summary || '').split(' — ')[0] + (g.t.side === 'no' ? ' (betting NO)' : ''), cls: 'what'},
+      {v: k.start},
+      {v: k.live, cls: k.cls},
+      {v: 'Kalshi ' + pct(g.t.price) + ' · bot ' + pct(g.t.fair)},
+      {v: money(g.cost)},
+      {v: money(g.count), cls: 'good'},
+      {v: when(g.last)}
+    ];
+  });
+  table('open', '', ['League', 'Bet', 'Game starts', 'Live', 'Chance of winning', '#Cost', '#Pays', 'Placed'], openRows, 'No open bets.');
 
   const recentRows = settled.slice().sort((a, b) => (b.settled_at || b.when || '').localeCompare(a.settled_at || a.when || '')).slice(0, 12).map(t => [
     t.pnl > 0 ? pill('won', 'Won') : pill('lost', 'Lost'),
