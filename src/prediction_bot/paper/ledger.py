@@ -517,6 +517,7 @@ class Trade:
     result: OutcomeSide | None
     settled_at: str | None
     title: str = ""
+    commence: str | None = None
 
     @property
     def summary(self) -> str:
@@ -1595,7 +1596,8 @@ class Ledger:
         """Every paper fill (newest first) with the settlement result once known."""
         rows = self.conn.execute(
             "SELECT f.created_at, f.strategy, f.ticker, f.side, f.price, f.count, f.fee,"
-            " f.fair_prob, s.result, s.settled_at, m.title FROM fills f"
+            " f.fair_prob, s.result, s.settled_at, m.title,"
+            " COALESCE(f.commence_time, f.commence_time_backfill) FROM fills f"
             " LEFT JOIN settlements s ON s.ticker = f.ticker"
             " LEFT JOIN markets m ON m.ticker = f.ticker ORDER BY f.id DESC"
         )
@@ -1612,6 +1614,7 @@ class Ledger:
                 result=OutcomeSide(r[8]) if r[8] else None,
                 settled_at=r[9],
                 title=r[10] or "",
+                commence=r[11],
             )
             for r in rows
         ]
@@ -1826,7 +1829,7 @@ class Ledger:
             " VALUES(?,?,?,?,?)"
             " ON CONFLICT(day) DO UPDATE SET pulled=cadence_days.pulled+excluded.pulled,"
             " feeds_json=excluded.feeds_json,"
-            " mode=COALESCE(excluded.mode, cadence_days.mode),"
+            " mode=COALESCE(cadence_days.mode, excluded.mode),"
             " updated_at=excluded.updated_at",
             (day.isoformat(), pulled, merged, mode, stamp),
         )
