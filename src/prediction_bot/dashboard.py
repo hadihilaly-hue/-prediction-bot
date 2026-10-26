@@ -866,9 +866,41 @@ def _injury_data(ledger: Ledger) -> dict[str, object]:
     return {"espn": pack("espn"), "proxy": pack("proxy"), "gate": pack("gate")}
 
 
+def _cadence_data(ledger: Ledger) -> dict[str, object]:
+    """Recent cadence_days rows plus this month's pull totals — the pace check
+    for the credit cadence: are we spending ~500/month on the weighted days?"""
+    rows = ledger.conn.execute(
+        "SELECT day,mode,static_w,dyn_count,blended_w,budget,pulled,feeds_json"
+        " FROM cadence_days ORDER BY day DESC LIMIT 14"
+    ).fetchall()
+    month = datetime.now(timezone.utc).strftime("%Y-%m")
+    total = ledger.conn.execute(
+        "SELECT COALESCE(SUM(pulled),0), COALESCE(SUM(budget),0) FROM cadence_days"
+        " WHERE day LIKE ?",
+        (month + "-%",),
+    ).fetchone()
+    return {
+        "rows": [
+            {
+                "day": r[0],
+                "mode": r[1],
+                "static_w": r[2],
+                "dyn_count": r[3],
+                "blended_w": r[4],
+                "budget": r[5],
+                "pulled": r[6],
+                "feeds": r[7],
+            }
+            for r in rows
+        ],
+        "month_pulled": total[0] if total else 0,
+    }
+
+
 def dashboard_data(ledger: Ledger, settings: Settings | None = None) -> dict[str, object]:
     perf = ledger.performance()
     return {
+        "cadence": _cadence_data(ledger),
         "injuries": _injury_data(ledger),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "measurement": _measurement_data(ledger, settings),
@@ -1131,6 +1163,11 @@ _TEMPLATE = """<!doctype html>
       <div class="tablewrap"><table id="injuriesproxy"></table></div>
       <p class="hint">Pre-entry gate check: the gate runs in log mode, so bets it flagged still went through. If the flagged group shows worse CLV with 20+ bets, we flip to block.</p>
       <div class="tablewrap"><table id="injuriesgate"></table></div>
+    </details>
+    <details>
+      <summary>Credit cadence</summary>
+      <p class="hint">Are we spending the month's ~500 odds credits on the right days? Weight is the day's share of remaining budget: the calendar base times any cluster bump or dead-zone cut, blended up to ±50% with how many mapped games sit in the pull window (dyn). Pulled is what the slots actually spent. On/after the 20th, an under-spend month lets slots pull extra feeds.</p>
+      <div class="tablewrap"><table id="cadence"></table></div>
     </details>
     <details>
       <summary>Results by league</summary>
@@ -1509,6 +1546,8 @@ _TEMPLATE = """<!doctype html>
   table('injuries', 'Settled bets with a closing-line value, by whether a key-position injury landed between entry and kickoff (ESPN).', headsInj, injuryRows((D.injuries || {}).espn || []), 'No settled bets with a CLV value yet.');
   table('injuriesproxy', 'College football proxy: consensus line moved 4¢+ against our side before kickoff (not real injury data).', headsInj, injuryRows((D.injuries || {}).proxy || []), 'No settled college-football bets with a CLV value yet.');
   table('injuriesgate', 'Bets the injury gate would have blocked (it ran in log mode, so they still traded) vs the rest.', headsInj, injuryRows((D.injuries || {}).gate || []), 'No settled bets with a CLV value yet.');
+  const C = D.cadence || {};
+  table('cadence', 'Newest first. Pulled this month so far: ' + (C.month_pulled || 0) + ' of ~500 credits.', ['Day', 'Mode', 'Weight', 'Dyn', 'Blended', 'Budget', 'Pulled', 'Feeds'], (C.rows || []).map(r => [r.day, r.mode || '', r.static_w != null ? Number(r.static_w).toFixed(2) : '–', r.dyn_count != null ? String(r.dyn_count) : '–', r.blended_w != null ? Number(r.blended_w).toFixed(2) : '–', r.budget != null ? Number(r.budget).toFixed(1) : '–', String(r.pulled || 0), JSON.parse(r.feeds || '[]').join(', ')]), 'No cadence days recorded yet.');
   $('q').addEventListener('input', renderPreds);
   renderPreds();
   renderVerdicts();

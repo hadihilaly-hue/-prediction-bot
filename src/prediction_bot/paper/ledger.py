@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import json
 import logging
 import re
 import sqlite3
@@ -515,6 +517,7 @@ class Trade:
     result: OutcomeSide | None
     settled_at: str | None
     title: str = ""
+    commence: str | None = None
 
     @property
     def summary(self) -> str:
@@ -1593,7 +1596,8 @@ class Ledger:
         """Every paper fill (newest first) with the settlement result once known."""
         rows = self.conn.execute(
             "SELECT f.created_at, f.strategy, f.ticker, f.side, f.price, f.count, f.fee,"
-            " f.fair_prob, s.result, s.settled_at, m.title FROM fills f"
+            " f.fair_prob, s.result, s.settled_at, m.title,"
+            " COALESCE(f.commence_time, f.commence_time_backfill) FROM fills f"
             " LEFT JOIN settlements s ON s.ticker = f.ticker"
             " LEFT JOIN markets m ON m.ticker = f.ticker ORDER BY f.id DESC"
         )
@@ -1610,6 +1614,7 @@ class Ledger:
                 result=OutcomeSide(r[8]) if r[8] else None,
                 settled_at=r[9],
                 title=r[10] or "",
+                commence=r[11],
             )
             for r in rows
         ]
@@ -1801,14 +1806,32 @@ class Ledger:
         self.conn.commit()
 
     def record_cadence_pulls(
-        self, day: date, pulled: int, feeds_json: str, at: datetime | None = None
+        self,
+        day: date,
+        pulled: int,
+        feeds_json: str,
+        at: datetime | None = None,
+        mode: str | None = None,
     ) -> None:
         stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        row = self.conn.execute(
+            "SELECT feeds_json FROM cadence_days WHERE day=?", (day.isoformat(),)
+        ).fetchone()
+        feeds: list[str] = []
+        if row is not None and row[0]:
+            with contextlib.suppress(ValueError, TypeError):
+                feeds = list(json.loads(row[0]))
+        with contextlib.suppress(ValueError, TypeError):
+            feeds += list(json.loads(feeds_json))
+        merged = json.dumps(sorted(set(feeds)))
         self.conn.execute(
-            "INSERT INTO cadence_days (day,pulled,feeds_json,updated_at) VALUES(?,?,?,?)"
+            "INSERT INTO cadence_days (day,pulled,feeds_json,mode,updated_at)"
+            " VALUES(?,?,?,?,?)"
             " ON CONFLICT(day) DO UPDATE SET pulled=cadence_days.pulled+excluded.pulled,"
-            " feeds_json=excluded.feeds_json,updated_at=excluded.updated_at",
-            (day.isoformat(), pulled, feeds_json, stamp),
+            " feeds_json=excluded.feeds_json,"
+            " mode=COALESCE(cadence_days.mode, excluded.mode),"
+            " updated_at=excluded.updated_at",
+            (day.isoformat(), pulled, merged, mode, stamp),
         )
         self.conn.commit()
 

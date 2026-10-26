@@ -580,10 +580,10 @@ class OddsPacer:
             return
         carry = max(-1.0, min(self.credit - self.client.requests_made, 1.0))
         self.ledger.record_odds_pacer_carry(carry, now)
-        if self.cadence_mode != "legacy" and self.calendar is not None:
-            self.ledger.record_cadence_pulls(
-                _utc(now or datetime.now(timezone.utc)).date(),
-                self.client.odds_requests_made,
-                json.dumps(sorted(feeds or [])),
-                now,
-            )
+        self.ledger.record_cadence_pulls(
+            _utc(now or datetime.now(timezone.utc)).date(),
+            self.client.odds_requests_made,
+            json.dumps(sorted(feeds or [])),
+            now,
+            mode=self.cadence_mode,
+        )
