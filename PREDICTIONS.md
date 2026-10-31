@@ -1,16 +1,16 @@
 # Paper-trading predictions
 
-Updated 2026-10-31 21:53 UTC. Cash **$1560.02** (started $1000.00), realized PnL **$622.40**, fees $65.66, settled 84, wins 27, open positions 2.
+Updated 2026-10-31 23:26 UTC. Cash **$1560.02** (started $1000.00), realized PnL **$592.70**, fees $65.66, settled 86, wins 27, open positions 1.
 
-Brier (lower is better): strategy 0.2440 vs market price 0.2480.
+Brier (lower is better): strategy 0.2370 vs market price 0.2404.
 
-- `sportsbook_arb`: settled 61, wins 18, realized PnL $191.75, Brier 0.1986 vs market 0.1996
+- `sportsbook_arb`: settled 62, wins 18, realized PnL $176.90, Brier 0.1945 vs market 0.1951
 - `sportsbook_v3`: settled 0, wins 0, realized PnL $0.00, Brier - vs market -
-- `underdog_value`: settled 23, wins 9, realized PnL $430.65, Brier 0.3394 vs market 0.3497
+- `underdog_value`: settled 24, wins 9, realized PnL $415.80, Brier 0.3238 vs market 0.3330
 
 Per league (Kalshi series):
 
-- `KXLALIGAGAME`: open 1, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
+- `KXLALIGAGAME`: open 0, settled 2, wins 0, realized PnL $-29.70, Brier 0.0324 vs market 0.0196
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 2, wins 0, realized PnL $-2.30, Brier 0.3770 vs market 0.0324
@@ -24,12 +24,12 @@ Per league (Kalshi series):
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 2026-10-26 15:14 | sportsbook\_v3 | Arizona wins — NO: Kalshi says 68%, we say 73%; bought at 68¢ | no | 0.6800 | 0.7290 | +0.0338 | 47 | yes | open | Arizona Cardinals soft\_reference reference, 2 books, fair 0.729 | KXNFLGAME-26NOV01ARIDAL-ARI |
-| 2026-10-22 22:23 | underdog\_value | Barcelona wins — NO: Kalshi says 14%, we say 18%; would buy at 14¢ | no | 0.1400 | 0.1822 | +0.0322 | 100 | no | open | underdog \(7.1x payout\); Barcelona consensus 0.818 from 3 books \(Barcelona vs Alavés\) | KXLALIGAGAME-26OCT31BARALA-BAR |
-| 2026-10-22 22:23 | sportsbook\_arb | Barcelona wins — NO: Kalshi says 14%, we say 18%; would buy at 14¢ | no | 0.1400 | 0.1822 | +0.0322 | 100 | no | open | Barcelona consensus 0.818 from 3 books \(Barcelona vs Alavés\) | KXLALIGAGAME-26OCT31BARALA-BAR |
-| 2026-10-22 15:54 | underdog\_value | Barcelona wins — NO: Kalshi says 14%, we say 18%; bought at 14¢ | no | 0.1400 | 0.1799 | +0.0299 | 100 | yes | open | underdog \(7.1x payout\); Barcelona consensus 0.820 from 3 books \(Barcelona vs Alavés\) | KXLALIGAGAME-26OCT31BARALA-BAR |
+| 2026-10-22 22:23 | underdog\_value | Barcelona wins — NO: Kalshi says 14%, we say 18%; would buy at 14¢ | no | 0.1400 | 0.1822 | +0.0322 | 100 | no | lost (yes) | underdog \(7.1x payout\); Barcelona consensus 0.818 from 3 books \(Barcelona vs Alavés\) | KXLALIGAGAME-26OCT31BARALA-BAR |
+| 2026-10-22 22:23 | sportsbook\_arb | Barcelona wins — NO: Kalshi says 14%, we say 18%; would buy at 14¢ | no | 0.1400 | 0.1822 | +0.0322 | 100 | no | lost (yes) | Barcelona consensus 0.818 from 3 books \(Barcelona vs Alavés\) | KXLALIGAGAME-26OCT31BARALA-BAR |
+| 2026-10-22 15:54 | underdog\_value | Barcelona wins — NO: Kalshi says 14%, we say 18%; bought at 14¢ | no | 0.1400 | 0.1799 | +0.0299 | 100 | yes | lost (yes) | underdog \(7.1x payout\); Barcelona consensus 0.820 from 3 books \(Barcelona vs Alavés\) | KXLALIGAGAME-26OCT31BARALA-BAR |
 | 2026-10-22 15:54 | underdog\_value | PSG wins — NO: Kalshi says 20%, we say 24%; bought at 20¢ | no | 0.2000 | 0.2374 | +0.0174 | 13 | yes | lost (yes) | underdog \(5.0x payout\); Paris Saint Germain consensus 0.763 from 3 books \(Le Havre vs Paris Saint Germain\) | KXLIGUE1GAME-26OCT30HACPSG-PSG |
 | 2026-10-22 15:54 | underdog\_value | Tie is the result — YES: Kalshi says 12%, we say 14%; bought at 12¢ | yes | 0.1200 | 0.1405 | +0.0105 | 100 | yes | lost (no) | underdog \(8.3x payout\); Draw consensus 0.140 from 3 books \(Le Havre vs Paris Saint Germain\) | KXLIGUE1GAME-26OCT30HACPSG-TIE |
-| 2026-10-22 15:54 | sportsbook\_arb | Barcelona wins — NO: Kalshi says 14%, we say 18%; bought at 14¢ | no | 0.1400 | 0.1799 | +0.0299 | 100 | yes | open | Barcelona consensus 0.820 from 3 books \(Barcelona vs Alavés\) | KXLALIGAGAME-26OCT31BARALA-BAR |
+| 2026-10-22 15:54 | sportsbook\_arb | Barcelona wins — NO: Kalshi says 14%, we say 18%; bought at 14¢ | no | 0.1400 | 0.1799 | +0.0299 | 100 | yes | lost (yes) | Barcelona consensus 0.820 from 3 books \(Barcelona vs Alavés\) | KXLALIGAGAME-26OCT31BARALA-BAR |
 | 2026-10-22 15:54 | sportsbook\_arb | PSG wins — NO: Kalshi says 20%, we say 24%; bought at 20¢ | no | 0.2000 | 0.2374 | +0.0174 | 13 | yes | lost (yes) | Paris Saint Germain consensus 0.763 from 3 books \(Le Havre vs Paris Saint Germain\) | KXLIGUE1GAME-26OCT30HACPSG-PSG |
 | 2026-10-22 15:54 | sportsbook\_arb | Tie is the result — YES: Kalshi says 12%, we say 14%; bought at 12¢ | yes | 0.1200 | 0.1405 | +0.0105 | 100 | yes | lost (no) | Draw consensus 0.140 from 3 books \(Le Havre vs Paris Saint Germain\) | KXLIGUE1GAME-26OCT30HACPSG-TIE |
 | 2026-10-21 22:24 | underdog\_value | Los Angeles G wins — YES: Kalshi says 18%, we say 62%; would buy at 18¢ | yes | 0.1800 | 0.6160 | +0.4160 | 100 | no | lost (no) | underdog \(5.6x payout\); Los Angeles FC consensus 0.616 from 3 books \(Los Angeles FC vs LA Galaxy\) | KXMLSGAME-26OCT25LAFCLAG-LAG |
