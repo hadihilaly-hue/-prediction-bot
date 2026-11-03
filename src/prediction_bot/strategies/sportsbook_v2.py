@@ -124,9 +124,14 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._line_move_decisions: list[Signal] = []
         self._feed_pull_candidates: dict[str, int] = {}
         self._injury_skip_logged: set[str] = set()
+        self._event_links: dict[str, str] = {}
 
     def seen_blocks(self) -> list[Block]:
         return list(self._blocks)
+
+    def seen_event_links(self) -> dict[str, str]:
+        """Odds API event id -> Kalshi event ticker for games matched in the last evaluate."""
+        return dict(self._event_links)
 
     def seen_quotes(self) -> list[QuoteSnapshot]:
         return list(self._quotes)
@@ -1080,6 +1085,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._near_miss_decisions.clear()
         self._line_move_decisions.clear()
         self._feed_pull_candidates.clear()
+        self._event_links.clear()
         self._quotes = [
             QuoteSnapshot(
                 ticker=m.ticker,
@@ -1210,6 +1216,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 self._block("ambiguous_match", event_ticker, legs[0].ticker)
                 continue
             game = games[0]
+            self._event_links[game.event_id] = event_ticker
             if (
                 settlement_rule is not None
                 and settlement_rule.needs_draw

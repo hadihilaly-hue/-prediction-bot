@@ -2114,3 +2114,23 @@ def test_in_play_rules_use_first_quote_and_consensus_snapshots(settings, tmp_pat
     assert "in_play:consensus_extreme" in reasons
     assert "in_play:consensus_jump" in reasons
     assert "in_play:kalshi_extreme" in reasons
+
+
+def test_v3_reports_matched_game_to_kalshi_event_links(settings) -> None:  # type: ignore[no-untyped-def]
+    settings.max_gross_edge = Decimal("0.20")
+    strategy = SportsbookV3Strategy(
+        settings,
+        FakeOdds([v3_odds_event()]),
+        kalshi_client=FakeV3Kalshi(),
+        ledger=Ledger(":memory:", Decimal("1000")),
+        clock=fixed_clock("2026-10-22T10:00:00Z"),
+    )
+    markets = v3_markets()
+    strategy.evaluate(markets)
+    links = strategy.seen_event_links()
+    assert set(links.values()) == {markets[0].event_ticker}
+    assert set(links) <= {
+        game.event_id for games in strategy.seen_consensus().values() for game in games.values()
+    }
+    strategy.evaluate([])
+    assert strategy.seen_event_links() == {}

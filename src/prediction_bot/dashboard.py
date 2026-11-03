@@ -15,6 +15,7 @@ from decimal import Decimal
 from typing import cast
 
 from prediction_bot.analysis import Fill, band, monte_carlo, outcome_key
+from prediction_bot.clv_report import clv_report
 from prediction_bot.config import Settings
 from prediction_bot.maker_gate import evaluate_maker_gate
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
@@ -901,6 +902,7 @@ def dashboard_data(ledger: Ledger, settings: Settings | None = None) -> dict[str
     perf = ledger.performance()
     return {
         "cadence": _cadence_data(ledger),
+        "clv_report": clv_report(ledger.conn),
         "injuries": _injury_data(ledger),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "measurement": _measurement_data(ledger, settings),
@@ -1149,6 +1151,12 @@ _TEMPLATE = """<!doctype html>
     <details>
       <summary>Closing-line value (did the price move our way before kickoff?)</summary>
       <div id="clv"></div>
+    </details>
+    <details>
+      <summary>Closing-line evidence by cohort (pbot clv-report)</summary>
+      <p class="hint">Cents per contract, counting only rows with a clean closing price. Mid and bid are Kalshi 5 minutes before kickoff; sharp is the devigged Pinnacle (or Circa/BetOnline) line in the last 20 minutes before kickoff. A cohort is supported at 50+ rows with the whole 95% range above zero, rejected with the whole range below zero, and open otherwise. Profit and loss is not evidence.</p>
+      <label class="hint" for="clvr-cohort">Cohort </label><select id="clvr-cohort"></select>
+      <div class="tablewrap"><table id="clvreport"></table></div>
     </details>
     <details>
       <summary>Why bets were skipped, and data quality</summary>
@@ -1634,6 +1642,29 @@ _TEMPLATE = """<!doctype html>
   table('injuriesgate', 'Bets the injury gate would have blocked (it ran in log mode, so they still traded) vs the rest.', headsInj, injuryRows((D.injuries || {}).gate || []), 'No settled bets with a CLV value yet.');
   const C = D.cadence || {};
   table('cadence', 'Newest first. Pulled this month so far: ' + (C.month_pulled || 0) + ' of ~500 credits.', ['Day', 'Mode', 'Weight', 'Dyn', 'Blended', 'Budget', 'Pulled', 'Feeds'], (C.rows || []).map(r => [r.day, r.mode || '', r.static_w != null ? Number(r.static_w).toFixed(2) : '–', r.dyn_count != null ? String(r.dyn_count) : '–', r.blended_w != null ? Number(r.blended_w).toFixed(2) : '–', r.budget != null ? Number(r.budget).toFixed(1) : '–', String(r.pulled || 0), JSON.parse(r.feeds || '[]').join(', ')]), 'No cadence days recorded yet.');
+  const R = D.clv_report || {cohorts: {}};
+  const verdictPill = v => v === 'supported' ? pill('won', 'Supported') : v === 'rejected' ? pill('lost', 'Rejected') : pill('', 'Open');
+  const ciText = g => g && g.ci95 ? signedCents(g.ci95[0]) + ' to ' + signedCents(g.ci95[1]) : '–';
+  const groupNames = {window: 'Window', price_band: 'Price', sport: 'Series', edge_bucket: 'Edge'};
+  function renderClvReport() {
+    const name = $('clvr-cohort').value;
+    const cohort = (R.cohorts || {})[name];
+    if (!cohort) { table('clvreport', '', ['Group'], [], 'No CLV report yet.'); return; }
+    const mid = cohort.metrics.clv_kalshi || {};
+    const bid = cohort.metrics.clv_kalshi_bid || {};
+    const sharp = cohort.metrics.clv_sharp_close || {};
+    const groups = [['All', 'all', null]];
+    Object.keys(mid).filter(k => k !== 'all').forEach(k => Object.keys(mid[k] || {}).forEach(g => groups.push([(groupNames[k.replace('by_', '')] || k) + ' ' + g, k, g])));
+    const pick = (m, k, g) => k === 'all' ? m.all : (m[k] || {})[g];
+    const rows = groups.map(([label, k, g]) => {
+      const a = pick(mid, k, g) || {}, b = pick(bid, k, g) || {}, c = pick(sharp, k, g) || {};
+      return [label, String(a.n || 0), {v: signedCents(a.mean), cls: tone(a.mean)}, ciText(a), num(a.beat_close) ? pct(a.beat_close) : '–', verdictPill(a.verdict), {v: signedCents(b.mean), cls: tone(b.mean)}, verdictPill(b.verdict), String(c.n || 0), {v: signedCents(c.mean), cls: tone(c.mean)}, verdictPill(c.verdict)];
+    });
+    table('clvreport', cohort.label + ' (' + String(cohort.rows || 0) + ' rows).', ['Group', '#Rows', '#Vs mid', 'Mid 95% range', '#Beat close', 'Mid verdict', '#Vs bid', 'Bid verdict', '#Sharp rows', '#Vs sharp close', 'Sharp verdict'], rows, 'No scored rows yet.');
+  }
+  $('clvr-cohort').innerHTML = Object.entries(R.cohorts || {}).map(([k, c]) => '<option value="' + esc(k) + '">' + esc(c.label) + '</option>').join('');
+  $('clvr-cohort').addEventListener('change', renderClvReport);
+  renderClvReport();
   $('q').addEventListener('input', renderPreds);
   renderPreds();
   renderVerdicts();

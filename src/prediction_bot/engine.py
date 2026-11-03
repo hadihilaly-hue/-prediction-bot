@@ -259,9 +259,14 @@ class Engine:
                 continue
             for feed, events in get().items():
                 seen.setdefault(feed, {}).update(events)
+        event_links: dict[str, str] = {}
+        for strat in self.strategies:
+            get_links = getattr(strat, "seen_event_links", None)
+            if get_links is not None:
+                event_links.update(get_links())
         if seen:
             try:
-                self.ledger.record_consensus(seen)
+                self.ledger.record_consensus(seen, event_links=event_links)
             except Exception:  # a logging failure must never stop a cycle
                 log.exception("failed to record odds snapshots")
         hit = {s.ticker for s in res.signals}

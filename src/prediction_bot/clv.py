@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+from collections.abc import Iterable
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Any
@@ -9,7 +11,8 @@ from zoneinfo import ZoneInfo
 from prediction_bot.analysis import event_datetime, parse_event, start_time
 from prediction_bot.candles import candle_time, candle_value, fetch_candles
 from prediction_bot.config import Settings
-from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
+from prediction_bot.devig import devig_all
+from prediction_bot.odds import BOOK_WEIGHTS, KALSHI_SERIES_TO_SPORT
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.teams import team_for_code, team_for_odds_name
 from prediction_bot.venues.kalshi import KalshiClient
@@ -544,3 +547,178 @@ def record_clv(
                 ledger.conn.commit()
             log.exception("Failed to record CLV for ticker %s; it will be retried next run", ticker)
     return calls
+
+
+# --- Sharp-book close (v5 Phase 0.1) -------------------------------------------------
+#
+# `clv_sharp_close` = devigged sharp-book fair for the side at the close, minus the entry
+# price, in cents. The close is the latest snapshot quote whose own `last_update` falls
+# in [commence - 20 min, commence]. Pinnacle is used whenever it qualifies; otherwise
+# Circa or BetOnline alone; when both of those qualify without Pinnacle their
+# BOOK_WEIGHTS-weighted mean is reported as `consensus`. DraftKings/FanDuel never count.
+
+SHARP_CLOSE_BOOKS = ("pinnacle", "circa", "betonlineag")
+SHARP_CLOSE_WINDOW = timedelta(minutes=20)
+SHARP_CLOSE_LOOKBACK = timedelta(days=7)
+_DRAW_NAMES = {"tie", "draw"}
+
+
+def leg_outcome(ticker: str) -> str | None:
+    """Outcome id of the Kalshi leg a ticker trades: a team id, or 'draw' for TIE legs."""
+    event_ticker, _, code = str(ticker).rpartition("-")
+    series = event_ticker.split("-", 1)[0]
+    sport = KALSHI_SERIES_TO_SPORT.get(series)
+    if not code or sport is None:
+        return None
+    if sport.startswith("soccer_") and code.upper() in {"TIE", "DRAW"}:
+        return "draw"
+    return team_for_code(series, code)
+
+
+def _book_fair(sport: str, odds: dict[str, Any]) -> dict[str, Decimal] | None:
+    """Power-devigged probabilities keyed by outcome id, or None if a name does not map."""
+    try:
+        decimal_odds = {str(name): Decimal(str(price)) for name, price in odds.items()}
+        probabilities = devig_all(decimal_odds)["power"]
+    except (ValueError, ArithmeticError, KeyError):
+        return None
+    mapped: dict[str, Decimal] = {}
+    for name, probability in probabilities.items():
+        outcome = "draw" if name.strip().lower() in _DRAW_NAMES else team_for_odds_name(sport, name)
+        if outcome is None or outcome in mapped:
+            return None
+        mapped[outcome] = probability
+    return mapped
+
+
+def sharp_close_fair(
+    snapshots: Iterable[tuple[str | datetime, str]],
+    *,
+    sport: str,
+    outcome: str,
+    side: str,
+    commence: datetime,
+) -> tuple[Decimal, str] | None:
+    """Side fair at the sharp close from `(created_at, book_odds_json)` snapshots.
+
+    Returns `(fair, source)` or None when no sharp book quoted inside the close window.
+    """
+    commence = _utc_datetime(commence)
+    window_start = commence - SHARP_CLOSE_WINDOW
+    latest: dict[str, tuple[datetime, Decimal]] = {}
+    for created_at, raw in snapshots:
+        try:
+            taken = _utc_datetime(created_at)
+            books = json.loads(raw) if raw else {}
+        except (TypeError, ValueError):
+            continue
+        if taken > commence or not isinstance(books, dict):
+            continue
+        for book in SHARP_CLOSE_BOOKS:
+            entry = books.get(book)
+            if not isinstance(entry, dict):
+                continue
+            raw_update = entry.get("last_update")
+            if not isinstance(raw_update, str):
+                continue  # fail closed: a quote with no known age is not a close
+            try:
+                updated = _utc_datetime(raw_update)
+            except ValueError:
+                continue
+            if not window_start <= updated <= commence:
+                continue
+            odds = entry.get("odds")
+            fair = _book_fair(sport, odds) if isinstance(odds, dict) else None
+            if fair is None or outcome not in fair:
+                continue
+            if book not in latest or updated >= latest[book][0]:
+                latest[book] = (updated, fair[outcome])
+    if "pinnacle" in latest:
+        leg_fair, source = latest["pinnacle"][1], "pinnacle"
+    elif "circa" in latest and "betonlineag" in latest:
+        weights = {book: BOOK_WEIGHTS.get(book, Decimal(1)) for book in ("circa", "betonlineag")}
+        leg_fair = sum((latest[b][1] * w for b, w in weights.items()), Decimal(0)) / sum(
+            weights.values(), Decimal(0)
+        )
+        source = "consensus"
+    elif "circa" in latest:
+        leg_fair, source = latest["circa"][1], "circa"
+    elif "betonlineag" in latest:
+        leg_fair, source = latest["betonlineag"][1], "betonlineag"
+    else:
+        return None
+    return (leg_fair if side == "yes" else Decimal(1) - leg_fair), source
+
+
+def record_sharp_clv(ledger: Ledger, *, now: datetime | None = None) -> int:
+    """Fill `clv_sharp_close`/`clv_sharp_source` for rows whose game started recently.
+
+    Local SQL only (no API calls). Rows stay NULL when no sharp quote qualifies; they
+    are re-checked for `SHARP_CLOSE_LOOKBACK` after kickoff and then left alone.
+    """
+    now = _utc_datetime(now or datetime.now(timezone.utc))
+    linked = {
+        str(row[0])
+        for row in ledger.conn.execute(
+            "SELECT DISTINCT event_ticker FROM odds_snapshots "
+            "WHERE event_ticker IS NOT NULL AND book_odds_json IS NOT NULL"
+        )
+    }
+    if not linked:
+        return 0
+    queries = {
+        "fills": "SELECT id,ticker,side,price,COALESCE(commence_time,commence_time_backfill),"
+        "COALESCE(event_ticker,'') FROM fills WHERE clv_sharp_close IS NULL",
+        "shadow_decisions": "SELECT id,ticker,side,price,"
+        "COALESCE(commence_time,commence_time_backfill),'' FROM shadow_decisions "
+        "WHERE clv_sharp_close IS NULL",
+        "maker_shadow": "SELECT id,ticker,side,price,commence_time,COALESCE(event_ticker,'') "
+        "FROM maker_shadow WHERE clv_sharp_close IS NULL",
+    }
+    snapshot_cache: dict[str, list[tuple[str, str]]] = {}
+    scored = 0
+    for table, sql in queries.items():
+        for row_id, ticker, side, price, raw_commence, raw_event in ledger.conn.execute(
+            sql
+        ).fetchall():
+            event_ticker = str(raw_event or "") or str(ticker).rsplit("-", 1)[0]
+            if event_ticker not in linked or not raw_commence:
+                continue
+            try:
+                commence = _utc_datetime(str(raw_commence))
+            except ValueError:
+                continue
+            if commence > now or commence < now - SHARP_CLOSE_LOOKBACK:
+                continue
+            sport = KALSHI_SERIES_TO_SPORT.get(event_ticker.split("-", 1)[0])
+            outcome = leg_outcome(str(ticker))
+            if sport is None or outcome is None:
+                continue
+            if event_ticker not in snapshot_cache:
+                snapshot_cache[event_ticker] = [
+                    (str(created), str(raw))
+                    for created, raw in ledger.conn.execute(
+                        "SELECT DISTINCT created_at,book_odds_json FROM odds_snapshots "
+                        "WHERE event_ticker=? AND book_odds_json IS NOT NULL",
+                        (event_ticker,),
+                    )
+                ]
+            result = sharp_close_fair(
+                snapshot_cache[event_ticker],
+                sport=sport,
+                outcome=outcome,
+                side=str(side),
+                commence=commence,
+            )
+            if result is None:
+                continue
+            fair, source = result
+            clv = (fair - Decimal(str(price))) * 100
+            ledger.conn.execute(
+                f"UPDATE {table} SET clv_sharp_close=?,clv_sharp_source=? "
+                "WHERE id=? AND clv_sharp_close IS NULL",
+                (str(clv), source, row_id),
+            )
+            scored += 1
+    ledger.conn.commit()
+    return scored

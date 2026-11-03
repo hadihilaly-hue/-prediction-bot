@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import math
 import time
@@ -15,7 +16,13 @@ from rich.table import Table
 from prediction_bot.analysis import event_datetime as _event_datetime
 from prediction_bot.analysis import start_time
 from prediction_bot.cadence import CadenceCalendar, parse_day_overrides
-from prediction_bot.clv import backfill_clv_commence_times, record_clv, refresh_clv_statuses
+from prediction_bot.clv import (
+    backfill_clv_commence_times,
+    record_clv,
+    record_sharp_clv,
+    refresh_clv_statuses,
+)
+from prediction_bot.clv_report import clv_report, format_report
 from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
@@ -472,6 +479,10 @@ def paper(
             refresh_clv_statuses(ledger, s)
         except Exception:
             log.exception("CLV status refresh failed; continuing paper cycle")
+        try:
+            record_sharp_clv(ledger)
+        except Exception:
+            log.exception("Sharp-close CLV scoring failed; continuing paper cycle")
         markets = _fetch(client, series)
         snapshot_markets = markets
         if not series and strategy == ["book_scanner"]:
@@ -786,6 +797,23 @@ def dashboard(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_dashboard(ledger, s))
     console.print(f"wrote {out}")
+
+
+@app.command("clv-report")
+def clv_report_command(
+    since: str | None = typer.Option(
+        None, help="Only rows created on/after this ISO date or timestamp, e.g. 2026-10-24"
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Print the report as JSON"),
+) -> None:
+    """CLV evidence by cohort: n, mean, sd, se, 95% CI, share beating the close, verdict."""
+    s = _settings()
+    ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+    data = clv_report(ledger.conn, since=since)
+    if as_json:
+        typer.echo(json.dumps(data, indent=2))
+    else:
+        typer.echo(format_report(data))
 
 
 _MD_SPECIAL = "\\`*_[]()<>|!#~"
