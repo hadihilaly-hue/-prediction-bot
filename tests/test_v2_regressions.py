@@ -332,6 +332,9 @@ def test_future_commence_in_play_detector_uses_snapshot_history(
 
 
 def test_mls_galaxy_fair_and_mapping_failures(settings) -> None:  # type: ignore[no-untyped-def]
+    # Pre-v5 floor and threshold: this test is about another gate.
+    settings.v2_price_floor = Decimal("0.10")
+    settings.v3_low_price_threshold_multiplier = Decimal("1")
     settings.min_lead_hours = 0
     settings.longshot_haircut = "none"
     event_ticker = "KXMLSGAME-26OCT25LAFCLAG"
@@ -406,6 +409,9 @@ def test_mls_swapped_fairs_fail_mapping_sum(settings) -> None:  # type: ignore[n
 
 @pytest.mark.parametrize("case", ["miami", "ucla", "sfsea"])
 def test_big_edge_cases_persist_review_and_block(settings, tmp_path, case: str) -> None:  # type: ignore[no-untyped-def]
+    # Pre-v5 floor and threshold: this test is about another gate.
+    settings.v2_price_floor = Decimal("0.10")
+    settings.v3_low_price_threshold_multiplier = Decimal("1")
     settings.min_lead_hours = 0
     if case == "miami":
         event_ticker = "KXNFLGAME-26OCT04MIAMIN"

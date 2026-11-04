@@ -8,14 +8,15 @@ v5 builds on v4 (`docs/CHANGES_v4.md`) and the credit cadence work (`docs/CHANGE
 
 It is still paper-only: no live-order path, no credential changes, and every ledger change is additive.
 
-**Status.** Phase 0 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60)) and Phase 1 are open as stacked PRs. Later phases follow one PR each.
+**Status.** Phases 0 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60)), 1 ([#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61)) and 2 are open as stacked PRs. Later phases follow one PR each.
 
 ## What changed, by phase
 
 | Phase | PR | What |
 |---|---|---|
 | 0: measurement | [#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60) | `clv_sharp_close` / `clv_sharp_source`, per-book odds and the Kalshi event ticker on `odds_snapshots`, `pbot clv-report` (text and `--json`), dashboard panel, `docs/evidence/2026-11-03.json` |
-| 1: fee model per series | stacked on #60 | One fee helper `fees.fee_for_ticker`; the v1 path now uses each series' fee type and multiplier; `fee_model_version='kalshi-series-v2'` |
+| 1: fee model per series | [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), stacked on #60 | One fee helper `fees.fee_for_ticker`; the v1 path now uses each series' fee type and multiplier; `fee_model_version='kalshi-series-v2'` |
+| 2: entry rules | stacked on #61 | 25c price floor and a doubled threshold below 40c; soft reference off in the workflow; entry window as config (72–168h); shadow-only NHL/NBA/NCAAB measurement pulls (≤2 credits/day); price-floor and thin-market rows kept as near misses with depth and open interest |
 
 ## Phase 0: measurement fixes
 
@@ -200,12 +201,105 @@ The brief asks for the current rounding rule to be checked against Kalshi's fee 
   - one shared cache across the CLI's strategies;
   - failing closed on an unknown schedule, fee type or rounding.
 
+## Phase 2: entry rules
+
+### 2.1 Threshold in the open
+- The effective v2/v3 threshold is `PBOT_V2_MIN_NET_EDGE`, which now appears in `paper.yml` (repo Variable, default 0.02).
+- `PBOT_MIN_EDGE: "0.01"` stays, because it still drives the v1 shadows. Its comment now says it applies to v1 only.
+- The "1c after fees" claim was in the workflow comment and `docs/PIPELINE.md`, not the README; both are corrected.
+- Every `net_edge` block detail now reads `net_edge=<edge> threshold=<threshold>`, so the threshold in force is on record.
+
+### 2.2 Price band
+- **Floor:** `v2_price_floor` default 0.10 → **0.25**.
+- **Low-price threshold:** new `v3_low_price_threshold_multiplier` (default 2.0) applies below `v3_low_price_below` (default 0.40). v3 then needs a 4c net edge under 40c. These rows are tagged `low_price_threshold`.
+- **Near-miss logging kept for blocked rows:**
+  - A row under the floor used to be blocked before any near-miss logging. It is now saved as a near miss with `reason='price_floor'`, still carrying its fair and net edge.
+  - It is scored like the other near misses, and `pbot clv-report` has a `v3_price_floor` cohort.
+  - The `net_edge` and `entry_window` cohorts keep their old definitions.
+
+### 2.3 Reference books
+- **Soft reference off.** The workflow sets `PBOT_V3_ALLOW_SOFT_REFERENCE=false` (repo Variable to override), agreed with Hadi. The config default stays `true`. With it off, a game quoted only by DraftKings/FanDuel has no fair and is blocked as `few_books`. DraftKings and FanDuel are still pulled, still count toward the book total and the dispersion check, and remain available to Phase 3's move detector.
+- **Circa stays in `PBOT_ODDS_BOOKMAKERS`.** The brief replaces it only if it quotes under 10% of events over 14 days. That can't be measured yet:
+  - `odds_snapshots.books_used` is a count, not a list of books;
+  - per-book prices were never stored before Phase 0's `book_odds_json`;
+  - only one signal since Oct 20 has `book_probs_json`.
+  The only sample, docs/PIPELINE.md's Oct 23 NFL pull, had Circa on 0 of 27 events. Once Phase 0 ships, the share can be read with `json_extract(book_odds_json,'$.circa')` over 14 days, and the 10% rule applied then.
+
+### 2.4 Entry window as config
+- **Keys:** `PBOT_ENTRY_WINDOW_MIN_HOURS` (72) and `PBOT_ENTRY_WINDOW_MAX_HOURS` (**168**, agreed with Hadi; the brief said 240).
+  - Before this, the v3 strategy had no upper bound, and feed planning looked 7 days (168h) ahead.
+  - 168h keeps credit spend where it was.
+  - v3 now blocks games more than 168h out as `entry_window`. They are still shadow-logged like any other entry-window row. 0 turns either bound off.
+- **`min_lead_hours`** follows `entry_window_min_hours`: setting either sets both, so `PBOT_MIN_LEAD_HOURS` keeps working.
+- **Feed planning** (`feed_scores`, `rotation_scores`, `select_rotation_feeds`, `odds-trigger`) uses `entry_lookahead(settings)`, the max.
+- **Shadow logging** for `<2h`, `2-24h`, `24-72h` and `72h+` is unchanged.
+- **RESERVED:** moving the live window to 1–48h. See the decisions below.
+
+### 2.5 Feed eligibility and measurement pulls
+- `feed_selection.eligible()` already required `lead_p90_h >= min_lead_hours + 6`. Since `min_lead_hours` now follows `entry_window_min_hours`, that is the brief's rule.
+- **New `PBOT_MEASURE_FEEDS`** (default `icehockey_nhl,basketball_nba,basketball_ncaab`) and **`PBOT_MEASURE_DAILY_CREDIT_CAP`** (default 2). On rotation runs, `select_measure_pull` offers at most one pull:
+  - It looks at each measure feed's earliest upcoming Kalshi game.
+  - The pull is offered while the run is within ±1h of that game's T−6h or T−90m. The width is so a 2-hourly sportsbook slot lands inside it.
+  - It must be a target not yet pulled. Finishing a game already started comes first, then the feed with the fewest pulls in 7 days, then configured order.
+  - A free `/events` check must show the game listed.
+- **The credit is extra, but capped in the pacer.** `OddsPacer.grant_measure_credit` adds one credit to the run's budget only when:
+  - fewer than the cap's measurement pulls are recorded for the UTC day;
+  - the run is not a trigger run;
+  - at least 25 credits would remain afterwards.
+  The credit is left out of the carry, so it never borrows from the next run's share. Spending it lowers the month's remaining credits, which shrinks later shares on its own.
+- **Shadow-only by construction.**
+  - The strategy treats every event in a measure feed as an entry-window event, so it can never trade. Its near misses carry the tag `measure_only`.
+  - `league_disabled` is skipped for measure feeds. NBA is in `v2_disabled_sports`, which exists to stop trades, and these events cannot trade.
+- **Ledger:** each pull is recorded in a new `measure_pulls` table (feed, event, target, kickoff).
+
+### 2.6 Depth on near misses
+- New `shadow_decisions.ask_depth` and `open_interest` columns are set on every near-miss row. Tags are now stored on near misses too.
+- `v3_min_ask_depth` stays 50 for entries.
+- **Thin-market rows now logged.** A thin book is still blocked as `thin_market`, but the row is also saved as a near miss with `reason='thin_market'`, its fair and its net edge. It uses the same reference and fair as the main path, and rows whose reference fails are skipped. Before this, no near miss could have depth under 50, so the rule couldn't be scored against CLV. `pbot clv-report` has a `v3_thin_market` cohort.
+
+### Acceptance: `scripts/replay.py --rules v5`
+
+`run_v5_bucket_replay` is read-only.
+- **Rules applied:** the 2.2 and 2.3 rules, in the strategy's gate order (soft reference, price floor, low-price threshold).
+- **Inputs:** each fill's recorded net edge; for pre-v4 fills, fair − price − fee paid per contract.
+- **Outputs:** per-fill P&L, and CLV for `clv_status='ok'` rows only.
+
+On paper-ledger `8d50f46`:
+
+| v5 bucket | Fills | Realized P&L | CLV n | Bid CLV | Mid CLV |
+|---|---:|---:|---:|---:|---:|
+| soft_reference | 1 | −$32.68 | 1 | +7.00c | +7.50c |
+| price_floor | 50 | +$944.96 | 0 | – | – |
+| low_price_threshold | 10 | −$105.12 | 0 | – | – |
+| unchanged | 26 | −$247.14 | 0 | – | – |
+
+| Near misses | Moves to `price_floor` | CLV n | Bid CLV | Stays | CLV n | Bid CLV |
+|---|---:|---:|---:|---:|---:|---:|
+| v3 `net_edge` (1,577) | 298 | 60 | −1.73c | 1,279 | 276 | −0.86c |
+| v3 `entry_window` (693) | 139 | 115 | −1.04c | 554 | 461 | −1.00c |
+
+How to read this:
+- **The floor would have removed every winner.** 61 of the 87 fills change bucket, and the 50 under 25c made +$944.96: 35 `sportsbook_arb` and 15 `underdog_value`, all from v1. Those 50 hold the winning legs of the five longshot events: +$1,221.20 from their under-25c fills, and +$1,195.74 for the five events overall. That is the variance the brief describes.
+- **Their CLV can't be judged.** None of them has a clean close (`in_game` or `no_commence`).
+- **The near misses are the usable evidence.** Under 25c, the 60 scored `net_edge` near misses are −1.73c vs bid, and the band's verdict in `pbot clv-report` is "rejected".
+- **Fill 87,** the only v3 fill, moves to `soft_reference`. It lost $32.68 with +7c CLV.
+- **Caveat:** v1 fills had no v3 net edge, so their low-price bucket uses v1's own fair. Treat that row as indicative.
+
+### Not changed in Phase 2
+- The dashboard's existing near-miss panels still read only `net_edge` and `entry_window`. The new cohorts are in the Phase 0 report panel.
+- The maker price path (`_v3_maker_price`) still uses the flat 2c threshold. Phase 4 reworks the maker path.
+
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:
    - Phase 1.2's centicent rounding stays RESERVED;
    - Phases 4.1, 5 and 7.1a can be checked only against test fixtures.
 2. **Centicent fee rounding (RESERVED, still `cent`).** Once the July 2026 fee schedule PDF has been checked, add `PBOT_FEE_ROUNDING: centicent` to the paper step's `env` in `paper.yml` if it rounds fee plus cost to a centicent (the workflow does not read a repo Variable for it today). On the historical fills that is worth about 0.5c per order.
-3. **Live entry window (RESERVED, unchanged at 72h+).** Phase 0's numbers are above. No window has CI > 0; every window is "rejected" vs the bid and vs the mid.
-4. **The Odds API $30/month tier**: still undecided (Phase 3).
-5. **Cloudflare account and PAT**: still undecided (Phase 6).
-6. **Live orders**: out of scope.
+3. **Live entry window (RESERVED, unchanged at 72–168h).** Moving it to 1–48h is one repo Variable: `PBOT_ENTRY_WINDOW_MIN_HOURS`, plus `_MAX_HOURS`. The Phase 0 numbers (near misses, bid CLV) argue against moving it now:
+   - 72h+: −1.01c (n=336, rejected);
+   - 24–72h: −1.03c (n=383, rejected);
+   - 2–24h: −0.96c (n=193, rejected).
+   No window has CI > 0. NHL, NBA and NCAAB near misses from the 2.5 measurement pulls will add <24h rows.
+4. **Price floor 0.25 (done as the brief asks; reversible).** On historical fills it would have removed all +$944.96 of realized profit. The near-miss evidence below 25c is −1.73c vs bid (rejected), so the floor stands unless you want the old 0.10 back. To restore it, set `PBOT_V2_PRICE_FLOOR: "0.10"` in `paper.yml`'s env; the workflow does not read a repo Variable for it.
+5. **The Odds API $30/month tier**: still undecided (Phase 3).
+6. **Cloudflare account and PAT**: still undecided (Phase 6).
+7. **Live orders**: out of scope.

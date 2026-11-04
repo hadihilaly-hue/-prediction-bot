@@ -27,16 +27,18 @@ from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
 from prediction_bot.feed_selection import (
-    ENTRY_LOOKAHEAD,
+    MeasurePull,
     RotationScore,
     _utc,
     compute_feed_stats,
     eligible,
+    entry_lookahead,
     feed_scores,
     liquidity_weights,
     market_ask_moves_since,
     rotation_scores,
     select_entry_feeds,
+    select_measure_pull,
     select_rotation_feeds,
 )
 from prediction_bot.fees import SeriesFeeCache
@@ -329,7 +331,7 @@ def odds_trigger(
         except ValueError:
             continue
         entry_start = now + timedelta(hours=s.min_lead_hours)
-        entry_end = now + ENTRY_LOOKAHEAD
+        entry_end = now + entry_lookahead(s)
         for game in games:
             if not entry_start <= _utc(game.kickoff) <= entry_end:
                 continue
@@ -436,6 +438,7 @@ def paper(
     n = 0
     while True:
         n += 1
+        measure: MeasurePull | None = None
         run_settings, gate = _resolve_v3_execution(s, ledger, strategy)
         if gate is not None:
             resolved = run_settings.v3_execution
@@ -591,6 +594,22 @@ def paper(
                 )
                 if odds.budget is not None:
                     planned = planned[: odds.budget]
+                if (
+                    pacer is not None
+                    and s.odds_feed_selection == "rotation"
+                    and s.rules_version == "v3"
+                ):
+                    measure = select_measure_pull(ledger, games_by_sport, s, now, exclude=planned)
+                    if measure is not None and not _measure_game_listed(odds, measure):
+                        ledger.record_feed_skips({measure.feed: "measure_no_events"}, now)
+                        measure = None
+                    if measure is not None and pacer.grant_measure_credit(
+                        measure.feed, s.measure_daily_credit_cap, now
+                    ):
+                        planned = [*planned, measure.feed]
+                        for strat in (*strats, *shadow_strategies):
+                            if isinstance(strat, SportsbookV2Strategy):
+                                strat.measure_only_feeds = {measure.feed}
                 odds.allowed_sports = set(planned)
             except Exception:
                 odds.allowed_sports = set()
@@ -599,10 +618,17 @@ def paper(
             odds.allowed_sports = None
         cycle_started_at = datetime.now(timezone.utc)
         res = engine.run_cycle(markets)
+        for strat in (*strats, *shadow_strategies):
+            if isinstance(strat, SportsbookV2Strategy):
+                strat.measure_only_feeds = set()
         ledger.record_feed_pull_gate_candidates(res.gate_candidates, cycle_started_at)
         if trigger is not None:
             status = "pulled" if odds is not None and odds.odds_requests_made > 0 else "skipped"
             ledger.finish_odds_trigger(trigger, status)
+        if measure is not None and pacer is not None and pacer.measure_pulled():
+            ledger.record_measure_pull(
+                measure.feed, measure.event_ticker, measure.target, measure.kickoff, now
+            )
         if pacer is not None:
             pacer.finish_run(feeds=sorted(odds.allowed_sports or []) if odds is not None else None)
         run_id = ledger.record_run(
@@ -924,6 +950,22 @@ def _snapshot_markets(
     by_ticker = {market.ticker: market for market in markets}
     by_ticker.update({market.ticker: market for market in fetch_missing(missing)})
     return list(by_ticker.values())
+
+
+def _measure_game_listed(odds: OddsClient, measure: MeasurePull) -> bool:
+    """Free /events check that the books list the measured game before spending a credit."""
+    if not getattr(odds, "events_free", True):
+        return True
+    try:
+        events = odds.events(
+            measure.feed,
+            measure.kickoff - timedelta(hours=1),
+            measure.kickoff + timedelta(hours=1),
+        )
+    except Exception as exc:
+        log.warning("Measure events check failed for %s: %s", measure.feed, exc)
+        return False
+    return bool(events)
 
 
 def _planner_games(

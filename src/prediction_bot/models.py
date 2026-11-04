@@ -113,6 +113,7 @@ class Signal:
     fee_multiplier: Decimal | None = None
     fair_pre_haircut: Decimal | None = None
     available_size: Decimal | None = None
+    open_interest: Decimal | None = None
     spread: Decimal | None = None
     devig_json: str | None = None
     reference_source: str | None = None

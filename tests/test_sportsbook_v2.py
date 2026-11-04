@@ -943,6 +943,9 @@ def test_v3_maker_first_prices_from_bid_fair_fee_and_edge(settings) -> None:  # 
 
 
 def test_v3_large_gap_uses_haircut_fair_for_the_threshold(settings) -> None:  # type: ignore[no-untyped-def]
+    # Pre-v5 floor and threshold: this test is about another gate.
+    settings.v2_price_floor = Decimal("0.10")
+    settings.v3_low_price_threshold_multiplier = Decimal("1")
     settings.max_gross_edge = Decimal("0.07")
     settings.v3_longshot_haircut = "slope"
     strategy = SportsbookV3Strategy(
@@ -1386,6 +1389,9 @@ def test_v2_deduplicates_two_way_no_and_yes_to_canonical_position(settings) -> N
 
 
 def test_entry_window_candidate_is_shadowed_but_not_traded(settings, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    # Pre-v5 floor and threshold: this test is about another gate.
+    settings.v2_price_floor = Decimal("0.10")
+    settings.v3_low_price_threshold_multiplier = Decimal("1")
     from prediction_bot.engine import Engine
 
     settings.min_lead_hours = 72
@@ -1913,6 +1919,9 @@ def test_mlb_doubleheader_tickers_select_their_encoded_games(settings) -> None: 
 
 
 def test_mls_mapping_uses_galaxy_fair_not_lafc_fair(settings) -> None:  # type: ignore[no-untyped-def]
+    # Pre-v5 floor and threshold: this test is about another gate.
+    settings.v2_price_floor = Decimal("0.10")
+    settings.v3_low_price_threshold_multiplier = Decimal("1")
     event_ticker = "KXMLSGAME-26OCT25LAFCLAG"
     settings.min_lead_hours = 0
     settings.longshot_haircut = "none"

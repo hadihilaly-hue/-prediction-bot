@@ -638,3 +638,56 @@ def test_load_fee_map_fetches_missing_series_from_partial_database(tmp_path) -> 
     assert fee_map["KXNFLGAME"] == ("quadratic_with_maker_fees", Decimal(1))
     assert fee_map["KXNHLGAME"] == ("quadratic_with_maker_fees", Decimal("0.5"))
     assert client.calls == 1
+
+
+def test_v5_bucket_replay_rebuckets_fills_and_near_misses(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from scripts.replay import run_v5_bucket_replay
+
+    path = tmp_path / "v5.sqlite"
+    ledger = Ledger(path, Decimal("1000"))
+    at = "2026-10-20T12:00:00+00:00"
+    fills = [
+        # (ticker, side, price, net_edge, fair, result)
+        ("KXNFLGAME-26OCT25AB-A", "yes", "0.20", "0.05", "0.26", "yes"),  # price_floor
+        ("KXNFLGAME-26OCT25CD-C", "yes", "0.35", "0.03", "0.40", "no"),  # low threshold
+        ("KXNFLGAME-26OCT25EF-E", "yes", "0.60", "0.03", "0.65", "no"),  # soft reference
+        ("KXNFLGAME-26OCT25GH-G", "yes", "0.55", "0.03", "0.60", "yes"),  # unchanged
+    ]
+    for ticker, side, price, edge, fair, result in fills:
+        ledger.conn.execute(
+            "INSERT INTO fills (created_at,strategy,ticker,side,price,count,fee,fair_prob,"
+            "net_edge,clv_kalshi,clv_kalshi_bid,clv_status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (at, "sportsbook_v3", ticker, side, price, "10", "0.10", fair, edge, "2", "1.5", "ok"),
+        )
+        ledger.conn.execute(
+            "INSERT INTO settlements (ticker,result,settled_at,pnl) VALUES (?,?,?,?)",
+            (ticker, result, at, "0"),
+        )
+    ledger.conn.execute(
+        "INSERT INTO signals (created_at,strategy,ticker,side,fair_prob,limit_price,edge,size,"
+        "rationale,acted,reference_source) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        ("2026-10-20T11:59:00+00:00", "sportsbook_v3", "KXNFLGAME-26OCT25EF-E", "yes",
+         "0.65", "0.60", "0.03", "10", "", 1, "soft_reference"),
+    )  # fmt: skip
+    for price, status in (("0.20", "ok"), ("0.30", "ok"), ("0.10", "pending")):
+        ledger.conn.execute(
+            "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
+            "would_trade,reason,price,net_edge,clv_kalshi,clv_kalshi_bid,clv_status) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (at, "v3", "72h+", "sportsbook_v3", "KXNFLGAME-26OCT25AB-A", "yes", 0, "net_edge",
+             price, "-0.01", "-1", "-1.5", status),
+        )  # fmt: skip
+    ledger.conn.commit()
+    ledger.conn.close()
+
+    report, headline = run_v5_bucket_replay(path)
+    assert headline["fills"] == {
+        "price_floor": 1,
+        "low_price_threshold": 1,
+        "soft_reference": 1,
+        "unchanged": 1,
+    }
+    assert headline["near_misses"] == {"net_edge:price_floor": 2, "net_edge:unchanged": 1}
+    # price_floor fill won: 10 x (1 - 0.20) - 0.10 = +7.90
+    assert "| price_floor | 1 | +7.90 | 1 | +1.50 | +2.00 |" in report
+    assert "| net_edge | price_floor | 2 | 1 | -1.50 | -1.00 |" in report

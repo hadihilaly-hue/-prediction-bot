@@ -441,6 +441,39 @@ class OddsPacer:
         self.calendar = calendar
         self.day_overrides = day_overrides or {}
         self.credit = 0.0
+        self.measure_feed: str | None = None
+
+    # Credits kept back from measurement pulls (5% of the 500 free tier).
+    MEASURE_RESERVE = 25
+
+    def grant_measure_credit(self, feed: str, daily_cap: int, now: datetime) -> bool:
+        """Allow one shadow-only measurement pull for `feed` on top of this run's budget.
+
+        Refused in trigger runs, once `daily_cap` measurement pulls are recorded for the
+        UTC day, or when it would dip into the month's reserve. The credit is kept out
+        of the carry so it never borrows from the next run's share.
+        """
+        if self.trigger_mode or self.ledger is None or self.client.budget is None:
+            return False
+        if self.measure_feed is not None or daily_cap <= 0:
+            return False
+        if self.ledger.measure_pulls_on(_utc(now).date()) >= daily_cap:
+            return False
+        try:
+            remaining = int(self.client.requests_remaining or 0)
+        except ValueError:
+            return False
+        if remaining - self.client.budget - 1 < self.MEASURE_RESERVE:
+            return False
+        self.client.budget += 1
+        self.measure_feed = feed
+        return True
+
+    def measure_pulled(self) -> bool:
+        return (
+            self.measure_feed is not None
+            and self.measure_feed in self.client.requests_last_by_sport
+        )
 
     def _cadence_start(self, left: int, now: datetime) -> int:
         from prediction_bot.cadence import build_plan
@@ -544,6 +577,7 @@ class OddsPacer:
         self.client.requests_made = 0
         self.client.odds_requests_made = 0
         self.client.requests_last_by_sport.clear()
+        self.measure_feed = None
         self.client.events_free = True
         if self.trigger_mode and self.credit < 0:
             self.client.budget = 0
@@ -578,7 +612,8 @@ class OddsPacer:
     def finish_run(self, now: datetime | None = None, feeds: list[str] | None = None) -> None:
         if self.ledger is None:
             return
-        carry = max(-1.0, min(self.credit - self.client.requests_made, 1.0))
+        spent = self.client.requests_made - (1 if self.measure_pulled() else 0)
+        carry = max(-1.0, min(self.credit - spent, 1.0))
         self.ledger.record_odds_pacer_carry(carry, now)
         self.ledger.record_cadence_pulls(
             _utc(now or datetime.now(timezone.utc)).date(),
