@@ -9,7 +9,7 @@ import pytest
 
 from prediction_bot.config import Settings
 from prediction_bot.engine import Engine
-from prediction_bot.fees import maker_fee
+from prediction_bot.fees import FixedFee, fee_for_ticker
 from prediction_bot.models import Block, Market, OutcomeSide, Signal
 from prediction_bot.odds import OddsClient, consensus
 from prediction_bot.paper.ledger import Ledger
@@ -927,12 +927,13 @@ def test_v3_maker_first_prices_from_bid_fair_fee_and_edge(settings) -> None:  # 
     )
     market = next(market for market in markets if market.ticker == signal.ticker)
     assert signal.maker_price is not None
-    per_contract_fee = maker_fee(
+    per_contract_fee = fee_for_ticker(
+        signal.ticker,
         signal.maker_price,
         Decimal(1),
-        signal.fee_multiplier or Decimal(0),
-        signal.fee_type or "",
-        settings.fee_rounding,
+        "maker",
+        schedule=FixedFee(signal.fee_type or "", signal.fee_multiplier or Decimal(0)),
+        rounding=settings.fee_rounding,
     )
     assert signal.maker_price == min(
         market.quote.bid_for(signal.side) + Decimal("0.01"),  # type: ignore[operator]

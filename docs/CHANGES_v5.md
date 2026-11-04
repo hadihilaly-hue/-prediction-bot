@@ -8,13 +8,14 @@ v5 builds on v4 (`docs/CHANGES_v4.md`) and the credit cadence work (`docs/CHANGE
 
 It is still paper-only: no live-order path, no credential changes, and every ledger change is additive.
 
-**Status.** Phase 0 is in this PR. Later phases follow one PR each, after Phase 0 is reviewed.
+**Status.** Phase 0 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60)) and Phase 1 are open as stacked PRs. Later phases follow one PR each.
 
 ## What changed, by phase
 
 | Phase | PR | What |
 |---|---|---|
-| 0: measurement | this PR | `clv_sharp_close` / `clv_sharp_source`, per-book odds and the Kalshi event ticker on `odds_snapshots`, `pbot clv-report` (text and `--json`), dashboard panel, `docs/evidence/2026-11-03.json` |
+| 0: measurement | [#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60) | `clv_sharp_close` / `clv_sharp_source`, per-book odds and the Kalshi event ticker on `odds_snapshots`, `pbot clv-report` (text and `--json`), dashboard panel, `docs/evidence/2026-11-03.json` |
+| 1: fee model per series | stacked on #60 | One fee helper `fees.fee_for_ticker`; the v1 path now uses each series' fee type and multiplier; `fee_model_version='kalshi-series-v2'` |
 
 ## Phase 0: measurement fixes
 
@@ -132,11 +133,79 @@ Notes on these numbers:
 
 This session's network policy blocks `kalshi.com`, `api.elections.kalshi.com` and the Polymarket APIs. Phase 0 needs none of them. Phase 1.2 (fee PDF), 4.1 (`/markets/trades`), 5 (Polymarket) and 7.1a (`liquidity_dollars`) do; see the decisions below.
 
+## Phase 1: fee model per series
+
+### One helper
+
+`fees.fee_for_ticker(ticker, price, contracts, style, *, schedule, rounding)` is now the only fee formula:
+
+coefficient · `fee_multiplier` · C · P · (1 − P)
+
+- The coefficient is 0.07 for takers.
+- For makers it is 0.0175 on `quadratic_with_maker_fees` series and 0 on `quadratic` series.
+- `schedule` resolves the ticker's series to `(fee_type, fee_multiplier)`. It is either the run's `SeriesFeeCache`, or `FixedFee(...)` built from the schedule a signal already carries.
+- `rounding` is `cent` or `centicent` (rounded up), or None for the unrounded per-contract cost used in net-edge maths.
+- An unknown series schedule or fee type raises, so every caller fails closed. Taker fees on an unknown fee type now fail closed too; before, only maker fees did.
+
+Replaced call sites:
+- **Fee functions:** `taker_fee`, `maker_fee`, `taker_fee_rate`, `models.fee_for` and `Engine._fee_multiplier` are removed.
+- **Call sites rewritten:** every use in `sportsbook_v2.py` (net edge, maker price, sizing, maker shadows, reserved cost), `engine.py` (affordability, paper fills, paper orders), `strategies/base.py`, `book_scanner.py` and `scripts/replay.py`.
+- **Settings:** `taker_fee_multiplier` and `maker_fee_multiplier` (0.07 / 0.0175, which were really coefficients) are removed. Settings ignore unknown env keys, so a leftover env var is harmless.
+
+### What changes in behavior
+- **v1 strategies** (`book_scanner`, `sportsbook_arb`, `underdog_value`) used a flat schedule: 0.07 taker and 0.0175 maker on every series.
+  - The CLI now gives every strategy in a run one shared `SeriesFeeCache`.
+  - MLB game markets therefore pay half the fee, and MLS and UFC maker orders pay none.
+  - `make_signal` stamps the series `fee_type` and `fee_multiplier` on the signal, so the engine charges what the strategy priced.
+  - Strategies built without a Kalshi client and ledger (offline `pbot scan`, unit tests) keep Kalshi's general schedule (`DEFAULT_FEE_SCHEDULE`, multiplier 1 with maker fees).
+- **v2/v3** already read per-series schedules; their numbers are unchanged.
+- **Version tag.** Every new fill, including filled paper orders, records `fee_model_version='kalshi-series-v2'`. Historical rows keep what they have: 86 v1-era fills have none, and fill 87 has `kalshi-series-v1`.
+
+### Series schedules in the ledger (`series_fees`, from Kalshi's public `/series`)
+
+| Series | `fee_type` | Multiplier |
+|---|---|---:|
+| NFL, NCAAF, NBA, NHL, EPL, UCL | `quadratic_with_maker_fees` | 1 |
+| MLB game | `quadratic_with_maker_fees` | 0.5 |
+| MLS, UFC | `quadratic` (no maker fee) | 1 |
+
+`tests/test_fees.py` holds the acceptance table: hand-computed (series, price, count, style, rounding) → fee rows for NFL, MLB game, MLS and UFC, resolved through `SeriesFeeCache`.
+
+### Effect on the 87 historical fills (recomputed, not rewritten)
+
+| | Fees |
+|---|---:|
+| Booked at the time | $65.66 |
+| Per-series schedule, cent rounding | $63.26 |
+| Per-series schedule, centicent rounding | $62.80 |
+
+- The $2.40 between the first two lines is all MLB: 5 fills paid the full fee instead of the 0.5 multiplier.
+- Centicent rounding would have saved another $0.46 over 87 fills and 6,072 contracts. That is about 0.5c per order, or 0.76c per 100 contracts, because the rounding loss is at most 1c per order whatever its size.
+
+### 1.2 Rounding: RESERVED
+
+The brief asks for the current rounding rule to be checked against Kalshi's fee schedule PDF (dated 7 July 2026). This session's network policy blocks `kalshi.com`, so I could not read it. I'm also not certain from memory which rule it states, so I have not guessed.
+
+`PBOT_FEE_ROUNDING` already exists and defaults to `cent` (each fee rounded up to the cent). `centicent` rounds up to $0.0001. The workflow is unchanged. See decision 2 below.
+
+### Acceptance
+- The `tests/test_fees.py` table covers:
+  - NFL: multiplier 1, maker fees;
+  - MLB game: multiplier 0.5;
+  - MLS and UFC: `quadratic`, no maker fee.
+- It includes centicent rows and unrounded per-contract rows.
+- Other new tests cover:
+  - the v1 `make_signal` maker edge on a `quadratic` series;
+  - the book scanner and engine booking 18c MLB legs, where the general schedule booked 35c, with `kalshi-series-v2`;
+  - one shared cache across the CLI's strategies;
+  - failing closed on an unknown schedule, fee type or rounding.
+
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:
    - Phase 1.2's centicent rounding stays RESERVED;
    - Phases 4.1, 5 and 7.1a can be checked only against test fixtures.
-2. **Live entry window (RESERVED, unchanged at 72h+).** Phase 0's numbers are above. No window has CI > 0; every window is "rejected" vs the bid and vs the mid.
-3. **The Odds API $30/month tier**: still undecided (Phase 3).
-4. **Cloudflare account and PAT**: still undecided (Phase 6).
-5. **Live orders**: out of scope.
+2. **Centicent fee rounding (RESERVED, still `cent`).** Once the July 2026 fee schedule PDF has been checked, add `PBOT_FEE_ROUNDING: centicent` to the paper step's `env` in `paper.yml` if it rounds fee plus cost to a centicent (the workflow does not read a repo Variable for it today). On the historical fills that is worth about 0.5c per order.
+3. **Live entry window (RESERVED, unchanged at 72h+).** Phase 0's numbers are above. No window has CI > 0; every window is "rejected" vs the bid and vs the mid.
+4. **The Odds API $30/month tier**: still undecided (Phase 3).
+5. **Cloudflare account and PAT**: still undecided (Phase 6).
+6. **Live orders**: out of scope.
