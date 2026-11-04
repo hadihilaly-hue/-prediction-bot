@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import math
 import time
@@ -15,7 +16,13 @@ from rich.table import Table
 from prediction_bot.analysis import event_datetime as _event_datetime
 from prediction_bot.analysis import start_time
 from prediction_bot.cadence import CadenceCalendar, parse_day_overrides
-from prediction_bot.clv import backfill_clv_commence_times, record_clv, refresh_clv_statuses
+from prediction_bot.clv import (
+    backfill_clv_commence_times,
+    record_clv,
+    record_sharp_clv,
+    refresh_clv_statuses,
+)
+from prediction_bot.clv_report import clv_report, format_report
 from prediction_bot.config import Settings
 from prediction_bot.dashboard import render_dashboard
 from prediction_bot.engine import Engine
@@ -32,6 +39,7 @@ from prediction_bot.feed_selection import (
     select_entry_feeds,
     select_rotation_feeds,
 )
+from prediction_bot.fees import SeriesFeeCache
 from prediction_bot.injuries import InjuryClient, snapshot_injuries
 from prediction_bot.maker_gate import MakerGate, evaluate_maker_gate
 from prediction_bot.maker_scoring import score_maker_shadows
@@ -102,15 +110,24 @@ def _strategies(
     if unknown:
         raise typer.BadParameter(f"unknown strategies {sorted(unknown)}; have {sorted(STRATEGIES)}")
     odds = odds or _odds_client(settings)
+    # One per-series fee schedule for every strategy in the run; without a Kalshi client
+    # and ledger (offline scans) strategies keep Kalshi's general schedule.
+    fee_cache = (
+        SeriesFeeCache(ledger, kalshi) if kalshi is not None and ledger is not None else None
+    )
     out: list[Strategy] = []
     for n in names:
         cls = STRATEGIES[n]
+        strat: Strategy
         if issubclass(cls, SportsbookV2Strategy):
-            out.append(cls(settings, odds_client=odds, kalshi_client=kalshi, ledger=ledger))
+            strat = cls(settings, odds_client=odds, kalshi_client=kalshi, ledger=ledger)
         elif issubclass(cls, SportsbookArbStrategy):
-            out.append(cls(settings, odds_client=odds))  # one client: odds fetched once per cycle
+            strat = cls(settings, odds_client=odds)  # one client: odds fetched once per cycle
         else:
-            out.append(cls(settings))
+            strat = cls(settings)
+        if fee_cache is not None:
+            strat.fee_schedule = fee_cache
+        out.append(strat)
     return out
 
 
@@ -472,6 +489,10 @@ def paper(
             refresh_clv_statuses(ledger, s)
         except Exception:
             log.exception("CLV status refresh failed; continuing paper cycle")
+        try:
+            record_sharp_clv(ledger)
+        except Exception:
+            log.exception("Sharp-close CLV scoring failed; continuing paper cycle")
         markets = _fetch(client, series)
         snapshot_markets = markets
         if not series and strategy == ["book_scanner"]:
@@ -786,6 +807,23 @@ def dashboard(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_dashboard(ledger, s))
     console.print(f"wrote {out}")
+
+
+@app.command("clv-report")
+def clv_report_command(
+    since: str | None = typer.Option(
+        None, help="Only rows created on/after this ISO date or timestamp, e.g. 2026-10-24"
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Print the report as JSON"),
+) -> None:
+    """CLV evidence by cohort: n, mean, sd, se, 95% CI, share beating the close, verdict."""
+    s = _settings()
+    ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+    data = clv_report(ledger.conn, since=since)
+    if as_json:
+        typer.echo(json.dumps(data, indent=2))
+    else:
+        typer.echo(format_report(data))
 
 
 _MD_SPECIAL = "\\`*_[]()<>|!#~"

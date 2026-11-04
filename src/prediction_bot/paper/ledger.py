@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
+from prediction_bot.fees import FEE_MODEL_VERSION
 from prediction_bot.models import (
     Block,
     EdgeReview,
@@ -626,8 +627,14 @@ class Ledger:
                 "injury_flag": "INTEGER",
                 "injury_detail": "TEXT",
                 "injury_source": "TEXT",
+                "clv_sharp_close": "TEXT",
+                "clv_sharp_source": "TEXT",
             },
-            "odds_snapshots": {"max_book_update": "TEXT"},
+            "odds_snapshots": {
+                "max_book_update": "TEXT",
+                "book_odds_json": "TEXT",
+                "event_ticker": "TEXT",
+            },
             "feed_pulls": {
                 "requests_last": "INTEGER",
                 "gate_candidates": "INTEGER",
@@ -650,6 +657,8 @@ class Ledger:
                 "commence_time_backfill": "TEXT",
                 "commence_source": "TEXT",
                 "tags": "TEXT",
+                "clv_sharp_close": "TEXT",
+                "clv_sharp_source": "TEXT",
             },
             "maker_shadow": {
                 "commence_time": "TEXT",
@@ -664,9 +673,15 @@ class Ledger:
                 "cancel_reason": "TEXT",
                 "clv_exit": "TEXT",
                 "clv_kalshi_bid": "TEXT",
+                "clv_sharp_close": "TEXT",
+                "clv_sharp_source": "TEXT",
             },
         }.items():
             self._ensure_columns(self.conn, table, columns)
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS odds_snapshots_event_ticker "
+            "ON odds_snapshots(event_ticker) WHERE event_ticker IS NOT NULL"
+        )
         for table in ("fills", "maker_shadow", "shadow_decisions"):
             self.conn.execute(
                 f"UPDATE {table} SET clv_kalshi_bid=clv_exit "
@@ -1124,7 +1139,7 @@ class Ledger:
                     order.event_ticker,
                     ",".join(sorted({"maker", *(order.tags or ())})),
                     self._utc(order.commence_time).isoformat() if order.commence_time else None,
-                    "kalshi-series-v1",
+                    FEE_MODEL_VERSION,
                     str(order.maker_fee),
                 ),
             )
@@ -1670,35 +1685,55 @@ class Ledger:
         self,
         seen: dict[str, dict[str, ConsensusOdds]],
         at: datetime | None = None,
+        event_links: Mapping[str, str] | None = None,
     ) -> int:
         """Persist one row per (feed, event, team) of sportsbook consensus seen this cycle.
 
         `seen` maps feed name -> event_id -> ConsensusOdds, already deduplicated by the
         caller across co-running strategies sharing one odds client. These snapshots are
         the raw material for per-league calibration and line-movement signals.
+
+        `event_links` maps Odds API event ids to the Kalshi event ticker a strategy matched
+        them to. Each row also keeps every book's raw decimal odds and `last_update`
+        (`book_odds_json`), so a single book's fair price (e.g. the Pinnacle close) can be
+        recomputed later.
         """
         stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
-        rows = [
-            (
-                stamp,
-                feed,
-                game.event_id,
-                game.home_team,
-                game.away_team,
-                game.commence_time,
-                team,
-                str(prob),
-                game.books_used,
-                self._max_book_update(game.book_updates),
-            )
-            for feed, events in seen.items()
-            for game in events.values()
-            for team, prob in game.probs.items()
-        ]
+        links = event_links or {}
+        rows = []
+        for feed, events in seen.items():
+            for game in events.values():
+                book_odds = json.dumps(
+                    {
+                        book: {
+                            "odds": {name: str(price) for name, price in odds.items()},
+                            "last_update": game.book_updates.get(book),
+                        }
+                        for book, odds in sorted(game.book_odds.items())
+                    },
+                    separators=(",", ":"),
+                )
+                for team, prob in game.probs.items():
+                    rows.append(
+                        (
+                            stamp,
+                            feed,
+                            game.event_id,
+                            game.home_team,
+                            game.away_team,
+                            game.commence_time,
+                            team,
+                            str(prob),
+                            game.books_used,
+                            self._max_book_update(game.book_updates),
+                            book_odds,
+                            links.get(game.event_id),
+                        )
+                    )
         self.conn.executemany(
             "INSERT INTO odds_snapshots (created_at, feed, event_id, home_team, away_team,"
-            " commence_time, team, prob, books_used, max_book_update)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?)",
+            " commence_time, team, prob, books_used, max_book_update, book_odds_json,"
+            " event_ticker) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             rows,
         )
         self.conn.commit()

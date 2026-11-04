@@ -59,8 +59,10 @@ def test_existing_ledger_gets_additive_v2_columns(tmp_path) -> None:
             "tags",
             "commence_time",
             "fee_model_version",
+            "clv_sharp_close",
+            "clv_sharp_source",
         },
-        "odds_snapshots": {"max_book_update"},
+        "odds_snapshots": {"max_book_update", "book_odds_json", "event_ticker"},
     }
     for table, columns in expected.items():
         actual = {str(row[1]) for row in ledger.conn.execute(f"PRAGMA table_info({table})")}
