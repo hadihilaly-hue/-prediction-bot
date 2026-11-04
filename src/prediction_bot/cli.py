@@ -39,6 +39,7 @@ from prediction_bot.feed_selection import (
     select_entry_feeds,
     select_rotation_feeds,
 )
+from prediction_bot.fees import SeriesFeeCache
 from prediction_bot.injuries import InjuryClient, snapshot_injuries
 from prediction_bot.maker_gate import MakerGate, evaluate_maker_gate
 from prediction_bot.maker_scoring import score_maker_shadows
@@ -109,15 +110,24 @@ def _strategies(
     if unknown:
         raise typer.BadParameter(f"unknown strategies {sorted(unknown)}; have {sorted(STRATEGIES)}")
     odds = odds or _odds_client(settings)
+    # One per-series fee schedule for every strategy in the run; without a Kalshi client
+    # and ledger (offline scans) strategies keep Kalshi's general schedule.
+    fee_cache = (
+        SeriesFeeCache(ledger, kalshi) if kalshi is not None and ledger is not None else None
+    )
     out: list[Strategy] = []
     for n in names:
         cls = STRATEGIES[n]
+        strat: Strategy
         if issubclass(cls, SportsbookV2Strategy):
-            out.append(cls(settings, odds_client=odds, kalshi_client=kalshi, ledger=ledger))
+            strat = cls(settings, odds_client=odds, kalshi_client=kalshi, ledger=ledger)
         elif issubclass(cls, SportsbookArbStrategy):
-            out.append(cls(settings, odds_client=odds))  # one client: odds fetched once per cycle
+            strat = cls(settings, odds_client=odds)  # one client: odds fetched once per cycle
         else:
-            out.append(cls(settings))
+            strat = cls(settings)
+        if fee_cache is not None:
+            strat.fee_schedule = fee_cache
+        out.append(strat)
     return out
 
 

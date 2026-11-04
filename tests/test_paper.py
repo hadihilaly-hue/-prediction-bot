@@ -10,7 +10,8 @@ from prediction_bot import cli
 from prediction_bot.cli import predictions_markdown
 from prediction_bot.config import Mode
 from prediction_bot.engine import Engine
-from prediction_bot.models import Market, OutcomeSide, Signal, fee_for
+from prediction_bot.fees import DEFAULT_FEE_SCHEDULE, fee_for_ticker
+from prediction_bot.models import Market, OutcomeSide, Signal
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.book_scanner import BookScannerStrategy
 from tests.conftest import make_market
@@ -18,8 +19,13 @@ from tests.conftest import make_market
 
 def test_fee_rounds_up_to_cent() -> None:
     # 0.07 * 10 * 0.5 * 0.5 = 0.175 -> 0.18
-    assert fee_for(Decimal("0.5"), Decimal(10), Decimal("0.07")) == Decimal("0.18")
-    assert fee_for(Decimal("0.99"), Decimal(1), Decimal("0.07")) == Decimal("0.01")
+    def fee(price: str, count: int) -> Decimal:
+        return fee_for_ticker(
+            "KXNFLGAME-X-A", Decimal(price), Decimal(count), "taker", schedule=DEFAULT_FEE_SCHEDULE
+        )
+
+    assert fee("0.5", 10) == Decimal("0.18")
+    assert fee("0.99", 1) == Decimal("0.01")
 
 
 def test_paper_cycle_runs_and_records_run_when_clv_fails(settings, monkeypatch) -> None:  # type: ignore[no-untyped-def]

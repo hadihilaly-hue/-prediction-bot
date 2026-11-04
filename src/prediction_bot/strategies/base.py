@@ -5,7 +5,8 @@ from collections.abc import Sequence
 from decimal import Decimal
 
 from prediction_bot.config import Settings
-from prediction_bot.models import ONE_CENT, Market, OutcomeSide, Signal, fee_for
+from prediction_bot.fees import DEFAULT_FEE_SCHEDULE, FeeLookup, fee_for_ticker, series_ticker
+from prediction_bot.models import ONE_CENT, Market, OutcomeSide, Signal
 
 
 class Strategy(ABC):
@@ -19,6 +20,8 @@ class Strategy(ABC):
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        # Per-series Kalshi fee schedule; the CLI swaps in a SeriesFeeCache.
+        self.fee_schedule: FeeLookup = DEFAULT_FEE_SCHEDULE
 
     @abstractmethod
     def evaluate(self, markets: Sequence[Market]) -> list[Signal]: ...
@@ -63,8 +66,21 @@ class Strategy(ABC):
             depth = market.quote.ask_size_for(side) if taker else market.quote.bid_size_for(side)
             if depth < s.min_book_depth:
                 return None
-        mult = s.taker_fee_multiplier if taker else s.maker_fee_multiplier
-        fee_per_contract = fee_for(price, Decimal(1), mult)
+        schedule = self.fee_schedule.get(series_ticker(market.ticker))
+        if schedule is None:
+            return None  # fail closed: no known fee schedule for this series
+        fee_type, fee_multiplier = schedule
+        try:
+            fee_per_contract = fee_for_ticker(
+                market.ticker,
+                price,
+                Decimal(1),
+                "taker" if taker else "maker",
+                schedule=self.fee_schedule,
+                rounding=s.fee_rounding,
+            )
+        except ValueError:
+            return None
         edge = fair_prob - price - fee_per_contract
         if check_edge and edge < s.min_edge:
             return None
@@ -85,6 +101,8 @@ class Strategy(ABC):
             group=group,
             equivalents=equivalents,
             taker=taker,
+            fee_type=fee_type,
+            fee_multiplier=fee_multiplier,
         )
 
     def _size(self, price: Decimal, available: Decimal) -> Decimal:

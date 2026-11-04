@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
+from prediction_bot.fees import FEE_MODEL_VERSION
 from prediction_bot.models import (
     Block,
     EdgeReview,
@@ -1138,7 +1139,7 @@ class Ledger:
                     order.event_ticker,
                     ",".join(sorted({"maker", *(order.tags or ())})),
                     self._utc(order.commence_time).isoformat() if order.commence_time else None,
-                    "kalshi-series-v1",
+                    FEE_MODEL_VERSION,
                     str(order.maker_fee),
                 ),
             )

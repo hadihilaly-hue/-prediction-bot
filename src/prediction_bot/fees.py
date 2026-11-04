@@ -1,19 +1,51 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import ROUND_UP, Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 if TYPE_CHECKING:
     from prediction_bot.paper.ledger import Ledger
     from prediction_bot.venues.kalshi import KalshiClient
 
-FEE_MODEL_VERSION = "kalshi-series-v1"
+FEE_MODEL_VERSION = "kalshi-series-v2"
 TAKER_COEFFICIENT = Decimal("0.07")
 MAKER_COEFFICIENT = Decimal("0.0175")
 MAKER_FEE_TYPE = "quadratic_with_maker_fees"
+QUADRATIC_FEE_TYPE = "quadratic"
+KNOWN_FEE_TYPES = frozenset({QUADRATIC_FEE_TYPE, MAKER_FEE_TYPE})
 CENT = Decimal("0.01")
 CENTICENT = Decimal("0.0001")
+
+FeeStyle = Literal["taker", "maker"]
+
+
+class FeeLookup(Protocol):
+    """Anything that resolves a series ticker to `(fee_type, fee_multiplier)`."""
+
+    def get(self, series_ticker: str) -> tuple[str, Decimal] | None: ...
+
+
+@dataclass(frozen=True)
+class FixedFee:
+    """A lookup that answers every series with one schedule (e.g. one a signal carries)."""
+
+    fee_type: str
+    multiplier: Decimal
+
+    def get(self, series_ticker: str) -> tuple[str, Decimal]:
+        return self.fee_type, self.multiplier
+
+
+# Kalshi's general schedule (taker 0.07, maker 0.0175, multiplier 1). Only for strategies
+# built without a SeriesFeeCache (unit tests, offline scans); scheduled runs always pass
+# the cache, so real series multipliers and fee types apply.
+DEFAULT_FEE_SCHEDULE = FixedFee(MAKER_FEE_TYPE, Decimal(1))
+
+
+def series_ticker(ticker: str) -> str:
+    return ticker.split("-", 1)[0]
 
 
 def _quantum(rounding: str) -> Decimal:
@@ -24,44 +56,45 @@ def _quantum(rounding: str) -> Decimal:
     raise ValueError(f"unsupported fee rounding: {rounding}")
 
 
-def _raw_fee(
-    price: Decimal, contracts: Decimal, multiplier: Decimal, coefficient: Decimal
+def _coefficient(fee_type: str, style: FeeStyle) -> Decimal:
+    if fee_type not in KNOWN_FEE_TYPES:
+        raise ValueError(f"unknown fee type: {fee_type}")
+    if style == "taker":
+        return TAKER_COEFFICIENT
+    if style == "maker":
+        return MAKER_COEFFICIENT if fee_type == MAKER_FEE_TYPE else Decimal(0)
+    raise ValueError(f"unknown fee style: {style}")
+
+
+def fee_for_ticker(
+    ticker: str,
+    price: Decimal,
+    contracts: Decimal,
+    style: FeeStyle,
+    *,
+    schedule: FeeLookup,
+    rounding: str | None = "cent",
 ) -> Decimal:
+    """Kalshi fee for `contracts` at `price` on `ticker`'s series, in dollars.
+
+    coefficient · fee_multiplier · C · P · (1 − P), where the coefficient is 0.07 for
+    takers, 0.0175 for makers on `quadratic_with_maker_fees` series and 0 for makers on
+    `quadratic` series. `rounding` is `cent` or `centicent` (rounded up), or None for
+    the unrounded amount used in per-contract edge maths. Raises ValueError for an
+    unknown series schedule or fee type, so callers fail closed.
+    """
+    found = schedule.get(series_ticker(ticker))
+    if found is None:
+        raise ValueError(f"no fee schedule for series {series_ticker(ticker)}")
+    fee_type, multiplier = found
     if not Decimal(0) <= price <= Decimal(1):
         raise ValueError("price must be between zero and one")
     if contracts < 0 or multiplier < 0:
         raise ValueError("contracts and multiplier must be non-negative")
-    return coefficient * multiplier * contracts * price * (Decimal(1) - price)
-
-
-def taker_fee(
-    price: Decimal, contracts: Decimal, multiplier: Decimal, rounding: str = "cent"
-) -> Decimal:
-    return _raw_fee(price, contracts, multiplier, TAKER_COEFFICIENT).quantize(
-        _quantum(rounding), rounding=ROUND_UP
-    )
-
-
-def maker_fee(
-    price: Decimal,
-    contracts: Decimal,
-    multiplier: Decimal,
-    fee_type: str,
-    rounding: str = "cent",
-) -> Decimal:
-    if fee_type == MAKER_FEE_TYPE:
-        coefficient = MAKER_COEFFICIENT
-    elif fee_type == "quadratic":
-        coefficient = Decimal(0)
-    else:
-        raise ValueError(f"unknown fee type: {fee_type}")
-    return _raw_fee(price, contracts, multiplier, coefficient).quantize(
-        _quantum(rounding), rounding=ROUND_UP
-    )
-
-
-def taker_fee_rate(price: Decimal, multiplier: Decimal) -> Decimal:
-    return _raw_fee(price, Decimal(1), multiplier, TAKER_COEFFICIENT)
+    raw = _coefficient(fee_type, style) * multiplier * contracts * price * (Decimal(1) - price)
+    if rounding is None:
+        return raw
+    return raw.quantize(_quantum(rounding), rounding=ROUND_UP)
 
 
 class SeriesFeeCache:

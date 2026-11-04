@@ -196,9 +196,8 @@ class Settings(BaseSettings):
     # early entries keep their edge. 0 disables the check.
     min_lead_hours: int = 72
 
-    # Fees (Kalshi general schedule: fee = mult * C * P * (1-P), rounded up to the cent)
-    taker_fee_multiplier: Decimal = Decimal("0.07")
-    maker_fee_multiplier: Decimal = Decimal("0.0175")
+    # Fees come from each series' Kalshi schedule (fees.fee_for_ticker); only the
+    # rounding (`fee_rounding`) is configurable.
 
     @property
     def is_live(self) -> bool:

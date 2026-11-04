@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 from prediction_bot.candles import candle_time, candle_value
 from prediction_bot.config import KALSHI_PROD_REST, Settings
 from prediction_bot.devig import longshot_haircut
-from prediction_bot.fees import maker_fee, taker_fee, taker_fee_rate
+from prediction_bot.fees import KNOWN_FEE_TYPES, MAKER_FEE_TYPE, FixedFee, fee_for_ticker
 from prediction_bot.maker_fill import optimistic_fill, trade_through_fill
 from prediction_bot.models import OutcomeSide
 from prediction_bot.teams import KALSHI_SERIES_TO_SPORT, team_for_code, team_for_odds_name
@@ -50,6 +50,25 @@ THREE_WAY_SERIES = {
     "KXUECLGAME",
     "KXLIGAMXGAME",
 }
+
+
+def _taker_fee(
+    ticker: str,
+    price: Decimal,
+    contracts: int,
+    fee_type: str,
+    multiplier: Decimal,
+    rounding: str | None = None,
+) -> Decimal:
+    """Taker fee through `fee_for_ticker`; `rounding=None` is the per-contract edge cost.
+
+    A decision with an unknown fee type is already blocked (`unknown_fee_type`); its
+    taker cost keeps the type-agnostic 0.07 formula so the replay's ranking is unchanged.
+    """
+    schedule = FixedFee(fee_type if fee_type in KNOWN_FEE_TYPES else MAKER_FEE_TYPE, multiplier)
+    return fee_for_ticker(
+        ticker, price, Decimal(contracts), "taker", schedule=schedule, rounding=rounding
+    )
 
 
 def parse_datetime(value: str | datetime) -> datetime:
@@ -139,6 +158,7 @@ class Decision:
     net_edge: Decimal = Decimal(0)
     position_key: tuple[str, str] = ("", "")
     fee_multiplier: Decimal = Decimal(0)
+    fee_type: str = ""
     run_key: str = ""
     v2_would_trade: bool = False
     large_gap: bool = False
@@ -373,10 +393,13 @@ def evaluate_signal(
         fee_type, multiplier = fee
         decision.unknown = [rule for rule in decision.unknown if rule != "series_fee"]
     decision.fee_multiplier = multiplier
+    decision.fee_type = fee_type
     if fee_type not in {"quadratic", "quadratic_with_maker_fees"}:
         decision.reasons.append("unknown_fee_type")
     gross_edge = fair - signal.price
-    decision.net_edge = gross_edge - taker_fee_rate(signal.price, multiplier)
+    decision.net_edge = gross_edge - _taker_fee(
+        signal.ticker, signal.price, 1, fee_type, multiplier
+    )
     if decision.net_edge < settings.v2_min_net_edge:
         decision.reasons.append("net_edge")
     if signal.price < settings.v2_longshot_price and gross_edge < settings.v2_longshot_min_gross:
@@ -755,7 +778,13 @@ def _simulate(
             batch,
             key=lambda decision: (
                 decision.signal.price
-                + taker_fee_rate(decision.signal.price, decision.fee_multiplier),
+                + _taker_fee(
+                    decision.signal.ticker,
+                    decision.signal.price,
+                    1,
+                    decision.fee_type,
+                    decision.fee_multiplier,
+                ),
                 0 if decision.signal.side == "yes" else 1,
                 decision.signal.ticker,
                 decision.signal.created_at,
@@ -810,7 +839,9 @@ def _simulate(
         ):
             decision.reasons.append("already_held")
             continue
-        effective_price = signal.price + taker_fee_rate(signal.price, decision.fee_multiplier)
+        effective_price = signal.price + _taker_fee(
+            signal.ticker, signal.price, 1, decision.fee_type, decision.fee_multiplier
+        )
         bankroll = cash + open_cost
         if bankroll <= 0 or effective_price >= 1:
             decision.reasons.append("size_zero")
@@ -829,9 +860,11 @@ def _simulate(
         )
         contracts = int(max(Decimal(0), budget / effective_price).to_integral_value(rounding=ROUND_DOWN))
         while contracts > 0:
-            fee = taker_fee(
+            fee = _taker_fee(
+                signal.ticker,
                 signal.price,
-                Decimal(contracts),
+                contracts,
+                decision.fee_type,
                 decision.fee_multiplier,
                 settings.fee_rounding,
             )
@@ -842,9 +875,11 @@ def _simulate(
         if rules_version == "v3" and decision.large_gap:
             contracts //= 2
             if contracts > 0:
-                fee = taker_fee(
+                fee = _taker_fee(
+                    signal.ticker,
                     signal.price,
-                    Decimal(contracts),
+                    contracts,
+                    decision.fee_type,
                     decision.fee_multiplier,
                     settings.fee_rounding,
                 )
@@ -1254,6 +1289,7 @@ def _candle_side_quote(
 
 
 def _maker_replay_price(
+    ticker: str,
     fair: Decimal,
     bid: Decimal,
     ask: Decimal,
@@ -1265,7 +1301,14 @@ def _maker_replay_price(
     for _ in range(4):
         if price <= 0:
             return None
-        fee = maker_fee(price, Decimal(1), fee_multiplier, fee_type, settings.fee_rounding)
+        fee = fee_for_ticker(
+            ticker,
+            price,
+            Decimal(1),
+            "maker",
+            schedule=FixedFee(fee_type, fee_multiplier),
+            rounding=settings.fee_rounding,
+        )
         adjusted = min(
             bid + Decimal("0.01"),
             fair - fee - settings.v2_min_net_edge,
@@ -1377,7 +1420,9 @@ def run_maker_replay(
                 continue
             candle_quotes += 1
         fair = decision.fair
-        price = _maker_replay_price(fair, bid, ask, fee_type, fee_multiplier, settings)
+        price = _maker_replay_price(
+            signal.ticker, fair, bid, ask, fee_type, fee_multiplier, settings
+        )
         if price is None:
             if min(bid + Decimal("0.01"), fair - settings.v2_min_net_edge) >= ask:
                 crossed += 1
@@ -1386,7 +1431,14 @@ def run_maker_replay(
         if contracts <= 0:
             no_size += 1
             continue
-        fee = maker_fee(price, Decimal(contracts), fee_multiplier, fee_type, settings.fee_rounding)
+        fee = fee_for_ticker(
+            signal.ticker,
+            price,
+            Decimal(contracts),
+            "maker",
+            schedule=FixedFee(fee_type, fee_multiplier),
+            rounding=settings.fee_rounding,
+        )
         orders.append(
             MakerReplayOrder(
                 decision=decision,
@@ -1442,9 +1494,11 @@ def run_maker_replay(
         signal = order.decision.signal
         payout = Decimal(order.contracts) if result == signal.side else Decimal(0)
         maker_pnl_total += payout - order.price * order.contracts - order.maker_fee
-        taker_fee_amount = taker_fee(
+        taker_fee_amount = _taker_fee(
+            signal.ticker,
             signal.price,
-            Decimal(order.contracts),
+            order.contracts,
+            order.decision.fee_type,
             order.decision.fee_multiplier,
             settings.fee_rounding,
         )

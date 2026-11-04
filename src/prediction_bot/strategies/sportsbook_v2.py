@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 from prediction_bot.config import Settings
 from prediction_bot.devig import devig_all, longshot_haircut
-from prediction_bot.fees import SeriesFeeCache, maker_fee, taker_fee, taker_fee_rate
+from prediction_bot.fees import FixedFee, SeriesFeeCache, fee_for_ticker
 from prediction_bot.injuries import (
     ESPN_VERIFIED_SPORTS,
     InjuryClient,
@@ -128,6 +128,25 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
 
     def seen_blocks(self) -> list[Block]:
         return list(self._blocks)
+
+    @staticmethod
+    def _signal_fee(signal: Signal) -> FixedFee:
+        """The series schedule the strategy stamped on a signal (fails closed if missing)."""
+        if signal.fee_type is None or signal.fee_multiplier is None:
+            raise ValueError(f"signal {signal.ticker} has no series fee schedule")
+        return FixedFee(signal.fee_type, signal.fee_multiplier)
+
+    @staticmethod
+    def _taker_rate(ticker: str, price: Decimal, fee_type: str, fee_multiplier: Decimal) -> Decimal:
+        """Unrounded per-contract taker fee, the cost used in net-edge maths."""
+        return fee_for_ticker(
+            ticker,
+            price,
+            Decimal(1),
+            "taker",
+            schedule=FixedFee(fee_type, fee_multiplier),
+            rounding=None,
+        )
 
     def seen_event_links(self) -> dict[str, str]:
         """Odds API event id -> Kalshi event ticker for games matched in the last evaluate."""
@@ -771,8 +790,13 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         for _ in range(4):
             if price <= 0:
                 return None
-            per_contract_fee = maker_fee(
-                price, Decimal(1), fee_multiplier, fee_type, self.settings.fee_rounding
+            per_contract_fee = fee_for_ticker(
+                market.ticker,
+                price,
+                Decimal(1),
+                "maker",
+                schedule=FixedFee(fee_type, fee_multiplier),
+                rounding=self.settings.fee_rounding,
             )
             adjusted = min(
                 bid + Decimal("0.01"),
@@ -808,18 +832,20 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             size_price = signal.maker_price
         else:
             size_price = signal.limit_price
+        schedule = self._signal_fee(signal)
         if maker_first:
-            effective_fee = maker_fee(
+            effective_fee = fee_for_ticker(
+                signal.ticker,
                 size_price,
                 Decimal(1),
-                signal.fee_multiplier or Decimal(0),
-                signal.fee_type or "",
-                self.settings.fee_rounding,
+                "maker",
+                schedule=schedule,
+                rounding=self.settings.fee_rounding,
             )
             effective_price = size_price + effective_fee
         else:
-            effective_price = size_price + taker_fee_rate(
-                size_price, signal.fee_multiplier or Decimal(0)
+            effective_price = size_price + fee_for_ticker(
+                signal.ticker, size_price, Decimal(1), "taker", schedule=schedule, rounding=None
             )
         if bankroll <= 0 or effective_price >= 1:
             self._block(
@@ -872,21 +898,13 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 f"{desired} contracts reduced to displayed depth {size}",
             )
         while size > 0:
-            fee = (
-                maker_fee(
-                    size_price,
-                    size,
-                    signal.fee_multiplier or Decimal(0),
-                    signal.fee_type or "",
-                    self.settings.fee_rounding,
-                )
-                if maker_first
-                else taker_fee(
-                    size_price,
-                    size,
-                    signal.fee_multiplier or Decimal(0),
-                    self.settings.fee_rounding,
-                )
+            fee = fee_for_ticker(
+                signal.ticker,
+                size_price,
+                size,
+                "maker" if maker_first else "taker",
+                schedule=schedule,
+                rounding=self.settings.fee_rounding,
             )
             cost = size_price * size + fee
             if cost <= budget:
@@ -1343,7 +1361,13 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                                 ):
                                     continue
                                 fair = fair_pre
-                                net_edge = fair - price - taker_fee_rate(price, fee_multiplier)
+                                net_edge = (
+                                    fair
+                                    - price
+                                    - self._taker_rate(
+                                        market.ticker, price, fee_type, fee_multiplier
+                                    )
+                                )
                                 if net_edge < Decimal("0.03"):
                                     continue
                                 position_outcome = (
@@ -1452,7 +1476,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         self._block("missing_quote", event_ticker, market.ticker, side.value)
                         continue
                     gross_edge = fair - price
-                    net_edge = gross_edge - taker_fee_rate(price, fee_multiplier)
+                    net_edge = gross_edge - self._taker_rate(
+                        market.ticker, price, fee_type, fee_multiplier
+                    )
                     threshold = self.settings.v2_min_net_edge
                     if price < self.settings.v2_price_floor:
                         self._block("price_floor", event_ticker, market.ticker, str(price))
@@ -1532,7 +1558,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             self._block("missing_quote", event_ticker, market.ticker, side.value)
                             continue
                         gross_edge = fair - price
-                        net_edge = gross_edge - taker_fee_rate(price, fee_multiplier)
+                        net_edge = gross_edge - self._taker_rate(
+                            market.ticker, price, fee_type, fee_multiplier
+                        )
                         if price < self.settings.v2_price_floor:
                             self._block("price_floor", event_ticker, market.ticker, str(price))
                             continue
@@ -1707,7 +1735,14 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 signals,
                 key=lambda sig: (
                     sig.limit_price
-                    + taker_fee_rate(sig.limit_price, sig.fee_multiplier or Decimal(0)),
+                    + fee_for_ticker(
+                        sig.ticker,
+                        sig.limit_price,
+                        Decimal(1),
+                        "taker",
+                        schedule=self._signal_fee(sig),
+                        rounding=None,
+                    ),
                     0 if sig.side is OutcomeSide.yes else 1,
                     sig.ticker,
                 ),
@@ -1759,12 +1794,13 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             price=shadow_price,
                             size=sized_shadow.size,
                             fair=sized_shadow.fair_prob,
-                            maker_fee=maker_fee(
+                            maker_fee=fee_for_ticker(
+                                sized_shadow.ticker,
                                 shadow_price,
                                 sized_shadow.size,
-                                sized_shadow.fee_multiplier or Decimal(0),
-                                sized_shadow.fee_type or "",
-                                self.settings.fee_rounding,
+                                "maker",
+                                schedule=self._signal_fee(sized_shadow),
+                                rounding=self.settings.fee_rounding,
                             ),
                             expires_at=expires_at,
                             commence_time=sized_shadow.commence_time,
@@ -1779,7 +1815,14 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 ),
                 key=lambda sig: (
                     sig.limit_price
-                    + taker_fee_rate(sig.limit_price, sig.fee_multiplier or Decimal(0)),
+                    + fee_for_ticker(
+                        sig.ticker,
+                        sig.limit_price,
+                        Decimal(1),
+                        "taker",
+                        schedule=self._signal_fee(sig),
+                        rounding=None,
+                    ),
                     0 if sig.side is OutcomeSide.yes else 1,
                     sig.ticker,
                 ),
@@ -1823,11 +1866,13 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         self._entry_window_decisions.append(sized)
                     else:
                         out.append(sized)
-                        fee = taker_fee(
+                        fee = fee_for_ticker(
+                            sized.ticker,
                             sized.limit_price,
                             sized.size,
-                            sized.fee_multiplier or Decimal(0),
-                            self.settings.fee_rounding,
+                            "taker",
+                            schedule=self._signal_fee(sized),
+                            rounding=self.settings.fee_rounding,
                         )
                         cost = sized.limit_price * sized.size + fee
                         reserved_position[position_key] = (

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from decimal import ROUND_UP, Decimal
+from decimal import Decimal
 from enum import Enum
 
 ONE_CENT = Decimal("0.01")
@@ -186,9 +186,3 @@ class EdgeReview:
     traded: bool = False
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     position_key: str | None = None
-
-
-def fee_for(price: Decimal, count: Decimal, multiplier: Decimal) -> Decimal:
-    """Kalshi-style fee: ceil_to_cent(mult * C * P * (1 - P))."""
-    raw = multiplier * count * price * (Decimal(1) - price)
-    return raw.quantize(ONE_CENT, rounding=ROUND_UP)

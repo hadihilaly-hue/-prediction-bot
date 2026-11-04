@@ -5,12 +5,13 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Literal
 
 from prediction_bot.candles import fetch_candles
 from prediction_bot.config import Settings
-from prediction_bot.fees import FEE_MODEL_VERSION, maker_fee, taker_fee
+from prediction_bot.fees import DEFAULT_FEE_SCHEDULE, FEE_MODEL_VERSION, FixedFee, fee_for_ticker
 from prediction_bot.maker_fill import trade_through_fill
-from prediction_bot.models import Block, Market, OutcomeSide, Signal, fee_for
+from prediction_bot.models import Block, Market, OutcomeSide, Signal
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT, ConsensusOdds
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.strategies.base import Strategy
@@ -441,16 +442,8 @@ class Engine:
                     else sig.limit_price
                 )
                 try:
-                    fee = (
-                        maker_fee(
-                            cost_price,
-                            sig.size,
-                            sig.fee_multiplier or Decimal(0),
-                            sig.fee_type or "",
-                            self.settings.fee_rounding,
-                        )
-                        if action == "maker"
-                        else self._fee_amount(sig, cost_price, sig.size)
+                    fee = self._fee_amount(
+                        sig, cost_price, sig.size, "maker" if action == "maker" else None
                     )
                 except ValueError:
                     reason = "fee_unknown"
@@ -517,17 +510,12 @@ class Engine:
                     if action == "maker" and sig.maker_price is not None
                     else sig.limit_price
                 )
-                fee = (
-                    maker_fee(
-                        cost_price,
-                        sig.size,
-                        sig.fee_multiplier or Decimal(0),
-                        sig.fee_type or "",
-                        self.settings.fee_rounding,
+                try:
+                    fee = self._fee_amount(
+                        sig, cost_price, sig.size, "maker" if action == "maker" else None
                     )
-                    if action == "maker"
-                    else self._fee_amount(sig, cost_price, sig.size)
-                )
+                except ValueError:
+                    return False
                 cost = cost_price * sig.size + fee
                 if cost > self.ledger.available_cash(include_v3=sig.rules_version == "v3"):
                     return False
@@ -542,37 +530,45 @@ class Engine:
         if self._exposure(sig) + added > self.settings.max_position_contracts:
             return False
         if not self.live:
-            cost = sum(
-                (
-                    s.limit_price * s.size + fee_for(s.limit_price, s.size, self._fee_multiplier(s))
-                    for s in batch
-                ),
-                Decimal(0),
-            )
+            try:
+                cost = sum(
+                    (
+                        s.limit_price * s.size + self._fee_amount(s, s.limit_price, s.size)
+                        for s in batch
+                    ),
+                    Decimal(0),
+                )
+            except ValueError:
+                return False
             if cost > self.ledger.cash:
                 return False
         return True
 
-    def _fee_multiplier(self, sig: Signal) -> Decimal:
-        if sig.taker:
-            return self.settings.taker_fee_multiplier
-        return self.settings.maker_fee_multiplier
+    def _fee_amount(
+        self,
+        sig: Signal,
+        price: Decimal,
+        count: Decimal,
+        style: Literal["taker", "maker"] | None = None,
+    ) -> Decimal:
+        """Fee from the series schedule the strategy stamped on the signal.
 
-    def _fee_amount(self, sig: Signal, price: Decimal, count: Decimal) -> Decimal:
-        if sig.rules_version not in {"v2", "v3"}:
-            return fee_for(price, count, self._fee_multiplier(sig))
-        if sig.fee_type not in {"quadratic", "quadratic_with_maker_fees"}:
-            raise ValueError(f"unknown fee type: {sig.fee_type}")
-        if sig.fee_multiplier is None:
-            raise ValueError("v2 signal has no series fee multiplier")
-        if sig.taker:
-            return taker_fee(price, count, sig.fee_multiplier, self.settings.fee_rounding)
-        return maker_fee(
+        v2/v3 signals must carry one (ValueError otherwise, so the caller fails closed);
+        a v1 signal without one uses Kalshi's general schedule.
+        """
+        if sig.fee_type is not None and sig.fee_multiplier is not None:
+            schedule: FixedFee = FixedFee(sig.fee_type, sig.fee_multiplier)
+        elif sig.rules_version in {"v2", "v3"}:
+            raise ValueError(f"{sig.rules_version} signal has no series fee schedule")
+        else:
+            schedule = DEFAULT_FEE_SCHEDULE
+        return fee_for_ticker(
+            sig.ticker,
             price,
             count,
-            sig.fee_multiplier,
-            sig.fee_type,
-            self.settings.fee_rounding,
+            style or ("taker" if sig.taker else "maker"),
+            schedule=schedule,
+            rounding=self.settings.fee_rounding,
         )
 
     def _act(self, sig: Signal, res: CycleResult, grouped: bool = False) -> bool:
@@ -608,13 +604,7 @@ class Engine:
         if paper_action == "maker":
             assert sig.maker_price is not None
             try:
-                fee = maker_fee(
-                    sig.maker_price,
-                    sig.size,
-                    sig.fee_multiplier or Decimal(0),
-                    sig.fee_type or "",
-                    self.settings.fee_rounding,
-                )
+                fee = self._fee_amount(sig, sig.maker_price, sig.size, "maker")
                 self.ledger.record_paper_order(
                     sig,
                     sig.maker_price,
@@ -663,9 +653,7 @@ class Engine:
                 event_ticker=sig.event_ticker,
                 tags=sig.tags,
                 commence_time=sig.commence_time,
-                fee_model_version=FEE_MODEL_VERSION
-                if sig.rules_version in {"v2", "v3"}
-                else "v1-flat",
+                fee_model_version=FEE_MODEL_VERSION,
                 net_edge=sig.edge,
             )
         except ValueError as e:
