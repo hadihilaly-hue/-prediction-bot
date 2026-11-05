@@ -4,7 +4,7 @@ import logging
 import time
 import uuid
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -38,9 +38,11 @@ def _opt_dec(value: object) -> Decimal | None:
 
 
 def _ts(value: object) -> datetime | None:
+    """Kalshi timestamps as aware UTC; a value without an offset is read as UTC."""
     if not isinstance(value, str) or not value:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
 
 
 def parse_market(m: JSON) -> Market:
@@ -76,12 +78,31 @@ def parse_market(m: JSON) -> Market:
     )
 
 
+def _book_levels(ob: JSON, side: str) -> list[list[Any]]:
+    """One side's [price, size] levels, prices in dollars.
+
+    Accepts `orderbook_fp` or `orderbook`, with `<side>_dollars` or `<side>` keys. An
+    integer price above 1 is the legacy cents form and is converted. v5 Phase 7.1a: the
+    live key names were not verified from this environment, so all forms are read.
+    """
+    book = ob.get("orderbook_fp") or ob.get("orderbook") or {}
+    levels = book.get(f"{side}_dollars") or book.get(side) or []
+    out = []
+    for level in levels:
+        if not isinstance(level, (list, tuple)) or len(level) < 2:
+            continue
+        price = level[0]
+        if isinstance(price, int) and price > 1:
+            price = Decimal(price) / 100
+        out.append([price, level[1]])
+    return out
+
+
 def parse_orderbook(ticker: str, ob: JSON) -> Quote:
     """The `orderbook` endpoint returns YES bids and NO bids only. A NO bid at p is a
     YES ask at 1-p. Levels are [price_dollars, size_fp] pairs."""
-    book = ob.get("orderbook_fp") or ob.get("orderbook") or {}
-    yes_levels = book.get("yes") or []
-    no_levels = book.get("no") or []
+    yes_levels = _book_levels(ob, "yes")
+    no_levels = _book_levels(ob, "no")
     yes_bid = yes_bid_size = None
     yes_ask = yes_ask_size = None
     if yes_levels:
@@ -102,14 +123,9 @@ def parse_orderbook(ticker: str, ob: JSON) -> Quote:
 def parse_orderbook_levels(ob: JSON) -> dict[str, list[tuple[Decimal, Decimal]]]:
     """All displayed bid levels per side: `yes` (YES bids) and `no` (NO bids), each a
     best-first list of (price_dollars, contracts)."""
-    book = ob.get("orderbook_fp") or ob.get("orderbook") or {}
     out: dict[str, list[tuple[Decimal, Decimal]]] = {}
     for side in ("yes", "no"):
-        levels = [
-            (_dec(level[0]), _dec(level[1]))
-            for level in (book.get(side) or [])
-            if isinstance(level, (list, tuple)) and len(level) >= 2
-        ]
+        levels = [(_dec(level[0]), _dec(level[1])) for level in _book_levels(ob, side)]
         out[side] = sorted(levels, key=lambda level: level[0], reverse=True)
     return out
 

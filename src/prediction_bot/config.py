@@ -136,6 +136,10 @@ class Settings(BaseSettings):
         ),
     )
     v2_kelly_fraction: Decimal = Decimal("0.25")
+    # v5 Phase 7.2: `flat` stakes one unit (`max_order_notional`) per entry; `kelly`
+    # sizes quarter-Kelly on an edge capped at half the cohort's mean closing-line value
+    # once that cohort is "supported" (n >= 50, 95% CI > 0), and is flat until then.
+    sizing_mode: Literal["flat", "kelly"] = "flat"
     # Pre-entry injury gate (ESPN feed, NFL only for now). off = no fetch;
     # log = write injury_gate blocks but let trades through tagged
     # injury_gate_would_block; block = actually block injury_uncertain_own.
