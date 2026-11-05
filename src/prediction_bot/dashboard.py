@@ -1214,7 +1214,7 @@ _TEMPLATE = """<!doctype html>
   .pill.open { background:#eef2fb; color:var(--accent); }
   .pill.skip { background:#f2f4f7; color:var(--muted); }
   .empty { padding:18px; text-align:center; color:var(--muted); }
-  .two { display:grid; grid-template-columns:repeat(auto-fit,minmax(460px,1fr)); gap:20px; }
+  .two { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(460px,100%),1fr)); gap:20px; }
   svg { width:100%; height:200px; display:block; }
   details { border:1px solid var(--line); border-radius:12px; padding:0 16px; margin-top:12px; }
   details > summary { cursor:pointer; padding:12px 0; font-weight:600; }

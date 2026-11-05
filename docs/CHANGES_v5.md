@@ -573,7 +573,7 @@ A new section below "Is it actually working?". Data comes from `dashboard._v5_he
 
 On the 5 Nov ledger, the cards read expected +$153.84 against realized +$560.02 over 87 settled fills, which matches the brief. The gap is +$406.18, about 1.4 model SDs. Runs per day shows 8–16 of 48 slots a day since 22 Oct, the gap the Phase 6 Worker is meant to close.
 
-The page also gets one CSS rule, `main > * { min-width:0; }`. Without it, wide tables stretched every section past the screen on a phone: 1,004px wide on a 390px screen before this PR, and 1,133px with the new tables. With it the page is 476px; the rest is the existing two-column block's 460px minimum, which is left as is.
+The page also gets one CSS rule, `main > * { min-width:0; }`. Without it, wide tables stretched every section past the screen on a phone: 1,004px wide on a 390px screen before this PR, and 1,133px with the new tables. The two-column block (recent results and account value) also gets a column minimum of `min(460px,100%)` instead of 460px. With both changes the page is exactly 390px wide on a 390px screen, and desktop still shows two columns.
 
 ### 8.2 README
 - The "1c after fees" and "0.32 bets a day" text the brief names was never in the README:

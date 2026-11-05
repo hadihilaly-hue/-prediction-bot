@@ -129,6 +129,7 @@ def test_dashboard_renders_the_measurement_health_panels(tmp_path) -> None:  # t
         assert f'id="{table_id}"' in page
     assert "Profit and loss is not evidence" in page
     assert "main > * { min-width:0; }" in page
+    assert "minmax(min(460px,100%),1fr)" in page  # two-column block fits a phone
 
 
 def test_readme_states_the_evidence_rule_and_links_the_snapshots() -> None:
