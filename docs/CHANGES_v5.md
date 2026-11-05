@@ -8,7 +8,7 @@ v5 builds on v4 (`docs/CHANGES_v4.md`) and the credit cadence work (`docs/CHANGE
 
 It is still paper-only: no live-order path, no credential changes, and every ledger change is additive.
 
-**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)), Phase 3 ([#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63)) and Phase 4 ([#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65), re-opened against `main` after #64 merged into its stacked base), Phase 5 ([#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66)) and Phase 6 ([#67](https://github.com/hadihilaly-hue/-prediction-bot/pull/67)) and Phase 7 ([#68](https://github.com/hadihilaly-hue/-prediction-bot/pull/68)) are merged. Phase 8 is open against `main`.
+**Status.** All phases are merged: Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)), Phase 3 ([#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63)), Phase 4 ([#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65), re-opened against `main` after #64 merged into its stacked base), Phase 5 ([#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66)), Phase 6 ([#67](https://github.com/hadihilaly-hue/-prediction-bot/pull/67)), Phase 7 ([#68](https://github.com/hadihilaly-hue/-prediction-bot/pull/68)) and Phase 8 ([#69](https://github.com/hadihilaly-hue/-prediction-bot/pull/69)).
 
 ## What changed, by phase
 
@@ -22,7 +22,7 @@ It is still paper-only: no live-order path, no credential changes, and every led
 | 5: Polymarket reference | [#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66) | Read-only Polymarket client; tracked Kalshi events matched by team aliases and kickoff; `reference_quotes` mids on scanner runs (≤200 requests); `clv_polymarket` in every CLV table and `clv-report`; `pbot reference-gaps` |
 | 6: scheduler reliability | [#67](https://github.com/hadihilaly-hue/-prediction-bot/pull/67) | Cloudflare Worker cron (`infra/cloudflare-trigger`) dispatching `paper.yml` with a `slot` input; `pbot slot-guard` against double runs; `pbot health` and an hourly `health.yml` that opens a "paper bot missed runs" issue |
 | 7: audit and sizing | [#68](https://github.com/hadihilaly-hue/-prediction-bot/pull/68) | Stale-book check fails closed; Kalshi timestamps always aware; order-book parser tolerant of key and unit variants; `PBOT_SIZING_MODE` (`flat` default, `kelly` capped by supported cohort CLV) |
-| 8: dashboard and docs | this PR | Dashboard "Measurement health" section (CLV by cohort with CIs, share beating the close, realized vs model-expected P&L, maker fill rate and drift, feed freshness, runs per day, rejections per day); README "Current rules (v5)" and "How to read the evidence" |
+| 8: dashboard and docs | [#69](https://github.com/hadihilaly-hue/-prediction-bot/pull/69) | Dashboard "Measurement health" section (CLV by cohort with CIs, share beating the close, realized vs model-expected P&L, maker fill rate and drift, feed freshness, runs per day, rejections per day); README "Current rules (v5)" and "How to read the evidence" |
 
 ## Phase 0: measurement fixes
 
