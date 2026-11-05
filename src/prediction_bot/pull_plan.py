@@ -34,6 +34,8 @@ if TYPE_CHECKING:
     from prediction_bot.paper.ledger import Ledger
     from prediction_bot.release_calendar import ReleaseCalendar
 
+from prediction_bot.release_calendar import plan_priority
+
 # name, offset before kickoff, early tolerance, late tolerance, priority (0 = first)
 TARGETS: tuple[tuple[str, timedelta, timedelta, timedelta, int], ...] = (
     # The sharp close: books' last update must fall inside kickoff - 20 min.
@@ -702,8 +704,22 @@ def select_plan_pull(
                 del by_feed[feed]
     remaining = plan_daily_cap(ledger, settings, now) - plan_credits_today(ledger, now)
     left = month_credits_left(ledger, now)
-    if left is not None and left - 1 < plan_floor(ledger, settings, now):
+    floor = plan_floor(ledger, settings, now)
+    floor_ok = left is None or left - 1 >= floor
+    if not floor_ok:
         remaining = 0
+    elif (
+        calendar is not None
+        and left is not None
+        and left - 1 < floor + must_demand(ledger, calendar, now)
+    ):
+        # Lower-priority pulls also leave one credit per top-priority pull still ahead
+        # in the known schedule, so the month's last closes and clocks are funded.
+        remaining = 0
+    # Under the calendar, top-priority targets (brief priority 5: the T-10m close and
+    # the NFL status-report and inactives clocks) are funded whenever the reserves
+    # allow; the daily cap rations everything below them. They still count toward it.
+    must = plan_priority(5) if calendar is not None else None
     ordered = sorted(
         by_feed.items(),
         key=lambda item: (min(p for _i, p, _e in item[1]), min(e for _i, _p, e in item[1])),
@@ -712,7 +728,10 @@ def select_plan_pull(
     pick: PlanPick | None = None
     for feed, rows in ordered:
         priority = min(p for _i, p, _e in rows)
-        if pick is None and remaining - _groups_ahead(ledger, now, priority) >= 1:
+        funded = remaining - _groups_ahead(ledger, now, priority) >= 1 or (
+            must is not None and priority <= must and floor_ok
+        )
+        if pick is None and funded:
             primary = min(rows, key=lambda r: (r[1], r[2], r[0]))[0]
             source_row = ledger.conn.execute(
                 "SELECT source FROM pull_plan WHERE id=?", (primary,)
@@ -854,3 +873,42 @@ def tag_pull_rows(
         int(row[0]) if row[0] is not None else None,
         int(row[1]) if row[1] is not None else None,
     )
+
+
+def must_demand(
+    ledger: Ledger, calendar: ReleaseCalendar, now: datetime, lookahead: timedelta = GAME_LOOKAHEAD
+) -> int:
+    """Top-priority plan pulls still ahead in the known schedule (Phase 3-E).
+
+    One per (feed, 30-min bucket) of every known game's T-10m close and of every
+    brief-priority-5 clock target with a qualifying game, over `lookahead`, minus
+    buckets already pulled. The rotation and lower-priority plan pulls leave this
+    many credits above the plan floor, so the month's last closes and NFL clocks are
+    not starved by pulls that happened to run first.
+    """
+    now = _utc(now)
+    feeds = eligible_feeds(ledger.conn)
+    bucket = GROUP_BUCKET.total_seconds()
+    games: dict[str, list[datetime]] = {}
+    demand: set[tuple[str, int]] = set()
+    for _event, (feed, kickoff) in plan_kickoffs(ledger.conn, feeds, now, lookahead).items():
+        games.setdefault(feed, []).append(kickoff)
+        close = kickoff - timedelta(minutes=10)
+        if close + timedelta(minutes=8) >= now:
+            demand.add((feed, int((close - timedelta(minutes=10)).timestamp() // bucket)))
+    for feed in feeds:
+        kickoffs = games.get(feed, [])
+        for target in calendar.clock_targets(feed, now - RELEASE_WINDOW, now + lookahead):
+            if target.entry.priority < 5 or target.target_at + RELEASE_WINDOW < now:
+                continue
+            reach = timedelta(hours=target.entry.requires_game_within_hours)
+            if any(target.target_at < k <= target.target_at + reach for k in kickoffs):
+                demand.add((feed, int(target.target_at.timestamp() // bucket)))
+    done = {
+        (str(feed), int(_utc(str(start)).timestamp() // bucket))
+        for feed, start in ledger.conn.execute(
+            "SELECT feed,window_start FROM pull_plan WHERE status='pulled' AND window_end>=?",
+            (now.isoformat(),),
+        )
+    }
+    return len(demand - done)

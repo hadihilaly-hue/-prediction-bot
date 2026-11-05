@@ -597,7 +597,15 @@ def test_odds_trigger_ignores_zero_value_feed(tmp_path, monkeypatch, capsys) -> 
     assert ledger.conn.execute("SELECT COUNT(*) FROM odds_triggers").fetchone() == (0,)
 
 
-def test_paper_trigger_makes_one_paid_odds_request(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+@pytest.mark.parametrize(
+    ("move_reserve", "carry_after"),
+    # Without a move reserve the pull borrows from the rotation's carry; while the
+    # month's move reserve (v5 Phase 3-E) covers it, the carry is untouched.
+    [(0, -0.5), (50, 0.5)],
+)
+def test_paper_trigger_makes_one_paid_odds_request(  # type: ignore[no-untyped-def]
+    tmp_path, monkeypatch, move_reserve, carry_after
+) -> None:
     import httpx
 
     import prediction_bot.cli as cli
@@ -617,6 +625,7 @@ def test_paper_trigger_makes_one_paid_odds_request(tmp_path, monkeypatch) -> Non
         paper_db_path=path,
         odds_api_key="key",
         odds_runs_per_day=12,
+        odds_move_reserve=move_reserve,
     )
     requests: list[httpx.Request] = []
 
@@ -667,4 +676,4 @@ def test_paper_trigger_makes_one_paid_odds_request(tmp_path, monkeypatch) -> Non
     assert sum(request.url.path.endswith("/odds") for request in requests) == 1
     assert ledger.conn.execute("SELECT status FROM odds_triggers").fetchone() == ("pulled",)
     assert ledger.conn.execute("SELECT trigger_reason FROM runs").fetchone() == (f"move:{feed}",)
-    assert ledger.odds_pacer_carry() == pytest.approx(-0.5)
+    assert ledger.odds_pacer_carry() == pytest.approx(carry_after)

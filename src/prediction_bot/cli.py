@@ -62,6 +62,7 @@ from prediction_bot.pull_plan import (
     eligible_feeds,
     mark_pulled_ids,
     merge_near_targets,
+    must_demand,
     plan_feed_targets,
     plan_kickoffs,
     plan_pulls,
@@ -457,6 +458,7 @@ def paper(
         )
         if s.rules_version == "v3" and s.odds_pull_plan == "hybrid":
             pacer.move_reserve = max(0, s.odds_move_reserve)
+            pacer.rotation_holds_floor = s.odds_release_calendar == "on"
         if (
             s.odds_pull_plan == "hybrid"
             and s.rules_version == "v3"
@@ -523,6 +525,12 @@ def paper(
         )
         injury_client = InjuryClient()
         if pacer is not None:
+            if pacer.rotation_holds_floor and release_cal is not None:
+                try:
+                    pacer.plan_hold = must_demand(ledger, release_cal, datetime.now(timezone.utc))
+                except Exception:
+                    log.exception("Plan demand estimate failed; rotation holds no extra")
+                    pacer.plan_hold = 0
             pacer.start_run()
         settled = engine.settle_open_positions()
         try:
