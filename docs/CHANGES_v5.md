@@ -8,7 +8,7 @@ v5 builds on v4 (`docs/CHANGES_v4.md`) and the credit cadence work (`docs/CHANGE
 
 It is still paper-only: no live-order path, no credential changes, and every ledger change is additive.
 
-**Status.** Phases 0 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60)) and 1 ([#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61)) are merged. Phase 2 ([#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)) and Phase 3 are open as stacked PRs. Later phases follow one PR each.
+**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)) are merged; Phase 3 is open. Later phases follow one PR each.
 
 ## What changed, by phase
 
@@ -17,7 +17,7 @@ It is still paper-only: no live-order path, no credential changes, and every led
 | 0: measurement | [#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60) | `clv_sharp_close` / `clv_sharp_source`, per-book odds and the Kalshi event ticker on `odds_snapshots`, `pbot clv-report` (text and `--json`), dashboard panel, `docs/evidence/2026-11-03.json` |
 | 1: fee model per series | [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), stacked on #60 | One fee helper `fees.fee_for_ticker`; the v1 path now uses each series' fee type and multiplier; `fee_model_version='kalshi-series-v2'` |
 | 2: entry rules | [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62) | 25c price floor and a doubled threshold below 40c; soft reference off in the workflow; entry window as config (72–168h); shadow-only NHL/NBA/NCAAB measurement pulls (≤2 credits/day); price-floor and thin-market rows kept as near misses with depth and open interest |
-| 3: pull plan | stacked on #62 | Per-game T−24h/T−6h/T−90m/T−10m targets (`pull_plan`) sharing each day's credits with the 72h+ rotation; pulls on any 30-min slot; shadow-only sharp-move detector (`sharp_move`, `sharp_move_follow`); `odds_budget.py` pull-plan section |
+| 3: pull plan | this PR | Per-game T−24h/T−6h/T−90m/T−10m targets (`pull_plan`) sharing each day's credits with the 72h+ rotation; pulls on any 30-min slot; shadow-only sharp-move detector (`sharp_move`, `sharp_move_follow`); `odds_budget.py` pull-plan section |
 
 ## Phase 0: measurement fixes
 
