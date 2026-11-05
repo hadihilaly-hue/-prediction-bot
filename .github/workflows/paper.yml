@@ -47,8 +47,22 @@ jobs:
           PBOT_V3_EXECUTION: ${{ vars.PBOT_V3_EXECUTION || 'auto' }}
           PBOT_KALSHI_API_BASE: https://api.elections.kalshi.com/trade-api/v2
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
-          # 1c after fees: the default 3c found nothing; we want data on small edges too.
+          # v1 strategies only (book_scanner and the sportsbook_arb/underdog_value
+          # shadows). The v3 threshold is PBOT_V2_MIN_NET_EDGE below.
           PBOT_MIN_EDGE: "0.01"
+          # Net edge after the taker fee that v2/v3 require (doubled below 40c, see
+          # PBOT_V3_LOW_PRICE_THRESHOLD_MULTIPLIER in config.py).
+          PBOT_V2_MIN_NET_EDGE: ${{ vars.PBOT_V2_MIN_NET_EDGE || '0.02' }}
+          # DraftKings/FanDuel never set the fair; set the repo Variable to true to
+          # let them act as the reference when no sharp book quotes (pre-v5 behavior).
+          PBOT_V3_ALLOW_SOFT_REFERENCE: ${{ vars.PBOT_V3_ALLOW_SOFT_REFERENCE || 'false' }}
+          # Entry window in hours before kickoff; also bounds feed planning.
+          PBOT_ENTRY_WINDOW_MIN_HOURS: ${{ vars.PBOT_ENTRY_WINDOW_MIN_HOURS || '72' }}
+          PBOT_ENTRY_WINDOW_MAX_HOURS: ${{ vars.PBOT_ENTRY_WINDOW_MAX_HOURS || '168' }}
+          # Shadow-only T-6h / T-90m pulls for feeds that never reach the window;
+          # set the cap Variable to 0 to stop them.
+          PBOT_MEASURE_FEEDS: ${{ vars.PBOT_MEASURE_FEEDS || 'icehockey_nhl,basketball_nba,basketball_ncaab' }}
+          PBOT_MEASURE_DAILY_CREDIT_CAP: ${{ vars.PBOT_MEASURE_DAILY_CREDIT_CAP || '2' }}
           # Hard stops: flip the repo variable PBOT_KILL_SWITCH to "true" to halt all entries.
           PBOT_KILL_SWITCH: ${{ vars.PBOT_KILL_SWITCH || 'false' }}
           PBOT_MAX_DAILY_LOSS: ${{ vars.PBOT_MAX_DAILY_LOSS || '50' }}

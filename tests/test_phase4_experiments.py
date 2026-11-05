@@ -330,6 +330,7 @@ def test_road_dog_requires_away_team_attention_and_uses_one_percent_cap(tmp_path
 def test_road_dog_tag_and_cap_follow_the_selected_leg(tmp_path) -> None:
     settings = Settings(
         _env_file=None,
+        v2_price_floor=Decimal("0.10"),  # pre-v5 floor: this test buys a 20c leg
         min_lead_hours=0,
         longshot_haircut="none",
         max_gross_edge=Decimal("0.40"),

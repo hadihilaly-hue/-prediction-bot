@@ -1604,9 +1604,170 @@ def run_maker_replay(
     }
 
 
+V5_BUCKET_ORDER = ("soft_reference", "price_floor", "low_price_threshold")
+
+
+def _v5_bucket(
+    price: Decimal,
+    net_edge: Decimal | None,
+    reference_source: str | None,
+    settings: Settings,
+) -> str | None:
+    """The Phase 2.2/2.3 rule that would block an entry, in the strategy's gate order."""
+    if reference_source == "soft_reference" and not settings.v3_allow_soft_reference:
+        return "soft_reference"
+    if price < settings.v2_price_floor:
+        return "price_floor"
+    if (
+        net_edge is not None
+        and price < settings.v3_low_price_below
+        and net_edge < settings.v2_min_net_edge * settings.v3_low_price_threshold_multiplier
+    ):
+        return "low_price_threshold"
+    return None
+
+
+def _mean(values: list[Decimal]) -> str:
+    return f"{sum(values) / len(values):+.2f}" if values else "–"
+
+
+def run_v5_bucket_replay(
+    db_path: Path, settings: Settings | None = None
+) -> tuple[str, dict[str, Any]]:
+    """Read-only: which fills and near misses the v5 entry rules (2.2, 2.3) re-bucket.
+
+    Fills keep their recorded net edge when present, else fair - price - fee paid per
+    contract. Only rows with `clv_status='ok'` contribute CLV. Near misses have no
+    stored reference source, so only the price floor can move them.
+    """
+    settings = settings or Settings(_env_file=None, v3_allow_soft_reference=False)  # type: ignore[call-arg]
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    fill_columns = _table_columns(conn, "fills")
+    reference_by_fill: dict[int, str | None] = {}
+    if "reference_source" in _table_columns(conn, "signals"):
+        for row in conn.execute(
+            "SELECT f.id, (SELECT s.reference_source FROM signals s WHERE s.ticker=f.ticker "
+            "AND s.side=f.side AND s.strategy=f.strategy AND s.acted=1 "
+            "AND s.created_at<=f.created_at ORDER BY s.created_at DESC LIMIT 1) AS ref "
+            "FROM fills f"
+        ):
+            reference_by_fill[int(row["id"])] = row["ref"]
+    optional = [
+        column
+        for column in ("net_edge", "clv_kalshi", "clv_kalshi_bid", "clv_status", "rules_version")
+        if column in fill_columns
+    ]
+    fill_rows = conn.execute(
+        "SELECT f.id,f.ticker,f.side,f.price,f.count,f.fee,f.fair_prob,s.result"
+        + "".join(f",f.{column}" for column in optional)
+        + " FROM fills f LEFT JOIN settlements s ON s.ticker=f.ticker ORDER BY f.id"
+    ).fetchall()
+    fill_buckets: dict[str, list[dict[str, Any]]] = {}
+    for row in fill_rows:
+        data = dict(row)
+        price = Decimal(str(data["price"]))
+        count = Decimal(str(data["count"]))
+        fee = Decimal(str(data["fee"]))
+        net_edge = (
+            Decimal(str(data["net_edge"]))
+            if data.get("net_edge") not in (None, "")
+            else Decimal(str(data["fair_prob"])) - price - (fee / count if count else Decimal(0))
+        )
+        bucket = _v5_bucket(price, net_edge, reference_by_fill.get(int(data["id"])), settings)
+        result = data.get("result")
+        data["pnl"] = (
+            None
+            if result not in {"yes", "no"}
+            else (count if result == data["side"] else Decimal(0)) - price * count - fee
+        )
+        fill_buckets.setdefault(bucket or "unchanged", []).append(data)
+
+    shadow_columns = _table_columns(conn, "shadow_decisions")
+    near_buckets: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    if {"net_edge", "clv_kalshi_bid", "clv_status"} <= shadow_columns:
+        for row in conn.execute(
+            "SELECT reason,price,net_edge,clv_kalshi,clv_kalshi_bid,clv_status "
+            "FROM shadow_decisions WHERE rules_version='v3' AND would_trade=0 "
+            "AND reason IN ('net_edge','entry_window')"
+        ):
+            data = dict(row)
+            price = Decimal(str(data["price"]))
+            bucket = "price_floor" if price < settings.v2_price_floor else "unchanged"
+            near_buckets.setdefault((str(data["reason"]), bucket), []).append(data)
+    conn.close()
+
+    def clv(rows: list[dict[str, Any]], column: str) -> list[Decimal]:
+        return [
+            Decimal(str(row[column]))
+            for row in rows
+            if row.get("clv_status") == "ok" and row.get(column) not in (None, "")
+        ]
+
+    fill_table = []
+    for bucket in (*V5_BUCKET_ORDER, "unchanged"):
+        rows = fill_buckets.get(bucket, [])
+        pnls = [row["pnl"] for row in rows if row["pnl"] is not None]
+        fill_table.append(
+            [
+                bucket,
+                len(rows),
+                f"{sum(pnls, Decimal(0)):+.2f}" if pnls else "–",
+                len(clv(rows, "clv_kalshi_bid")),
+                _mean(clv(rows, "clv_kalshi_bid")),
+                _mean(clv(rows, "clv_kalshi")),
+            ]
+        )
+    near_table = []
+    for reason in ("net_edge", "entry_window"):
+        for bucket in ("price_floor", "unchanged"):
+            rows = near_buckets.get((reason, bucket), [])
+            near_table.append(
+                [
+                    reason,
+                    bucket,
+                    len(rows),
+                    len(clv(rows, "clv_kalshi_bid")),
+                    _mean(clv(rows, "clv_kalshi_bid")),
+                    _mean(clv(rows, "clv_kalshi")),
+                ]
+            )
+    report = "\n".join(
+        [
+            "# v5 entry-rule bucket replay",
+            "",
+            f"Rules: price floor {settings.v2_price_floor}, net-edge threshold "
+            f"{settings.v2_min_net_edge} x {settings.v3_low_price_threshold_multiplier} below "
+            f"{settings.v3_low_price_below}, soft reference "
+            f"{'allowed' if settings.v3_allow_soft_reference else 'off'}.",
+            "",
+            f"## Fills ({len(fill_rows)})",
+            "",
+            _md_table(
+                ["v5 bucket", "Fills", "Realized P&L", "CLV n", "Bid CLV (c)", "Mid CLV (c)"],
+                fill_table,
+            ),
+            "",
+            "## v3 near misses",
+            "",
+            _md_table(
+                ["Reason", "v5 bucket", "Rows", "CLV n", "Bid CLV (c)", "Mid CLV (c)"],
+                near_table,
+            ),
+            "",
+        ]
+    )
+    return report, {
+        "fills": {bucket: len(rows) for bucket, rows in fill_buckets.items()},
+        "near_misses": {
+            f"{reason}:{bucket}": len(rows) for (reason, bucket), rows in near_buckets.items()
+        },
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Read-only historical replay.")
-    parser.add_argument("--rules", choices=("v1", "v2", "v3", "both"), default="both")
+    parser.add_argument("--rules", choices=("v1", "v2", "v3", "v5", "both"), default="both")
     parser.add_argument("--maker", action="store_true")
     parser.add_argument("--since", default="2026-09-28")
     parser.add_argument("--db", required=True, type=Path)
@@ -1617,6 +1778,8 @@ def main() -> None:
     report, _headline = (
         run_maker_replay(args.db, args.since, args.cache_dir)
         if args.maker
+        else run_v5_bucket_replay(args.db)
+        if args.rules == "v5"
         else run_replay(args.db, args.since, args.cache_dir, args.rules)
     )
     if args.output:

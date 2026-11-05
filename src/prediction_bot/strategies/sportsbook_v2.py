@@ -125,6 +125,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._feed_pull_candidates: dict[str, int] = {}
         self._injury_skip_logged: set[str] = set()
         self._event_links: dict[str, str] = {}
+        # Feeds pulled only to measure (Phase 2.5): every event in them is shadow-only.
+        self.measure_only_feeds: set[str] = set()
+        self._measure_only_events: set[str] = set()
 
     def seen_blocks(self) -> list[Block]:
         return list(self._blocks)
@@ -146,6 +149,71 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             "taker",
             schedule=FixedFee(fee_type, fee_multiplier),
             rounding=None,
+        )
+
+    def _net_edge_threshold(self, price: Decimal) -> Decimal:
+        """v3 asks for `v3_low_price_threshold_multiplier` x the edge below 40c."""
+        threshold = self.settings.v2_min_net_edge
+        if self.rules_version == "v3" and price < self.settings.v3_low_price_below:
+            threshold *= self.settings.v3_low_price_threshold_multiplier
+        return threshold
+
+    def _threshold_tags(self, price: Decimal) -> tuple[str, ...]:
+        return (
+            ("low_price_threshold",)
+            if self._net_edge_threshold(price) > self.settings.v2_min_net_edge
+            else ()
+        )
+
+    def _record_thin_near_miss(
+        self,
+        market: Market,
+        side: OutcomeSide,
+        book_probabilities: dict[str, dict[str, dict[str, Decimal]]],
+        outcome_id: str,
+        sport: str,
+        fee_type: str,
+        fee_multiplier: Decimal,
+        event_ticker: str,
+        position_key: str,
+        commence: datetime,
+        now: datetime,
+    ) -> None:
+        """Log a `thin_market` row with its edge so the depth rule can be scored on CLV.
+
+        Uses the same reference and fair as the main path but emits no blocks of its
+        own; rows whose reference fails (few books, dispersion) are not logged.
+        """
+        price = market.quote.ask_for(side)
+        if price is None:
+            return
+        reference = self._reference_for_side(book_probabilities, outcome_id, side, sport)
+        if reference is None:
+            return
+        method_fairs, _per_book, _source, book_spread = reference
+        if book_spread > self.settings.max_book_spread:
+            return
+        fair_pre = (
+            min(method_fairs.values())
+            if self.settings.v3_devig_method == "worst_case"
+            else method_fairs[self.settings.v3_devig_method]
+        )
+        hours_until_start = Decimal(str((commence - now).total_seconds() / 3600))
+        fair = self._fair_after_haircut(fair_pre, hours_until_start)
+        net_edge = fair - price - self._taker_rate(market.ticker, price, fee_type, fee_multiplier)
+        self._record_near_miss(
+            ticker=market.ticker,
+            side=side,
+            fair=fair,
+            price=price,
+            net_edge=net_edge,
+            event_ticker=event_ticker,
+            position_key=position_key,
+            commence=commence,
+            now=now,
+            reason="thin_market",
+            ask_depth=market.quote.ask_size_for(side),
+            open_interest=market.open_interest,
         )
 
     def seen_event_links(self) -> dict[str, str]:
@@ -197,8 +265,22 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         position_key: str,
         commence: datetime,
         now: datetime,
+        reason: str | None = None,
+        tags: tuple[str, ...] = (),
+        ask_depth: Decimal | None = None,
+        open_interest: Decimal | None = None,
     ) -> None:
-        reason = "entry_window" if event_ticker in self._entry_window_event_tickers else "net_edge"
+        """Queue a blocked candidate for near-miss CLV scoring.
+
+        `reason` names a gate other than the edge itself (`price_floor`, `thin_market`);
+        otherwise the row is an `entry_window` or `net_edge` near miss as before.
+        """
+        if reason is None:
+            reason = (
+                "entry_window" if event_ticker in self._entry_window_event_tickers else "net_edge"
+            )
+        if event_ticker in self._measure_only_events:
+            tags = (*tags, "measure_only")
         self._near_miss_decisions.append(
             (
                 Signal(
@@ -214,6 +296,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     position_key=position_key,
                     event_ticker=event_ticker,
                     commence_time=commence,
+                    tags=tags or None,
+                    available_size=ask_depth,
+                    open_interest=open_interest,
                 ),
                 reason,
             )
@@ -1104,6 +1189,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._line_move_decisions.clear()
         self._feed_pull_candidates.clear()
         self._event_links.clear()
+        self._measure_only_events.clear()
         self._quotes = [
             QuoteSnapshot(
                 ticker=m.ticker,
@@ -1267,7 +1353,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             if total < Decimal("0.98") or total > Decimal("1.02"):
                 self._block("mapping_sum", event_ticker, legs[0].ticker, str(total))
                 continue
-            if sport in self.settings.v2_disabled_sports:
+            # A measure-only feed never trades, so a league disabled for trading still
+            # gets its shadow rows.
+            if sport in self.settings.v2_disabled_sports and sport not in self.measure_only_feeds:
                 self._block("league_disabled", event_ticker, legs[0].ticker, sport)
                 continue
             gate_reasons: list[tuple[str, str]] = []
@@ -1284,6 +1372,20 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 hours=self.settings.min_lead_hours
             ):
                 gate_reasons.append(("entry_window", f"commence={commence.isoformat()}"))
+            elif self.settings.entry_window_max_hours > 0 and commence - now > timedelta(
+                hours=self.settings.entry_window_max_hours
+            ):
+                gate_reasons.append(
+                    (
+                        "entry_window",
+                        f"commence={commence.isoformat()} beyond "
+                        f"{self.settings.entry_window_max_hours}h",
+                    )
+                )
+            if sport in self.measure_only_feeds:
+                self._measure_only_events.add(event_ticker)
+                if not any(reason == "entry_window" for reason, _ in gate_reasons):
+                    gate_reasons.append(("entry_window", f"measure_only feed {sport}"))
             if gate_reasons:
                 for reason, detail in gate_reasons:
                     self._block(reason, event_ticker, legs[0].ticker, detail)
@@ -1423,6 +1525,19 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         market.open_interest < self.settings.v3_min_open_interest
                         or ask_depth < self.settings.v3_min_ask_depth
                     ):
+                        self._record_thin_near_miss(
+                            market,
+                            side,
+                            book_probabilities,
+                            outcome_id,
+                            sport,
+                            fee_type,
+                            fee_multiplier,
+                            event_ticker,
+                            position_key,
+                            commence,
+                            now,
+                        )
                         self._block(
                             "thin_market",
                             event_ticker,
@@ -1479,8 +1594,22 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     net_edge = gross_edge - self._taker_rate(
                         market.ticker, price, fee_type, fee_multiplier
                     )
-                    threshold = self.settings.v2_min_net_edge
+                    threshold = self._net_edge_threshold(price)
                     if price < self.settings.v2_price_floor:
+                        self._record_near_miss(
+                            ticker=market.ticker,
+                            side=side,
+                            fair=fair,
+                            price=price,
+                            net_edge=net_edge,
+                            event_ticker=event_ticker,
+                            position_key=position_key,
+                            commence=commence,
+                            now=now,
+                            reason="price_floor",
+                            ask_depth=ask_depth,
+                            open_interest=market.open_interest,
+                        )
                         self._block("price_floor", event_ticker, market.ticker, str(price))
                         continue
                     if price > self.settings.v2_price_ceiling:
@@ -1507,8 +1636,16 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             position_key=position_key,
                             commence=commence,
                             now=now,
+                            tags=self._threshold_tags(price),
+                            ask_depth=ask_depth,
+                            open_interest=market.open_interest,
                         )
-                        self._block("net_edge", event_ticker, market.ticker, str(net_edge))
+                        self._block(
+                            "net_edge",
+                            event_ticker,
+                            market.ticker,
+                            f"net_edge={net_edge} threshold={threshold}",
+                        )
                         continue
                     if price < self.settings.v2_longshot_price and gross_edge < (
                         self.settings.v2_longshot_min_gross
@@ -1561,7 +1698,22 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         net_edge = gross_edge - self._taker_rate(
                             market.ticker, price, fee_type, fee_multiplier
                         )
+                        threshold = self._net_edge_threshold(price)
                         if price < self.settings.v2_price_floor:
+                            self._record_near_miss(
+                                ticker=active_market.ticker,
+                                side=side,
+                                fair=fair,
+                                price=price,
+                                net_edge=net_edge,
+                                event_ticker=event_ticker,
+                                position_key=position_key,
+                                commence=commence,
+                                now=now,
+                                reason="price_floor",
+                                ask_depth=active_market.quote.ask_size_for(side),
+                                open_interest=active_market.open_interest,
+                            )
                             self._block("price_floor", event_ticker, market.ticker, str(price))
                             continue
                         if price > self.settings.v2_price_ceiling:
@@ -1598,8 +1750,16 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                                 position_key=position_key,
                                 commence=commence,
                                 now=now,
+                                tags=self._threshold_tags(price),
+                                ask_depth=active_market.quote.ask_size_for(side),
+                                open_interest=active_market.open_interest,
                             )
-                            self._block("net_edge", event_ticker, market.ticker, str(net_edge))
+                            self._block(
+                                "net_edge",
+                                event_ticker,
+                                market.ticker,
+                                f"net_edge={net_edge} threshold={threshold}",
+                            )
                             continue
                         if (
                             price < self.settings.v2_longshot_price
@@ -1631,8 +1791,16 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             position_key=position_key,
                             commence=commence,
                             now=now,
+                            tags=self._threshold_tags(price),
+                            ask_depth=active_market.quote.ask_size_for(side),
+                            open_interest=active_market.open_interest,
                         )
-                        self._block("net_edge", event_ticker, market.ticker, str(net_edge))
+                        self._block(
+                            "net_edge",
+                            event_ticker,
+                            market.ticker,
+                            f"net_edge={net_edge} threshold={threshold}",
+                        )
                         continue
                     side_bid = active_market.quote.bid_for(side)
                     spread = price - side_bid if side_bid is not None else None

@@ -59,6 +59,82 @@ class RotationScore:
     measurement_value: Decimal = Decimal(0)
 
 
+# Phase 2.5 shadow-only measurement pulls: one game's T-6h and T-90m, each within
+# +-1h so a 2-hourly sportsbook slot lands inside it.
+MEASURE_TARGETS: tuple[tuple[str, timedelta], ...] = (
+    ("T-6h", timedelta(hours=6)),
+    ("T-90m", timedelta(minutes=90)),
+)
+MEASURE_TOLERANCE = timedelta(hours=1)
+
+
+@dataclass(frozen=True)
+class MeasurePull:
+    feed: str
+    event_ticker: str
+    target: str
+    kickoff: datetime
+
+
+def select_measure_pull(
+    ledger: Ledger,
+    games_by_sport: Mapping[str, Sequence[PlannedGame]],
+    settings: Settings,
+    now: datetime,
+    exclude: Iterable[str] = (),
+) -> MeasurePull | None:
+    """Pick at most one measurement pull for this run, or None.
+
+    Each measure feed's earliest upcoming Kalshi game is a candidate while `now` is
+    within `MEASURE_TOLERANCE` of its T-6h or T-90m target and that target was not
+    pulled yet. Finishing a game already started wins, then the feed with the fewest
+    measurement pulls in 7 days, then the earliest kickoff, then `measure_feeds` order.
+    The daily credit cap is enforced by `OddsPacer.grant_measure_credit`.
+    """
+    now_utc = _utc(now)
+    excluded = set(exclude)
+    done: dict[str, set[str]] = {}
+    recent: dict[str, int] = {}
+    week_ago = (now_utc - timedelta(days=7)).isoformat()
+    for feed, event_ticker, target, created_at in ledger.conn.execute(
+        "SELECT feed,event_ticker,target,created_at FROM measure_pulls"
+    ):
+        done.setdefault(str(event_ticker), set()).add(str(target))
+        if str(created_at) >= week_ago:
+            recent[str(feed)] = recent.get(str(feed), 0) + 1
+    candidates: list[tuple[int, int, datetime, int, MeasurePull]] = []
+    for order, feed in enumerate(settings.measure_feeds):
+        if feed in excluded:
+            continue
+        upcoming = [g for g in games_by_sport.get(feed, ()) if _utc(g.kickoff) > now_utc]
+        if not upcoming:
+            continue
+        game = min(upcoming, key=lambda g: (_utc(g.kickoff), g.event_ticker))
+        kickoff = _utc(game.kickoff)
+        pulled = done.get(game.event_ticker, set())
+        for target, offset in MEASURE_TARGETS:
+            if target in pulled or abs(now_utc - (kickoff - offset)) > MEASURE_TOLERANCE:
+                continue
+            candidates.append(
+                (
+                    0 if pulled else 1,
+                    recent.get(feed, 0),
+                    kickoff,
+                    order,
+                    MeasurePull(feed, game.event_ticker, target, kickoff),
+                )
+            )
+    if not candidates:
+        return None
+    return min(candidates, key=lambda c: (c[0], c[1], c[2], c[3]))[4]
+
+
+def entry_lookahead(settings: Settings) -> timedelta:
+    """How far ahead the entry window reaches (`entry_window_max_hours`; 0 = 7 days)."""
+    hours = settings.entry_window_max_hours
+    return timedelta(hours=hours) if hours > 0 else ENTRY_LOOKAHEAD
+
+
 def _utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
@@ -231,7 +307,7 @@ def feed_scores(
 ) -> dict[str, FeedScore]:
     now_utc = _utc(now)
     earliest = now_utc + timedelta(hours=settings.min_lead_hours)
-    latest = now_utc + ENTRY_LOOKAHEAD
+    latest = now_utc + entry_lookahead(settings)
     scores: dict[str, FeedScore] = {}
     for feed, games in games_by_sport.items():
         qualifying = [
@@ -256,7 +332,7 @@ def rotation_scores(
     """Score eligible feeds by market value multiplied by pull staleness."""
     now_utc = _utc(now)
     earliest = now_utc + timedelta(hours=settings.min_lead_hours)
-    latest = now_utc + ENTRY_LOOKAHEAD
+    latest = now_utc + entry_lookahead(settings)
     values: dict[str, Decimal] = {}
     entry_values: dict[str, Decimal] = {}
     measurement_values: dict[str, Decimal] = {}
@@ -408,7 +484,7 @@ def select_rotation_feeds(
     scores = rotation_scores(ledger, games_by_sport, stats, settings, now)
     now_utc = _utc(now)
     entry_start = now_utc + timedelta(hours=settings.min_lead_hours)
-    entry_end = now_utc + ENTRY_LOOKAHEAD
+    entry_end = now_utc + entry_lookahead(settings)
     feed_state: dict[str, tuple[datetime | None, bool, bool]] = {}
     for feed, games in games_by_sport.items():
         last_row = ledger.conn.execute(

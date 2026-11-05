@@ -305,6 +305,14 @@ CREATE TABLE IF NOT EXISTS feed_skips (
 );
 CREATE INDEX IF NOT EXISTS feed_skips_feed_created_at
     ON feed_skips(feed, created_at);
+CREATE TABLE IF NOT EXISTS measure_pulls (
+    id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    feed TEXT NOT NULL,
+    event_ticker TEXT NOT NULL,
+    target TEXT NOT NULL,
+    kickoff TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS odds_pacer_state (
     id INTEGER PRIMARY KEY CHECK(id=1),
     carry REAL NOT NULL,
@@ -659,6 +667,8 @@ class Ledger:
                 "tags": "TEXT",
                 "clv_sharp_close": "TEXT",
                 "clv_sharp_source": "TEXT",
+                "ask_depth": "TEXT",
+                "open_interest": "TEXT",
             },
             "maker_shadow": {
                 "commence_time": "TEXT",
@@ -1813,6 +1823,23 @@ class Ledger:
             self.conn.commit()
         return len(rows)
 
+    def record_measure_pull(
+        self, feed: str, event_ticker: str, target: str, kickoff: datetime, at: datetime
+    ) -> None:
+        self.conn.execute(
+            "INSERT INTO measure_pulls (created_at,feed,event_ticker,target,kickoff) "
+            "VALUES (?,?,?,?,?)",
+            (self._utc(at).isoformat(), feed, event_ticker, target, self._utc(kickoff).isoformat()),
+        )
+        self.conn.commit()
+
+    def measure_pulls_on(self, day: date) -> int:
+        row = self.conn.execute(
+            "SELECT COUNT(*) FROM measure_pulls WHERE substr(created_at,1,10)=?",
+            (day.isoformat(),),
+        ).fetchone()
+        return int(row[0])
+
     def record_feed_skips(
         self,
         skips: Mapping[str, str],
@@ -2441,8 +2468,9 @@ class Ledger:
             if existing is None:
                 self.conn.execute(
                     "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,"
-                    "side,position_key,would_trade,reason,fair,price,size,commence_time,net_edge) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "side,position_key,would_trade,reason,fair,price,size,commence_time,net_edge,"
+                    "tags,ask_depth,open_interest) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         created_at.isoformat(),
                         sig.rules_version,
@@ -2462,6 +2490,9 @@ class Ledger:
                             else None
                         ),
                         str(sig.edge),
+                        ",".join(sig.tags) if sig.tags else None,
+                        str(sig.available_size) if sig.available_size is not None else None,
+                        str(sig.open_interest) if sig.open_interest is not None else None,
                     ),
                 )
                 written += 1

@@ -138,6 +138,9 @@ def test_reference_dispersion_blocks_inconsistent_books(settings) -> None:  # ty
     ],
 )
 def test_v2_thresholds_block_in_order(settings, fair: str, ask: str, reason: str) -> None:  # type: ignore[no-untyped-def]
+    # Pre-v5 floor and threshold: this test is about another gate.
+    settings.v2_price_floor = Decimal("0.10")
+    settings.v3_low_price_threshold_multiplier = Decimal("1")
     strategy, signals = evaluate_pair(settings, home_fair=fair, home_ask=ask)
     assert all(signal.ticker != f"{EVENT}-KC" for signal in signals)
     assert any(

@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 KALSHI_DEMO_REST = "https://external-api.demo.kalshi.co/trade-api/v2"
@@ -48,6 +48,7 @@ class Settings(BaseSettings):
 
     @field_validator(
         "v2_disabled_sports",
+        "measure_feeds",
         "exp_road_dog_high_attention_events",
         "exp_road_dog_rivalries",
         mode="before",
@@ -57,6 +58,14 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @model_validator(mode="after")
+    def sync_entry_window(self) -> Settings:
+        if "entry_window_min_hours" in self.model_fields_set:
+            self.min_lead_hours = self.entry_window_min_hours
+        elif "min_lead_hours" in self.model_fields_set:
+            self.entry_window_min_hours = self.min_lead_hours
+        return self
 
     @field_validator("odds_bookmakers")
     @classmethod
@@ -88,7 +97,9 @@ class Settings(BaseSettings):
     v2_min_net_edge: Decimal = Decimal("0.02")
     v2_longshot_price: Decimal = Decimal("0.25")
     v2_longshot_min_gross: Decimal = Decimal("0.04")
-    v2_price_floor: Decimal = Decimal("0.10")
+    # v5: entries below 25c were reliably negative against the close (docs/CHANGES_v5.md);
+    # rows under the floor are still logged as `price_floor` near misses.
+    v2_price_floor: Decimal = Decimal("0.25")
     v2_price_ceiling: Decimal = Decimal("0.90")
     v2_max_spread: Decimal = Decimal("0.04")
     min_books: int = 2
@@ -100,6 +111,9 @@ class Settings(BaseSettings):
     v3_devig_method: Literal["power", "shin", "worst_case"] = "power"
     v3_longshot_haircut: Literal["off", "slope", "flat", "none"] = "off"
     v3_allow_soft_reference: bool = True
+    # v5: the v3 net-edge threshold is multiplied by this below `v3_low_price_below`.
+    v3_low_price_threshold_multiplier: Decimal = Decimal("2.0")
+    v3_low_price_below: Decimal = Decimal("0.40")
     v3_large_gap_mode: Literal["reverify", "block"] = "reverify"
     v3_large_gap_max: Decimal = Decimal("0.12")
     v3_min_open_interest: Decimal = Decimal("0")
@@ -195,6 +209,18 @@ class Settings(BaseSettings):
     # resolves: paper results show same-day entries in efficient markets lose while
     # early entries keep their edge. 0 disables the check.
     min_lead_hours: int = 72
+    # v5 entry window, in hours before kickoff. `min_lead_hours` follows
+    # `entry_window_min_hours` (setting either one sets both); the max also bounds feed
+    # planning's lookahead. 0 disables a bound.
+    entry_window_min_hours: int = 72
+    entry_window_max_hours: int = 168
+    # Feeds that never qualify for the entry window but get shadow-only pulls at T-6h
+    # and T-90m of their earliest Kalshi game, capped at `measure_daily_credit_cap`
+    # credits per UTC day across all of them.
+    measure_feeds: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["icehockey_nhl", "basketball_nba", "basketball_ncaab"]
+    )
+    measure_daily_credit_cap: int = 2
 
     # Fees come from each series' Kalshi schedule (fees.fee_for_ticker); only the
     # rounding (`fee_rounding`) is configurable.

@@ -48,6 +48,16 @@ COHORTS: dict[str, tuple[str, str]] = {
         f"SELECT {_SHADOW_COLUMNS} FROM shadow_decisions WHERE rules_version='v3' "
         "AND would_trade=0 AND reason='entry_window' AND clv_status='ok'",
     ),
+    "v3_price_floor": (
+        "v3 near misses blocked by price_floor",
+        f"SELECT {_SHADOW_COLUMNS} FROM shadow_decisions WHERE rules_version='v3' "
+        "AND would_trade=0 AND reason='price_floor' AND clv_status='ok'",
+    ),
+    "v3_thin_market": (
+        "v3 near misses blocked by thin_market",
+        f"SELECT {_SHADOW_COLUMNS} FROM shadow_decisions WHERE rules_version='v3' "
+        "AND would_trade=0 AND reason='thin_market' AND clv_status='ok'",
+    ),
     "line_move_follower": (
         "v2 line_move_follower shadows",
         f"SELECT {_SHADOW_COLUMNS} FROM shadow_decisions WHERE strategy='line_move_follower' "
