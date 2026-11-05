@@ -1,0 +1,64 @@
+{
+  "_comment": "v5 Phase 3-E information-release calendar. Times are America/New_York wall time; priorities are 1-5, 5 highest. Loaded and validated by prediction_bot.release_calendar.ReleaseCalendar.",
+  "timezone": "America/New_York",
+  "close_priority": 5,
+  "default_priority": 2,
+  "grid_time": "15:00",
+  "grid_priority": 2,
+  "soccer_weekend_feed_cap": 2,
+  "feeds": {
+    "americanfootball_nfl": {
+      "note": "Practice/status reports due 16:00 ET; inactives 90 min before kickoff.",
+      "entries": [
+        {"kind": "clock", "days": ["wed", "thu", "fri"], "time": "16:20", "priority": 5, "note": "practice and status reports for Sunday games"},
+        {"kind": "clock", "days": ["sun"], "time": "11:35", "priority": 5, "requires_game_within_hours": 12, "note": "inactives, 1:00 pm games"},
+        {"kind": "clock", "days": ["sun"], "time": "14:55", "priority": 5, "requires_game_within_hours": 12, "note": "inactives, 4:05/4:25 pm games"},
+        {"kind": "clock", "days": ["sun"], "time": "18:50", "priority": 5, "requires_game_within_hours": 12, "note": "inactives, Sunday night"},
+        {"kind": "clock", "days": ["mon"], "time": "18:50", "priority": 5, "requires_game_within_hours": 12, "note": "inactives, Monday night"},
+        {"kind": "kickoff", "minutes_before": 95, "priority": 4}
+      ]
+    },
+    "americanfootball_ncaaf": {
+      "entries": [
+        {"kind": "clock", "days": ["mon"], "time": "11:30", "priority": 4},
+        {"kind": "clock", "days": ["sat"], "time": "09:30", "priority": 4, "requires_game_within_hours": 24},
+        {"kind": "clock", "days": ["sun"], "time": "13:30", "priority": 4},
+        {"kind": "kickoff", "minutes_before": 90, "priority": 4}
+      ]
+    },
+    "basketball_nba": {
+      "enabled": false,
+      "note": "RESERVED. Day-before report by 5 pm local, game-day report 11 am-1 pm local; approximated in ET. Enable with PBOT_RELEASE_ENABLE_FEEDS=basketball_nba.",
+      "entries": [
+        {"kind": "clock", "days": ["daily"], "time": "13:35", "priority": 3, "requires_game_within_hours": 12, "note": "game-day report"},
+        {"kind": "clock", "days": ["daily"], "time": "17:35", "priority": 3, "requires_game_within_hours": 36, "note": "day-before report"},
+        {"kind": "kickoff", "minutes_before": 75, "priority": 3}
+      ]
+    },
+    "soccer_epl": {
+      "note": "Lineups 75 min before kickoff.",
+      "entries": [{"kind": "kickoff", "minutes_before": 70, "priority": 3}]
+    },
+    "soccer_spain_la_liga": {"entries": [{"kind": "kickoff", "minutes_before": 55, "priority": 3}]},
+    "soccer_italy_serie_a": {"entries": [{"kind": "kickoff", "minutes_before": 55, "priority": 3}]},
+    "soccer_germany_bundesliga": {"entries": [{"kind": "kickoff", "minutes_before": 55, "priority": 3}]},
+    "soccer_france_ligue_one": {"entries": [{"kind": "kickoff", "minutes_before": 55, "priority": 3}]},
+    "soccer_uefa_champs_league": {"entries": [{"kind": "kickoff", "minutes_before": 55, "priority": 3}]},
+    "soccer_uefa_europa_league": {"entries": [{"kind": "kickoff", "minutes_before": 55, "priority": 3}]},
+    "soccer_uefa_europa_conference_league": {"entries": [{"kind": "kickoff", "minutes_before": 55, "priority": 3}]},
+    "soccer_usa_mls": {"entries": [{"kind": "kickoff", "minutes_before": 55, "priority": 3}]},
+    "soccer_mexico_ligamx": {"entries": [{"kind": "kickoff", "minutes_before": 55, "priority": 3}]},
+    "icehockey_nhl": {
+      "note": "Measurement only (Phase 2.5): used only if the feed becomes eligible; measurement pulls keep their own T-6h/T-90m targets.",
+      "entries": [{"kind": "kickoff", "minutes_before": 70, "priority": 2}]
+    },
+    "baseball_mlb": {
+      "note": "Lineups 3-4 hours before first pitch.",
+      "entries": [{"kind": "kickoff", "minutes_before": 200, "priority": 2}]
+    },
+    "mma_mixed_martial_arts": {
+      "note": "Offset from the card start.",
+      "entries": [{"kind": "kickoff", "minutes_before": 120, "priority": 2}]
+    }
+  }
+}

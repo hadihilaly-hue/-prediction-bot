@@ -80,7 +80,10 @@ def test_paper_workflow_takes_the_slot_from_the_dispatch_input() -> None:
         "SPORTSBOOK_SLOT: ${{ inputs.slot == 'sportsbook' || (github.event_name == "
         "'workflow_dispatch' && inputs.slot == '') || github.event.schedule == '17 */2 * * *' }}"
     ) in workflow
-    assert 'DECISION="$(pbot slot-guard --slot "$SLOT")"' in workflow
+    assert (
+        'DECISION="$(pbot slot-guard --slot "$SLOT" --within-minutes 25 --plan-due)"'
+    ) in workflow
+    assert "      target:" in workflow and 'pbot pull-due --target "$TARGET"' in workflow
     assert workflow.count("if: steps.guard.outputs.skip != 'true'") == 2
     # The GitHub schedule stays as the fallback, off :00.
     for cron in ('"17 */2 * * *"', '"47 * * * *"', '"17 1-23/2 * * *"'):
@@ -90,7 +93,8 @@ def test_paper_workflow_takes_the_slot_from_the_dispatch_input() -> None:
 def test_health_workflow_opens_one_missed_runs_issue() -> None:
     workflow = (ROOT / ".github/workflows/health.yml").read_text()
     assert '- cron: "33 * * * *"' in workflow
-    assert "pbot health --max-age-minutes 90" in workflow and "shell: bash" in workflow
+    assert 'pbot health --max-age-minutes "$MAX_AGE_MINUTES"' in workflow
+    assert "vars.PBOT_HEALTH_MAX_AGE_MINUTES || '90'" in workflow and "shell: bash" in workflow
     assert 'TITLE="paper bot missed runs"' in workflow
     assert "gh issue comment" in workflow and "gh issue create" in workflow
     assert "issues: write" in workflow
@@ -98,7 +102,7 @@ def test_health_workflow_opens_one_missed_runs_issue() -> None:
 
 def test_cloudflare_worker_config_and_unit_tests() -> None:
     config = (ROOT / "infra/cloudflare-trigger/wrangler.toml").read_text()
-    assert 'crons = ["17,47 * * * *"]' in config
+    assert 'crons = ["7-57/10 * * * *"]' in config  # Phase 3-E: every 10 min, off :00/:30
     assert "GITHUB_TOKEN" in config and "secret" in config
     assert "ghp_" not in config and "github_pat_" not in config
     node = shutil.which("node")

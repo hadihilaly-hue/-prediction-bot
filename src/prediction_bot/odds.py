@@ -450,15 +450,50 @@ class OddsPacer:
         # Share of each run's credit the rotation may spend; the pull plan (Phase 3)
         # leaves the rest of the month's credits for its targets.
         self.rotation_share = 1.0
+        # Credits per month held for move-trigger pulls (Phase 3-E). Plan credits stop
+        # above it and the rotation paces as if it were spent; trigger runs draw on it.
+        self.move_reserve = 0
+        # Phase 3-E: the rotation paces down to `plan_floor()` (the 25-credit reserve
+        # plus the unused move reserve) instead of toward zero, so month-end plan
+        # targets are not starved by the rotation spending below the plan's floor.
+        self.rotation_holds_floor = False
+        self.plan_hold = 0
+        self.reserve_paid = False
 
     # Credits kept back from measurement and plan pulls (5% of the 500 free tier).
     MEASURE_RESERVE = 25
 
-    def grant_extra_credit(self, feed: str) -> bool:
+    def move_reserve_left(self, now: datetime | None = None) -> int:
+        """Credits of `move_reserve` move-trigger pulls have not used this month."""
+        if self.move_reserve <= 0:
+            return 0
+        used = (
+            self.ledger.odds_triggers_pulled_in_month(now or datetime.now(timezone.utc))
+            if self.ledger is not None
+            else 0
+        )
+        return max(0, self.move_reserve - used)
+
+    def plan_floor(self, now: datetime | None = None) -> int:
+        """Plan credits are refused below this month balance."""
+        return self.MEASURE_RESERVE + self.move_reserve_left(now)
+
+    def rotation_floor(self, now: datetime | None = None) -> int:
+        """Credits the rotation paces around: the unused move reserve, and with
+        `rotation_holds_floor` the plan's floor plus `plan_hold` (one credit per
+        top-priority plan pull still ahead in the known schedule, set by the caller
+        from `pull_plan.must_demand`), so month-end closes and NFL clocks are not
+        starved by the rotation."""
+        if not self.rotation_holds_floor:
+            return self.move_reserve_left(now)
+        return self.plan_floor(now) + max(0, self.plan_hold)
+
+    def grant_extra_credit(self, feed: str, floor: int | None = None) -> bool:
         """Add one credit on top of this run's budget for `feed`, outside the carry.
 
-        Refused in trigger runs or when it would dip into the month's reserve. Callers
-        enforce their own daily caps (measurement, pull plan).
+        Refused in trigger runs or when it would dip into the month's reserve (`floor`,
+        default `MEASURE_RESERVE`; plan pulls pass `plan_floor()`). Callers enforce
+        their own daily caps (measurement, pull plan).
         """
         if self.trigger_mode or self.plan_mode or self.ledger is None:
             return False
@@ -468,7 +503,7 @@ class OddsPacer:
             remaining = int(self.client.requests_remaining or 0)
         except ValueError:
             return False
-        if remaining - self.client.budget - 1 < self.MEASURE_RESERVE:
+        if remaining - self.client.budget - 1 < (self.MEASURE_RESERVE if floor is None else floor):
             return False
         self.client.budget += 1
         self.extra_feeds.append(feed)
@@ -601,7 +636,10 @@ class OddsPacer:
         self.measure_feed = None
         self.extra_feeds = []
         self.client.events_free = True
-        if self.trigger_mode and self.credit < 0:
+        # A move pull the month's move reserve still covers is paid by the reserve, not
+        # the rotation's carry (the rotation already paces as if the reserve is spent).
+        self.reserve_paid = self.trigger_mode and self.move_reserve_left(now) > 0
+        if self.trigger_mode and self.credit < 0 and not self.reserve_paid:
             self.client.budget = 0
             self.client._events_requests_used_baseline = None
             return 0
@@ -614,7 +652,7 @@ class OddsPacer:
             self.client.budget = 0
             return 0
         if self.plan_mode:
-            self.client.budget = 1 if left - 1 >= self.MEASURE_RESERVE else 0
+            self.client.budget = 1 if left - 1 >= self.plan_floor(now) else 0
             self.client._events_requests_used_baseline = (
                 int(self.client.requests_used) if self.client.requests_used else None
             )
@@ -622,11 +660,21 @@ class OddsPacer:
             return self.client.budget
         if self.trigger_mode:
             self.client.budget = min(1, max(0, left))
+            if (
+                self.rotation_holds_floor
+                and not self.reserve_paid
+                and left - 1 < self.rotation_floor(now)
+            ):
+                # Past its reserve, a move pull never takes the hard reserve or a
+                # credit planned for the next 48h's top-priority plan pulls.
+                self.client.budget = 0
             self.client._events_requests_used_baseline = (
                 int(self.client.requests_used) if self.client.requests_used else None
             )
             log.info("odds api: trigger run budget %d", self.client.budget)
             return self.client.budget
+        # The rotation paces over what is left after `rotation_floor()`.
+        left = max(0, left - self.rotation_floor(now))
         if self.cadence_mode != "legacy":
             return self._cadence_start(left, now or datetime.now(timezone.utc))
         share = run_share(left, self.runs_per_day, now) * self.rotation_share
@@ -641,7 +689,7 @@ class OddsPacer:
     def finish_run(self, now: datetime | None = None, feeds: list[str] | None = None) -> None:
         if self.ledger is None:
             return
-        if not self.plan_mode:
+        if not self.plan_mode and not self.reserve_paid:
             extras = sum(1 for feed in self.extra_feeds if self.extra_pulled(feed))
             spent = self.client.requests_made - extras
             carry = max(-1.0, min(self.credit - spent, 1.0))

@@ -87,8 +87,10 @@ setting is a repository Variable, so it can change without a code change.
   closing-price gain above zero, and no worse than the taker fills).
 * **Size.** One unit per bet (`PBOT_SIZING_MODE=flat`). `kelly` sizes from the fill
   cohort's own closing-price gain, and only once that cohort is supported.
-* **Odds credits.** The free tier's ~500 credits a month go to the 72h+ rotation and a
-  per-game pull plan (T−24h, T−6h, T−90m, T−10m) that captures the sharp close.
+* **Odds credits.** The free tier's ~500 credits a month go to the 72h+ rotation, a pull
+  plan timed to scheduled news (`data/release_calendar.json`: NFL status reports and
+  inactives, lineups) plus the T−10m sharp close, and a 50-credit reserve for
+  move-trigger pulls.
 * **Polymarket** is read-only reference data, never traded.
 
 The full change log is `docs/CHANGES_v5.md`.
@@ -140,9 +142,9 @@ overstate what the real book offers — evaluate strategies on production data.
 
 ### Scheduler reliability
 
-GitHub drops many scheduled slots. A Cloudflare Worker (`infra/cloudflare-trigger`, setup steps in its README) can start `paper.yml` at :17 and :47 through `workflow_dispatch` with a `slot` input. The GitHub schedule stays as a fallback, and `pbot slot-guard` stops a second run of the same slot.
+GitHub drops many scheduled slots. A Cloudflare Worker (`infra/cloudflare-trigger`, setup steps in its README) can start `paper.yml` every 10 minutes (:07, :17, … :57) through `workflow_dispatch` with a `slot` input. The GitHub schedule stays as a fallback, and `pbot slot-guard` stops a second run of the same slot. A tick within 25 minutes of the last scanner run is idle (no ledger commit) unless a pull-plan target is due.
 
-An hourly `health.yml` workflow runs `pbot health`, which fails once the ledger's last run is more than 90 minutes old. On failure it opens or updates one issue titled "paper bot missed runs".
+An hourly `health.yml` workflow runs `pbot health`, which fails once the ledger's last run is more than 90 minutes old (repo Variable `PBOT_HEALTH_MAX_AGE_MINUTES`; 40 once the Worker is live). On failure it opens or updates one issue titled "paper bot missed runs".
 
 ## Safety
 

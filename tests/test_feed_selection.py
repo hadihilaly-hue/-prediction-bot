@@ -736,6 +736,7 @@ def test_workflow_uses_twelve_two_hour_sportsbook_slots() -> None:
     ) in workflow
     # v5 Phase 3: a due pull-plan target runs first on scanner slots.
     assert 'PLAN_FEED="$(pbot pull-due)" || PLAN_FEED=""' in workflow
+    assert 'PLAN_FEED="$(pbot pull-due --target "$TARGET")" || PLAN_FEED=""' in workflow
     assert '--plan "$PLAN_FEED" | tee -a ledger/last_run.txt || true' in workflow
     assert (
         'if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" != true ] \\\n'

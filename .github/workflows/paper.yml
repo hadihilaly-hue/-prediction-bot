@@ -9,9 +9,12 @@ name: Paper trading
 # Manual runs (no slot input) always include the sportsbook strategy.
 #
 # Scheduling (v5 Phase 6): GitHub drops 40-70% of scheduled slots, so a Cloudflare
-# Worker (infra/cloudflare-trigger) dispatches this workflow at :17/:47 with
-# inputs.slot. The schedule below stays as a fallback; when both fire, the second run
-# sees the first in the ledger (`pbot slot-guard`) and stops before doing anything.
+# Worker (infra/cloudflare-trigger) dispatches this workflow with inputs.slot. The
+# schedule below stays as a fallback; when both fire, the second run sees the first in
+# the ledger (`pbot slot-guard`) and stops before doing anything.
+# Phase 3-E: the Worker ticks every 10 minutes (:07, :17, ... :57). A scanner tick
+# within 25 minutes of the last scanner run does nothing (no run row, no commit)
+# unless a pull-plan target is due and funded (`pbot slot-guard --plan-due`).
 on:
   schedule:
     - cron: "17 */2 * * *"  # book scanner + sportsbook
@@ -21,6 +24,10 @@ on:
     inputs:
       slot:
         description: "scanner or sportsbook (blank: a manual run with the sportsbook step)"
+        required: false
+        default: ""
+      target:
+        description: "optional pull_plan id: run only that target's feed if it is due"
         required: false
         default: ""
 
@@ -56,9 +63,17 @@ jobs:
         env:
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
           SLOT: ${{ inputs.slot || (github.event.schedule == '17 */2 * * *' && 'sportsbook') || (github.event_name == 'schedule' && 'scanner') || '' }}
+          TARGET: ${{ inputs.target || '' }}
+          PBOT_RULES_VERSION: ${{ vars.PBOT_RULES_VERSION || 'v3' }}
+          PBOT_ODDS_PULL_PLAN: ${{ vars.PBOT_ODDS_PULL_PLAN || 'hybrid' }}
+          PBOT_ODDS_ENTRY_SHARE: ${{ vars.PBOT_ODDS_ENTRY_SHARE || '0.5' }}
+          PBOT_ODDS_RELEASE_CALENDAR: ${{ vars.PBOT_ODDS_RELEASE_CALENDAR || 'on' }}
+          PBOT_RELEASE_ENABLE_FEEDS: ${{ vars.PBOT_RELEASE_ENABLE_FEEDS || '' }}
+          PBOT_ODDS_GRID: ${{ vars.PBOT_ODDS_GRID || 'rotation' }}
+          PBOT_ODDS_MOVE_RESERVE: ${{ vars.PBOT_ODDS_MOVE_RESERVE || '50' }}
         run: |
-          if [ -z "$SLOT" ]; then echo "skip=false" >> "$GITHUB_OUTPUT"; exit 0; fi
-          DECISION="$(pbot slot-guard --slot "$SLOT")"
+          if [ -z "$SLOT" ] || [ -n "$TARGET" ]; then echo "skip=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          DECISION="$(pbot slot-guard --slot "$SLOT" --within-minutes 25 --plan-due)"
           echo "slot $SLOT: $DECISION"
           echo "skip=$([ "$DECISION" = skip ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
@@ -91,6 +106,15 @@ jobs:
           # day's credits the rotation does not keep; 'off' disables the plan.
           PBOT_ODDS_PULL_PLAN: ${{ vars.PBOT_ODDS_PULL_PLAN || 'hybrid' }}
           PBOT_ODDS_ENTRY_SHARE: ${{ vars.PBOT_ODDS_ENTRY_SHARE || '0.5' }}
+          # Phase 3-E: plan targets from data/release_calendar.json ('off' = Phase 3
+          # T-24h/T-6h/T-90m/T-10m). PBOT_RELEASE_ENABLE_FEEDS=basketball_nba turns on
+          # the RESERVED NBA entries. PBOT_ODDS_GRID=fallback (RESERVED) drops the 72h+
+          # rotation for one 15:00 ET grid pull per feed-day. Move-trigger pulls keep
+          # PBOT_ODDS_MOVE_RESERVE credits a month that plan pulls never spend.
+          PBOT_ODDS_RELEASE_CALENDAR: ${{ vars.PBOT_ODDS_RELEASE_CALENDAR || 'on' }}
+          PBOT_RELEASE_ENABLE_FEEDS: ${{ vars.PBOT_RELEASE_ENABLE_FEEDS || '' }}
+          PBOT_ODDS_GRID: ${{ vars.PBOT_ODDS_GRID || 'rotation' }}
+          PBOT_ODDS_MOVE_RESERVE: ${{ vars.PBOT_ODDS_MOVE_RESERVE || '50' }}
           # flat = one max_order_notional unit per entry; kelly = quarter-Kelly on an edge
           # capped at half the v3 cohort's mean CLV, only once that cohort is supported.
           PBOT_SIZING_MODE: ${{ vars.PBOT_SIZING_MODE || 'flat' }}
@@ -111,10 +135,13 @@ jobs:
           # github.event.schedule is the cron expression that fired, so slot selection is
           # immune to delayed starts; manual runs always include the sportsbook strategy.
           SPORTSBOOK_SLOT: ${{ inputs.slot == 'sportsbook' || (github.event_name == 'workflow_dispatch' && inputs.slot == '') || github.event.schedule == '17 */2 * * *' }}
+          # A dispatched pull_plan id runs only that target's feed (no rotation step).
+          TARGET: ${{ inputs.target || '' }}
         run: |
           set -eo pipefail
           SPORTSBOOK_SERIES_ARGS="$(python -c 'from prediction_bot.series import SPORTSBOOK_SERIES; print(" ".join(f"--series {series}" for series in SPORTSBOOK_SERIES))')"
           pbot paper -s book_scanner --cycles 1 | tee ledger/last_run.txt
+          if [ -n "$TARGET" ]; then SPORTSBOOK_SLOT=false; fi
           if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" = true ]; then
             if [ "$PBOT_RULES_VERSION" = "v3" ]; then
               pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \
@@ -132,11 +159,15 @@ jobs:
           if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" != true ] \
             && [ "$PBOT_RULES_VERSION" = "v3" ]; then
             # A due pull-plan target (e.g. a T-10m sharp close) wins over a move trigger.
-            PLAN_FEED="$(pbot pull-due)" || PLAN_FEED=""
+            if [ -n "$TARGET" ]; then
+              PLAN_FEED="$(pbot pull-due --target "$TARGET")" || PLAN_FEED=""
+            else
+              PLAN_FEED="$(pbot pull-due)" || PLAN_FEED=""
+            fi
             if [ -n "$PLAN_FEED" ]; then
               pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \
                 --plan "$PLAN_FEED" | tee -a ledger/last_run.txt || true
-            else
+            elif [ -z "$TARGET" ]; then
               FEED="$(pbot odds-trigger $SPORTSBOOK_SERIES_ARGS)" || FEED=""
               if [ -n "$FEED" ]; then
                 pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \

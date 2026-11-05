@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     @field_validator(
         "v2_disabled_sports",
         "measure_feeds",
+        "release_enable_feeds",
         "exp_road_dog_high_attention_events",
         "exp_road_dog_rivalries",
         mode="before",
@@ -256,6 +257,21 @@ class Settings(BaseSettings):
         }
     )
     odds_entry_share: float = 0.5
+    # v5 Phase 3-E: information-release calendar for plan targets (clock entries such
+    # as NFL status reports, kickoff entries such as lineups). `off` reproduces the
+    # Phase 3 T-24h/T-6h/T-90m/T-10m targets exactly.
+    odds_release_calendar: Literal["off", "on"] = "on"
+    release_calendar_path: Path = Path("data/release_calendar.json")
+    # Feeds whose calendar entries are disabled in the file but should run (RESERVED:
+    # NBA ships disabled; `basketball_nba` here turns its 13:35/17:35 ET pulls on).
+    release_enable_feeds: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    # `rotation` (default) keeps the 72h+ entry rotation on sportsbook slots;
+    # `fallback` (RESERVED) drops it, gives the plan the whole day budget and adds one
+    # 15:00 ET `grid` target per eligible feed on days with no other target.
+    odds_grid: Literal["rotation", "fallback"] = "rotation"
+    # Credits per month kept for move-trigger pulls (`odds_triggers`): plan targets
+    # never spend them, and the rotation paces as if they were already spent.
+    odds_move_reserve: int = 50
 
     # Fees come from each series' Kalshi schedule (fees.fee_for_ticker); only the
     # rounding (`fee_rounding`) is configurable.
