@@ -8,7 +8,7 @@ v5 builds on v4 (`docs/CHANGES_v4.md`) and the credit cadence work (`docs/CHANGE
 
 It is still paper-only: no live-order path, no credential changes, and every ledger change is additive.
 
-**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)), Phase 3 ([#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63)) and Phase 4 ([#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65), re-opened against `main` after #64 merged into its stacked base), Phase 5 ([#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66)) and Phase 6 ([#67](https://github.com/hadihilaly-hue/-prediction-bot/pull/67)) are merged. Phase 7 is open against `main`. Later phases follow one PR each.
+**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)), Phase 3 ([#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63)) and Phase 4 ([#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65), re-opened against `main` after #64 merged into its stacked base), Phase 5 ([#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66)) and Phase 6 ([#67](https://github.com/hadihilaly-hue/-prediction-bot/pull/67)) and Phase 7 ([#68](https://github.com/hadihilaly-hue/-prediction-bot/pull/68)) are merged. Phase 8 is open against `main`.
 
 ## What changed, by phase
 
@@ -21,7 +21,8 @@ It is still paper-only: no live-order path, no credential changes, and every led
 | 4: maker queue | [#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65) (first [#64](https://github.com/hadihilaly-hue/-prediction-bot/pull/64)) | `/markets/trades` and depth-20 `orderbook_snapshots`; maker shadows record their queue and price rule (bid+1c, or at the bid on a 1c spread); queue-model fills from the trade tape beside the candle rules; maker gate now decides on queue fills with clean CLV |
 | 5: Polymarket reference | [#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66) | Read-only Polymarket client; tracked Kalshi events matched by team aliases and kickoff; `reference_quotes` mids on scanner runs (≤200 requests); `clv_polymarket` in every CLV table and `clv-report`; `pbot reference-gaps` |
 | 6: scheduler reliability | [#67](https://github.com/hadihilaly-hue/-prediction-bot/pull/67) | Cloudflare Worker cron (`infra/cloudflare-trigger`) dispatching `paper.yml` with a `slot` input; `pbot slot-guard` against double runs; `pbot health` and an hourly `health.yml` that opens a "paper bot missed runs" issue |
-| 7: audit and sizing | this PR | Stale-book check fails closed; Kalshi timestamps always aware; order-book parser tolerant of key and unit variants; `PBOT_SIZING_MODE` (`flat` default, `kelly` capped by supported cohort CLV) |
+| 7: audit and sizing | [#68](https://github.com/hadihilaly-hue/-prediction-bot/pull/68) | Stale-book check fails closed; Kalshi timestamps always aware; order-book parser tolerant of key and unit variants; `PBOT_SIZING_MODE` (`flat` default, `kelly` capped by supported cohort CLV) |
+| 8: dashboard and docs | this PR | Dashboard "Measurement health" section (CLV by cohort with CIs, share beating the close, realized vs model-expected P&L, maker fill rate and drift, feed freshness, runs per day, rejections per day); README "Current rules (v5)" and "How to read the evidence" |
 
 ## Phase 0: measurement fixes
 
@@ -555,6 +556,48 @@ The tag map is a config key (`polymarket_tags`), so wrong slugs can be fixed wit
 - the 2-way position-key merge and the 3-way NO leg kept separate;
 - flat staking one unit;
 - `kelly` staying flat while the cohort is unsupported, then capping the edge at half the supported cohort's CLV (1c of a 2c mean; 5 dollars at 0.50 on a 1,000-dollar bankroll).
+
+## Phase 8: dashboard and docs
+
+### 8.1 Dashboard: "Measurement health"
+A new section below "Is it actually working?". Data comes from `dashboard._v5_health_data`, except where noted.
+
+| Panel | What it shows | Source |
+|---|---|---|
+| Cards | Model-expected profit, realized profit, the gap (labelled as variance, in model SDs) and the share of paper bets beating the close | Expected is Σ((fair − price)·count − fee) over settled fills; realized is recomputed per fill (win `count·(1−price) − fee`, loss `−(count·price + fee)`), since `settlements.pnl` is per ticker. The model SD is √Σ count²·fair·(1−fair). |
+| CLV by cohort | Each `pbot clv-report` cohort, all rows: n, mean vs Kalshi mid with 95% CI, share beating the close, verdicts for mid, bid and sharp close | `clv_report` (already in the payload since Phase 0); the per-group breakdown stays under Details |
+| Practice resting orders | Fill rate and drift to the close (mid and bid) for the queue, trade-through and optimistic rules | `quality.maker_shadow_scoring`, which was computed but not drawn before |
+| Data freshness | Newest row and its age for each odds feed, Kalshi markets, quotes, order books and closing prices, Polymarket and injuries; for odds feeds, the median and p90 lag between the newest book update and our pull over 7 days | `odds_snapshots.max_book_update`, plus each table's own timestamp |
+| Runs per day | Distinct half-hour slots that ran per UTC day vs 48 scheduled (today counts only slots already due), plus triggered runs | `runs`; slot runs have no `trigger_reason`, the same rule `pbot health` uses |
+| Rejections per day | Gate rejections per reason for each of the last 7 UTC days | `blocks` |
+
+On the 5 Nov ledger, the cards read expected +$153.84 against realized +$560.02 over 87 settled fills, which matches the brief. The gap is +$406.18, about 1.4 model SDs. Runs per day shows 8–16 of 48 slots a day since 22 Oct, the gap the Phase 6 Worker is meant to close.
+
+The page also gets one CSS rule, `main > * { min-width:0; }`. Without it, wide tables stretched every section past the screen on a phone: 1,004px wide on a 390px screen before this PR, and 1,133px with the new tables. The two-column block (recent results and account value) also gets a column minimum of `min(460px,100%)` instead of 460px. With both changes the page is exactly 390px wide on a 390px screen, and desktop still shows two columns.
+
+### 8.2 README
+- The "1c after fees" and "0.32 bets a day" text the brief names was never in the README:
+  - Phase 2 corrected the "1c" claim in the workflow comment and `docs/PIPELINE.md`;
+  - "0.32 bets a day" is only in `docs/CHANGES_v4.md`, as history.
+- New sections:
+  - **Current rules (v5):** reference books, entry thresholds, execution gate, sizing, credit split and Polymarket, with the workflow's defaults.
+  - **How to read the evidence:** the n ≥ 50 and whole-CI-above-zero rule, "P&L is not evidence" with the current numbers, and links to `pbot clv-report`, the dashboard and `docs/evidence/`.
+- Out-of-date lines corrected in place:
+  - the strategies table now lists `sportsbook_v3` and marks the v1 strategies;
+  - the fee line now describes per-series fees;
+  - the sportsbook slot schedule;
+  - the two Roadmap entries that now exist (maker fills, Polymarket);
+  - "the run covers NFL/NCAAF/NBA/NHL" now says feeds are chosen per run by `feed_stats` eligibility and mapped games;
+  - the Roadmap's WebSocket order-book item is removed, since v5 is public REST only.
+- Everything else is unchanged.
+
+### Acceptance (`tests/test_v5_dashboard.py`)
+- per-fill P&L recompute, the open fill excluded, and the model SD;
+- feed age, book lag, and a naive timestamp read as UTC;
+- slot counting (duplicate runs in one slot count once; today counts only slots already due);
+- rejections per reason per day within 7 days;
+- every panel rendered;
+- the README stating the rule, linking `docs/evidence/`, and no longer giving the old schedule, fee formula, fixed feed list or WebSocket plan.
 
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:
