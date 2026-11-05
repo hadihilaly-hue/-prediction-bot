@@ -305,6 +305,27 @@ CREATE TABLE IF NOT EXISTS feed_skips (
 );
 CREATE INDEX IF NOT EXISTS feed_skips_feed_created_at
     ON feed_skips(feed, created_at);
+CREATE TABLE IF NOT EXISTS reference_quotes (
+    id INTEGER PRIMARY KEY,
+    event_ticker TEXT NOT NULL,
+    side TEXT NOT NULL,
+    source TEXT NOT NULL,
+    mid TEXT NOT NULL,
+    bid TEXT,
+    ask TEXT,
+    market_ref TEXT,
+    fetched_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS reference_quotes_event_time
+    ON reference_quotes(event_ticker, source, fetched_at);
+CREATE TABLE IF NOT EXISTS reference_unmatched (
+    id INTEGER PRIMARY KEY,
+    event_ticker TEXT NOT NULL,
+    source TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    unknown_names TEXT,
+    seen_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS orderbook_snapshots (
     id INTEGER PRIMARY KEY,
     ticker TEXT NOT NULL,
@@ -664,6 +685,7 @@ class Ledger:
                 "injury_source": "TEXT",
                 "clv_sharp_close": "TEXT",
                 "clv_sharp_source": "TEXT",
+                "clv_polymarket": "TEXT",
             },
             "odds_snapshots": {
                 "max_book_update": "TEXT",
@@ -696,6 +718,7 @@ class Ledger:
                 "clv_sharp_source": "TEXT",
                 "ask_depth": "TEXT",
                 "open_interest": "TEXT",
+                "clv_polymarket": "TEXT",
             },
             "execution_mode_log": {
                 "queue_n": "INTEGER",
@@ -723,6 +746,7 @@ class Ledger:
                 "fill_queue_at": "TEXT",
                 "queue_status": "TEXT",
                 "clv_status": "TEXT",
+                "clv_polymarket": "TEXT",
             },
         }.items():
             self._ensure_columns(self.conn, table, columns)
@@ -818,6 +842,52 @@ class Ledger:
             (Decimal(price) * Decimal(size) + Decimal(fee) for price, size, fee in orders),
             Decimal(0),
         )
+
+    def record_reference_quote(
+        self,
+        event_ticker: str,
+        outcome: str,
+        source: str,
+        mid: Decimal,
+        bid: Decimal | None,
+        ask: Decimal | None,
+        market_ref: str | None,
+        at: datetime,
+    ) -> None:
+        """One second-venue mid for an outcome (`side` holds the outcome id)."""
+        self.conn.execute(
+            "INSERT INTO reference_quotes (event_ticker,side,source,mid,bid,ask,market_ref,"
+            "fetched_at) VALUES (?,?,?,?,?,?,?,?)",
+            (
+                event_ticker,
+                outcome,
+                source,
+                str(mid),
+                None if bid is None else str(bid),
+                None if ask is None else str(ask),
+                market_ref,
+                self._utc(at).isoformat(),
+            ),
+        )
+        self.conn.commit()
+
+    def record_reference_unmatched(
+        self, event_ticker: str, source: str, reason: str, unknown_names: str, at: datetime
+    ) -> None:
+        """Log a tracked event a reference venue could not be matched to (once a day)."""
+        day = self._utc(at).date().isoformat()
+        exists = self.conn.execute(
+            "SELECT 1 FROM reference_unmatched WHERE event_ticker=? AND source=? "
+            "AND substr(seen_at,1,10)=?",
+            (event_ticker, source, day),
+        ).fetchone()
+        if exists is None:
+            self.conn.execute(
+                "INSERT INTO reference_unmatched (event_ticker,source,reason,unknown_names,"
+                "seen_at) VALUES (?,?,?,?,?)",
+                (event_ticker, source, reason, unknown_names or None, self._utc(at).isoformat()),
+            )
+            self.conn.commit()
 
     # A depth snapshot older than this when a shadow is placed is not its queue.
     ORDERBOOK_QUEUE_MAX_AGE = timedelta(minutes=30)

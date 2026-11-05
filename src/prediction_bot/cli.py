@@ -19,6 +19,7 @@ from prediction_bot.cadence import CadenceCalendar, parse_day_overrides
 from prediction_bot.clv import (
     backfill_clv_commence_times,
     record_clv,
+    record_polymarket_clv,
     record_sharp_clv,
     refresh_clv_statuses,
 )
@@ -62,6 +63,7 @@ from prediction_bot.pull_plan import (
     plan_pulls,
     select_plan_pull,
 )
+from prediction_bot.reference_quotes import poll_reference_quotes
 from prediction_bot.series import SPORTSBOOK_SERIES
 from prediction_bot.strategies import (
     STRATEGIES,
@@ -71,6 +73,7 @@ from prediction_bot.strategies import (
 )
 from prediction_bot.venues.kalshi import KalshiClient
 from prediction_bot.venues.kalshi_auth import KalshiSigner
+from prediction_bot.venues.polymarket import PolymarketClient
 
 app = typer.Typer(help="Prediction-market bot (Kalshi demo first).", no_args_is_help=True)
 console = Console()
@@ -532,6 +535,20 @@ def paper(
             record_sharp_clv(ledger)
         except Exception:
             log.exception("Sharp-close CLV scoring failed; continuing paper cycle")
+        if s.polymarket_enabled and not uses_odds:
+            # Scanner runs only: Polymarket mids for tracked events (never traded).
+            try:
+                poll_reference_quotes(
+                    ledger,
+                    PolymarketClient(s.polymarket_gamma_base, s.polymarket_clob_base),
+                    s,
+                )
+            except Exception:
+                log.exception("Polymarket reference quotes failed; continuing paper cycle")
+        try:
+            record_polymarket_clv(ledger)
+        except Exception:
+            log.exception("Polymarket CLV scoring failed; continuing paper cycle")
         markets = _fetch(client, series)
         snapshot_markets = markets
         if not series and strategy == ["book_scanner"]:
@@ -1054,6 +1071,47 @@ def _plan_games_listed(odds: OddsClient, ledger: Ledger, feed: str, now: datetim
         log.warning("Pull-plan events check failed for %s: %s", feed, exc)
         return False
     return bool(events)
+
+
+@app.command("reference-gaps")
+def reference_gaps(
+    days: int = typer.Option(14, help="Look back this many days"),
+) -> None:
+    """Markdown list of tracked Kalshi events Polymarket could not be matched to."""
+    s = _settings()
+    ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    rows = ledger.conn.execute(
+        "SELECT event_ticker,reason,COALESCE(unknown_names,''),MAX(seen_at),COUNT(*) "
+        "FROM reference_unmatched WHERE source='polymarket' AND seen_at>=? "
+        "GROUP BY event_ticker,reason,unknown_names ORDER BY event_ticker",
+        (since,),
+    ).fetchall()
+    names: dict[str, int] = {}
+    for _event, _reason, unknown, _seen, count in rows:
+        for name in filter(None, str(unknown).split(",")):
+            names[name] = names.get(name, 0) + int(count)
+    lines = [
+        "# Polymarket alias gaps",
+        "",
+        f"Tracked Kalshi events with no Polymarket game market match, last {days} days.",
+        "Names are Polymarket outcome or subject names no `teams.py` alias resolved; add",
+        "them as `polymarket_names` in `teams.json` once checked.",
+        "",
+        "## Unresolved Polymarket names",
+        "",
+        *([f"- `{n}` ({c} events)" for n, c in sorted(names.items())] or ["- none"]),
+        "",
+        "## Unmatched events",
+        "",
+        "| Kalshi event | Reason | Days seen | Last seen |",
+        "|---|---|---:|---|",
+        *[
+            f"| `{event}` | {reason} | {count} | {str(seen)[:16]} |"
+            for event, reason, _unknown, seen, count in rows
+        ],
+    ]
+    typer.echo("\n".join(lines))
 
 
 @app.command("pull-due")

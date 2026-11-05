@@ -1154,7 +1154,7 @@ _TEMPLATE = """<!doctype html>
     </details>
     <details>
       <summary>Closing-line evidence by cohort (pbot clv-report)</summary>
-      <p class="hint">Cents per contract, counting only rows with a clean closing price. Mid and bid are Kalshi 5 minutes before kickoff; sharp is the devigged Pinnacle (or Circa/BetOnline) line in the last 20 minutes before kickoff. A cohort is supported at 50+ rows with the whole 95% range above zero, rejected with the whole range below zero, and open otherwise. Profit and loss is not evidence.</p>
+      <p class="hint">Cents per contract, counting only rows with a clean closing price. Mid and bid are Kalshi 5 minutes before kickoff; sharp is the devigged Pinnacle (or Circa/BetOnline) line in the last 20 minutes before kickoff; Polymarket is its mid in the last 35 minutes before kickoff (reference only, never traded). A cohort is supported at 50+ rows with the whole 95% range above zero, rejected with the whole range below zero, and open otherwise. Profit and loss is not evidence.</p>
       <label class="hint" for="clvr-cohort">Cohort </label><select id="clvr-cohort"></select>
       <div class="tablewrap"><table id="clvreport"></table></div>
     </details>
@@ -1651,14 +1651,15 @@ _TEMPLATE = """<!doctype html>
     const mid = cohort.metrics.clv_kalshi || {};
     const bid = cohort.metrics.clv_kalshi_bid || {};
     const sharp = cohort.metrics.clv_sharp_close || {};
+    const poly = cohort.metrics.clv_polymarket || {};
     const groups = [['All', 'all', null]];
     Object.keys(mid).filter(k => k !== 'all').forEach(k => Object.keys(mid[k] || {}).forEach(g => groups.push([(groupNames[k.replace('by_', '')] || k) + ' ' + g, k, g])));
     const pick = (m, k, g) => k === 'all' ? m.all : (m[k] || {})[g];
     const rows = groups.map(([label, k, g]) => {
-      const a = pick(mid, k, g) || {}, b = pick(bid, k, g) || {}, c = pick(sharp, k, g) || {};
-      return [label, String(a.n || 0), {v: signedCents(a.mean), cls: tone(a.mean)}, ciText(a), num(a.beat_close) ? pct(a.beat_close) : '–', verdictPill(a.verdict), {v: signedCents(b.mean), cls: tone(b.mean)}, verdictPill(b.verdict), String(c.n || 0), {v: signedCents(c.mean), cls: tone(c.mean)}, verdictPill(c.verdict)];
+      const a = pick(mid, k, g) || {}, b = pick(bid, k, g) || {}, c = pick(sharp, k, g) || {}, d = pick(poly, k, g) || {};
+      return [label, String(a.n || 0), {v: signedCents(a.mean), cls: tone(a.mean)}, ciText(a), num(a.beat_close) ? pct(a.beat_close) : '–', verdictPill(a.verdict), {v: signedCents(b.mean), cls: tone(b.mean)}, verdictPill(b.verdict), String(c.n || 0), {v: signedCents(c.mean), cls: tone(c.mean)}, verdictPill(c.verdict), String(d.n || 0), {v: signedCents(d.mean), cls: tone(d.mean)}];
     });
-    table('clvreport', cohort.label + ' (' + String(cohort.rows || 0) + ' rows).', ['Group', '#Rows', '#Vs mid', 'Mid 95% range', '#Beat close', 'Mid verdict', '#Vs bid', 'Bid verdict', '#Sharp rows', '#Vs sharp close', 'Sharp verdict'], rows, 'No scored rows yet.');
+    table('clvreport', cohort.label + ' (' + String(cohort.rows || 0) + ' rows).', ['Group', '#Rows', '#Vs mid', 'Mid 95% range', '#Beat close', 'Mid verdict', '#Vs bid', 'Bid verdict', '#Sharp rows', '#Vs sharp close', 'Sharp verdict', '#Polymarket rows', '#Vs Polymarket'], rows, 'No scored rows yet.');
   }
   $('clvr-cohort').innerHTML = Object.entries(R.cohorts || {}).map(([k, c]) => '<option value="' + esc(k) + '">' + esc(c.label) + '</option>').join('');
   $('clvr-cohort').addEventListener('change', renderClvReport);

@@ -227,6 +227,30 @@ class Settings(BaseSettings):
     # rotation for 72h+ entry pulls and lets the plan spend the rest of each day's
     # budget; `odds_entry_share` is the rotation's reserved share.
     odds_pull_plan: Literal["off", "hybrid"] = "hybrid"
+    # v5 Phase 5: Polymarket as a second, read-only reference price (never traded).
+    # The tag slugs are Polymarket's sport tags as best known; unverified from here.
+    polymarket_enabled: bool = True
+    polymarket_gamma_base: str = "https://gamma-api.polymarket.com"
+    polymarket_clob_base: str = "https://clob.polymarket.com"
+    polymarket_max_requests: int = 200
+    polymarket_tags: dict[str, str] = Field(
+        default_factory=lambda: {
+            "americanfootball_nfl": "nfl",
+            "americanfootball_ncaaf": "cfb",
+            "basketball_nba": "nba",
+            "basketball_ncaab": "cbb",
+            "icehockey_nhl": "nhl",
+            "baseball_mlb": "mlb",
+            "soccer_epl": "epl",
+            "soccer_spain_la_liga": "la-liga",
+            "soccer_italy_serie_a": "serie-a",
+            "soccer_germany_bundesliga": "bundesliga",
+            "soccer_france_ligue_one": "ligue-1",
+            "soccer_uefa_champs_league": "ucl",
+            "soccer_usa_mls": "mls",
+            "mma_mixed_martial_arts": "ufc",
+        }
+    )
     odds_entry_share: float = 0.5
 
     # Fees come from each series' Kalshi schedule (fees.fee_for_ticker); only the

@@ -22,21 +22,23 @@ METRICS: dict[str, str] = {
     "clv_kalshi": "Kalshi side mid at T-5 minus entry",
     "clv_kalshi_bid": "Kalshi side bid at T-5 minus entry",
     "clv_sharp_close": "devigged sharp-book close minus entry",
+    "clv_polymarket": "Polymarket mid at the Kalshi close minus entry",
 }
 
 # Cohort -> (label, SQL returning created_at, ticker, price, net_edge, window, commence,
-# clv_kalshi, clv_kalshi_bid, clv_sharp_close). Only `clv_status='ok'` rows count.
+# then one column per METRICS key, in order). Only `clv_status='ok'` rows count.
 _SHADOW_COLUMNS = (
     "created_at,ticker,price,net_edge,window,"
     "COALESCE(commence_time,commence_time_backfill),"
-    "clv_kalshi,clv_kalshi_bid,clv_sharp_close"
+    "clv_kalshi,clv_kalshi_bid,clv_sharp_close,clv_polymarket"
 )
 COHORTS: dict[str, tuple[str, str]] = {
     "fills": (
         "Paper fills (all rules versions)",
         "SELECT created_at,ticker,price,net_edge,NULL,"
         "COALESCE(commence_time,commence_time_backfill),"
-        "clv_kalshi,clv_kalshi_bid,clv_sharp_close FROM fills WHERE clv_status='ok'",
+        "clv_kalshi,clv_kalshi_bid,clv_sharp_close,clv_polymarket FROM fills "
+        "WHERE clv_status='ok'",
     ),
     "v3_net_edge": (
         "v3 near misses blocked by net_edge",
@@ -71,7 +73,7 @@ COHORTS: dict[str, tuple[str, str]] = {
     "maker_queue": (
         "v3 maker shadows filled under the queue model",
         "SELECT created_at,ticker,price,NULL,NULL,commence_time,"
-        "clv_kalshi,clv_kalshi_bid,clv_sharp_close FROM maker_shadow "
+        "clv_kalshi,clv_kalshi_bid,clv_sharp_close,clv_polymarket FROM maker_shadow "
         "WHERE COALESCE(rules_version,'v2')='v3' AND fill_queue_at IS NOT NULL "
         "AND clv_status='ok'",
     ),

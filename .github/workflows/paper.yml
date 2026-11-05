@@ -120,6 +120,7 @@ jobs:
           pbot report | tee ledger/REPORT.txt
           pbot predictions --limit 0 --markdown ledger/PREDICTIONS.md >/dev/null
           pbot dashboard --out ledger/index.html >/dev/null
+          pbot reference-gaps > ledger/polymarket_alias_gaps.md || true
           touch ledger/.nojekyll
 
       - name: Commit ledger
@@ -134,9 +135,10 @@ jobs:
             (cd wt && git checkout -q --orphan paper-ledger && git rm -rfq .)
           fi
           cp ledger/paper.sqlite ledger/last_run.txt ledger/REPORT.txt ledger/PREDICTIONS.md \
-             ledger/index.html ledger/.nojekyll wt/
+             ledger/index.html ledger/.nojekyll ledger/polymarket_alias_gaps.md wt/
           cd wt
-          git add paper.sqlite last_run.txt REPORT.txt PREDICTIONS.md index.html .nojekyll
+          git add paper.sqlite last_run.txt REPORT.txt PREDICTIONS.md index.html .nojekyll \
+            polymarket_alias_gaps.md
           if git diff --cached --quiet; then echo "no changes"; exit 0; fi
           git commit -q -m "paper cycle $(date -u +%FT%TZ)"
           git push origin paper-ledger

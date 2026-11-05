@@ -111,3 +111,36 @@ def kalshi_name_ok(series: str, team_id: str, yes_sub_title: str) -> bool:
         return False
     aliases: dict[str, Any] | None = _TEAMS.get(sport, {}).get(team_id)
     return aliases is not None and yes_sub_title.strip() in aliases["kalshi_names"]
+
+
+def _norm(name: str) -> str:
+    return " ".join(name.replace(".", "").casefold().split())
+
+
+def team_for_reference_name(sport: str, name: str) -> str | None:
+    """Team id for a name from a second reference venue (e.g. Polymarket), or None.
+
+    An exact match on any known alias wins: optional `polymarket_names`, then Odds API,
+    Kalshi and ESPN names. Otherwise a nickname ("Chiefs") is accepted only when exactly
+    one team's Odds API name ends with it. Anything ambiguous fails closed.
+    """
+    wanted = _norm(name)
+    if not wanted:
+        return None
+    teams = _TEAMS.get(sport, {})
+    for key in ("polymarket_names", "odds_names", "kalshi_names", "espn_names"):
+        exact = [
+            team_id
+            for team_id, aliases in teams.items()
+            if wanted in {_norm(alias) for alias in aliases.get(key, [])}
+        ]
+        if len(exact) == 1:
+            return exact[0]
+        if len(exact) > 1:
+            return None
+    suffix = [
+        team_id
+        for team_id, aliases in teams.items()
+        if any(_norm(alias).endswith(" " + wanted) for alias in aliases.get("odds_names", []))
+    ]
+    return suffix[0] if len(suffix) == 1 else None
