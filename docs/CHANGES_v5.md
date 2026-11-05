@@ -8,7 +8,7 @@ v5 builds on v4 (`docs/CHANGES_v4.md`) and the credit cadence work (`docs/CHANGE
 
 It is still paper-only: no live-order path, no credential changes, and every ledger change is additive.
 
-**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)) are merged. Phase 3 ([#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63)) and Phase 4 are open as stacked PRs. Later phases follow one PR each.
+**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)) and Phase 3 ([#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63)) are merged. Phase 4 ([#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65), re-opened against `main` after #64 merged into its stacked base) and Phase 5 are open. Later phases follow one PR each.
 
 ## What changed, by phase
 
@@ -18,7 +18,8 @@ It is still paper-only: no live-order path, no credential changes, and every led
 | 1: fee model per series | [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), stacked on #60 | One fee helper `fees.fee_for_ticker`; the v1 path now uses each series' fee type and multiplier; `fee_model_version='kalshi-series-v2'` |
 | 2: entry rules | [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62) | 25c price floor and a doubled threshold below 40c; soft reference off in the workflow; entry window as config (72–168h); shadow-only NHL/NBA/NCAAB measurement pulls (≤2 credits/day); price-floor and thin-market rows kept as near misses with depth and open interest |
 | 3: pull plan | [#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63) | Per-game T−24h/T−6h/T−90m/T−10m targets (`pull_plan`) sharing each day's credits with the 72h+ rotation; pulls on any 30-min slot; shadow-only sharp-move detector (`sharp_move`, `sharp_move_follow`); `odds_budget.py` pull-plan section |
-| 4: maker queue | stacked on #63 | `/markets/trades` and depth-20 `orderbook_snapshots`; maker shadows record their queue and price rule (bid+1c, or at the bid on a 1c spread); queue-model fills from the trade tape beside the candle rules; maker gate now decides on queue fills with clean CLV |
+| 4: maker queue | [#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65) (first [#64](https://github.com/hadihilaly-hue/-prediction-bot/pull/64)) | `/markets/trades` and depth-20 `orderbook_snapshots`; maker shadows record their queue and price rule (bid+1c, or at the bid on a 1c spread); queue-model fills from the trade tape beside the candle rules; maker gate now decides on queue fills with clean CLV |
+| 5: Polymarket reference | this PR | Read-only Polymarket client; tracked Kalshi events matched by team aliases and kickoff; `reference_quotes` mids on scanner runs (≤200 requests); `clv_polymarket` in every CLV table and `clv-report`; `pbot reference-gaps` |
 
 ## Phase 0: measurement fixes
 
@@ -445,10 +446,56 @@ Both are in `paper.yml` as repo Variables.
 - **Snapshots:** target priority, the call cap, the freshness skip.
 - **Gate:** the tests are rewritten for the queue evidence.
 
+## Phase 5: a second free reference price (Polymarket)
+
+**Built against test data only.** This session's network policy blocks `gamma-api.polymarket.com` and `clob.polymarket.com`. I'm not certain the response shapes match the live APIs:
+- **Gamma events:** `markets[]` with JSON-string `outcomes` and `clobTokenIds`, `gameStartTime`/`startDate`, `groupItemTitle`.
+- **CLOB `/book`:** `bids`/`asks` with `price`.
+- **Sport tag slugs:** `nfl`, `cfb`, `nba`, `cbb`, `nhl`, `epl`, `ucl`, `mls`, …
+
+The tag map is a config key (`polymarket_tags`), so wrong slugs can be fixed without code. Unexpected fields are skipped, never guessed, and every failure is logged without stopping the cycle.
+
+### 5.1 Client, matching and quotes
+- **Client.** `venues/polymarket.py` is read-only and needs no key: Gamma `/events?tag_slug=…` (paged) for discovery, and CLOB `/book?token_id=…` for best bid/ask.
+- **What gets quoted** (`reference_quotes.tracked_events`): Kalshi events with an open maker shadow, an open position, or a near miss in the last 24h, whose game hasn't started.
+  - Outcomes come from the legs' tickers (team codes, `TIE` = draw).
+  - Kickoff comes from a linked Odds API `commence_time`, else `expected_expiration` minus the pre-game offset.
+- **Matching** (`match_tokens`). A Polymarket event matches when its start is within 3h of the Kalshi kickoff and both teams resolve, via a new `teams.team_for_reference_name`:
+  - exact alias (optional `polymarket_names`, then Odds, Kalshi and ESPN names), else a nickname that exactly one team's Odds name ends with;
+  - ambiguous names ("New York", "United") fail closed.
+  - A two-outcome market naming both teams gives one token per team. Yes/No markets about a team or the draw give that outcome's YES token, which is how 3-way soccer is read.
+- **Polling** (scanner runs only, in `paper`; `polymarket_enabled`, default on):
+  - mids are written to the new `reference_quotes` table (event, `side` = outcome id, `source='polymarket'`, mid, bid, ask, token, fetched_at);
+  - an event quoted in the last 25 minutes is skipped unless it kicks off within 40 minutes, so a near-close sample is always taken;
+  - Gamma results are cached per sport per run, and `polymarket_max_requests` (200) caps Gamma plus CLOB calls per run.
+- **Unmatched events.** They go into the new `reference_unmatched` table, at most once a day per event, with any Polymarket names no alias resolved.
+  - `pbot reference-gaps` renders these as an `alias_gaps.md`-style Markdown list.
+  - The workflow writes it to `polymarket_alias_gaps.md` on the `paper-ledger` branch each run.
+  - Checked names can be added to `teams.json` as `polymarket_names`.
+
+### 5.2 `clv_polymarket`
+- **Definition.** The Polymarket mid for the side at the Kalshi close, minus entry, in cents.
+  - The side is P(outcome) for YES, 1 − P(outcome) for NO, so 3-way soccer is handled.
+  - It is stored on `fills`, `shadow_decisions` and `maker_shadow`, and scored each cycle by `clv.record_polymarket_clv`.
+- **Deviation from the brief** ("mid at Kalshi T−5"): Polymarket is polled on 30-minute scanner runs, not at T−5, so the close is the latest sample in [kickoff − 35 min, kickoff]. The :17/:47 slots usually give a sample 13 minutes before :00/:30 kickoffs.
+- **Report.** `pbot clv-report` gains `clv_polymarket` as a fourth metric in every cohort. The dashboard's CLV evidence table gains Polymarket row and mean columns.
+- **Never traded.** Polymarket data is not used for any trading decision.
+
+### Acceptance (`tests/test_polymarket.py`)
+- **Parsing:** JSON-string lists, closed and mismatched markets skipped, start-time formats, best bid/ask.
+- **Client:** paged Gamma calls and the request count.
+- **Team names:** alias and nickname resolution, with ambiguous names failing closed.
+- **Matching:**
+  - a 2-way match needs both teams and a kickoff within 3h; unmapped names are reported;
+  - a 3-way soccer match via team and draw Yes/No markets.
+- **Polling:** quotes written, the request cap, unmatched logging.
+- **`clv_polymarket`:** the close window (a sample 50 minutes out is ignored), the NO side, and the report metric.
+- **CLI:** `pbot reference-gaps`.
+
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:
    - Phase 1.2's centicent rounding stays RESERVED;
-   - Phases 4.1, 5 and 7.1a can be checked only against test fixtures. Phase 4's trade-tape field names and the `taker_side` direction in particular need one real `/markets/trades` response.
+   - Phases 4.1, 5 and 7.1a can be checked only against test fixtures. Phase 4's trade-tape field names and the `taker_side` direction in particular need one real `/markets/trades` response. Phase 5 needs one real Gamma `/events` and CLOB `/book` response, and the sport tag slugs need checking.
 2. **Centicent fee rounding (RESERVED, still `cent`).** Once the July 2026 fee schedule PDF has been checked, add `PBOT_FEE_ROUNDING: centicent` to the paper step's `env` in `paper.yml` if it rounds fee plus cost to a centicent (the workflow does not read a repo Variable for it today). On the historical fills that is worth about 0.5c per order.
 3. **Live entry window (RESERVED, unchanged at 72–168h).** Moving it to 1–48h is one repo Variable: `PBOT_ENTRY_WINDOW_MIN_HOURS`, plus `_MAX_HOURS`. The Phase 0 numbers (near misses, bid CLV) argue against moving it now:
    - 72h+: −1.01c (n=336, rejected);

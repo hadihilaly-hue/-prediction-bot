@@ -760,3 +760,69 @@ def sharp_fairs(
         if book in fairs:
             return fairs[book], book
     return None
+
+
+# --- Polymarket reference (v5 Phase 5.2) ---------------------------------------------
+#
+# `clv_polymarket` = Polymarket mid for the side at the Kalshi close, minus entry, in
+# cents. Polymarket is polled on 30-minute scanner runs, not at T-5 exactly, so the close
+# is the latest `reference_quotes` sample in [kickoff - 35 min, kickoff].
+
+POLYMARKET_CLOSE_WINDOW = timedelta(minutes=35)
+
+
+def record_polymarket_clv(ledger: Ledger, *, now: datetime | None = None) -> int:
+    now = _utc_datetime(now or datetime.now(timezone.utc))
+    queries = {
+        "fills": "SELECT id,ticker,side,price,COALESCE(commence_time,commence_time_backfill),"
+        "COALESCE(event_ticker,'') FROM fills WHERE clv_polymarket IS NULL",
+        "shadow_decisions": "SELECT id,ticker,side,price,"
+        "COALESCE(commence_time,commence_time_backfill),'' FROM shadow_decisions "
+        "WHERE clv_polymarket IS NULL",
+        "maker_shadow": "SELECT id,ticker,side,price,commence_time,COALESCE(event_ticker,'') "
+        "FROM maker_shadow WHERE clv_polymarket IS NULL",
+    }
+    quoted = {
+        str(r[0])
+        for r in ledger.conn.execute(
+            "SELECT DISTINCT event_ticker FROM reference_quotes WHERE source='polymarket'"
+        )
+    }
+    if not quoted:
+        return 0
+    scored = 0
+    for table, sql in queries.items():
+        for row_id, ticker, side, price, raw_commence, raw_event in ledger.conn.execute(
+            sql
+        ).fetchall():
+            event = str(raw_event or "") or str(ticker).rsplit("-", 1)[0]
+            outcome = leg_outcome(str(ticker))
+            if event not in quoted or outcome is None or not raw_commence:
+                continue
+            try:
+                commence = _utc_datetime(str(raw_commence))
+            except ValueError:
+                continue
+            if commence > now or commence < now - SHARP_CLOSE_LOOKBACK:
+                continue
+            quote = ledger.conn.execute(
+                "SELECT mid FROM reference_quotes WHERE source='polymarket' AND event_ticker=? "
+                "AND side=? AND fetched_at>=? AND fetched_at<=? ORDER BY fetched_at DESC LIMIT 1",
+                (
+                    event,
+                    outcome,
+                    (commence - POLYMARKET_CLOSE_WINDOW).isoformat(),
+                    commence.isoformat(),
+                ),
+            ).fetchone()
+            if quote is None:
+                continue
+            mid = Decimal(str(quote[0]))
+            side_mid = mid if str(side) == "yes" else Decimal(1) - mid
+            ledger.conn.execute(
+                f"UPDATE {table} SET clv_polymarket=? WHERE id=? AND clv_polymarket IS NULL",
+                (str((side_mid - Decimal(str(price))) * 100), row_id),
+            )
+            scored += 1
+    ledger.conn.commit()
+    return scored
