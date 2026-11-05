@@ -5,7 +5,8 @@ main = "worker.js"
 compatibility_date = "2026-10-01"
 
 [triggers]
-crons = ["17,47 * * * *"]
+# Every 10 minutes at :07, :17, ... :57 (v5 Phase 3-E). Off :00/:30 on purpose.
+crons = ["7-57/10 * * * *"]
 
 [vars]
 GITHUB_OWNER = "hadihilaly-hue"
