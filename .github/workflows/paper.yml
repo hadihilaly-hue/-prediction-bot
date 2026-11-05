@@ -63,6 +63,10 @@ jobs:
           # set the cap Variable to 0 to stop them.
           PBOT_MEASURE_FEEDS: ${{ vars.PBOT_MEASURE_FEEDS || 'icehockey_nhl,basketball_nba,basketball_ncaab' }}
           PBOT_MEASURE_DAILY_CREDIT_CAP: ${{ vars.PBOT_MEASURE_DAILY_CREDIT_CAP || '2' }}
+          # Per-game pull targets (T-24h/T-6h/T-90m/T-10m) may spend the share of each
+          # day's credits the rotation does not keep; 'off' disables the plan.
+          PBOT_ODDS_PULL_PLAN: ${{ vars.PBOT_ODDS_PULL_PLAN || 'hybrid' }}
+          PBOT_ODDS_ENTRY_SHARE: ${{ vars.PBOT_ODDS_ENTRY_SHARE || '0.5' }}
           # Hard stops: flip the repo variable PBOT_KILL_SWITCH to "true" to halt all entries.
           PBOT_KILL_SWITCH: ${{ vars.PBOT_KILL_SWITCH || 'false' }}
           PBOT_MAX_DAILY_LOSS: ${{ vars.PBOT_MAX_DAILY_LOSS || '50' }}
@@ -100,10 +104,17 @@ jobs:
           fi
           if [ -n "$PBOT_ODDS_API_KEY" ] && [ "$SPORTSBOOK_SLOT" != true ] \
             && [ "$PBOT_RULES_VERSION" = "v3" ]; then
-            FEED="$(pbot odds-trigger $SPORTSBOOK_SERIES_ARGS)" || FEED=""
-            if [ -n "$FEED" ]; then
+            # A due pull-plan target (e.g. a T-10m sharp close) wins over a move trigger.
+            PLAN_FEED="$(pbot pull-due)" || PLAN_FEED=""
+            if [ -n "$PLAN_FEED" ]; then
               pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \
-                --trigger "$FEED" | tee -a ledger/last_run.txt || true
+                --plan "$PLAN_FEED" | tee -a ledger/last_run.txt || true
+            else
+              FEED="$(pbot odds-trigger $SPORTSBOOK_SERIES_ARGS)" || FEED=""
+              if [ -n "$FEED" ]; then
+                pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \
+                  --trigger "$FEED" | tee -a ledger/last_run.txt || true
+              fi
             fi
           fi
           pbot report | tee ledger/REPORT.txt

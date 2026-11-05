@@ -305,6 +305,24 @@ CREATE TABLE IF NOT EXISTS feed_skips (
 );
 CREATE INDEX IF NOT EXISTS feed_skips_feed_created_at
     ON feed_skips(feed, created_at);
+CREATE TABLE IF NOT EXISTS pull_plan (
+    id INTEGER PRIMARY KEY,
+    event_ticker TEXT NOT NULL,
+    feed TEXT NOT NULL,
+    target TEXT NOT NULL,
+    kickoff TEXT NOT NULL,
+    target_at TEXT NOT NULL,
+    window_start TEXT NOT NULL,
+    window_end TEXT NOT NULL,
+    priority INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'planned',
+    credits REAL NOT NULL DEFAULT 0,
+    planned_at TEXT NOT NULL,
+    pulled_at TEXT,
+    budget_blocked_at TEXT,
+    UNIQUE(event_ticker, target)
+);
+CREATE INDEX IF NOT EXISTS pull_plan_status_window ON pull_plan(status, window_start);
 CREATE TABLE IF NOT EXISTS measure_pulls (
     id INTEGER PRIMARY KEY,
     created_at TEXT NOT NULL,
@@ -2381,7 +2399,10 @@ class Ledger:
     def record_shadow_decision(self, sig: Signal, rules_version: str, reason: str = "") -> None:
         commence = sig.commence_time
         created_at = self._utc(sig.created_at)
-        if reason in {"entry_window", "single_sharp"} and sig.position_key is not None:
+        if (
+            reason in {"entry_window", "single_sharp", "sharp_move_follow"}
+            and sig.position_key is not None
+        ):
             existing = self.conn.execute(
                 "SELECT 1 FROM shadow_decisions WHERE rules_version IS ? "
                 "AND position_key=? AND substr(created_at,1,10)=? "
@@ -2414,7 +2435,7 @@ class Ledger:
                 str(sig.limit_price),
                 str(sig.size),
                 self._utc(commence).isoformat() if commence else None,
-                str(sig.edge) if reason == "single_sharp" else None,
+                str(sig.edge) if reason in {"single_sharp", "sharp_move_follow"} else None,
                 ",".join(sig.tags) if sig.tags else None,
             ),
         )

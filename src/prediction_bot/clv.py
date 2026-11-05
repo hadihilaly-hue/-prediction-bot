@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Any
@@ -244,9 +244,9 @@ def record_clv(
         "'',s.ticker,d.fair,COALESCE(d.rules_version,'v2') "
         "FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
         "WHERE d.reason IN ('entry_window','net_edge','single_sharp','price_floor',"
-        "'thin_market') "
+        "'thin_market','sharp_move','sharp_move_follow') "
         "AND d.rules_version IN ('v2','v3') "
-        "AND d.window IN ('72h+','24-72h','2-24h') "
+        "AND d.window IN ('72h+','24-72h','2-24h','<2h') "
         "AND COALESCE(d.commence_time,d.commence_time_backfill) IS NOT NULL "
         "AND d.clv_kalshi IS NULL ORDER BY d.id"
     ).fetchall()
@@ -723,3 +723,33 @@ def record_sharp_clv(ledger: Ledger, *, now: datetime | None = None) -> int:
             scored += 1
     ledger.conn.commit()
     return scored
+
+
+def sharp_fairs(
+    sport: str, books: Mapping[str, Mapping[str, Any]]
+) -> tuple[dict[str, Decimal], str] | None:
+    """Power-devigged sharp fair per outcome id from `{book: decimal odds}`.
+
+    Same book order as the sharp close: Pinnacle, else the BOOK_WEIGHTS mean of Circa
+    and BetOnline (`consensus`) when both quote, else whichever one does.
+    """
+    fairs = {
+        book: fair
+        for book in SHARP_CLOSE_BOOKS
+        if isinstance(books.get(book), Mapping)
+        and (fair := _book_fair(sport, dict(books[book]))) is not None
+    }
+    if "pinnacle" in fairs:
+        return fairs["pinnacle"], "pinnacle"
+    if "circa" in fairs and "betonlineag" in fairs:
+        weights = {book: BOOK_WEIGHTS.get(book, Decimal(1)) for book in ("circa", "betonlineag")}
+        total = sum(weights.values(), Decimal(0))
+        outcomes = set(fairs["circa"]) & set(fairs["betonlineag"])
+        return {
+            outcome: sum((fairs[b][outcome] * w for b, w in weights.items()), Decimal(0)) / total
+            for outcome in outcomes
+        }, "consensus"
+    for book in ("circa", "betonlineag"):
+        if book in fairs:
+            return fairs[book], book
+    return None

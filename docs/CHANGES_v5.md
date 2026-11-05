@@ -8,7 +8,7 @@ v5 builds on v4 (`docs/CHANGES_v4.md`) and the credit cadence work (`docs/CHANGE
 
 It is still paper-only: no live-order path, no credential changes, and every ledger change is additive.
 
-**Status.** Phases 0 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60)), 1 ([#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61)) and 2 are open as stacked PRs. Later phases follow one PR each.
+**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)) are merged; Phase 3 is open. Later phases follow one PR each.
 
 ## What changed, by phase
 
@@ -16,7 +16,8 @@ It is still paper-only: no live-order path, no credential changes, and every led
 |---|---|---|
 | 0: measurement | [#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60) | `clv_sharp_close` / `clv_sharp_source`, per-book odds and the Kalshi event ticker on `odds_snapshots`, `pbot clv-report` (text and `--json`), dashboard panel, `docs/evidence/2026-11-03.json` |
 | 1: fee model per series | [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), stacked on #60 | One fee helper `fees.fee_for_ticker`; the v1 path now uses each series' fee type and multiplier; `fee_model_version='kalshi-series-v2'` |
-| 2: entry rules | stacked on #61 | 25c price floor and a doubled threshold below 40c; soft reference off in the workflow; entry window as config (72–168h); shadow-only NHL/NBA/NCAAB measurement pulls (≤2 credits/day); price-floor and thin-market rows kept as near misses with depth and open interest |
+| 2: entry rules | [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62) | 25c price floor and a doubled threshold below 40c; soft reference off in the workflow; entry window as config (72–168h); shadow-only NHL/NBA/NCAAB measurement pulls (≤2 credits/day); price-floor and thin-market rows kept as near misses with depth and open interest |
+| 3: pull plan | this PR | Per-game T−24h/T−6h/T−90m/T−10m targets (`pull_plan`) sharing each day's credits with the 72h+ rotation; pulls on any 30-min slot; shadow-only sharp-move detector (`sharp_move`, `sharp_move_follow`); `odds_budget.py` pull-plan section |
 
 ## Phase 0: measurement fixes
 
@@ -289,6 +290,90 @@ How to read this:
 - The dashboard's existing near-miss panels still read only `net_edge` and `entry_window`. The new cohorts are in the Phase 0 report panel.
 - The maker price path (`_v3_maker_price`) still uses the flat 2c threshold. Phase 4 reworks the maker path.
 
+## Phase 3: spend odds credits where repricing happens
+
+### Why it isn't the brief's straight replacement
+- **The brief:** replace the 2-hour grid with per-game targets at T−24h, T−6h, T−90m and T−10m for every eligible game.
+- **Measured cost on the `8d50f46` ledger:** games kicking off Oct 20 – Nov 2, grouped by feed and kickoff, would have cost about **588 credits in 14 days, ~42 a day**. The free tier allows ~16 a day.
+- **Cost by feed** (14 days): NCAAF 101, Serie A 92, La Liga 80, MLS 59, Ligue 1 52, Liga MX 51, EPL 48, NFL 36, Bundesliga 36, UFC 33.
+- **No trading:** all four targets fall inside 24h, while the live entry window is 72h+. Replacing the grid would leave the bot no 72h+ odds and so no entries, which in effect flips the RESERVED window decision.
+- **What was built (agreed with Hadi):** a **hybrid**. The rotation keeps `PBOT_ODDS_ENTRY_SHARE` (0.5) of each run's credit for 72–168h entry pulls. The pull plan spends the rest, close first, and its pulls can run on any 30-minute slot.
+
+### 3.1 Per-game targets (`pull_plan`)
+- **Planning** (`pull_plan.plan_pulls`, local SQL only). Every paper run and `pbot pull-due` plans targets for every event that kicks off within 26h in a feed whose latest `feed_stats` row is eligible.
+  - Kickoff is the linked Odds API `commence_time` (Phase 0's `odds_snapshots.event_ticker`) when known.
+  - Otherwise it is the latest `market_snapshots.expected_expiration` minus the pre-game offset: 2h for soccer, 2.5h for NBA, 3h otherwise.
+  - Rows go into the new `pull_plan` table (event, feed, target, kickoff, target_at, window, priority, status, credits, timestamps). Targets that expire unpulled become `missed`, or `skipped_budget` if they were due but unfunded.
+
+| Target | Window | Priority |
+|---|---|---|
+| T−10m (sharp close) | kickoff −20m to −2m | 1 |
+| T−90m | ±30m | 2 |
+| T−6h | ±1h | 3 |
+| T−24h | ±1h | 4 |
+
+- **Grouping.** One pull of a feed satisfies every due target of that feed, and the credit is split across them. Six 1 pm NFL games cost one credit per target. Targets also count as pulled, at zero plan credits, when their feed was pulled anyway for a rotation, move-trigger or measurement pull.
+- **Budget.**
+  - The plan may spend `floor(day budget × (1 − entry share))` credits per UTC day. The day budget is the cadence planner's figure for today, else the last known balance spread over the days left.
+  - A lower-priority target is funded only if credits left today exceed the higher-priority pull groups still ahead today, so the close is never starved by an earlier T−24h.
+  - `OddsPacer` stays the hard cap. `rotation_share` scales the rotation's per-run credit, and plan credits never borrow from the carry.
+  - Plan credits stop at the 25-credit reserve.
+  - The free `/events` check runs before every plan pull, and `x-requests-last == 1` is still asserted.
+- **Slots.**
+  - Sportsbook (2-hour) runs add one funded plan feed on top of the rotation.
+  - Scanner slots run `pbot pull-due`. When a funded target is due, they run `pbot paper -s sportsbook_v3 --cycles 1 --plan FEED`: one feed, one credit at most, carry untouched, `runs.trigger_reason='plan:FEED'`.
+  - A due plan target wins over a move trigger on the same slot.
+- **Timing.** The workflow's :17/:47 slots land 13 minutes before :30/:00 kickoffs, so the T−10m close usually falls in the 20-minute sharp-close window. Kickoffs at other minutes can miss it. A 17:45 UCL kickoff has no slot in 17:25–17:43, and its close is recorded as `missed`, not taken late. Phase 6's scheduler doesn't change this, because it uses the same minutes.
+
+### 3.2 Sharp move detector (shadow only)
+- **Trigger.** For every v3 event pulled, the strategy compares the devigged sharp fair (`clv.sharp_fairs`: Pinnacle, else Circa/BetOnline) with the event's previous linked snapshot taken within 48h. The reference must be the same book both times; a switch from Circa to Pinnacle is not a move.
+- **On a move of 2c or more on a leg:**
+  - It fetches that market's Kalshi orderbook (free; at most 20 per run).
+  - It saves a near miss with `reason='sharp_move'` and tags `move_<cents>`, plus one of `kalshi_lagged`, `kalshi_followed` or `kalshi_unknown` (no earlier Kalshi snapshot).
+  - "Lagged" means the Kalshi ask for the side moved less than half the sharp move since the earlier pull.
+- **Follow cohort.** A lagged side that then passes every normal v3 gate (net edge at the side's threshold included) is also saved as a would-trade shadow with `reason='sharp_move_follow'`.
+  - The trade decision itself is unchanged: such a side trades exactly when it would have without the detector.
+  - The cohort is measured only, until `pbot clv-report` calls `v3_sharp_move_follow` "supported".
+- **Scoring:**
+  - Both cohorts are scored for CLV and have `clv-report` rows.
+  - CLV scoring now also takes `<2h` near misses. Before, it skipped them, which would have left the T−90m and T−10m rows (and Phase 2.5's measurement rows) unscored.
+- Like the existing `odds_triggers` (Kalshi ask moves) and v2's `line_move_follower`, this needs at least two pulls of the same event. With the pull plan, more events now get several pulls inside 48h.
+
+### 3.3 Credit report
+- `scripts/odds_budget.py` now ends with a pull-plan section:
+  - by target: planned, pulled, skipped_budget, missed, plan credits, useful ratio;
+  - by feed: targets, pulled, plan credits, useful ratio.
+- The useful ratio is pulled / (pulled + skipped_budget + missed + no_events).
+- No `pull_plan` rows exist until this ships, so the first week's table will be added from the paper ledger after a week of runs.
+
+### Acceptance
+- **`tests/test_pull_plan.py`** simulates every :17/:47 slot of November 2026:
+  - the real `data/cadence_calendar.json`;
+  - a dense synthetic slate: Sunday NFL, Saturday NCAAF and EPL, Tuesday/Wednesday UCL;
+  - the rotation always spending its full share.
+- **Result:** spend never goes past 500. The rotation made 417 pulls and the plan 79, with 4 credits left.
+  - Plan credits never dipped into the reserve.
+  - On game days the plan ran out of credits (329 targets `skipped_budget`). The close got the most funding: 91 T−10m targets pulled against 54 T−6h.
+  - On days with no plan targets, the plan's unused half flows back to the month, and the rotation spends it. So "entry share 0.5" means the rotation keeps at least half.
+- **Unit slates:**
+  - **Sunday NFL** (six 1 pm games, 21:05, 21:25): all 32 targets pulled, the 1 pm cluster for ≤4 credits, its close on the 17:47 slot.
+  - **Short-credit day:** the close is funded, and the earlier T−6h/T−90m targets end as `skipped_budget`.
+  - **Midweek UCL** (two 17:45 and six 20:00 games): the 20:00 cluster for ≤4 credits; the 17:45 close is `missed`.
+- **Other tests cover:**
+  - plan-mode pacer: one credit, carry untouched, reserve;
+  - `pbot pull-due`;
+  - kickoff source preference;
+  - the workflow branch;
+  - the sharp-move detector: lagged vs followed, small moves, book switches, the follow shadow.
+
+### Config keys added
+| Key | Default | Meaning |
+|---|---|---|
+| `ODDS_PULL_PLAN` | `hybrid` | `off` disables the plan and the rotation keeps every credit |
+| `ODDS_ENTRY_SHARE` | `0.5` | Share of each run's credit the rotation keeps for 72h+ entry pulls |
+
+Both are in `paper.yml` as repo Variables.
+
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:
    - Phase 1.2's centicent rounding stays RESERVED;
@@ -300,6 +385,10 @@ How to read this:
    - 2–24h: −0.96c (n=193, rejected).
    No window has CI > 0. NHL, NBA and NCAAB near misses from the 2.5 measurement pulls will add <24h rows.
 4. **Price floor 0.25 (done as the brief asks; reversible).** On historical fills it would have removed all +$944.96 of realized profit. The near-miss evidence below 25c is −1.73c vs bid (rejected), so the floor stands unless you want the old 0.10 back. To restore it, set `PBOT_V2_PRICE_FLOOR: "0.10"` in `paper.yml`'s env; the workflow does not read a repo Variable for it.
-5. **The Odds API $30/month tier**: still undecided (Phase 3).
-6. **Cloudflare account and PAT**: still undecided (Phase 6).
-7. **Live orders**: out of scope.
+5. **The Odds API $30/month tier (still undecided).**
+   - On the free tier the plan's half is about 8 credits a day. The real Oct 20 – Nov 2 schedule needed ~42 a day for full target coverage. In the November simulation, grouping and ride-along pulls covered 297 of 650 targets, favouring the close.
+   - Covering every target for the eligible feeds takes ~42 credits a day (~1,300 a month), more with NHL/NBA/NCAAB.
+   - The $30 tier's 20,000 credits would cover that with room to spare, and would let `ODDS_ENTRY_SHARE` stay at 0.5 without starving either side.
+6. **`ODDS_ENTRY_SHARE` (0.5).** Lower it to move credits from 72h+ entry pulls to near-kickoff measurement. That fits only if you expect the window decision (3) to move toward the close.
+7. **Cloudflare account and PAT**: still undecided (Phase 6).
+8. **Live orders**: out of scope.

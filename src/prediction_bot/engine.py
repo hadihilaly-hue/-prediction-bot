@@ -123,6 +123,12 @@ class Engine:
                             "v3" if strat.name == "sportsbook_v3" else "v2"
                         )
                         self.ledger.record_shadow_decision(sig, version, reason="single_sharp")
+            get_sharp_follow = getattr(strat, "seen_sharp_follow_decisions", None)
+            if get_sharp_follow is not None:
+                for sig in get_sharp_follow():
+                    self.ledger.record_shadow_decision(
+                        sig, sig.rules_version or "v3", reason="sharp_move_follow"
+                    )
             get_line_moves = getattr(strat, "seen_line_move_decisions", None)
             if get_line_moves is not None:
                 for sig in get_line_moves():

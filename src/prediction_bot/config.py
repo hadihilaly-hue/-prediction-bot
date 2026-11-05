@@ -221,6 +221,11 @@ class Settings(BaseSettings):
         default_factory=lambda: ["icehockey_nhl", "basketball_nba", "basketball_ncaab"]
     )
     measure_daily_credit_cap: int = 2
+    # v5 Phase 3 per-game pull targets (T-24h/T-6h/T-90m/T-10m). `hybrid` keeps the
+    # rotation for 72h+ entry pulls and lets the plan spend the rest of each day's
+    # budget; `odds_entry_share` is the rotation's reserved share.
+    odds_pull_plan: Literal["off", "hybrid"] = "hybrid"
+    odds_entry_share: float = 0.5
 
     # Fees come from each series' Kalshi schedule (fees.fee_for_ticker); only the
     # rounding (`fee_rounding`) is configurable.

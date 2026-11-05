@@ -58,6 +58,16 @@ COHORTS: dict[str, tuple[str, str]] = {
         f"SELECT {_SHADOW_COLUMNS} FROM shadow_decisions WHERE rules_version='v3' "
         "AND would_trade=0 AND reason='thin_market' AND clv_status='ok'",
     ),
+    "v3_sharp_move": (
+        "v3 sharp-book moves of 2c+ (observations)",
+        f"SELECT {_SHADOW_COLUMNS} FROM shadow_decisions WHERE rules_version='v3' "
+        "AND would_trade=0 AND reason='sharp_move' AND clv_status='ok'",
+    ),
+    "v3_sharp_move_follow": (
+        "v3 sharp moves Kalshi lagged that passed the v3 gates (shadow)",
+        f"SELECT {_SHADOW_COLUMNS} FROM shadow_decisions WHERE rules_version='v3' "
+        "AND would_trade=1 AND reason='sharp_move_follow' AND clv_status='ok'",
+    ),
     "line_move_follower": (
         "v2 line_move_follower shadows",
         f"SELECT {_SHADOW_COLUMNS} FROM shadow_decisions WHERE strategy='line_move_follower' "

@@ -4,12 +4,13 @@ import json
 import logging
 import re
 from collections import Counter, defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from decimal import ROUND_DOWN, Decimal
 from zoneinfo import ZoneInfo
 
+from prediction_bot.clv import sharp_fairs
 from prediction_bot.config import Settings
 from prediction_bot.devig import devig_all, longshot_haircut
 from prediction_bot.fees import FixedFee, SeriesFeeCache, fee_for_ticker
@@ -128,6 +129,10 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         # Feeds pulled only to measure (Phase 2.5): every event in them is shadow-only.
         self.measure_only_feeds: set[str] = set()
         self._measure_only_events: set[str] = set()
+        # Phase 3.2 sharp-move detector (shadow only).
+        self._sharp_follow_keys: set[tuple[str, str]] = set()
+        self._sharp_follow_decisions: list[Signal] = []
+        self._sharp_orderbook_calls = 0
 
     def seen_blocks(self) -> list[Block]:
         return list(self._blocks)
@@ -215,6 +220,141 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             ask_depth=market.quote.ask_size_for(side),
             open_interest=market.open_interest,
         )
+
+    # A >=2c move in the devigged sharp fair between two pulls of the same event no
+    # more than 48h apart; Kalshi "lagged" when its ask moved less than half as far.
+    SHARP_MOVE_MIN = Decimal("0.02")
+    SHARP_MOVE_LOOKBACK = timedelta(hours=48)
+    SHARP_MOVE_ORDERBOOKS = 20
+
+    def seen_sharp_follow_decisions(self) -> list[Signal]:
+        return list(self._sharp_follow_decisions)
+
+    def _previous_sharp_snapshot(
+        self, event_ticker: str, now: datetime
+    ) -> tuple[datetime, dict[str, dict[str, object]]] | None:
+        if self.ledger is None:
+            return None
+        row = self.ledger.conn.execute(
+            "SELECT created_at,book_odds_json FROM odds_snapshots WHERE event_ticker=? "
+            "AND book_odds_json IS NOT NULL AND created_at<? AND created_at>=? "
+            "ORDER BY created_at DESC,id DESC LIMIT 1",
+            (
+                event_ticker,
+                now.astimezone(timezone.utc).isoformat(),
+                (now - self.SHARP_MOVE_LOOKBACK).astimezone(timezone.utc).isoformat(),
+            ),
+        ).fetchone()
+        if row is None:
+            return None
+        try:
+            stored = json.loads(str(row[1]))
+            taken = _parse_time(str(row[0]))
+        except (TypeError, ValueError):
+            return None
+        if taken is None or not isinstance(stored, dict):
+            return None
+        books = {
+            str(book): dict(entry["odds"])
+            for book, entry in stored.items()
+            if isinstance(entry, dict) and isinstance(entry.get("odds"), dict)
+        }
+        return taken, books
+
+    def _side_ask_at(self, ticker: str, side: OutcomeSide, at: datetime) -> Decimal | None:
+        if self.ledger is None:
+            return None
+        row = self.ledger.conn.execute(
+            "SELECT yes_bid,yes_ask FROM market_snapshots WHERE ticker=? AND fetched_at<=? "
+            "ORDER BY fetched_at DESC,id DESC LIMIT 1",
+            (ticker, at.astimezone(timezone.utc).isoformat()),
+        ).fetchone()
+        if row is None:
+            return None
+        bid, ask = row
+        if side is OutcomeSide.yes:
+            return Decimal(str(ask)) if ask is not None else None
+        return Decimal(1) - Decimal(str(bid)) if bid is not None else None
+
+    def _detect_sharp_moves(
+        self,
+        *,
+        sport: str,
+        event_ticker: str,
+        game: ConsensusOdds,
+        legs: Sequence[Market],
+        ids_by_ticker: Mapping[str, str],
+        team_ids: set[str],
+        fee_type: str,
+        fee_multiplier: Decimal,
+        commence: datetime,
+        now: datetime,
+    ) -> None:
+        """Log `sharp_move` near misses and mark lagged sides for `sharp_move_follow`."""
+        previous = self._previous_sharp_snapshot(event_ticker, now)
+        if previous is None:
+            return
+        taken, previous_books = previous
+        before = sharp_fairs(sport, previous_books)
+        after = sharp_fairs(sport, game.book_odds)
+        if before is None or after is None or before[1] != after[1]:
+            return  # different reference books would make a fake move
+        three_way = "draw" in ids_by_ticker.values()
+        for market in legs:
+            outcome = ids_by_ticker[market.ticker]
+            if outcome not in before[0] or outcome not in after[0]:
+                continue
+            delta = after[0][outcome] - before[0][outcome]
+            if abs(delta) < self.SHARP_MOVE_MIN:
+                continue
+            side = OutcomeSide.yes if delta > 0 else OutcomeSide.no
+            move = abs(delta)
+            fair = after[0][outcome] if side is OutcomeSide.yes else 1 - after[0][outcome]
+            quote = market.quote
+            if self.kalshi is not None and self._sharp_orderbook_calls < self.SHARP_MOVE_ORDERBOOKS:
+                self._sharp_orderbook_calls += 1
+                try:
+                    quote = self.kalshi.get_orderbook(market.ticker)
+                except Exception:
+                    log.exception("%s: sharp-move orderbook fetch failed", self.name)
+            ask_now = quote.ask_for(side)
+            if ask_now is None:
+                continue
+            ask_before = self._side_ask_at(market.ticker, side, taken)
+            lagged = ask_before is not None and ask_now - ask_before < move / 2
+            position_outcome = (
+                outcome
+                if side is OutcomeSide.yes
+                else f"not:{outcome}"
+                if three_way
+                else next((t for t in team_ids if t != outcome), outcome)
+            )
+            self._record_near_miss(
+                ticker=market.ticker,
+                side=side,
+                fair=fair,
+                price=ask_now,
+                net_edge=fair
+                - ask_now
+                - self._taker_rate(market.ticker, ask_now, fee_type, fee_multiplier),
+                event_ticker=event_ticker,
+                position_key=f"{event_ticker}:{position_outcome}",
+                commence=commence,
+                now=now,
+                reason="sharp_move",
+                tags=(
+                    f"move_{int((move * 100).to_integral_value())}",
+                    "kalshi_unknown"
+                    if ask_before is None
+                    else "kalshi_lagged"
+                    if lagged
+                    else "kalshi_followed",
+                ),
+                ask_depth=quote.ask_size_for(side),
+                open_interest=market.open_interest,
+            )
+            if lagged:
+                self._sharp_follow_keys.add((market.ticker, side.value))
 
     def seen_event_links(self) -> dict[str, str]:
         """Odds API event id -> Kalshi event ticker for games matched in the last evaluate."""
@@ -1190,6 +1330,9 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._feed_pull_candidates.clear()
         self._event_links.clear()
         self._measure_only_events.clear()
+        self._sharp_follow_keys.clear()
+        self._sharp_follow_decisions.clear()
+        self._sharp_orderbook_calls = 0
         self._quotes = [
             QuoteSnapshot(
                 ticker=m.ticker,
@@ -1507,6 +1650,19 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                                     )
                                 )
                 continue
+            if self.rules_version == "v3":
+                self._detect_sharp_moves(
+                    sport=sport,
+                    event_ticker=event_ticker,
+                    game=game,
+                    legs=legs,
+                    ids_by_ticker=ids_by_ticker,
+                    team_ids=team_ids,
+                    fee_type=fee_type,
+                    fee_multiplier=fee_multiplier,
+                    commence=commence,
+                    now=now,
+                )
             ids = set(team_ids)
             for market in legs:
                 outcome_id = ids_by_ticker[market.ticker]
@@ -1867,6 +2023,10 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         tags=tuple(sorted(tags)),
                     )
                     candidates[position_key].append(signal)
+                    if is_main_candidate and (signal.ticker, side.value) in self._sharp_follow_keys:
+                        self._sharp_follow_decisions.append(
+                            replace(signal, tags=(*(signal.tags or ()), "sharp_move_follow"))
+                        )
         if self.rules_version == "v3" and events_evaluated >= 10:
             quality_blocks = sum(
                 block.reason
