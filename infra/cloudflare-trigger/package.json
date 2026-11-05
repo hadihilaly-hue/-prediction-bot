@@ -1,0 +1,8 @@
+{
+  "name": "paper-bot-trigger",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test worker.test.mjs"
+  }
+}

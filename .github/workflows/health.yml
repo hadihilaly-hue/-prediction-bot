@@ -1,0 +1,56 @@
+name: Paper bot health
+
+# Dead-man check (v5 Phase 6.2): hourly, read the ledger on `paper-ledger` and fail if
+# its last run is older than 90 minutes. On failure, open (or comment on) one issue
+# titled "paper bot missed runs". Off the :00, :17 and :47 minutes on purpose.
+on:
+  schedule:
+    - cron: "33 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .
+
+      - name: Restore ledger branch
+        run: |
+          git fetch origin paper-ledger:paper-ledger 2>/dev/null || true
+          mkdir -p ledger
+          git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true
+
+      - name: Check last run
+        id: check
+        env:
+          PBOT_PAPER_DB_PATH: ledger/paper.sqlite
+        # Explicit bash runs with pipefail, so `tee` does not hide a failing check.
+        shell: bash
+        run: pbot health --max-age-minutes 90 | tee health.txt
+
+      - name: Open or update the missed-runs issue
+        if: failure() && steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="paper bot missed runs"
+          BODY="$(printf 'The hourly health check failed at %s UTC.\n\n```\n%s\n```\n\nRun: %s/%s/actions/runs/%s' \
+            "$(date -u +%FT%TZ)" "$(cat health.txt 2>/dev/null || echo 'no output')" \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")"
+          NUMBER="$(gh issue list --state open --search "in:title \"$TITLE\"" \
+            --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -1)"
+          if [ -n "$NUMBER" ]; then
+            gh issue comment "$NUMBER" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

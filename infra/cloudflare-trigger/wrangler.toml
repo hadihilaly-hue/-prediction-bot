@@ -1,0 +1,15 @@
+# Cloudflare Workers config for the paper-bot cron trigger (free plan).
+# Deploy steps: infra/cloudflare-trigger/README.md.
+name = "paper-bot-trigger"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+[triggers]
+crons = ["17,47 * * * *"]
+
+[vars]
+GITHUB_OWNER = "hadihilaly-hue"
+GITHUB_REPO = "-prediction-bot"
+WORKFLOW_FILE = "paper.yml"
+GITHUB_REF = "main"
+# GITHUB_TOKEN is a secret: `wrangler secret put GITHUB_TOKEN`, never in this file.
