@@ -49,9 +49,10 @@ PGA Tour odds, so those series are not covered.
 
 | name | idea |
 | --- | --- |
+| `sportsbook_v3` | The strategy the scheduled runs trade with (`PBOT_RULES_VERSION=v3`). Rules are under [Current rules (v5)](#current-rules-v5). |
 | `book_scanner` | Buys both YES and NO when the asks sum to < $1 after fees (locked profit; rare, mostly a pipeline check). |
-| `sportsbook_arb` | De-vigs h2h odds from several sportsbooks, averages them, and buys a team on Kalshi when its ask is below consensus probability minus fees and `PBOT_MIN_EDGE`. Only enters while the event still has `PBOT_MIN_LEAD_HOURS` (default 72) before it resolves — same-day entries in efficient markets lose. |
-| `underdog_value` | Same consensus model, but only buys sides priced 10c-40c (`PBOT_UNDERDOG_MIN_PRICE`/`MAX_PRICE`): skips near-certain favourites and takes the high-payout side when the books say it is undervalued. Tracked separately so its results can be compared with `sportsbook_arb`. Shares one odds fetch per cycle with `sportsbook_arb`, so it costs no extra quota. |
+| `sportsbook_arb` | De-vigs h2h odds from several sportsbooks, averages them, and buys a team on Kalshi when its ask is below consensus probability minus fees and `PBOT_MIN_EDGE`. Only enters while the event still has `PBOT_MIN_LEAD_HOURS` (default 72) before it resolves — same-day entries in efficient markets lose. v1 rules; the workflow does not run it under v3. |
+| `underdog_value` | Same consensus model, but only buys sides priced 10c-40c (`PBOT_UNDERDOG_MIN_PRICE`/`MAX_PRICE`): skips near-certain favourites and takes the high-payout side when the books say it is undervalued. Tracked separately so its results can be compared with `sportsbook_arb`. Shares one odds fetch per cycle with `sportsbook_arb`, so it costs no extra quota. v1 rules; the workflow does not run it under v3. |
 
 Add a strategy by subclassing `prediction_bot.strategies.base.Strategy`, implementing
 `evaluate(markets) -> list[Signal]` (use `self.make_signal(...)` so fees, `min_edge`
@@ -59,20 +60,63 @@ and sizing are applied consistently) and registering it in `strategies/__init__.
 
 ## How paper trading works
 
-* Signals are filled immediately at the current ask (a conservative "taker" assumption)
-  with Kalshi's general fee formula `ceil(0.07 · C · P · (1−P))`.
+* Signals are filled immediately at the current ask (a conservative "taker" assumption).
+  The fee comes from each series' own Kalshi fee schedule (`fees.fee_for_ticker`): the
+  quadratic `0.07 · C · P · (1−P)`, maker fees where a series charges them, and the
+  series multiplier (0.5 for MLB), rounded up to the cent.
 * Each cycle first checks Kalshi for settled markets we hold and books the payout.
 * `pbot report` shows realized PnL, fees, and two Brier scores: the strategy's
   `fair_prob` vs outcomes, and the *market price paid* vs outcomes. The strategy has
   to beat the market Brier score, not just have positive PnL on a small sample.
 
+## Current rules (v5)
+
+What `sportsbook_v3` does on the scheduled runs, with the workflow's defaults. Each
+setting is a repository Variable, so it can change without a code change.
+
+* **Reference price.** Sharp books only (Pinnacle, else the median of Circa and BetOnline), power devig.
+  Soft books are off in the workflow (`PBOT_V3_ALLOW_SOFT_REFERENCE=false`). Books older
+  than 3h, or with no readable update time, don't count.
+* **Entry.** Buy at the Kalshi ask only when the edge after that series' fee is at least
+  `PBOT_V2_MIN_NET_EDGE` (2¢; twice that below 40¢), the price is 25¢–90¢, at least 50
+  contracts are offered, and kickoff is 72–168h away (`PBOT_ENTRY_WINDOW_MIN_HOURS` /
+  `PBOT_ENTRY_WINDOW_MAX_HOURS`). Rejected candidates are logged with a reason and scored
+  as near misses.
+* **Execution.** `PBOT_V3_EXECUTION=auto`: taker orders until practice resting orders
+  pass the maker gate (50+ queue-model fills with the whole 95% range of their
+  closing-price gain above zero, and no worse than the taker fills).
+* **Size.** One unit per bet (`PBOT_SIZING_MODE=flat`). `kelly` sizes from the fill
+  cohort's own closing-price gain, and only once that cohort is supported.
+* **Odds credits.** The free tier's ~500 credits a month go to the 72h+ rotation and a
+  per-game pull plan (T−24h, T−6h, T−90m, T−10m) that captures the sharp close.
+* **Polymarket** is read-only reference data, never traded.
+
+The full change log is `docs/CHANGES_v5.md`.
+
+## How to read the evidence
+
+* **Closing-price gain (CLV) is the evidence.** Each bet and each near miss is scored, in
+  cents per contract, against the Kalshi mid 5 minutes before kickoff (`clv_kalshi`), the
+  Kalshi bid (`clv_kalshi_bid`), the devigged sharp close (`clv_sharp_close`) and
+  Polymarket (`clv_polymarket`, reference only). Only rows with `clv_status='ok'` count.
+* **The rule.** A cohort is *supported* once it has n ≥ 50 scored rows and the whole 95%
+  confidence interval is above zero. It is *rejected* at n ≥ 50 with the whole interval
+  below zero, and *open* otherwise. Nothing changes because of an open cohort.
+* **P&L is not evidence.** On 87 settled fills (as of 5 Nov 2026) the bot made +$560.02
+  against +$153.84 its own fair prices expected. The gap is about 1.4 standard deviations
+  of luck, not skill.
+* **Where to look.** `pbot clv-report` (add `--json` for the snapshot format), the
+  dashboard's "Measurement health" section, and dated snapshots in
+  [`docs/evidence/`](docs/evidence/).
+
 ## Scheduled paper trading (GitHub Actions)
 
 `.github/workflows/paper.yml` runs one paper cycle every 30 minutes against Kalshi's
 **public production** prices (paper mode never places orders; no Kalshi credentials
-are used). The book scanner runs every cycle; the sportsbook strategy only on the 03:17,
-11:17 and 19:17 UTC cycles (and manual runs) to stay inside The Odds API free tier
-(500 requests/month). Each cycle commits `paper.sqlite`, `last_run.txt`, `REPORT.txt` and a human-readable
+are used). The book scanner runs every cycle. The sportsbook strategy runs on the :17 cycle
+of every even UTC hour (and on manual runs). The other cycles pull odds only for a
+due pull-plan target or a line-move trigger. An odds pacer keeps the month inside The
+Odds API free tier (500 requests/month). Each cycle commits `paper.sqlite`, `last_run.txt`, `REPORT.txt` and a human-readable
 `PREDICTIONS.md` (every signal with price, fair estimate, edge and outcome once settled) to
 the `paper-ledger` branch — that file is the place to see what the bot is predicting.
 Locally, `pbot predictions` prints the same table.
@@ -137,7 +181,7 @@ pytest
 
 ## Roadmap
 
-* Polymarket adapter (CLOB API) behind the same `Market`/`Signal` types.
+* Polymarket as a venue behind the same `Market`/`Signal` types (today it is read-only
+  reference data).
 * WebSocket order-book feed (`use_yes_price: true`) instead of REST polling.
-* Maker-side paper fills (rest at bid, fill only when trades print through).
 * Economic-release reaction strategy (CPI / jobs / Fed).

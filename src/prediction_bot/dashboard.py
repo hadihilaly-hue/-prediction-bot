@@ -10,7 +10,7 @@ import html
 import json
 import random
 import statistics
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import cast
 
@@ -898,10 +898,146 @@ def _cadence_data(ledger: Ledger) -> dict[str, object]:
     }
 
 
+def _when(value: object) -> datetime | None:
+    """Parse a ledger timestamp as aware UTC (naive means UTC; Python 3.10 has no `Z`)."""
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+# Data feeds the bot reads, newest row per feed: (label, table, time column, filter).
+_FRESHNESS_FEEDS: tuple[tuple[str, str, str, str], ...] = (
+    ("Kalshi markets", "market_snapshots", "fetched_at", ""),
+    ("Kalshi quotes", "quote_snapshots", "created_at", ""),
+    ("Kalshi order books", "orderbook_snapshots", "fetched_at", ""),
+    ("Kalshi closing prices", "closing_quotes", "fetched_at", ""),
+    ("Polymarket reference", "reference_quotes", "fetched_at", "WHERE source='polymarket'"),
+    ("Injury reports", "injury_snapshots", "fetched_at", ""),
+)
+
+
+def _v5_health_data(ledger: Ledger, now: datetime | None = None) -> dict[str, object]:
+    """v5 Phase 8.1 panels: model-expected vs realized P&L, maker drift lives in
+    `quality.maker_shadow_scoring`, data-freshness lag per feed, runs per day against
+    the 48 scheduled slots, and gate rejections per reason per day."""
+    now = now or datetime.now(timezone.utc)
+    week_ago = (now - timedelta(days=7)).isoformat()
+
+    # Realized minus model-expected P&L over settled fills. Expected per fill is
+    # (fair - price) * count - fee; realized is recomputed per fill (settlements.pnl is
+    # per ticker). The model SD is the spread of realized P&L if `fair` were the truth.
+    expected = realized = variance = 0.0
+    settled = 0
+    for side, price, count, fee, fair, result in ledger.conn.execute(
+        "SELECT f.side,f.price,f.count,f.fee,f.fair_prob,s.result FROM fills f "
+        "JOIN settlements s ON s.ticker=f.ticker"
+    ):
+        p, n, f, q = float(price), float(count), float(fee), float(fair)
+        settled += 1
+        expected += (q - p) * n - f
+        realized += n * (1 - p) - f if result == side else -(n * p + f)
+        variance += n * n * q * (1 - q)
+    sd = variance**0.5
+    pnl = {
+        "n": settled,
+        "expected": expected,
+        "realized": realized,
+        "gap": realized - expected,
+        "model_sd": sd,
+        "gap_in_sd": (realized - expected) / sd if sd else None,
+    }
+
+    freshness: list[dict[str, object]] = []
+    odds_rows: dict[str, list[tuple[object, object]]] = {}
+    for feed, created_at, book_update in ledger.conn.execute(
+        "SELECT feed,created_at,max_book_update FROM odds_snapshots WHERE created_at>=?",
+        (week_ago,),
+    ):
+        odds_rows.setdefault(str(feed), []).append((created_at, book_update))
+    for feed, latest in ledger.conn.execute(
+        "SELECT feed,MAX(created_at) FROM odds_snapshots GROUP BY feed ORDER BY feed"
+    ).fetchall():
+        lags = []
+        for created_at, book_update in odds_rows.get(str(feed), []):
+            pulled, updated = _when(created_at), _when(book_update)
+            if pulled and updated:
+                lags.append((pulled - updated).total_seconds() / 60)
+        freshness.append(_freshness_row(f"Odds: {feed}", latest, now, lags))
+    for label, table, column, where in _FRESHNESS_FEEDS:
+        latest = ledger.conn.execute(f"SELECT MAX({column}) FROM {table} {where}").fetchone()[0]
+        freshness.append(_freshness_row(label, latest, now, []))
+
+    days: dict[str, dict[str, object]] = {}
+    for ran_at, reason in ledger.conn.execute(
+        "SELECT ran_at,trigger_reason FROM runs WHERE ran_at>=?",
+        ((now - timedelta(days=14)).isoformat(),),
+    ):
+        at = _when(ran_at)
+        if at is None:
+            continue
+        day = days.setdefault(at.date().isoformat(), {"runs": 0, "slots": set(), "triggered": 0})
+        day["runs"] = cast(int, day["runs"]) + 1
+        if reason is None:
+            cast(set[tuple[int, int]], day["slots"]).add((at.hour, at.minute // 30))
+        else:
+            day["triggered"] = cast(int, day["triggered"]) + 1
+    today = now.date().isoformat()
+    minutes_today = now.hour * 60 + now.minute
+    runs_per_day = [
+        {
+            "day": day,
+            "runs": row["runs"],
+            "slots_ran": len(cast(set[tuple[int, int]], row["slots"])),
+            "triggered": row["triggered"],
+            # Slots fire at :17 and :47; today only counts the ones already due.
+            "scheduled": (
+                sum(1 for k in range(48) if k * 30 + 17 <= minutes_today) if day == today else 48
+            ),
+        }
+        for day, row in sorted(days.items(), reverse=True)
+    ]
+
+    rejections = [
+        {"day": day, "reason": reason, "n": n}
+        for day, reason, n in ledger.conn.execute(
+            "SELECT substr(created_at,1,10),reason,COUNT(*) FROM blocks WHERE created_at>=? "
+            "GROUP BY 1,2 ORDER BY 1 DESC,3 DESC",
+            (week_ago,),
+        )
+    ]
+    return {
+        "pnl_vs_model": pnl,
+        "freshness": freshness,
+        "runs_per_day": runs_per_day,
+        "rejections": rejections,
+    }
+
+
+def _freshness_row(
+    label: str, latest: object, now: datetime, lags: list[float]
+) -> dict[str, object]:
+    at = _when(latest)
+    return {
+        "feed": label,
+        "latest": latest,
+        "age_min": None if at is None else (now - at).total_seconds() / 60,
+        "book_age_n": len(lags),
+        "book_age_p50_min": statistics.median(lags) if lags else None,
+        "book_age_p90_min": (
+            statistics.quantiles(lags, n=10)[-1] if len(lags) >= 2 else (lags[0] if lags else None)
+        ),
+    }
+
+
 def dashboard_data(ledger: Ledger, settings: Settings | None = None) -> dict[str, object]:
     perf = ledger.performance()
     return {
         "cadence": _cadence_data(ledger),
+        "v5": _v5_health_data(ledger),
         "clv_report": clv_report(ledger.conn),
         "injuries": _injury_data(ledger),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -1027,6 +1163,7 @@ _TEMPLATE = """<!doctype html>
   .badge { display:inline-block; background:#fff3; border-radius:999px; padding:2px 10px;
            font-size:12px; margin-left:8px; vertical-align:middle; }
   main { max-width:1180px; margin:0 auto; padding:20px 16px 40px; display:grid; gap:20px; }
+  main > * { min-width:0; } /* let wide tables scroll inside .tablewrap on phones */
   section.block { background:var(--card); border:1px solid var(--line); border-radius:14px;
                   padding:20px; }
   section.block > h2 { margin:0 0 4px; font-size:18px; }
@@ -1112,6 +1249,29 @@ _TEMPLATE = """<!doctype html>
     <h3 class="evidence-head">How much evidence is there?</h3>
     <p class="hint">Closing-price gain (CLV) is the main evidence: it shows up long before profit stops being luck. A result counts once 50 bets have it and the whole 95% range is above zero.</p>
     <div id="evidence"></div>
+  </section>
+
+  <section class="block">
+    <h2>Measurement health</h2>
+    <p class="hint">How to read the evidence: a cohort counts as evidence only with 50+ scored rows and the whole 95% range of its closing-price gain above zero (rejected when the whole range is below zero). Profit and loss is not evidence: at this sample size it is mostly variance.</p>
+    <div class="cards" id="v5cards"></div>
+    <div class="tablewrap" style="margin-top:14px"><table id="v5clv"></table></div>
+    <details>
+      <summary>Practice resting orders: fill rate and price drift after the fill</summary>
+      <div class="tablewrap"><table id="v5maker"></table></div>
+    </details>
+    <details>
+      <summary>How fresh is each data feed?</summary>
+      <div class="tablewrap"><table id="v5fresh"></table></div>
+    </details>
+    <details>
+      <summary>Runs per day against the 48 scheduled slots</summary>
+      <div class="tablewrap"><table id="v5runs"></table></div>
+    </details>
+    <details>
+      <summary>Why candidates were rejected, per day</summary>
+      <div class="tablewrap"><table id="v5reject"></table></div>
+    </details>
   </section>
 
   <section class="block">
@@ -1666,6 +1826,35 @@ _TEMPLATE = """<!doctype html>
   renderClvReport();
   $('q').addEventListener('input', renderPreds);
   renderPreds();
+  // v5 Phase 8.1: measurement health.
+  const H = D.v5 || {};
+  const PM = H.pnl_vs_model || {};
+  const fillsAll = (((R.cohorts || {}).fills || {}).metrics || {}).clv_kalshi || {};
+  const beat = (fillsAll.all || {});
+  const v5cards = [
+    ['Model-expected profit', money(PM.expected, true), 'sum of (fair − price) × contracts − fee over ' + (PM.n || 0) + ' finished bets', tone(PM.expected)],
+    ['Realized profit', money(PM.realized, true), 'the same ' + (PM.n || 0) + ' bets, recomputed per bet', tone(PM.realized)],
+    ['Realized minus expected', money(PM.gap, true), num(PM.gap_in_sd) ? 'variance: ' + PM.gap_in_sd.toFixed(1) + ' model SDs (SD ' + money(PM.model_sd) + '). Not evidence.' : 'variance, not evidence', ''],
+    ['Bets beating the close', num(beat.beat_close) ? pct(beat.beat_close) : '–', (beat.n || 0) + ' paper bets with a clean Kalshi closing price', '']
+  ];
+  $('v5cards').innerHTML = v5cards.map(c => '<div class="stat"><div class="k">' + esc(c[0]) + '</div><div class="v ' + c[3] + '">' + esc(c[1]) + '</div><div class="d">' + esc(c[2]) + '</div></div>').join('');
+  table('v5clv', 'Closing-price gain by cohort, cents per contract (the pbot clv-report table; details by window, price, series and edge are under Details).', ['Cohort', '#Scored', '#Vs Kalshi mid', 'Mid 95% range', '#Beat close', 'Mid verdict', '#Vs Kalshi bid', 'Bid verdict', '#Sharp rows', '#Vs sharp close', 'Sharp verdict'], Object.values(R.cohorts || {}).map(c => {
+    const a = (c.metrics.clv_kalshi || {}).all || {}, b = (c.metrics.clv_kalshi_bid || {}).all || {}, s = (c.metrics.clv_sharp_close || {}).all || {};
+    return [c.label, String(a.n || 0), {v: signedCents(a.mean), cls: tone(a.mean)}, ciText(a), num(a.beat_close) ? pct(a.beat_close) : '–', verdictPill(a.verdict), {v: signedCents(b.mean), cls: tone(b.mean)}, verdictPill(b.verdict), String(s.n || 0), {v: signedCents(s.mean), cls: tone(s.mean)}, verdictPill(s.verdict)];
+  }), 'No CLV report yet.');
+  const ruleNames = {queue: 'Queue model (behind resting size, from the trade tape)', trade_through: 'Trade-through (price traded past ours)', optimistic: 'Optimistic (price touched ours)'};
+  table('v5maker', 'Each rule decides whether a practice resting order would have filled. Drift is the Kalshi price at 5 minutes before kickoff minus our fill price, in cents: negative drift after fills means the fills were adverse.', ['Fill rule', '#Scored', '#Filled', '#Fill rate', '#Drift to close (mid)', '#Drift to close (bid)', '#Settled P&L'], ['queue', 'trade_through', 'optimistic'].map(k => {
+    const r = (Q.maker_shadow_scoring || {})[k] || {};
+    return [ruleNames[k], String(r.scored || 0), String(r.filled || 0), num(r.fill_rate) ? pct(r.fill_rate) : '–', {v: signedCents(r.mean_clv) + ' (' + (r.clv_count || 0) + ')', cls: tone(r.mean_clv)}, {v: signedCents(r.mean_exit_clv) + ' (' + (r.exit_clv_count || 0) + ')', cls: tone(r.mean_exit_clv)}, money(r.pnl, true)];
+  }), 'No scored practice orders yet.');
+  const ago = m => !num(m) ? 'never' : m < 90 ? Math.round(m) + ' min' : m < 2880 ? (m / 60).toFixed(1) + ' h' : (m / 1440).toFixed(1) + ' days';
+  table('v5fresh', 'Age is measured when this page was built. Book lag is how long before our pull the newest sportsbook update was made (odds feeds only, last 7 days).', ['Feed', 'Newest data', '#Age', '#Book lag median', '#Book lag p90', '#Pulls (7d)'], (H.freshness || []).map(f => [f.feed, when(f.latest), {v: ago(f.age_min), cls: num(f.age_min) && f.age_min > 90 ? 'bad' : ''}, num(f.book_age_p50_min) ? f.book_age_p50_min.toFixed(1) + ' min' : '–', num(f.book_age_p90_min) ? f.book_age_p90_min.toFixed(1) + ' min' : '–', f.book_age_n ? String(f.book_age_n) : '–']), 'No data pulled yet.');
+  table('v5runs', 'UTC days, newest first. Slots are the :17 and :47 runs (one per half hour); triggered runs are pull-plan and line-move runs on top of those. Today counts only the slots already due.', ['Day', '#Slots ran', '#Scheduled', '#Share', '#Triggered runs', '#All runs'], (H.runs_per_day || []).map(r => [r.day, String(r.slots_ran), String(r.scheduled), {v: r.scheduled ? pct(r.slots_ran / r.scheduled) : '–', cls: r.scheduled && r.slots_ran / r.scheduled < 0.9 ? 'bad' : 'good'}, String(r.triggered), String(r.runs)]), 'No runs recorded in the last 14 days.');
+  const rejDays = [...new Set((H.rejections || []).map(r => r.day))];
+  const rejByReason = {};
+  (H.rejections || []).forEach(r => { (rejByReason[r.reason] = rejByReason[r.reason] || {})[r.day] = r.n; });
+  const rejRows = Object.entries(rejByReason).map(([reason, byDay]) => [reason, Object.values(byDay).reduce((a, b) => a + b, 0), byDay]).sort((a, b) => b[1] - a[1]);
+  table('v5reject', 'Gate rejections (the blocks table) in the last 7 days, all strategies, by UTC day.', ['Reason', 'Code', '#7 days'].concat(rejDays.map(d => '#' + d.slice(5))), rejRows.map(([reason, total, byDay]) => [blockLabel(reason), {v: reason, cls: 'why'}, String(total)].concat(rejDays.map(d => String(byDay[d] || 0)))), 'No rejections in the last 7 days.');
   renderVerdicts();
 })();
 </script>
