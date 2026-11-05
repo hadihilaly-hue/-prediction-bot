@@ -6,13 +6,23 @@ name: Paper trading
 # public repo); each sportsbook run spends its pacer share of the quota left this
 # month (~16/day on the 500 free tier; most runs pull 1 feed and about every third
 # pulls 2). Skipped pulls are banked.
-# Manual runs always include the sportsbook strategy.
+# Manual runs (no slot input) always include the sportsbook strategy.
+#
+# Scheduling (v5 Phase 6): GitHub drops 40-70% of scheduled slots, so a Cloudflare
+# Worker (infra/cloudflare-trigger) dispatches this workflow at :17/:47 with
+# inputs.slot. The schedule below stays as a fallback; when both fire, the second run
+# sees the first in the ledger (`pbot slot-guard`) and stops before doing anything.
 on:
   schedule:
     - cron: "17 */2 * * *"  # book scanner + sportsbook
     - cron: "47 * * * *"  # book scanner only
     - cron: "17 1-23/2 * * *"  # book scanner only
   workflow_dispatch:
+    inputs:
+      slot:
+        description: "scanner or sportsbook (blank: a manual run with the sportsbook step)"
+        required: false
+        default: ""
 
 concurrency:
   group: paper-ledger
@@ -39,7 +49,21 @@ jobs:
           mkdir -p ledger
           git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true
 
+      # Scheduled and Cloudflare-dispatched runs share one code path: the slot comes
+      # from inputs.slot, else from the cron that fired. Manual runs skip the guard.
+      - name: Slot guard
+        id: guard
+        env:
+          PBOT_PAPER_DB_PATH: ledger/paper.sqlite
+          SLOT: ${{ inputs.slot || (github.event.schedule == '17 */2 * * *' && 'sportsbook') || (github.event_name == 'schedule' && 'scanner') || '' }}
+        run: |
+          if [ -z "$SLOT" ]; then echo "skip=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          DECISION="$(pbot slot-guard --slot "$SLOT")"
+          echo "slot $SLOT: $DECISION"
+          echo "skip=$([ "$DECISION" = skip ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
       - name: Run one paper cycle
+        if: steps.guard.outputs.skip != 'true'
         env:
           PBOT_MODE: paper
           PBOT_RULES_VERSION: ${{ vars.PBOT_RULES_VERSION || 'v3' }}
@@ -83,7 +107,7 @@ jobs:
           PBOT_ODDS_RUNS_PER_DAY: "12"
           # github.event.schedule is the cron expression that fired, so slot selection is
           # immune to delayed starts; manual runs always include the sportsbook strategy.
-          SPORTSBOOK_SLOT: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '17 */2 * * *' }}
+          SPORTSBOOK_SLOT: ${{ inputs.slot == 'sportsbook' || (github.event_name == 'workflow_dispatch' && inputs.slot == '') || github.event.schedule == '17 */2 * * *' }}
         run: |
           set -eo pipefail
           SPORTSBOOK_SERIES_ARGS="$(python -c 'from prediction_bot.series import SPORTSBOOK_SERIES; print(" ".join(f"--series {series}" for series in SPORTSBOOK_SERIES))')"
@@ -124,6 +148,7 @@ jobs:
           touch ledger/.nojekyll
 
       - name: Commit ledger
+        if: steps.guard.outputs.skip != 'true'
         run: |
           set -e
           git config user.name "paper-bot"

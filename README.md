@@ -91,6 +91,12 @@ from the Actions tab (`workflow_dispatch`).
 Demo-venue prices are thin and often stale, so edges seen with the default demo URL
 overstate what the real book offers — evaluate strategies on production data.
 
+### Scheduler reliability
+
+GitHub drops many scheduled slots. A Cloudflare Worker (`infra/cloudflare-trigger`, setup steps in its README) can start `paper.yml` at :17 and :47 through `workflow_dispatch` with a `slot` input. The GitHub schedule stays as a fallback, and `pbot slot-guard` stops a second run of the same slot.
+
+An hourly `health.yml` workflow runs `pbot health`, which fails once the ledger's last run is more than 90 minutes old. On failure it opens or updates one issue titled "paper bot missed runs".
+
 ## Safety
 
 * `PBOT_MODE=paper` (default) never sends orders. `Engine` only sends live orders when

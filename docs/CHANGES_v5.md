@@ -8,7 +8,7 @@ v5 builds on v4 (`docs/CHANGES_v4.md`) and the credit cadence work (`docs/CHANGE
 
 It is still paper-only: no live-order path, no credential changes, and every ledger change is additive.
 
-**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)) and Phase 3 ([#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63)) are merged. Phase 4 ([#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65), re-opened against `main` after #64 merged into its stacked base) and Phase 5 are open. Later phases follow one PR each.
+**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)), Phase 3 ([#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63)) and Phase 4 ([#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65), re-opened against `main` after #64 merged into its stacked base) are merged. Phase 5 ([#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66)) and Phase 6 are open against `main`. Later phases follow one PR each.
 
 ## What changed, by phase
 
@@ -19,7 +19,8 @@ It is still paper-only: no live-order path, no credential changes, and every led
 | 2: entry rules | [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62) | 25c price floor and a doubled threshold below 40c; soft reference off in the workflow; entry window as config (72–168h); shadow-only NHL/NBA/NCAAB measurement pulls (≤2 credits/day); price-floor and thin-market rows kept as near misses with depth and open interest |
 | 3: pull plan | [#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63) | Per-game T−24h/T−6h/T−90m/T−10m targets (`pull_plan`) sharing each day's credits with the 72h+ rotation; pulls on any 30-min slot; shadow-only sharp-move detector (`sharp_move`, `sharp_move_follow`); `odds_budget.py` pull-plan section |
 | 4: maker queue | [#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65) (first [#64](https://github.com/hadihilaly-hue/-prediction-bot/pull/64)) | `/markets/trades` and depth-20 `orderbook_snapshots`; maker shadows record their queue and price rule (bid+1c, or at the bid on a 1c spread); queue-model fills from the trade tape beside the candle rules; maker gate now decides on queue fills with clean CLV |
-| 5: Polymarket reference | this PR | Read-only Polymarket client; tracked Kalshi events matched by team aliases and kickoff; `reference_quotes` mids on scanner runs (≤200 requests); `clv_polymarket` in every CLV table and `clv-report`; `pbot reference-gaps` |
+| 5: Polymarket reference | [#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66) | Read-only Polymarket client; tracked Kalshi events matched by team aliases and kickoff; `reference_quotes` mids on scanner runs (≤200 requests); `clv_polymarket` in every CLV table and `clv-report`; `pbot reference-gaps` |
+| 6: scheduler reliability | this PR | Cloudflare Worker cron (`infra/cloudflare-trigger`) dispatching `paper.yml` with a `slot` input; `pbot slot-guard` against double runs; `pbot health` and an hourly `health.yml` that opens a "paper bot missed runs" issue |
 
 ## Phase 0: measurement fixes
 
@@ -492,6 +493,40 @@ The tag map is a config key (`polymarket_tags`), so wrong slugs can be fixed wit
 - **`clv_polymarket`:** the close window (a sample 50 minutes out is ignored), the NO side, and the report metric.
 - **CLI:** `pbot reference-gaps`.
 
+## Phase 6: scheduler reliability
+
+### 6.1 Cloudflare cron trigger
+- **`infra/cloudflare-trigger/worker.js` plus `wrangler.toml`.** A Cloudflare Workers cron (`17,47 * * * *`, free plan) that calls GitHub's `workflow_dispatch` API for `paper.yml` with `inputs.slot`.
+  - `sportsbook` for the :17 slot of even UTC hours (the same rule as the `17 */2 * * *` cron), else `scanner`. A late firing still counts as its own slot.
+  - It authenticates with a fine-grained PAT stored as the Worker secret `GITHUB_TOKEN` (this repo only, Actions: read and write).
+  - A non-204 answer throws, so the failure shows in the Worker's logs.
+- **`paper.yml`.**
+  - It takes an optional `slot` input. The cron schedule stays as a fallback; its minutes are already :17/:47, off :00.
+  - The slot comes from the input, else from the cron that fired.
+  - `SPORTSBOOK_SLOT` honours the input. A manual dispatch with no input still includes the sportsbook step, as before.
+- **Double runs** (`pbot slot-guard --slot …`):
+  - When a dispatch and the cron fallback both fire, the second run (queued behind the first by the `paper-ledger` concurrency group) finds a run of the same slot in the ledger within 20 minutes.
+  - It then skips the paper cycle and the commit, so credits are never spent twice.
+  - Move-trigger and pull-plan runs (`trigger_reason` set) don't count as slot runs. Manual runs skip the guard.
+- **RESERVED:** Hadi creates the Cloudflare account and the PAT. The steps are in `infra/cloudflare-trigger/README.md`. Until then, nothing changes: the GitHub schedule runs as today.
+
+### 6.2 Dead-man check
+- **"Last run" is `runs.ran_at`.** Every paper cycle already writes one, as aware UTC, so no new column is needed.
+- **`pbot health --max-age-minutes 90`:**
+  - prints the last run time and how many of the 48 half-hour slots ran in the last 24h;
+  - exits 1 when the last run is older than the limit, or when there are no runs at all.
+- **`.github/workflows/health.yml`** runs hourly at :33, off the paper bot's minutes.
+  - It reads the ledger from `paper-ledger` and runs the check (with `pipefail`, so `tee` can't hide a failure).
+  - On failure it comments on the open issue titled "paper bot missed runs", or opens one, using the workflow's own token with `issues: write`.
+
+### Acceptance (`tests/test_scheduler.py`, `infra/cloudflare-trigger/worker.test.mjs`)
+- **Slot guard:** skips a slot that already ran, ignores plan and trigger runs, and rejects an unknown slot.
+- **Health:** passes when fresh, exits 1 when stale or empty.
+- **`paper.yml`:** has the `slot` input, the input-aware `SPORTSBOOK_SLOT`, the guard on both the cycle and the commit, and the fallback crons.
+- **`health.yml`:** has its cron, pipefail and the issue logic.
+- **`wrangler.toml`:** has the cron and carries no token.
+- **Worker** (via `node --test`, which pytest runs when Node is installed): the slot rule including a late cron, the exact dispatch request, failure on non-204, the token kept out of the body, and plain HTTP refused.
+
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:
    - Phase 1.2's centicent rounding stays RESERVED;
@@ -508,5 +543,5 @@ The tag map is a config key (`polymarket_tags`), so wrong slugs can be fixed wit
    - Covering every target for the eligible feeds takes ~42 credits a day (~1,300 a month), more with NHL/NBA/NCAAB.
    - The $30 tier's 20,000 credits would cover that with room to spare, and would let `ODDS_ENTRY_SHARE` stay at 0.5 without starving either side.
 6. **`ODDS_ENTRY_SHARE` (0.5).** Lower it to move credits from 72h+ entry pulls to near-kickoff measurement. That fits only if you expect the window decision (3) to move toward the close.
-7. **Cloudflare account and PAT**: still undecided (Phase 6).
+7. **Cloudflare account and PAT (Phase 6, RESERVED).** Create both and deploy the Worker by following `infra/cloudflare-trigger/README.md`, about 10 minutes. Until then the bot keeps running on the GitHub schedule alone, with the slot guard and health check already active.
 8. **Live orders**: out of scope.

@@ -1073,6 +1073,65 @@ def _plan_games_listed(odds: OddsClient, ledger: Ledger, feed: str, now: datetim
     return bool(events)
 
 
+def _run_times(ledger: Ledger, since: datetime) -> list[tuple[datetime, str, str | None]]:
+    out = []
+    for ran_at, strategies, reason in ledger.conn.execute(
+        "SELECT ran_at,strategies,trigger_reason FROM runs WHERE ran_at>=? ORDER BY ran_at",
+        (since.isoformat(),),
+    ):
+        try:
+            out.append((_utc(datetime.fromisoformat(str(ran_at))), str(strategies), reason))
+        except ValueError:
+            continue
+    return out
+
+
+@app.command("slot-guard")
+def slot_guard(
+    slot: str = typer.Option(..., help="scanner or sportsbook"),
+    within_minutes: int = typer.Option(20, help="A run this recent means the slot already ran"),
+) -> None:
+    """Print `skip` if this slot already ran (both the Cloudflare dispatch and the GitHub
+    cron fallback fired), else `run`. Move-trigger and pull-plan runs don't count."""
+    if slot not in {"scanner", "sportsbook"}:
+        raise typer.BadParameter("slot must be scanner or sportsbook")
+    s = _settings()
+    ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+    since = datetime.now(timezone.utc) - timedelta(minutes=within_minutes)
+    for _at, strategies, reason in _run_times(ledger, since):
+        if reason is not None:
+            continue
+        sportsbook = any(name.startswith("sportsbook") for name in strategies.split(","))
+        if (slot == "sportsbook" and sportsbook) or (slot == "scanner" and not sportsbook):
+            typer.echo("skip")
+            return
+    typer.echo("run")
+
+
+@app.command()
+def health(
+    max_age_minutes: int = typer.Option(90, help="Fail if the last run is older than this"),
+) -> None:
+    """Dead-man check: exit 1 if the ledger's last run is older than `max_age_minutes`."""
+    s = _settings()
+    ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+    now = datetime.now(timezone.utc)
+    day = _run_times(ledger, now - timedelta(days=1))
+    row = ledger.conn.execute("SELECT MAX(ran_at) FROM runs").fetchone()
+    last = _utc(datetime.fromisoformat(str(row[0]))) if row and row[0] else None
+    slots = len({(at.hour, at.minute // 30) for at, _s, reason in day if reason is None})
+    if last is None:
+        typer.echo("no runs recorded")
+        raise typer.Exit(1)
+    age = (now - last).total_seconds() / 60
+    typer.echo(
+        f"last run {last.isoformat(timespec='minutes')} ({age:.0f} min ago); "
+        f"{slots} of 48 half-hour slots ran in the last 24h"
+    )
+    if age > max_age_minutes:
+        raise typer.Exit(1)
+
+
 @app.command("reference-gaps")
 def reference_gaps(
     days: int = typer.Option(14, help="Look back this many days"),
