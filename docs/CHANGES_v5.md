@@ -8,7 +8,7 @@ v5 builds on v4 (`docs/CHANGES_v4.md`) and the credit cadence work (`docs/CHANGE
 
 It is still paper-only: no live-order path, no credential changes, and every ledger change is additive.
 
-**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)), Phase 3 ([#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63)) and Phase 4 ([#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65), re-opened against `main` after #64 merged into its stacked base) are merged. Phase 5 ([#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66)) and Phase 6 are open against `main`. Later phases follow one PR each.
+**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)), Phase 3 ([#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63)) and Phase 4 ([#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65), re-opened against `main` after #64 merged into its stacked base), Phase 5 ([#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66)) and Phase 6 ([#67](https://github.com/hadihilaly-hue/-prediction-bot/pull/67)) are merged. Phase 7 is open against `main`. Later phases follow one PR each.
 
 ## What changed, by phase
 
@@ -20,7 +20,8 @@ It is still paper-only: no live-order path, no credential changes, and every led
 | 3: pull plan | [#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63) | Per-game T−24h/T−6h/T−90m/T−10m targets (`pull_plan`) sharing each day's credits with the 72h+ rotation; pulls on any 30-min slot; shadow-only sharp-move detector (`sharp_move`, `sharp_move_follow`); `odds_budget.py` pull-plan section |
 | 4: maker queue | [#65](https://github.com/hadihilaly-hue/-prediction-bot/pull/65) (first [#64](https://github.com/hadihilaly-hue/-prediction-bot/pull/64)) | `/markets/trades` and depth-20 `orderbook_snapshots`; maker shadows record their queue and price rule (bid+1c, or at the bid on a 1c spread); queue-model fills from the trade tape beside the candle rules; maker gate now decides on queue fills with clean CLV |
 | 5: Polymarket reference | [#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66) | Read-only Polymarket client; tracked Kalshi events matched by team aliases and kickoff; `reference_quotes` mids on scanner runs (≤200 requests); `clv_polymarket` in every CLV table and `clv-report`; `pbot reference-gaps` |
-| 6: scheduler reliability | this PR | Cloudflare Worker cron (`infra/cloudflare-trigger`) dispatching `paper.yml` with a `slot` input; `pbot slot-guard` against double runs; `pbot health` and an hourly `health.yml` that opens a "paper bot missed runs" issue |
+| 6: scheduler reliability | [#67](https://github.com/hadihilaly-hue/-prediction-bot/pull/67) | Cloudflare Worker cron (`infra/cloudflare-trigger`) dispatching `paper.yml` with a `slot` input; `pbot slot-guard` against double runs; `pbot health` and an hourly `health.yml` that opens a "paper bot missed runs" issue |
+| 7: audit and sizing | this PR | Stale-book check fails closed; Kalshi timestamps always aware; order-book parser tolerant of key and unit variants; `PBOT_SIZING_MODE` (`flat` default, `kelly` capped by supported cohort CLV) |
 
 ## Phase 0: measurement fixes
 
@@ -527,6 +528,34 @@ The tag map is a config key (`polymarket_tags`), so wrong slugs can be fixed wit
 - **`wrangler.toml`:** has the cron and carries no token.
 - **Worker** (via `node --test`, which pytest runs when Node is installed): the slot rule including a late cron, the exact dispatch request, failure on non-204, the token kept out of the body, and plain HTTP refused.
 
+## Phase 7: bug audit and sizing
+
+### 7.1 Audit findings
+
+| Item | Finding | Action |
+|---|---|---|
+| (a) `liquidity_dollars` removed (1 Oct 2026) | No code reads it. `parse_market` reads `yes_bid_size_fp`/`yes_ask_size_fp`. `thin_market`, `make_signal`'s depth gate and `feed_selection.liquidity_weights` use those sizes (via `Quote` or `market_snapshots.yes_ask_size`). `parse_orderbook` read only `orderbook_fp`/`orderbook` with `yes`/`no` keys. | **Fixed, defensively.** `_book_levels` also reads `yes_dollars`/`no_dollars` and converts legacy integer-cent prices. The live key names could not be checked from here. |
+| (b) Event/milestone `status` for in-game detection | Not used. `_in_play_reasons` uses kickoff time, book updates after kickoff, and price or consensus extremes; nothing reads an event `status`. | None. |
+| (c) 3-way soccer and exposure dedupe | v2/v3 key exposure by `position_key`. NO on A in a 2-way game is the other team's key; in a 3-way game it is `not:A`, which is not YES on B (NO also wins on a draw). The settlement-rule gate requires a Kalshi `TIE` leg plus an Odds draw for soccer. `position_cost`, `event_cost` and `held_keys` count every v2/v3 strategy, not one, and `opposite_position` stops a second outcome in the same event. `Engine._exposure` (v1 only) is per strategy by design; v1 now runs only in shadow, so v1's stacking can't recur. | Tests added: the 2-way merge and the 3-way NO leg kept separate. |
+| (d) `_fresh_books` passed books with a missing or unparsable `last_update` | **Real.** A book absent from `book_updates`, or with an unreadable time, was treated as fresh. | **Fixed.** Unknown age now means stale, so the game can fall to `stale_books`/`few_books`. Test added. |
+| (e) Aware UTC; `commence_time` never from ticker dates for NFL/NCAAF | `analysis.start_time` uses ticker times only for MLB (`KXMLBGAME…HHMM`), or a published kickoff list, so NFL/NCAAF kickoffs are never inferred from ticker dates. Strategy window maths parse with `_parse_time` (aware). `venues/kalshi._ts` returned a naive datetime for a value without an offset, which would raise when compared with aware times. | **Fixed:** `_ts` reads offset-less values as UTC. Test added. Not changed: v1's `_early_enough` anchors on Kalshi's expected *expiration* (about 3h after kickoff), so its 72h lead is really about 69h before kickoff; v3's window gate uses kickoff. |
+| (f) `thin_market` detail prints `ask_depth=10.34` | Sizes come from the `_fp` fixed-point fields, which carry fractional contract counts. The comparison is in contracts (`ask_size_for(side) < v3_min_ask_depth`, 50 contracts), not dollars. The detail prints the raw Decimal. | None: the value is correct, just not rounded for display. |
+
+### 7.2 Sizing
+- **`PBOT_SIZING_MODE`** (workflow default `flat`, also a repo Variable):
+  - **`flat`:** every v2/v3 entry stakes one unit, `max_order_notional` (25 dollars). The position, event, daily and cash caps still apply, and large-gap entries are still halved.
+  - **`kelly`:** quarter-Kelly (`v2_kelly_fraction`) on an edge equal to the smaller of the model's edge and **half the cohort's mean `clv_kalshi`**. The cohort is this rules version's fills with `clv_status='ok'`. This applies only once the cohort is "supported" (n ≥ 50 and 95% CI lower bound > 0); until then sizing is flat.
+- **What changes today.** Before this, sizing was quarter-Kelly on the model's own edge. The fill cohort has one clean-closing fill, so `kelly` behaves as `flat` for now.
+- **Not changed:** `scripts/replay.py` still replays historical sizing with quarter-Kelly, as the v3 replay did.
+
+### Acceptance (`tests/test_v5_audit.py`)
+- the order-book parser on dollar keys and legacy cents;
+- `_fresh_books` dropping books with missing or unreadable update times;
+- aware `_ts`;
+- the 2-way position-key merge and the 3-way NO leg kept separate;
+- flat staking one unit;
+- `kelly` staying flat while the cohort is unsupported, then capping the edge at half the supported cohort's CLV (1c of a 2c mean; 5 dollars at 0.50 on a 1,000-dollar bankroll).
+
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:
    - Phase 1.2's centicent rounding stays RESERVED;
@@ -544,4 +573,5 @@ The tag map is a config key (`polymarket_tags`), so wrong slugs can be fixed wit
    - The $30 tier's 20,000 credits would cover that with room to spare, and would let `ODDS_ENTRY_SHARE` stay at 0.5 without starving either side.
 6. **`ODDS_ENTRY_SHARE` (0.5).** Lower it to move credits from 72h+ entry pulls to near-kickoff measurement. That fits only if you expect the window decision (3) to move toward the close.
 7. **Cloudflare account and PAT (Phase 6, RESERVED).** Create both and deploy the Worker by following `infra/cloudflare-trigger/README.md`, about 10 minutes. Until then the bot keeps running on the GitHub schedule alone, with the slot guard and health check already active.
-8. **Live orders**: out of scope.
+8. **Sizing mode (`flat` by default, as the brief asks).** Switch the repo Variable `PBOT_SIZING_MODE` to `kelly` to size by evidence once a fill cohort is supported.
+9. **Live orders**: out of scope.

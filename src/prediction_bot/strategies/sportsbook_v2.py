@@ -11,6 +11,7 @@ from decimal import ROUND_DOWN, Decimal
 from zoneinfo import ZoneInfo
 
 from prediction_bot.clv import sharp_fairs
+from prediction_bot.clv_report import summarize
 from prediction_bot.config import Settings
 from prediction_bot.devig import devig_all, longshot_haircut
 from prediction_bot.fees import FixedFee, SeriesFeeCache, fee_for_ticker
@@ -126,6 +127,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._feed_pull_candidates: dict[str, int] = {}
         self._injury_skip_logged: set[str] = set()
         self._event_links: dict[str, str] = {}
+        self._sizing_cohort: Decimal | None = None
         # Feeds pulled only to measure (Phase 2.5): every event in them is shadow-only.
         self.measure_only_feeds: set[str] = set()
         self._measure_only_events: set[str] = set()
@@ -136,6 +138,35 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
 
     def seen_blocks(self) -> list[Block]:
         return list(self._blocks)
+
+    def _cohort_clv_cents(self) -> Decimal | None:
+        """Mean `clv_kalshi` of this rules version's fills, only when "supported"."""
+        if self.ledger is None:
+            return None
+        if self._sizing_cohort is None:
+            values = [
+                float(value)
+                for (value,) in self.ledger.conn.execute(
+                    "SELECT clv_kalshi FROM fills WHERE rules_version=? AND clv_status='ok' "
+                    "AND clv_kalshi IS NOT NULL",
+                    (self.rules_version,),
+                )
+            ]
+            summary = summarize(values)
+            self._sizing_cohort = (
+                Decimal(str(summary["mean"])) if summary["verdict"] == "supported" else Decimal(-1)
+            )
+        return self._sizing_cohort if self._sizing_cohort >= 0 else None
+
+    def _stake(self, model_edge: Decimal, effective_price: Decimal, bankroll: Decimal) -> Decimal:
+        """Dollars to risk before the position, event, day and cash caps."""
+        if self.settings.sizing_mode == "kelly":
+            cohort = self._cohort_clv_cents()
+            if cohort is not None:
+                edge = min(model_edge, cohort / 100 / 2)
+                kelly = edge / (1 - effective_price)
+                return max(Decimal(0), kelly * self.settings.v2_kelly_fraction * bankroll)
+        return self.settings.max_order_notional
 
     @staticmethod
     def _signal_fee(signal: Signal) -> FixedFee:
@@ -968,12 +999,17 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         books: dict[str, dict[str, dict[str, Decimal]]],
         now: datetime,
     ) -> tuple[dict[str, dict[str, dict[str, Decimal]]], bool]:
+        """Drop books whose line is older than `v3_max_book_age_hours`.
+
+        v5 Phase 7.1d: fail closed. A book with no `last_update`, or one that can't be
+        parsed, has an unknown age and is treated as stale rather than fresh.
+        """
         cutoff = timedelta(hours=float(self.settings.v3_max_book_age_hours))
-        stale = {
-            bookmaker
-            for bookmaker, updated in game.book_updates.items()
-            if (updated_at := _parse_time(updated)) is not None and now - updated_at > cutoff
-        }
+        stale = set()
+        for bookmaker in books:
+            updated_at = _parse_time(game.book_updates.get(bookmaker))
+            if updated_at is None or now - updated_at > cutoff:
+                stale.add(bookmaker)
         return (
             {bookmaker: values for bookmaker, values in books.items() if bookmaker not in stale},
             bool(stale),
@@ -1077,8 +1113,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 "size_zero", signal.event_ticker, signal.ticker, "invalid bankroll or price"
             )
             return None
-        kelly = (signal.fair_prob - effective_price) / (1 - effective_price)
-        stake = max(Decimal(0), kelly * self.settings.v2_kelly_fraction * bankroll)
+        stake = self._stake(signal.fair_prob - effective_price, effective_price, bankroll)
         utc_day = (
             self.clock().astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         )
@@ -1329,6 +1364,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._line_move_decisions.clear()
         self._feed_pull_candidates.clear()
         self._event_links.clear()
+        self._sizing_cohort = None
         self._measure_only_events.clear()
         self._sharp_follow_keys.clear()
         self._sharp_follow_decisions.clear()

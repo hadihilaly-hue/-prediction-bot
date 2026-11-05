@@ -91,6 +91,9 @@ jobs:
           # day's credits the rotation does not keep; 'off' disables the plan.
           PBOT_ODDS_PULL_PLAN: ${{ vars.PBOT_ODDS_PULL_PLAN || 'hybrid' }}
           PBOT_ODDS_ENTRY_SHARE: ${{ vars.PBOT_ODDS_ENTRY_SHARE || '0.5' }}
+          # flat = one max_order_notional unit per entry; kelly = quarter-Kelly on an edge
+          # capped at half the v3 cohort's mean CLV, only once that cohort is supported.
+          PBOT_SIZING_MODE: ${{ vars.PBOT_SIZING_MODE || 'flat' }}
           # Hard stops: flip the repo variable PBOT_KILL_SWITCH to "true" to halt all entries.
           PBOT_KILL_SWITCH: ${{ vars.PBOT_KILL_SWITCH || 'false' }}
           PBOT_MAX_DAILY_LOSS: ${{ vars.PBOT_MAX_DAILY_LOSS || '50' }}
