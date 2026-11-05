@@ -432,32 +432,37 @@ class OddsPacer:
         cadence_mode: str = "legacy",
         calendar: CadenceCalendar | None = None,
         day_overrides: dict[date, float] | None = None,
+        plan_mode: bool = False,
     ) -> None:
         self.client = client
         self.runs_per_day = runs_per_day
         self.ledger = ledger
         self.trigger_mode = trigger_mode
+        # A one-feed pull-plan run on a scanner slot (Phase 3): one credit at most,
+        # never borrowed from the carry.
+        self.plan_mode = plan_mode
         self.cadence_mode = cadence_mode if calendar is not None else "legacy"
         self.calendar = calendar
         self.day_overrides = day_overrides or {}
         self.credit = 0.0
         self.measure_feed: str | None = None
+        self.extra_feeds: list[str] = []
+        # Share of each run's credit the rotation may spend; the pull plan (Phase 3)
+        # leaves the rest of the month's credits for its targets.
+        self.rotation_share = 1.0
 
-    # Credits kept back from measurement pulls (5% of the 500 free tier).
+    # Credits kept back from measurement and plan pulls (5% of the 500 free tier).
     MEASURE_RESERVE = 25
 
-    def grant_measure_credit(self, feed: str, daily_cap: int, now: datetime) -> bool:
-        """Allow one shadow-only measurement pull for `feed` on top of this run's budget.
+    def grant_extra_credit(self, feed: str) -> bool:
+        """Add one credit on top of this run's budget for `feed`, outside the carry.
 
-        Refused in trigger runs, once `daily_cap` measurement pulls are recorded for the
-        UTC day, or when it would dip into the month's reserve. The credit is kept out
-        of the carry so it never borrows from the next run's share.
+        Refused in trigger runs or when it would dip into the month's reserve. Callers
+        enforce their own daily caps (measurement, pull plan).
         """
-        if self.trigger_mode or self.ledger is None or self.client.budget is None:
+        if self.trigger_mode or self.plan_mode or self.ledger is None:
             return False
-        if self.measure_feed is not None or daily_cap <= 0:
-            return False
-        if self.ledger.measure_pulls_on(_utc(now).date()) >= daily_cap:
+        if self.client.budget is None or feed in self.extra_feeds:
             return False
         try:
             remaining = int(self.client.requests_remaining or 0)
@@ -466,14 +471,30 @@ class OddsPacer:
         if remaining - self.client.budget - 1 < self.MEASURE_RESERVE:
             return False
         self.client.budget += 1
+        self.extra_feeds.append(feed)
+        return True
+
+    def extra_pulled(self, feed: str) -> bool:
+        return feed in self.extra_feeds and feed in self.client.requests_last_by_sport
+
+    def grant_measure_credit(self, feed: str, daily_cap: int, now: datetime) -> bool:
+        """Allow one shadow-only measurement pull for `feed` on top of this run's budget.
+
+        Refused in trigger runs, once `daily_cap` measurement pulls are recorded for the
+        UTC day, or when it would dip into the month's reserve. The credit is kept out
+        of the carry so it never borrows from the next run's share.
+        """
+        if self.ledger is None or self.measure_feed is not None or daily_cap <= 0:
+            return False
+        if self.ledger.measure_pulls_on(_utc(now).date()) >= daily_cap:
+            return False
+        if not self.grant_extra_credit(feed):
+            return False
         self.measure_feed = feed
         return True
 
     def measure_pulled(self) -> bool:
-        return (
-            self.measure_feed is not None
-            and self.measure_feed in self.client.requests_last_by_sport
-        )
+        return self.measure_feed is not None and self.extra_pulled(self.measure_feed)
 
     def _cadence_start(self, left: int, now: datetime) -> int:
         from prediction_bot.cadence import build_plan
@@ -491,7 +512,7 @@ class OddsPacer:
             dyn=dyn,
             overrides=self.day_overrides,
         )
-        self.credit = min(self.credit + plan.share, float(max(0, left)))
+        self.credit = min(self.credit + plan.share * self.rotation_share, float(max(0, left)))
         # Cadence rounds the carried share: <0.5 nothing, then up to 3 feeds.
         self.client.budget = max(0, min(3, int(math.floor(self.credit + 0.5))))
         if self.ledger is not None:
@@ -578,6 +599,7 @@ class OddsPacer:
         self.client.odds_requests_made = 0
         self.client.requests_last_by_sport.clear()
         self.measure_feed = None
+        self.extra_feeds = []
         self.client.events_free = True
         if self.trigger_mode and self.credit < 0:
             self.client.budget = 0
@@ -591,6 +613,13 @@ class OddsPacer:
         if left is None:
             self.client.budget = 0
             return 0
+        if self.plan_mode:
+            self.client.budget = 1 if left - 1 >= self.MEASURE_RESERVE else 0
+            self.client._events_requests_used_baseline = (
+                int(self.client.requests_used) if self.client.requests_used else None
+            )
+            log.info("odds api: pull-plan run budget %d", self.client.budget)
+            return self.client.budget
         if self.trigger_mode:
             self.client.budget = min(1, max(0, left))
             self.client._events_requests_used_baseline = (
@@ -600,7 +629,7 @@ class OddsPacer:
             return self.client.budget
         if self.cadence_mode != "legacy":
             return self._cadence_start(left, now or datetime.now(timezone.utc))
-        share = run_share(left, self.runs_per_day, now)
+        share = run_share(left, self.runs_per_day, now) * self.rotation_share
         self.credit = min(self.credit + share, float(max(0, left)))
         self.client.budget = max(0, math.floor(self.credit + 1e-9))
         self.client._events_requests_used_baseline = (
@@ -612,9 +641,11 @@ class OddsPacer:
     def finish_run(self, now: datetime | None = None, feeds: list[str] | None = None) -> None:
         if self.ledger is None:
             return
-        spent = self.client.requests_made - (1 if self.measure_pulled() else 0)
-        carry = max(-1.0, min(self.credit - spent, 1.0))
-        self.ledger.record_odds_pacer_carry(carry, now)
+        if not self.plan_mode:
+            extras = sum(1 for feed in self.extra_feeds if self.extra_pulled(feed))
+            spent = self.client.requests_made - extras
+            carry = max(-1.0, min(self.credit - spent, 1.0))
+            self.ledger.record_odds_pacer_carry(carry, now)
         self.ledger.record_cadence_pulls(
             _utc(now or datetime.now(timezone.utc)).date(),
             self.client.odds_requests_made,

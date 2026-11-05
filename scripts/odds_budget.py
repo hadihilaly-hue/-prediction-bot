@@ -491,6 +491,58 @@ def _estimate(
         )
 
 
+PLAN_TARGET_ORDER = ("T-10m", "T-90m", "T-6h", "T-24h")
+
+
+def pull_plan_section(path: Path, since: datetime) -> str:
+    """Phase 3 per-game targets: credits by target bucket and useful-pull ratio per feed.
+
+    A target is useful when it was pulled (by a plan credit or riding along on another
+    pull); the ratio is pulled / (pulled + skipped_budget + missed + no_events).
+    """
+    uri = f"{path.resolve().as_uri()}?mode=ro"
+    with sqlite3.connect(uri, uri=True) as conn:
+        tables = {str(row[0]) for row in conn.execute("SELECT name FROM sqlite_master")}
+        if "pull_plan" not in tables:
+            return "Pull plan: no pull_plan table in this ledger (pre-Phase 3)."
+        rows = conn.execute(
+            "SELECT target,feed,status,credits FROM pull_plan WHERE planned_at>=?",
+            (since.isoformat(),),
+        ).fetchall()
+    by_target: dict[str, Counter[str]] = defaultdict(Counter)
+    credits_by_target: dict[str, float] = defaultdict(float)
+    by_feed: dict[str, Counter[str]] = defaultdict(Counter)
+    credits_by_feed: dict[str, float] = defaultdict(float)
+    for target, feed, status, credits in rows:
+        by_target[str(target)][str(status)] += 1
+        by_feed[str(feed)][str(status)] += 1
+        credits_by_target[str(target)] += float(credits or 0)
+        credits_by_feed[str(feed)] += float(credits or 0)
+    closed = ("pulled", "skipped_budget", "missed", "no_events")
+
+    def ratio(counts: Counter[str]) -> str:
+        done = sum(counts[key] for key in closed)
+        return f"{counts['pulled'] / done:.0%}" if done else "-"
+
+    lines = ["Pull plan by target (since lookback cutoff):"]
+    lines.append("target,planned,pulled,skipped_budget,missed,plan_credits,useful_ratio")
+    for target in [*PLAN_TARGET_ORDER, *sorted(set(by_target) - set(PLAN_TARGET_ORDER))]:
+        counts = by_target.get(target, Counter())
+        lines.append(
+            f"{target},{counts['planned']},{counts['pulled']},{counts['skipped_budget']},"
+            f"{counts['missed']},{credits_by_target.get(target, 0.0):.1f},{ratio(counts)}"
+        )
+    lines.append("Pull plan by feed:")
+    lines.append("feed,targets,pulled,plan_credits,useful_ratio")
+    for feed in sorted(by_feed):
+        counts = by_feed[feed]
+        lines.append(
+            f"{feed},{sum(counts.values())},{counts['pulled']},"
+            f"{credits_by_feed[feed]:.1f},{ratio(counts)}"
+        )
+    return "\n".join(lines)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -509,6 +561,7 @@ def main() -> None:
     print(f"Lookback: {max(1, args.days)} days; cutoff={since.isoformat()}")
     _estimate(events, runs, since)
     print(_feed_report_sections(args.ledger, runs, since, datetime.now(timezone.utc)))
+    print(pull_plan_section(args.ledger, since))
 
 
 if __name__ == "__main__":
