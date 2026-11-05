@@ -124,6 +124,18 @@ class Signal:
 
 
 @dataclass(frozen=True)
+class Trade:
+    """One public Kalshi trade. `taker_side` is the side the taker bought, so a
+    `no` taker trade at `yes_price` hits resting YES bids at or above it."""
+
+    ticker: str
+    created_at: datetime
+    count: Decimal
+    yes_price: Decimal
+    taker_side: OutcomeSide
+
+
+@dataclass(frozen=True)
 class MakerShadowCandidate:
     created_at: datetime
     ticker: str
@@ -137,6 +149,11 @@ class MakerShadowCandidate:
     expires_at: datetime
     commence_time: datetime | None = None
     rules_version: str = "v2"
+    # v5 Phase 4: contracts displayed ahead of us at `price` on our side when placed
+    # (0 if the price improves the book; None if no book was seen), and how the
+    # price was chosen: `bid_plus_1` (spread >= 2c) or `at_bid` (1c spread).
+    queue_ahead: Decimal | None = None
+    maker_price_rule: str | None = None
 
 
 @dataclass(frozen=True)

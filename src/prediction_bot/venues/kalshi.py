@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 import httpx
 
 from prediction_bot.config import KALSHI_DEMO_REST
-from prediction_bot.models import Market, OutcomeSide, Quote
+from prediction_bot.models import Market, OutcomeSide, Quote, Trade
 from prediction_bot.venues.kalshi_auth import KalshiSigner
 
 log = logging.getLogger(__name__)
@@ -96,6 +96,61 @@ def parse_orderbook(ticker: str, ob: JSON) -> Quote:
         yes_ask=yes_ask,
         yes_bid_size=yes_bid_size or Decimal(0),
         yes_ask_size=yes_ask_size or Decimal(0),
+    )
+
+
+def parse_orderbook_levels(ob: JSON) -> dict[str, list[tuple[Decimal, Decimal]]]:
+    """All displayed bid levels per side: `yes` (YES bids) and `no` (NO bids), each a
+    best-first list of (price_dollars, contracts)."""
+    book = ob.get("orderbook_fp") or ob.get("orderbook") or {}
+    out: dict[str, list[tuple[Decimal, Decimal]]] = {}
+    for side in ("yes", "no"):
+        levels = [
+            (_dec(level[0]), _dec(level[1]))
+            for level in (book.get(side) or [])
+            if isinstance(level, (list, tuple)) and len(level) >= 2
+        ]
+        out[side] = sorted(levels, key=lambda level: level[0], reverse=True)
+    return out
+
+
+def _price_dollars(trade: JSON, key: str) -> Decimal | None:
+    """`<key>_dollars` (fixed-point string) when present, else a legacy integer in cents."""
+    dollars = trade.get(f"{key}_dollars")
+    if dollars not in (None, ""):
+        return _dec(dollars)
+    cents = trade.get(key)
+    if cents in (None, ""):
+        return None
+    # The legacy field is an integer number of cents; a decimal string is dollars.
+    if isinstance(cents, int) or str(cents).strip().isdigit():
+        return _dec(cents) / 100
+    return _dec(cents)
+
+
+def parse_trade(trade: JSON) -> Trade | None:
+    """Parse one `/markets/trades` row; None if a field we rely on is missing.
+
+    Field names follow Kalshi's fixed-point convention (`count_fp`, `yes_price_dollars`)
+    with the older integer forms (`count`, `yes_price` in cents) as fallbacks.
+    """
+    created = _ts(trade.get("created_time"))
+    side = str(trade.get("taker_side") or "").lower()
+    yes_price = _price_dollars(trade, "yes_price")
+    if yes_price is None:
+        no_price = _price_dollars(trade, "no_price")
+        yes_price = None if no_price is None else Decimal(1) - no_price
+    count = _opt_dec(trade.get("count_fp"))
+    if count is None:
+        count = _opt_dec(trade.get("count"))
+    if created is None or side not in {"yes", "no"} or yes_price is None or count is None:
+        return None
+    return Trade(
+        ticker=str(trade.get("ticker", "")),
+        created_at=created,
+        count=count,
+        yes_price=yes_price,
+        taker_side=OutcomeSide(side),
     )
 
 
@@ -212,6 +267,30 @@ class KalshiClient:
     def get_orderbook(self, ticker: str, depth: int = 10) -> Quote:
         data = self._request("GET", f"/markets/{ticker}/orderbook", params={"depth": depth})
         return parse_orderbook(ticker, data)
+
+    def get_orderbook_levels(
+        self, ticker: str, depth: int = 20
+    ) -> dict[str, list[tuple[Decimal, Decimal]]]:
+        data = self._request("GET", f"/markets/{ticker}/orderbook", params={"depth": depth})
+        return parse_orderbook_levels(data)
+
+    def get_trades(
+        self,
+        ticker: str,
+        min_ts: int,
+        max_ts: int,
+        *,
+        limit: int = 1000,
+        max_pages: int = 5,
+    ) -> list[Trade]:
+        """Public trades for `ticker` between two Unix timestamps (seconds), oldest first."""
+        params: JSON = {"ticker": ticker, "min_ts": min_ts, "max_ts": max_ts, "limit": limit}
+        trades = [
+            parsed
+            for row in self._paginate("/markets/trades", "trades", params, max_pages)
+            if (parsed := parse_trade(row)) is not None
+        ]
+        return sorted(trades, key=lambda trade: trade.created_at)
 
     def get_events(
         self,

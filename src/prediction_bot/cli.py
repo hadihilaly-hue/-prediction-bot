@@ -53,6 +53,7 @@ from prediction_bot.odds import (
     OddsPacer,
 )
 from prediction_bot.odds_planner import PlannedGame, plan_odds_pulls
+from prediction_bot.orderbooks import snapshot_orderbooks
 from prediction_bot.paper.ledger import Ledger, Prediction
 from prediction_bot.pull_plan import (
     eligible_feeds,
@@ -472,12 +473,10 @@ def paper(
         if gate is not None:
             resolved = run_settings.v3_execution
             detail = gate.reason
-            if gate.reason == "taker_positions":
-                detail = f"taker_positions: {gate.taker_n}/{s.v3_maker_gate_min_positions}"
-            elif gate.reason == "maker_scored":
-                detail = f"maker_scored: {gate.maker_scored}/{s.v3_maker_gate_min_scored}"
-            elif gate.reason == "maker_filled_clv":
-                detail = f"maker_filled_clv: {gate.maker_clv_n}/{s.v3_maker_gate_min_filled_clv}"
+            if gate.reason == "queue_fills":
+                detail = f"queue_fills: {gate.queue_n}/{s.v3_maker_gate_min_queue_fills}"
+            elif gate.reason == "queue_ci":
+                detail = f"queue_ci: low {gate.queue_ci_low}"
             console.print(f"v3 execution: auto -> {resolved} ({detail})")
             ledger.record_execution_mode(
                 rules_version="v3",
@@ -490,6 +489,9 @@ def paper(
                 maker_scored=gate.maker_scored,
                 maker_clv_n=gate.maker_clv_n,
                 maker_mean=gate.maker_mean,
+                queue_n=gate.queue_n,
+                queue_mean=gate.queue_mean,
+                queue_ci_low=gate.queue_ci_low,
             )
         strats = _strategies(run_settings, strategy, odds, kalshi=client, ledger=ledger)
         shadow_strategies = _strategies(run_settings, shadow_names, odds, client, ledger)
@@ -513,10 +515,15 @@ def paper(
             backfill_clv_commence_times(ledger, client, s, max_calls=50)
         except Exception:
             log.exception("CLV commence-time backfill failed; continuing paper cycle")
+        clv_calls = 0
         try:
-            record_clv(ledger, client, max_calls=clv_max_calls)
+            clv_calls = record_clv(ledger, client, max_calls=clv_max_calls)
         except Exception:
             log.exception("CLV recording failed; continuing paper cycle")
+        try:
+            snapshot_orderbooks(ledger, client, max_calls=max(0, clv_max_calls - clv_calls))
+        except Exception:
+            log.exception("Orderbook snapshots failed; continuing paper cycle")
         try:
             refresh_clv_statuses(ledger, s)
         except Exception:

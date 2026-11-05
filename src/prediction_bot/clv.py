@@ -53,12 +53,19 @@ def clv_status(
 
 def refresh_clv_statuses(ledger: Ledger, settings: Settings) -> int:
     changed = 0
-    for table in ("fills", "shadow_decisions"):
-        rows = ledger.conn.execute(
-            f"SELECT id,created_at,ticker,COALESCE(commence_time,commence_time_backfill),"
-            f"clv_kalshi FROM {table} WHERE clv_status IS NULL OR clv_status='pending' "
-            "OR commence_time_backfill IS NOT NULL"
-        ).fetchall()
+    queries = {
+        table: f"SELECT id,created_at,ticker,COALESCE(commence_time,commence_time_backfill),"
+        f"clv_kalshi FROM {table} WHERE clv_status IS NULL OR clv_status='pending' "
+        "OR commence_time_backfill IS NOT NULL"
+        for table in ("fills", "shadow_decisions")
+    }
+    # Maker shadows (v5 Phase 4) carry their own commence time and no backfill.
+    queries["maker_shadow"] = (
+        "SELECT id,created_at,ticker,commence_time,clv_kalshi FROM maker_shadow "
+        "WHERE clv_status IS NULL OR clv_status='pending'"
+    )
+    for table, sql in queries.items():
+        rows = ledger.conn.execute(sql).fetchall()
         for row_id, created_at, ticker, commence, clv in rows:
             series = str(ticker).split("-", 1)[0]
             sport = KALSHI_SERIES_TO_SPORT.get(series)
@@ -227,7 +234,7 @@ def record_clv(
         "FROM maker_shadow m LEFT JOIN settlements s ON s.ticker=m.ticker "
         "WHERE m.clv_kalshi IS NULL AND "
         "(m.status='filled' OR m.fill_trade_through_at IS NOT NULL "
-        "OR m.fill_optimistic_at IS NOT NULL) ORDER BY m.id"
+        "OR m.fill_optimistic_at IS NOT NULL OR m.fill_queue_at IS NOT NULL) ORDER BY m.id"
     ).fetchall()
     line_move_rows = ledger.conn.execute(
         "SELECT d.id,d.ticker,d.side,d.price,d.size,"

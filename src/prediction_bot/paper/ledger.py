@@ -305,6 +305,15 @@ CREATE TABLE IF NOT EXISTS feed_skips (
 );
 CREATE INDEX IF NOT EXISTS feed_skips_feed_created_at
     ON feed_skips(feed, created_at);
+CREATE TABLE IF NOT EXISTS orderbook_snapshots (
+    id INTEGER PRIMARY KEY,
+    ticker TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    yes_levels TEXT NOT NULL,
+    no_levels TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS orderbook_snapshots_ticker_time
+    ON orderbook_snapshots(ticker, fetched_at);
 CREATE TABLE IF NOT EXISTS pull_plan (
     id INTEGER PRIMARY KEY,
     event_ticker TEXT NOT NULL,
@@ -688,6 +697,11 @@ class Ledger:
                 "ask_depth": "TEXT",
                 "open_interest": "TEXT",
             },
+            "execution_mode_log": {
+                "queue_n": "INTEGER",
+                "queue_mean": "TEXT",
+                "queue_ci_low": "TEXT",
+            },
             "maker_shadow": {
                 "commence_time": "TEXT",
                 "clv_kalshi": "TEXT",
@@ -703,6 +717,12 @@ class Ledger:
                 "clv_kalshi_bid": "TEXT",
                 "clv_sharp_close": "TEXT",
                 "clv_sharp_source": "TEXT",
+                "queue_ahead": "TEXT",
+                "queue_source": "TEXT",
+                "maker_price_rule": "TEXT",
+                "fill_queue_at": "TEXT",
+                "queue_status": "TEXT",
+                "clv_status": "TEXT",
             },
         }.items():
             self._ensure_columns(self.conn, table, columns)
@@ -799,15 +819,75 @@ class Ledger:
             Decimal(0),
         )
 
+    # A depth snapshot older than this when a shadow is placed is not its queue.
+    ORDERBOOK_QUEUE_MAX_AGE = timedelta(minutes=30)
+
+    def record_orderbook_snapshot(
+        self,
+        ticker: str,
+        levels: Mapping[str, Sequence[tuple[Decimal, Decimal]]],
+        at: datetime,
+    ) -> None:
+        def dump(side: str) -> str:
+            return json.dumps([[str(p), str(n)] for p, n in levels.get(side, ())])
+
+        self.conn.execute(
+            "INSERT INTO orderbook_snapshots (ticker,fetched_at,yes_levels,no_levels) "
+            "VALUES (?,?,?,?)",
+            (ticker, self._utc(at).isoformat(), dump("yes"), dump("no")),
+        )
+        self.conn.commit()
+
+    def latest_orderbook(
+        self, ticker: str, at: datetime, max_age: timedelta | None = None
+    ) -> dict[str, list[tuple[Decimal, Decimal]]] | None:
+        """The newest depth snapshot at or before `at` (within `max_age` when given)."""
+        params: list[str] = [ticker, self._utc(at).isoformat()]
+        sql = (
+            "SELECT yes_levels,no_levels FROM orderbook_snapshots WHERE ticker=? AND fetched_at<=?"
+        )
+        if max_age is not None:
+            sql += " AND fetched_at>=?"
+            params.append(self._utc(at - max_age).isoformat())
+        sql += " ORDER BY fetched_at DESC,id DESC LIMIT 1"
+        row = self.conn.execute(sql, params).fetchone()
+        if row is None:
+            return None
+        return {
+            side: [(Decimal(p), Decimal(n)) for p, n in json.loads(str(raw))]
+            for side, raw in (("yes", row[0]), ("no", row[1]))
+        }
+
+    @staticmethod
+    def queue_at_price(
+        levels: Mapping[str, Sequence[tuple[Decimal, Decimal]]], side: str, price: Decimal
+    ) -> Decimal:
+        """Contracts displayed at `price` on our side; 0 when the price improves the book."""
+        book = levels.get(side, ())
+        if not book or price > max(p for p, _n in book):
+            return Decimal(0)
+        return sum((n for p, n in book if p == price), Decimal(0))
+
     def record_maker_shadows(self, candidates: Sequence[MakerShadowCandidate]) -> int:
         inserted = 0
         for shadow in candidates:
+            queue_ahead, queue_source = (
+                shadow.queue_ahead,
+                ("quote" if shadow.queue_ahead is not None else None),
+            )
+            levels = self.latest_orderbook(
+                shadow.ticker, shadow.created_at, self.ORDERBOOK_QUEUE_MAX_AGE
+            )
+            if levels is not None:
+                queue_ahead = self.queue_at_price(levels, shadow.side.value, shadow.price)
+                queue_source = "orderbook"
             try:
                 self.conn.execute(
                     "INSERT INTO maker_shadow (created_at, ticker, side, position_key, price,"
                     " size, fair, maker_fee, status, status_at, trade_through_at, event_ticker,"
-                    " expires_at, commence_time, rules_version) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    " expires_at, commence_time, rules_version, queue_ahead, queue_source,"
+                    " maker_price_rule) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         self._utc(shadow.created_at).isoformat(),
                         shadow.ticker,
@@ -826,6 +906,9 @@ class Ledger:
                         if shadow.commence_time
                         else None,
                         shadow.rules_version,
+                        None if queue_ahead is None else str(queue_ahead),
+                        queue_source,
+                        shadow.maker_price_rule,
                     ),
                 )
             except sqlite3.IntegrityError:
@@ -916,15 +999,20 @@ class Ledger:
         trade_through_at: datetime | None,
         optimistic_at: datetime | None,
         status: str,
+        queue_at: datetime | None = None,
+        queue_status: str | None = None,
     ) -> None:
         self.conn.execute(
             "UPDATE maker_shadow SET fill_trade_through_at=?,fill_optimistic_at=?,"
-            "scored_at=?,score_attempts=score_attempts+1,score_status=? WHERE id=?",
+            "scored_at=?,score_attempts=score_attempts+1,score_status=?,"
+            "fill_queue_at=?,queue_status=COALESCE(?,queue_status) WHERE id=?",
             (
                 None if trade_through_at is None else self._utc(trade_through_at).isoformat(),
                 None if optimistic_at is None else self._utc(optimistic_at).isoformat(),
                 self._utc(scored_at).isoformat(),
                 status,
+                None if queue_at is None else self._utc(queue_at).isoformat(),
+                queue_status,
                 shadow_id,
             ),
         )
@@ -1015,11 +1103,15 @@ class Ledger:
         maker_clv_n: int,
         maker_mean: Decimal | None,
         created_at: datetime | None = None,
+        queue_n: int | None = None,
+        queue_mean: Decimal | None = None,
+        queue_ci_low: Decimal | None = None,
     ) -> None:
         self.conn.execute(
             "INSERT INTO execution_mode_log (created_at,rules_version,requested,resolved,reason,"
-            "taker_n,taker_mean,taker_ci_low,maker_scored,maker_clv_n,maker_mean) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            "taker_n,taker_mean,taker_ci_low,maker_scored,maker_clv_n,maker_mean,"
+            "queue_n,queue_mean,queue_ci_low) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 self._utc(created_at or datetime.now(timezone.utc)).isoformat(),
                 rules_version,
@@ -1032,6 +1124,9 @@ class Ledger:
                 maker_scored,
                 maker_clv_n,
                 None if maker_mean is None else str(maker_mean),
+                queue_n,
+                None if queue_mean is None else str(queue_mean),
+                None if queue_ci_low is None else str(queue_ci_low),
             ),
         )
         self.conn.commit()
@@ -1221,6 +1316,7 @@ class Ledger:
             "mean_clv": sum(clvs, Decimal(0)) / len(clvs) if clvs else None,
             **self._maker_rule_metrics("fill_trade_through_at", "trade_through"),
             **self._maker_rule_metrics("fill_optimistic_at", "optimistic"),
+            **self._maker_rule_metrics("fill_queue_at", "queue"),
         }
 
     def _maker_rule_metrics(self, fill_column: str, prefix: str) -> dict[str, Decimal | int | None]:

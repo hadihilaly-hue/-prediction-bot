@@ -126,6 +126,8 @@ class Settings(BaseSettings):
     v3_maker_gate_min_positions: int = 50
     v3_maker_gate_min_scored: int = 50
     v3_maker_gate_min_filled_clv: int = 20
+    # v5 Phase 4: the gate that decides is queue-model maker fills with clean CLV.
+    v3_maker_gate_min_queue_fills: int = 50
     v3_maker_cancel_move: Decimal = Decimal("0.01")
     v3_maker_ttl_minutes: int = Field(
         default=480,
