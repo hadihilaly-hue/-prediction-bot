@@ -49,16 +49,20 @@ def _add_maker_shadows(
     count: int = 50,
     filled_clv: int = 20,
     clv: str = "2",
+    *,
+    queue: bool = False,
+    clv_status: str = "ok",
+    clvs: list[str] | None = None,
 ) -> None:
     now = datetime(2026, 1, 1, tzinfo=timezone.utc).isoformat()
     for index in range(count):
         trade_through = now if index < filled_clv else None
-        shadow_clv = clv if index < filled_clv else None
+        shadow_clv = (clvs[index] if clvs else clv) if index < filled_clv else None
         ledger.conn.execute(
             "INSERT INTO maker_shadow (created_at,ticker,side,position_key,price,size,fair,"
             "maker_fee,status,status_at,trade_through_at,event_ticker,expires_at,rules_version,"
-            "fill_trade_through_at,clv_kalshi,score_status) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "fill_trade_through_at,clv_kalshi,score_status,fill_queue_at,clv_status) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 now,
                 f"KXNFLGAME-MAKER{index}-HOME",
@@ -77,6 +81,8 @@ def _add_maker_shadows(
                 trade_through,
                 shadow_clv,
                 "scored",
+                trade_through if queue else None,
+                clv_status if trade_through else None,
             ),
         )
     ledger.conn.commit()
@@ -85,14 +91,19 @@ def _add_maker_shadows(
 def _ready_ledger(ledger: Ledger, maker_mean: str = "2") -> None:
     for index in range(50):
         _add_fill(ledger, f"taker-{index}", "2")
-    _add_maker_shadows(ledger, clv=maker_mean)
+    _add_maker_shadows(
+        ledger,
+        filled_clv=50,
+        queue=True,
+        clvs=[str(Decimal(maker_mean) + Decimal(i % 2) / 10) for i in range(50)],
+    )
 
 
-def test_empty_ledger_fails_taker_positions() -> None:
+def test_empty_ledger_fails_queue_fills() -> None:
     gate = evaluate_maker_gate(Ledger(":memory:", Decimal("100")), _settings())
     assert not gate.passed
-    assert gate.reason == "taker_positions"
-    assert gate.taker_n == 0
+    assert gate.reason == "queue_fills"
+    assert gate.taker_n == 0 and gate.queue_n == 0
 
 
 def test_taker_ci_is_null_with_fewer_than_two_positions() -> None:
@@ -123,11 +134,17 @@ def test_maker_gate_passes_with_complete_evidence() -> None:
 
     assert gate.passed
     assert gate.reason == "passed"
-    assert gate.taker_n == 50
-    assert gate.taker_ci_low is not None and gate.taker_ci_low > 0
-    assert gate.maker_scored == 50
-    assert gate.maker_clv_n == 20
-    assert gate.maker_mean == gate.taker_mean
+    assert gate.queue_n == 50
+    assert gate.queue_ci_low is not None and gate.queue_ci_low > 0
+    assert gate.queue_mean is not None and gate.queue_mean >= gate.taker_mean  # type: ignore[operator]
+    assert gate.taker_n == 50 and gate.maker_scored == 50
+
+
+def test_queue_gate_needs_no_taker_cohort() -> None:
+    ledger = Ledger(":memory:", Decimal("1000"))
+    _add_maker_shadows(ledger, filled_clv=50, queue=True, clvs=["1", "2"] * 25)
+    gate = evaluate_maker_gate(ledger, _settings())
+    assert gate.taker_n == 0 and gate.reason == "passed"
 
 
 def test_maker_mean_below_taker_fails_last_gate() -> None:
@@ -137,15 +154,12 @@ def test_maker_mean_below_taker_fails_last_gate() -> None:
     assert gate.reason == "maker_worse_than_taker"
 
 
-def test_taker_ci_straddling_zero_fails() -> None:
+def test_queue_ci_straddling_zero_fails() -> None:
     ledger = Ledger(":memory:", Decimal("1000"))
-    for index in range(25):
-        _add_fill(ledger, f"negative-{index}", "-1")
-        _add_fill(ledger, f"positive-{index}", "1")
-    _add_maker_shadows(ledger)
+    _add_maker_shadows(ledger, filled_clv=50, queue=True, clvs=["-1", "1"] * 25)
     gate = evaluate_maker_gate(ledger, _settings())
-    assert gate.taker_ci_low is not None and gate.taker_ci_low < 0
-    assert gate.reason == "taker_ci"
+    assert gate.queue_ci_low is not None and gate.queue_ci_low < 0
+    assert gate.reason == "queue_ci"
 
 
 def test_maker_and_non_v3_fills_are_excluded_from_taker_evidence() -> None:
@@ -155,7 +169,7 @@ def test_maker_and_non_v3_fills_are_excluded_from_taker_evidence() -> None:
     _add_fill(ledger, "v1", "20", version="v1")
     gate = evaluate_maker_gate(ledger, _settings())
     assert gate.taker_n == 0
-    assert gate.reason == "taker_positions"
+    assert gate.reason == "queue_fills"
 
 
 def test_maker_gate_ignores_non_ok_taker_clv() -> None:
@@ -171,18 +185,17 @@ def test_maker_gate_ignores_non_ok_taker_clv() -> None:
     assert gate.taker_mean == Decimal("2")
 
 
-def test_maker_gate_enforces_scored_and_filled_clv_minima() -> None:
+def test_maker_gate_counts_only_clean_queue_fills() -> None:
     ledger = Ledger(":memory:", Decimal("1000"))
-    for index in range(50):
-        _add_fill(ledger, f"taker-{index}", "2")
-    _add_maker_shadows(ledger, count=49, filled_clv=20)
-    assert evaluate_maker_gate(ledger, _settings()).reason == "maker_scored"
+    _add_maker_shadows(ledger, count=50, filled_clv=49, queue=True, clvs=["1", "2"] * 25)
+    assert evaluate_maker_gate(ledger, _settings()).reason == "queue_fills"
 
+    # Candle-rule fills alone, or queue fills without a clean close, never count.
     ledger = Ledger(":memory:", Decimal("1000"))
-    for index in range(50):
-        _add_fill(ledger, f"taker-{index}", "2")
-    _add_maker_shadows(ledger, count=50, filled_clv=19)
-    assert evaluate_maker_gate(ledger, _settings()).reason == "maker_filled_clv"
+    _add_maker_shadows(ledger, count=50, filled_clv=50)
+    _add_maker_shadows(ledger, count=50, filled_clv=50, queue=True, clv_status="in_game")
+    gate = evaluate_maker_gate(ledger, _settings())
+    assert gate.reason == "queue_fills" and gate.queue_n == 0
 
 
 def test_auto_resolution_and_live_fallback(monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -298,13 +311,10 @@ def test_dashboard_quality_includes_maker_gate() -> None:
     assert isinstance(quality, dict)
     gate = quality["maker_gate"]
     assert isinstance(gate, dict)
-    assert gate["reason"] == "taker_positions"
+    assert gate["reason"] == "queue_fills"
     assert gate["configured"] == "taker"
-    assert gate["thresholds"] == {
-        "min_positions": 50,
-        "min_scored": 50,
-        "min_filled_clv": 20,
-    }
+    assert gate["thresholds"] == {"min_queue_fills": 50}
+    assert gate["queue_n"] == 0
     assert gate["resolved"] is None
     assert gate["requested"] is None
     assert "G.configured === 'auto' && G.passed" in render_dashboard(

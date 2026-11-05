@@ -19,6 +19,11 @@ class MakerGate:
     maker_mean: Decimal | None
     passed: bool
     reason: str
+    # v5 Phase 4 evidence: queue-model maker fills with a clean closing price.
+    queue_n: int = 0
+    queue_mean: Decimal | None = None
+    queue_ci_low: Decimal | None = None
+    queue_ci_high: Decimal | None = None
 
 
 def _mean(values: list[Decimal]) -> Decimal | None:
@@ -35,6 +40,14 @@ def _ci95(values: list[Decimal]) -> tuple[Decimal, Decimal] | None:
 
 
 def evaluate_maker_gate(ledger: Ledger, settings: Settings, rules_version: str = "v3") -> MakerGate:
+    """Decide whether `auto` may turn maker-first on.
+
+    v5: the evidence is the queue-model maker shadow itself. It passes once at least
+    `v3_maker_gate_min_queue_fills` queue fills have `clv_status='ok'`, the 95% CI
+    lower bound of their `clv_kalshi` is above 0, and their mean is not below the
+    taker cohort's (when one exists). The taker and candle-rule figures are still
+    computed and logged, but no longer decide.
+    """
     rows = ledger.conn.execute(
         "SELECT position_key,clv_kalshi,count,tags FROM fills "
         "WHERE rules_version=? AND position_key IS NOT NULL AND clv_kalshi IS NOT NULL "
@@ -67,16 +80,23 @@ def evaluate_maker_gate(ledger: Ledger, settings: Settings, rules_version: str =
     ]
     maker_mean = _mean(maker_clvs)
 
+    queue_clvs = [
+        Decimal(str(clv))
+        for (clv,) in ledger.conn.execute(
+            "SELECT clv_kalshi FROM maker_shadow WHERE COALESCE(rules_version,'v2')=? "
+            "AND fill_queue_at IS NOT NULL AND clv_status='ok' AND clv_kalshi IS NOT NULL",
+            (rules_version,),
+        )
+    ]
+    queue_mean = _mean(queue_clvs)
+    queue_interval = _ci95(queue_clvs)
+
     reason = "passed"
-    if len(taker_values) < settings.v3_maker_gate_min_positions:
-        reason = "taker_positions"
-    elif interval is None or interval[0] <= 0:
-        reason = "taker_ci"
-    elif maker_scored < settings.v3_maker_gate_min_scored:
-        reason = "maker_scored"
-    elif len(maker_clvs) < settings.v3_maker_gate_min_filled_clv:
-        reason = "maker_filled_clv"
-    elif maker_mean is None or taker_mean is None or maker_mean < taker_mean:
+    if len(queue_clvs) < settings.v3_maker_gate_min_queue_fills:
+        reason = "queue_fills"
+    elif queue_interval is None or queue_interval[0] <= 0:
+        reason = "queue_ci"
+    elif queue_mean is None or (taker_mean is not None and queue_mean < taker_mean):
         reason = "maker_worse_than_taker"
 
     return MakerGate(
@@ -89,4 +109,8 @@ def evaluate_maker_gate(ledger: Ledger, settings: Settings, rules_version: str =
         maker_mean=maker_mean,
         passed=reason == "passed",
         reason=reason,
+        queue_n=len(queue_clvs),
+        queue_mean=queue_mean,
+        queue_ci_low=None if queue_interval is None else queue_interval[0],
+        queue_ci_high=None if queue_interval is None else queue_interval[1],
     )

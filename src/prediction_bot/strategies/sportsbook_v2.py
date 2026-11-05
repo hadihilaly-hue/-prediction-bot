@@ -2092,14 +2092,27 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 shadow_market = next(m for m in markets if m.ticker == sized_shadow.ticker)
                 bid = shadow_market.quote.bid_for(sized_shadow.side)
                 ask = shadow_market.quote.ask_for(sized_shadow.side)
-                shadow_price = (
-                    sized_shadow.maker_price
-                    if sized_shadow.rules_version == "v3"
+                # v5 Phase 4 price rule: with a 1c spread bid+1c IS the ask, so the
+                # shadow rests at the bid instead; with 2c+ it improves the bid by 1c.
+                shadow_price: Decimal | None = None
+                price_rule: str | None = None
+                if (
+                    sized_shadow.rules_version == "v3"
                     and self.settings.v3_execution == "maker_first"
                     and sized_shadow.maker_price is not None
-                    else bid + Decimal("0.01")
-                    if bid is not None
-                    else None
+                ):
+                    shadow_price, price_rule = sized_shadow.maker_price, "maker_first"
+                elif bid is not None and ask is not None:
+                    if ask - bid >= Decimal("0.02"):
+                        shadow_price, price_rule = bid + Decimal("0.01"), "bid_plus_1"
+                    elif ask - bid == Decimal("0.01"):
+                        shadow_price, price_rule = bid, "at_bid"
+                queue_ahead = (
+                    None
+                    if shadow_price is None or bid is None or shadow_price < bid
+                    else Decimal(0)
+                    if shadow_price > bid
+                    else shadow_market.quote.bid_size_for(sized_shadow.side)
                 )
                 if shadow_price is not None and ask is not None and shadow_price < ask:
                     buffer = self.settings.kickoff_buffer_minutes.get(
@@ -2133,6 +2146,8 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             expires_at=expires_at,
                             commence_time=sized_shadow.commence_time,
                             rules_version=self.rules_version,
+                            queue_ahead=queue_ahead,
+                            maker_price_rule=price_rule,
                         )
                     )
             trade_candidates = sorted(

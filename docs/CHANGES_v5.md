@@ -8,7 +8,7 @@ v5 builds on v4 (`docs/CHANGES_v4.md`) and the credit cadence work (`docs/CHANGE
 
 It is still paper-only: no live-order path, no credential changes, and every ledger change is additive.
 
-**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)) are merged; Phase 3 is open. Later phases follow one PR each.
+**Status.** Phases 0–2 ([#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60), [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62)) are merged. Phase 3 ([#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63)) and Phase 4 are open as stacked PRs. Later phases follow one PR each.
 
 ## What changed, by phase
 
@@ -17,7 +17,8 @@ It is still paper-only: no live-order path, no credential changes, and every led
 | 0: measurement | [#60](https://github.com/hadihilaly-hue/-prediction-bot/pull/60) | `clv_sharp_close` / `clv_sharp_source`, per-book odds and the Kalshi event ticker on `odds_snapshots`, `pbot clv-report` (text and `--json`), dashboard panel, `docs/evidence/2026-11-03.json` |
 | 1: fee model per series | [#61](https://github.com/hadihilaly-hue/-prediction-bot/pull/61), stacked on #60 | One fee helper `fees.fee_for_ticker`; the v1 path now uses each series' fee type and multiplier; `fee_model_version='kalshi-series-v2'` |
 | 2: entry rules | [#62](https://github.com/hadihilaly-hue/-prediction-bot/pull/62) | 25c price floor and a doubled threshold below 40c; soft reference off in the workflow; entry window as config (72–168h); shadow-only NHL/NBA/NCAAB measurement pulls (≤2 credits/day); price-floor and thin-market rows kept as near misses with depth and open interest |
-| 3: pull plan | this PR | Per-game T−24h/T−6h/T−90m/T−10m targets (`pull_plan`) sharing each day's credits with the 72h+ rotation; pulls on any 30-min slot; shadow-only sharp-move detector (`sharp_move`, `sharp_move_follow`); `odds_budget.py` pull-plan section |
+| 3: pull plan | [#63](https://github.com/hadihilaly-hue/-prediction-bot/pull/63) | Per-game T−24h/T−6h/T−90m/T−10m targets (`pull_plan`) sharing each day's credits with the 72h+ rotation; pulls on any 30-min slot; shadow-only sharp-move detector (`sharp_move`, `sharp_move_follow`); `odds_budget.py` pull-plan section |
+| 4: maker queue | stacked on #63 | `/markets/trades` and depth-20 `orderbook_snapshots`; maker shadows record their queue and price rule (bid+1c, or at the bid on a 1c spread); queue-model fills from the trade tape beside the candle rules; maker gate now decides on queue fills with clean CLV |
 
 ## Phase 0: measurement fixes
 
@@ -374,10 +375,80 @@ How to read this:
 
 Both are in `paper.yml` as repo Variables.
 
+## Phase 4: queue-aware maker shadow
+
+**Built against test data only.** This session cannot reach `api.elections.kalshi.com`. Field names for `/markets/trades` are taken from Kalshi's fixed-point naming and parsed defensively:
+- `count_fp`, else `count`;
+- `yes_price_dollars`, else `yes_price` in cents, else `no_price…`;
+- `taker_side`, `created_time`.
+
+**I'm not certain they match the live API.** `taker_side` is read as the side the taker bought, so a `no` taker trade hits resting YES bids. If either assumption is wrong, the queue fills will be wrong and the tests won't catch it. Rows that don't parse are dropped, not guessed.
+
+### 4.1 Trades and depth snapshots
+- **Client calls:**
+  - `KalshiClient.get_trades(ticker, min_ts, max_ts)` pages `GET /markets/trades` and returns `Trade` rows, oldest first.
+  - `get_orderbook_levels(ticker, depth=20)` returns every displayed bid level per side.
+- **Snapshots** (`orderbooks.snapshot_orderbooks`, every paper run) go into the new `orderbook_snapshots` table (ticker, fetched_at, YES levels, NO levels as JSON).
+  - **Targets, in order:** tickers with an open maker shadow, tickers we hold, then near-miss tickers from the last 24h whose game hasn't started.
+  - A ticker snapshotted in the last 25 minutes is skipped.
+  - Calls share the run's CLV budget: whatever `record_clv` leaves of `clv_max_calls_scanner` (300) on scanner runs, or 50 on sportsbook runs.
+
+### 4.2 Queue model
+- **Price rule.** The brief's point: with a 1c spread, bid+1c is the ask. A maker shadow now:
+  - rests at bid+1c when the spread is ≥2c (`maker_price_rule='bid_plus_1'`);
+  - rests at the bid when it is 1c (`at_bid`); before this, no shadow was placed at all on a 1c spread;
+  - uses the v3 maker price under `maker_first` (`maker_first`).
+- **Queue at placement.** `queue_ahead` is the displayed size at our price on our side:
+  - 0 when the price improves the book or no size shows at that price;
+  - from the latest depth snapshot no more than 30 minutes old (`queue_source='orderbook'`);
+  - else from the top of book the strategy saw (`quote`);
+  - else unknown (NULL).
+- **Fill rule** (`maker_fill.queue_fill`):
+  - Matching trades are those at or through our price that hit our side: `no`-taker trades at `yes_price ≤ p` for a YES bid; `yes`-taker trades at `1 − yes_price ≤ p` for a NO bid.
+  - The shadow is filled at the first trade where matching volume since placement reaches `queue_ahead + size`.
+  - The brief said "exceeds". **Reaches** (≥) is what makes its own example (behind 300, fills on 400) work for a 100-contract order.
+- **Scoring.** `score_maker_shadows` now makes up to two calls per shadow: candles as before, then the trade tape.
+  - It stores `fill_queue_at` and `queue_status` (`filled`, `unfilled`, `no_queue`, `unavailable`).
+  - `fill_trade_through_at` and `fill_optimistic_at` are still filled in, for comparison.
+- **Cancel rules** are unchanged (`v3_maker_cancel_move`, `v3_maker_ttl_minutes`).
+
+### 4.3 Scoring the cohort
+- Queue fills get `clv_kalshi`, `clv_kalshi_bid` and `clv_sharp_close` like every other row.
+- `maker_shadow` now has a `clv_status`, set by the same rules as fills.
+- Paper P&L uses the per-series maker fee stamped at placement (Phase 1; 0 on `quadratic` series).
+- `maker_shadow_metrics` adds `queue_*` figures alongside `trade_through_*` and `optimistic_*`, and the dashboard's scoring table includes them.
+- `pbot clv-report` has a `maker_queue` cohort.
+
+### 4.4 The gate
+- **What decides now.** `maker_gate.evaluate_maker_gate` passes when:
+  - at least `v3_maker_gate_min_queue_fills` (50) v3 queue fills have `clv_status='ok'`;
+  - the 95% CI lower bound of their `clv_kalshi` is above 0;
+  - their mean is not below the taker cohort's.
+  If there is no taker cohort, the queue fills' CI decides alone.
+- **What was dropped.** The 50-taker-position requirement, and the old scored-shadow and trade-through-fill minimums.
+  - Their figures are still computed and logged.
+  - `v3_maker_gate_min_positions`, `_min_scored` and `_min_filled_clv` stay in config but no longer decide.
+  - `auto` still resolves to taker until the gate passes.
+- **Logging.** `execution_mode_log` gains `queue_n`, `queue_mean` and `queue_ci_low`; the old columns are still written. The CLI prints `queue_fills: n/50` or `queue_ci: low …`.
+- **Dashboard.** The maker-first checklist now shows the three new checks.
+
+### Acceptance (`tests/test_maker_queue.py`)
+- **Fill rule:**
+  - an order behind 300 contracts does not fill on 200 traded;
+  - it fills on 400 traded, at the 400th contract;
+  - an improving order (queue 0) fills on the first trade at its price;
+  - trades above the price, trades lifting the other side, and trades before placement don't count; trades through the level do.
+- **Parsing:** fixed-point and legacy trade rows, the paginated client call, depth parsing.
+- **Queue at placement:** a fresh snapshot vs. a stale one with quote fallback; improving and empty levels.
+- **Strategy:** at the bid on a 1c spread (queue 70), bid+1c on a 2c spread (queue 0).
+- **Scoring:** queue fill beside the candle rules, `no_queue`, and `unavailable` when the tape fails.
+- **Snapshots:** target priority, the call cap, the freshness skip.
+- **Gate:** the tests are rewritten for the queue evidence.
+
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:
    - Phase 1.2's centicent rounding stays RESERVED;
-   - Phases 4.1, 5 and 7.1a can be checked only against test fixtures.
+   - Phases 4.1, 5 and 7.1a can be checked only against test fixtures. Phase 4's trade-tape field names and the `taker_side` direction in particular need one real `/markets/trades` response.
 2. **Centicent fee rounding (RESERVED, still `cent`).** Once the July 2026 fee schedule PDF has been checked, add `PBOT_FEE_ROUNDING: centicent` to the paper step's `env` in `paper.yml` if it rounds fee plus cost to a centicent (the workflow does not read a repo Variable for it today). On the historical fills that is worth about 0.5c per order.
 3. **Live entry window (RESERVED, unchanged at 72–168h).** Moving it to 1–48h is one repo Variable: `PBOT_ENTRY_WINDOW_MIN_HOURS`, plus `_MAX_HOURS`. The Phase 0 numbers (near misses, bid CLV) argue against moving it now:
    - 72h+: −1.01c (n=336, rejected);
