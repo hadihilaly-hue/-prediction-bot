@@ -356,7 +356,7 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
                 "exit_clv_count": maker_metrics[f"{rule}_exit_clv_count"],
                 "mean_exit_clv": maker_metric_float(f"{rule}_mean_exit_clv"),
             }
-            for rule in ("trade_through", "optimistic")
+            for rule in ("trade_through", "optimistic", "queue")
         },
         "depth_limited_all_time": sum(
             int(row["all"]) for row in recent_blocks if "depth" in str(row["reason"])
@@ -376,14 +376,14 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
             "maker_scored": gate.maker_scored,
             "maker_clv_n": gate.maker_clv_n,
             "maker_mean": _num(gate.maker_mean),
+            "queue_n": gate.queue_n,
+            "queue_mean": _num(gate.queue_mean),
+            "queue_ci_low": _num(gate.queue_ci_low),
+            "queue_ci_high": _num(gate.queue_ci_high),
             "passed": gate.passed,
             "reason": gate.reason,
             "configured": settings.v3_execution,
-            "thresholds": {
-                "min_positions": settings.v3_maker_gate_min_positions,
-                "min_scored": settings.v3_maker_gate_min_scored,
-                "min_filled_clv": settings.v3_maker_gate_min_filled_clv,
-            },
+            "thresholds": {"min_queue_fills": settings.v3_maker_gate_min_queue_fills},
             "resolved": None if latest_execution is None else latest_execution["resolved"],
             "requested": None if latest_execution is None else latest_execution["requested"],
         },
@@ -1373,17 +1373,15 @@ _TEMPLATE = """<!doctype html>
       const makerOn = G.configured === 'maker_first' || (G.configured === 'auto' && G.passed);
       const th = G.thresholds || {};
       const step = (label, have, ok) => [label, have, ok ? pill('won', 'Done') : pill('', 'Not yet')];
-      gateRows.push(step('Normal bets with a closing price', G.taker_n + ' / ' + th.min_positions, G.taker_n >= th.min_positions));
-      gateRows.push(step('Normal bets beat the close (whole 95% range above 0)', num(G.taker_ci_low) ? signedCents(G.taker_ci_low) + ' to ' + signedCents(G.taker_ci_high) : '–', num(G.taker_ci_low) && G.taker_ci_low > 0));
-      gateRows.push(step('Practice resting orders checked', G.maker_scored + ' / ' + th.min_scored, G.maker_scored >= th.min_scored));
-      gateRows.push(step('Practice orders filled, with a closing price', G.maker_clv_n + ' / ' + th.min_filled_clv, G.maker_clv_n >= th.min_filled_clv));
-      gateRows.push(step('Resting orders gain at least as much as normal bets', num(G.maker_mean) ? signedCents(G.maker_mean) + ' vs ' + (num(G.taker_mean) ? signedCents(G.taker_mean) : '–') : '–', num(G.maker_mean) && num(G.taker_mean) && G.maker_mean >= G.taker_mean));
+      gateRows.push(step('Practice resting orders filled behind the real queue, with a clean closing price', G.queue_n + ' / ' + th.min_queue_fills, G.queue_n >= th.min_queue_fills));
+      gateRows.push(step('Those fills beat the close (whole 95% range above 0)', num(G.queue_ci_low) ? signedCents(G.queue_ci_low) + ' to ' + signedCents(G.queue_ci_high) : '–', num(G.queue_ci_low) && G.queue_ci_low > 0));
+      gateRows.push(step('Resting orders gain at least as much as normal bets', num(G.queue_mean) ? signedCents(G.queue_mean) + ' vs ' + (num(G.taker_mean) ? signedCents(G.taker_mean) : 'no normal bets yet') : '–', num(G.queue_mean) && (!num(G.taker_mean) || G.queue_mean >= G.taker_mean)));
       const explanation = G.configured === 'taker'
         ? 'Switched off by the PBOT_V3_EXECUTION setting, whatever the checks below say.'
         : G.configured === 'maker_first'
           ? 'Switched on by the PBOT_V3_EXECUTION setting, whatever the checks below say.'
           : G.passed
-            ? 'Every check below has passed, so the bot now posts a resting order one cent above the best bid instead of paying the ask. It switches back by itself if a check stops passing.'
+            ? 'Every check below has passed, so the bot now posts a resting order (one cent above the best bid, or at the bid when the spread is one cent) instead of paying the ask. It switches back by itself if a check stops passing.'
             : 'They switch on by themselves once every check below passes, and switch back off if one stops passing.';
       gateHead = '<p class="hint" style="margin-top:14px"><b>Resting orders: ' + (makerOn ? 'on' : 'off') + '.</b> ' + explanation + '</p>';
     }

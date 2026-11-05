@@ -68,6 +68,13 @@ COHORTS: dict[str, tuple[str, str]] = {
         f"SELECT {_SHADOW_COLUMNS} FROM shadow_decisions WHERE rules_version='v3' "
         "AND would_trade=1 AND reason='sharp_move_follow' AND clv_status='ok'",
     ),
+    "maker_queue": (
+        "v3 maker shadows filled under the queue model",
+        "SELECT created_at,ticker,price,NULL,NULL,commence_time,"
+        "clv_kalshi,clv_kalshi_bid,clv_sharp_close FROM maker_shadow "
+        "WHERE COALESCE(rules_version,'v2')='v3' AND fill_queue_at IS NOT NULL "
+        "AND clv_status='ok'",
+    ),
     "line_move_follower": (
         "v2 line_move_follower shadows",
         f"SELECT {_SHADOW_COLUMNS} FROM shadow_decisions WHERE strategy='line_move_follower' "
