@@ -586,7 +586,9 @@ The page also gets one CSS rule, `main > * { min-width:0; }`. Without it, wide t
   - the strategies table now lists `sportsbook_v3` and marks the v1 strategies;
   - the fee line now describes per-series fees;
   - the sportsbook slot schedule;
-  - the two Roadmap entries that now exist (maker fills, Polymarket).
+  - the two Roadmap entries that now exist (maker fills, Polymarket);
+  - "the run covers NFL/NCAAF/NBA/NHL" now says feeds are chosen per run by `feed_stats` eligibility and mapped games;
+  - the Roadmap's WebSocket order-book item is removed, since v5 is public REST only.
 - Everything else is unchanged.
 
 ### Acceptance (`tests/test_v5_dashboard.py`)
@@ -595,7 +597,7 @@ The page also gets one CSS rule, `main > * { min-width:0; }`. Without it, wide t
 - slot counting (duplicate runs in one slot count once; today counts only slots already due);
 - rejections per reason per day within 7 days;
 - every panel rendered;
-- the README stating the rule, linking `docs/evidence/`, and no longer giving the old schedule or fee formula.
+- the README stating the rule, linking `docs/evidence/`, and no longer giving the old schedule, fee formula, fixed feed list or WebSocket plan.
 
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:

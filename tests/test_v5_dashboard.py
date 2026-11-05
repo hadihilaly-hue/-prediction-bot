@@ -137,3 +137,4 @@ def test_readme_states_the_evidence_rule_and_links_the_snapshots() -> None:
     assert "n ≥ 50" in readme and "P&L is not evidence" in readme
     assert "(docs/evidence/)" in readme
     assert "03:17" not in readme and "ceil(0.07" not in readme
+    assert "covers NFL/NCAAF/NBA/NHL" not in readme and "WebSocket" not in readme

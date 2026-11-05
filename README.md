@@ -128,8 +128,11 @@ folder `/ (root)`; it then lives at `https://<owner>.github.io/<repo>/`. Locally
 `pbot dashboard --out data/index.html` renders the same page from your ledger.
 
 Add `PBOT_ODDS_API_KEY` as a repository Actions secret
-(Settings → Secrets and variables → Actions) to include `sportsbook_arb`; the run
-covers NFL/NCAAF/NBA/NHL to stay within The Odds API free tier. Trigger a run by hand
+(Settings → Secrets and variables → Actions) to include the sportsbook strategy. Odds
+feeds are chosen per run, not fixed: a feed is pulled only if Kalshi lists its games
+early enough for the entry window (`feed_stats`: 90th-percentile lead of at least
+`PBOT_ENTRY_WINDOW_MIN_HOURS` + 6h) and it has mapped games, which keeps the month inside
+The Odds API free tier. Trigger a run by hand
 from the Actions tab (`workflow_dispatch`).
 
 Demo-venue prices are thin and often stale, so edges seen with the default demo URL
@@ -183,5 +186,4 @@ pytest
 
 * Polymarket as a venue behind the same `Market`/`Signal` types (today it is read-only
   reference data).
-* WebSocket order-book feed (`use_yes_price: true`) instead of REST polling.
 * Economic-release reaction strategy (CPI / jobs / Fed).
