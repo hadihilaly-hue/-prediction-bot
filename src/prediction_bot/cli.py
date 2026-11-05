@@ -62,8 +62,8 @@ from prediction_bot.pull_plan import (
     eligible_feeds,
     mark_pulled_ids,
     merge_near_targets,
-    must_demand,
     plan_feed_targets,
+    plan_hold,
     plan_kickoffs,
     plan_pulls,
     primary_target,
@@ -527,7 +527,7 @@ def paper(
         if pacer is not None:
             if pacer.rotation_holds_floor and release_cal is not None:
                 try:
-                    pacer.plan_hold = must_demand(ledger, release_cal, datetime.now(timezone.utc))
+                    pacer.plan_hold = plan_hold(ledger, s, release_cal, datetime.now(timezone.utc))
                 except Exception:
                     log.exception("Plan demand estimate failed; rotation holds no extra")
                     pacer.plan_hold = 0

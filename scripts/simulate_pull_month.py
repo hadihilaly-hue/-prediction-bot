@@ -28,8 +28,8 @@ from prediction_bot.odds import OddsPacer
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.pull_plan import (
     mark_pulled_ids,
-    must_demand,
-    plan_daily_cap,
+    plan_allowance,
+    plan_hold,
     select_plan_pull,
 )
 from prediction_bot.release_calendar import ReleaseCalendar
@@ -163,7 +163,7 @@ def simulate(grid: str, cadence: str, workdir: Path, with_moves: bool = True) ->
             ((now - timedelta(seconds=1)).isoformat(), client.left),
         )
         _refresh_pull_plan(ledger, now, settings, release)
-        hold = must_demand(ledger, release, now)
+        hold = plan_hold(ledger, settings, release, now)
         if now.minute == 17 and now.hour % 2 == 0:  # the 2-hour sportsbook slot
             rotation.plan_hold = hold
             budget = rotation.start_run(now)
@@ -205,11 +205,7 @@ def simulate(grid: str, cadence: str, workdir: Path, with_moves: bool = True) ->
             plan_by_day[now.date().isoformat()] += 1
         planner.finish_run(now)
     _refresh_pull_plan(ledger, START + timedelta(days=33), settings, release)
-    over_cap = [
-        day
-        for day, n in plan_by_day.items()
-        if n > plan_daily_cap(ledger, settings, datetime.fromisoformat(day).replace(tzinfo=UTC))
-    ]
+    allowance = plan_allowance(ledger, settings, START + timedelta(days=29, hours=23))
     status = {
         f"{source}:{state}": int(n)
         for source, state, n in ledger.conn.execute(
@@ -235,9 +231,10 @@ def simulate(grid: str, cadence: str, workdir: Path, with_moves: bool = True) ->
         "rotation_pulls": counts["rotation"],
         "plan_pulls": counts["plan"],
         "move_pulls": counts["move"],
-        # Days on which top-priority targets (exempt under the calendar) took the plan
-        # past its Phase 3 daily cap; lower priorities never exceed it.
-        "days_top_priority_past_daily_cap": over_cap,
+        # The plan's month allowance (its share of the usable credits) and its
+        # busiest UTC day.
+        "plan_allowance": round(allowance or 0, 1),
+        "max_plan_pulls_in_a_day": max(plan_by_day.values(), default=0),
         "nfl_sun_mon_clock": nfl_clock,
         "targets": status,
     }

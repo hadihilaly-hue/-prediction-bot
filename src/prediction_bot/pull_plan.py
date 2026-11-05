@@ -275,7 +275,6 @@ def _plan_event_targets(
     - Feeds without entries: Phase 3's T-24h/T-6h/T-90m at `default_priority`.
     Still-planned rows of the event that no longer match are marked `superseded`.
     """
-    from prediction_bot.release_calendar import plan_priority
 
     rows: list[tuple[str, datetime, datetime, datetime, int, str, str | None, int | None]] = []
     for name, offset, early, late, _priority in TARGETS:
@@ -364,7 +363,6 @@ def plan_feed_targets(
     the entry's `requires_game_within_hours` after it. Feed-level rows store the next
     such kickoff so the free /events check has a window to look at.
     """
-    from prediction_bot.release_calendar import plan_priority
 
     now = _utc(now)
     feeds = sorted(set(feeds))
@@ -409,7 +407,6 @@ def _plan_grid(
     games: Mapping[str, list[datetime]],
     now: datetime,
 ) -> int:
-    from prediction_bot.release_calendar import plan_priority
 
     planned = 0
     today = calendar.local_date(now)
@@ -591,6 +588,81 @@ def month_credits_left(ledger: Ledger, now: datetime) -> int | None:
     return int(row[0]) if row is not None else None
 
 
+PLAN_BORROW_DAYS = 2
+
+
+def _month_bounds(now: datetime) -> tuple[datetime, datetime]:
+    start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    end = datetime(now.year + (now.month == 12), now.month % 12 + 1, 1, tzinfo=timezone.utc)
+    return start, end
+
+
+def month_start_balance(ledger: Ledger, now: datetime) -> int | None:
+    """The highest Odds API balance a run recorded this UTC month (its first run)."""
+    start, _end = _month_bounds(_utc(now))
+    row = ledger.conn.execute(
+        "SELECT MAX(odds_remaining) FROM runs WHERE odds_remaining IS NOT NULL AND ran_at>=?",
+        (start.isoformat(),),
+    ).fetchone()
+    return int(row[0]) if row is not None and row[0] is not None else None
+
+
+def plan_share(settings: Settings) -> float:
+    """The plan's share of the month: everything under ODDS_GRID=fallback, else what
+    the rotation does not keep."""
+    if settings.odds_grid == "fallback":
+        return 1.0
+    return min(1.0, max(0.0, 1.0 - settings.odds_entry_share))
+
+
+def plan_allowance(ledger: Ledger, settings: Settings, now: datetime) -> float | None:
+    """Phase 3-E month-to-date plan allowance, or None before any balance is recorded.
+
+    The plan may spend `plan_share` of the month's usable credits (month-start
+    balance less the hard and move reserves), accrued evenly by UTC day with
+    `PLAN_BORROW_DAYS` days borrowed ahead. Quiet days bank credit for busy ones (an
+    NFL Sunday), and over a month the plan can never take the rotation's share.
+    """
+    now = _utc(now)
+    balance = month_start_balance(ledger, now)
+    if balance is None:
+        return None
+    usable = max(0, balance - PLAN_HARD_RESERVE - max(0, settings.odds_move_reserve))
+    start, end = _month_bounds(now)
+    days = (end - start).days
+    accrued = min(1.0, (now.day + PLAN_BORROW_DAYS) / days)
+    return plan_share(settings) * usable * accrued
+
+
+def plan_credits_month(ledger: Ledger, now: datetime) -> float:
+    start, end = _month_bounds(_utc(now))
+    row = ledger.conn.execute(
+        "SELECT COALESCE(SUM(credits),0) FROM pull_plan WHERE pulled_at>=? AND pulled_at<?",
+        (start.isoformat(), end.isoformat()),
+    ).fetchone()
+    return float(row[0])
+
+
+def plan_allowance_left(ledger: Ledger, settings: Settings, now: datetime) -> float | None:
+    allowance = plan_allowance(ledger, settings, now)
+    return None if allowance is None else allowance - plan_credits_month(ledger, now)
+
+
+def plan_hold(ledger: Ledger, settings: Settings, calendar: ReleaseCalendar, now: datetime) -> int:
+    """Credits the rotation leaves above the plan floor (Phase 3-E): the known
+    top-priority demand to month end, capped by what the plan may still spend this
+    month."""
+    now = _utc(now)
+    _start, end = _month_bounds(now)
+    demand = must_demand(ledger, calendar, now, min(now + GAME_LOOKAHEAD, end))
+    balance = month_start_balance(ledger, now)
+    if balance is None:
+        return demand
+    usable = max(0, balance - PLAN_HARD_RESERVE - max(0, settings.odds_move_reserve))
+    unspent = plan_share(settings) * usable - plan_credits_month(ledger, now)
+    return max(0, min(demand, math.floor(unspent + 1e-9)))
+
+
 def move_reserve_left(ledger: Ledger, settings: Settings, now: datetime) -> int:
     """Credits still held back this month for move-trigger pulls."""
     return max(0, settings.odds_move_reserve - ledger.odds_triggers_pulled_in_month(now))
@@ -702,24 +774,28 @@ def select_plan_pull(
                 by_feed[feed] = keep
             else:
                 del by_feed[feed]
-    remaining = plan_daily_cap(ledger, settings, now) - plan_credits_today(ledger, now)
+    allowance_left = plan_allowance_left(ledger, settings, now) if calendar is not None else None
+    remaining = (
+        math.floor(allowance_left + 1e-9)
+        if allowance_left is not None
+        else plan_daily_cap(ledger, settings, now) - plan_credits_today(ledger, now)
+    )
     left = month_credits_left(ledger, now)
     floor = plan_floor(ledger, settings, now)
     floor_ok = left is None or left - 1 >= floor
     if not floor_ok:
         remaining = 0
-    elif (
+    # Under the calendar, pulls below the top priority also leave one credit per
+    # top-priority pull still ahead in the known schedule (`must_demand`), so the
+    # month's last closes and NFL clocks are funded.
+    top = plan_priority(5)
+    low_blocked = (
         calendar is not None
         and left is not None
+        and floor_ok
         and left - 1 < floor + must_demand(ledger, calendar, now)
-    ):
-        # Lower-priority pulls also leave one credit per top-priority pull still ahead
-        # in the known schedule, so the month's last closes and clocks are funded.
-        remaining = 0
-    # Under the calendar, top-priority targets (brief priority 5: the T-10m close and
-    # the NFL status-report and inactives clocks) are funded whenever the reserves
-    # allow; the daily cap rations everything below them. They still count toward it.
-    must = plan_priority(5) if calendar is not None else None
+    )
+
     ordered = sorted(
         by_feed.items(),
         key=lambda item: (min(p for _i, p, _e in item[1]), min(e for _i, _p, e in item[1])),
@@ -728,10 +804,11 @@ def select_plan_pull(
     pick: PlanPick | None = None
     for feed, rows in ordered:
         priority = min(p for _i, p, _e in rows)
-        funded = remaining - _groups_ahead(ledger, now, priority) >= 1 or (
-            must is not None and priority <= must and floor_ok
-        )
-        if pick is None and funded:
+        if (
+            pick is None
+            and not (low_blocked and priority > top)
+            and remaining - _groups_ahead(ledger, now, priority) >= 1
+        ):
             primary = min(rows, key=lambda r: (r[1], r[2], r[0]))[0]
             source_row = ledger.conn.execute(
                 "SELECT source FROM pull_plan WHERE id=?", (primary,)
@@ -876,29 +953,31 @@ def tag_pull_rows(
 
 
 def must_demand(
-    ledger: Ledger, calendar: ReleaseCalendar, now: datetime, lookahead: timedelta = GAME_LOOKAHEAD
+    ledger: Ledger, calendar: ReleaseCalendar, now: datetime, until: datetime | None = None
 ) -> int:
     """Top-priority plan pulls still ahead in the known schedule (Phase 3-E).
 
     One per (feed, 30-min bucket) of every known game's T-10m close and of every
-    brief-priority-5 clock target with a qualifying game, over `lookahead`, minus
+    brief-priority-5 clock target with a qualifying game, from now to `until` (default
+    `GAME_LOOKAHEAD`; games after `until` still qualify a clock before it), minus
     buckets already pulled. The rotation and lower-priority plan pulls leave this
     many credits above the plan floor, so the month's last closes and NFL clocks are
     not starved by pulls that happened to run first.
     """
     now = _utc(now)
+    until = _utc(until) if until is not None else now + GAME_LOOKAHEAD
     feeds = eligible_feeds(ledger.conn)
     bucket = GROUP_BUCKET.total_seconds()
     games: dict[str, list[datetime]] = {}
     demand: set[tuple[str, int]] = set()
-    for _event, (feed, kickoff) in plan_kickoffs(ledger.conn, feeds, now, lookahead).items():
+    for _event, (feed, kickoff) in plan_kickoffs(ledger.conn, feeds, now, GAME_LOOKAHEAD).items():
         games.setdefault(feed, []).append(kickoff)
         close = kickoff - timedelta(minutes=10)
-        if close + timedelta(minutes=8) >= now:
+        if close + timedelta(minutes=8) >= now and close - timedelta(minutes=10) < until:
             demand.add((feed, int((close - timedelta(minutes=10)).timestamp() // bucket)))
     for feed in feeds:
         kickoffs = games.get(feed, [])
-        for target in calendar.clock_targets(feed, now - RELEASE_WINDOW, now + lookahead):
+        for target in calendar.clock_targets(feed, now - RELEASE_WINDOW, until):
             if target.entry.priority < 5 or target.target_at + RELEASE_WINDOW < now:
                 continue
             reach = timedelta(hours=target.entry.requires_game_within_hours)

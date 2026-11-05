@@ -336,11 +336,12 @@ def test_move_reserve_holds_back_plan_credits(tmp_path: Path) -> None:
     now = SUNDAY.replace(hour=17, minute=47)
     _nfl_sunday(ledger)
     _budget(ledger, SUNDAY, 1, 100)
-    ledger.conn.execute(
-        "INSERT INTO runs (ran_at,strategies,scanned,signals,filled,settled,cash,open_cost,"
-        "odds_remaining) VALUES (?,?,0,0,0,0,'1000','0',?)",
-        ((now - timedelta(minutes=30)).isoformat(), "sportsbook_v3", 70),
-    )
+    for at, left in ((datetime(2026, 11, 1, 6, 17, tzinfo=UTC), 500), (now, 70)):
+        ledger.conn.execute(
+            "INSERT INTO runs (ran_at,strategies,scanned,signals,filled,settled,cash,open_cost,"
+            "odds_remaining) VALUES (?,?,0,0,0,0,'1000','0',?)",
+            ((at - timedelta(minutes=30)).isoformat(), "sportsbook_v3", left),
+        )
     ledger.conn.commit()
     cli._refresh_pull_plan(ledger, now, SETTINGS, CAL)
     # 70 left: 70 - 1 < 25 hard reserve + 50 move reserve, so the close is held back.
@@ -354,6 +355,31 @@ def test_move_reserve_holds_back_plan_credits(tmp_path: Path) -> None:
     ledger.conn.commit()
     pick = select_plan_pull(ledger, SETTINGS, now, calendar=CAL)
     assert pick is not None and pick.source == "close"
+
+
+def test_plan_allowance_accrues_by_day_with_two_days_borrowed(tmp_path: Path) -> None:
+    from prediction_bot.pull_plan import plan_allowance, plan_allowance_left
+
+    ledger = _ledger(tmp_path)
+    assert plan_allowance(ledger, SETTINGS, SUNDAY) is None  # no balance recorded yet
+    ledger.conn.execute(
+        "INSERT INTO runs (ran_at,strategies,scanned,signals,filled,settled,cash,open_cost,"
+        "odds_remaining) VALUES ('2026-11-01T00:47:00+00:00','sportsbook_v3',0,0,0,0,'1000',"
+        "'0',500)"
+    )
+    ledger.conn.commit()
+    # Usable = 500 - 25 hard reserve - 50 move reserve = 425; the plan's half is 212.5.
+    first = datetime(2026, 11, 1, 12, tzinfo=UTC)
+    assert plan_allowance(ledger, SETTINGS, first) == pytest.approx(212.5 * 3 / 30)
+    assert plan_allowance(ledger, SETTINGS, datetime(2026, 11, 29, tzinfo=UTC)) == 212.5
+    fallback = SETTINGS.model_copy(update={"odds_grid": "fallback"})
+    assert plan_allowance(ledger, fallback, first) == pytest.approx(425 * 3 / 30)
+    ledger.conn.execute(
+        "INSERT INTO pull_plan (event_ticker,feed,target,kickoff,target_at,window_start,"
+        "window_end,priority,status,credits,planned_at,pulled_at) VALUES ('E','soccer_epl',"
+        "'T-10m','k','t','s','e',1,'pulled',5,'p','2026-11-01T10:00:00+00:00')"
+    )
+    assert plan_allowance_left(ledger, SETTINGS, first) == pytest.approx(212.5 * 3 / 30 - 5)
 
 
 class FakeOdds:
