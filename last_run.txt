@@ -1,13 +1,3 @@
- scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1560.02
+ scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1557.82
 v3 execution: auto -> taker (taker_positions: 1/50)
- scanned=1474 signals=1 filled=1 orders_placed=0 settled=0 cash=1557.82
-┏━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━┓
-┃ strategy   ┃ ticker    ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why        ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━┩
-│ sportsboo… │ KXMLSGAM… │ yes  │ 0.3500 │ 0.3696 │ 0.0037 │ 6    │ St. Louis  │
-│            │           │      │        │        │        │      │ City SC    │
-│            │           │      │        │        │        │      │ pinnacle   │
-│            │           │      │        │        │        │      │ reference, │
-│            │           │      │        │        │        │      │ 4 books,   │
-│            │           │      │        │        │        │      │ fair 0.370 │
-└────────────┴───────────┴──────┴────────┴────────┴────────┴──────┴────────────┘
+ scanned=1476 signals=0 filled=0 orders_placed=0 settled=0 cash=1557.82
