@@ -116,3 +116,18 @@ def test_cloudflare_worker_config_and_unit_tests() -> None:
         timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_ledger_is_stored_gzipped_with_a_fallback_to_the_raw_file() -> None:
+    """GitHub rejects files over 100 MB; the ledger crossed that on 2026-11-06."""
+    paper = (ROOT / ".github/workflows/paper.yml").read_text()
+    health = (ROOT / ".github/workflows/health.yml").read_text()
+    for workflow in (paper, health):
+        assert "git show paper-ledger:paper.sqlite.gz | gunzip > ledger/paper.sqlite" in workflow
+        assert (
+            "git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true"
+        ) in workflow
+    assert "gzip -9 -n -c ledger/paper.sqlite > wt/paper.sqlite.gz" in paper
+    assert "git rm -q --cached --ignore-unmatch paper.sqlite" in paper
+    assert "git add paper.sqlite.gz last_run.txt" in paper
+    assert "cp ledger/paper.sqlite" not in paper

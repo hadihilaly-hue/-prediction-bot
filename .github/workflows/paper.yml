@@ -54,7 +54,13 @@ jobs:
         run: |
           git fetch origin paper-ledger:paper-ledger 2>/dev/null || true
           mkdir -p ledger
-          git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true
+          # The ledger is stored gzipped (GitHub rejects files over 100 MB); fall back
+          # to the uncompressed paper.sqlite that branches committed before that.
+          if git cat-file -e paper-ledger:paper.sqlite.gz 2>/dev/null; then
+            git show paper-ledger:paper.sqlite.gz | gunzip > ledger/paper.sqlite
+          else
+            git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true
+          fi
 
       # Scheduled and Cloudflare-dispatched runs share one code path: the slot comes
       # from inputs.slot, else from the cron that fired. Manual runs skip the guard.
@@ -193,10 +199,15 @@ jobs:
             git worktree add --detach wt HEAD
             (cd wt && git checkout -q --orphan paper-ledger && git rm -rfq .)
           fi
-          cp ledger/paper.sqlite ledger/last_run.txt ledger/REPORT.txt ledger/PREDICTIONS.md \
+          # gzip -n leaves out the name and timestamp, so an unchanged ledger gives an
+          # identical file and no commit. ~5.6x smaller than the raw sqlite.
+          gzip -9 -n -c ledger/paper.sqlite > wt/paper.sqlite.gz
+          cp ledger/last_run.txt ledger/REPORT.txt ledger/PREDICTIONS.md \
              ledger/index.html ledger/.nojekyll ledger/polymarket_alias_gaps.md wt/
           cd wt
-          git add paper.sqlite last_run.txt REPORT.txt PREDICTIONS.md index.html .nojekyll \
+          git rm -q --cached --ignore-unmatch paper.sqlite
+          rm -f paper.sqlite
+          git add paper.sqlite.gz last_run.txt REPORT.txt PREDICTIONS.md index.html .nojekyll \
             polymarket_alias_gaps.md
           if git diff --cached --quiet; then echo "no changes"; exit 0; fi
           git commit -q -m "paper cycle $(date -u +%FT%TZ)"

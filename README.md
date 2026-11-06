@@ -118,7 +118,7 @@ The full change log is `docs/CHANGES_v5.md`.
 are used). The book scanner runs every cycle. The sportsbook strategy runs on the :17 cycle
 of every even UTC hour (and on manual runs). The other cycles pull odds only for a
 due pull-plan target or a line-move trigger. An odds pacer keeps the month inside The
-Odds API free tier (500 requests/month). Each cycle commits `paper.sqlite`, `last_run.txt`, `REPORT.txt` and a human-readable
+Odds API free tier (500 requests/month). Each cycle commits the ledger as `paper.sqlite.gz` (gzipped: GitHub rejects files over 100 MB; read it with `git show paper-ledger:paper.sqlite.gz | gunzip > paper.sqlite`), `last_run.txt`, `REPORT.txt` and a human-readable
 `PREDICTIONS.md` (every signal with price, fair estimate, edge and outcome once settled) to
 the `paper-ledger` branch — that file is the place to see what the bot is predicting.
 Locally, `pbot predictions` prints the same table.
