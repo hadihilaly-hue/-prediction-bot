@@ -728,7 +728,13 @@ def paper(
             status = "pulled" if odds is not None and odds.odds_requests_made > 0 else "skipped"
             ledger.finish_odds_trigger(trigger, status)
         if odds is not None:
-            for pulled_feed in sorted(getattr(odds, "requests_last_by_sport", {})):
+            # `pulled_feeds`, not `requests_last_by_sport`: the engine clears the
+            # latter at the end of run_cycle, which left every plan target unmarked
+            # (and so re-pulled on the next tick) until 2026-11-06.
+            pulled_this_cycle = set(getattr(odds, "pulled_feeds", ())) | set(
+                getattr(odds, "requests_last_by_sport", {})
+            )
+            for pulled_feed in sorted(pulled_this_cycle):
                 try:
                     _record_feed_pull_source(
                         ledger,

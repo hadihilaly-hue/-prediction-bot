@@ -715,3 +715,19 @@ def test_simulated_month_default_flags(tmp_path: Path) -> None:
     assert result["targets"].get("close:pulled", 0) >= 160
     assert result["rotation_pulls"] > result["plan_pulls"] > 0
     assert result["move_pulls"] >= 50  # the reserve is spent by move pulls
+
+
+def test_pacer_sees_feeds_pulled_before_the_engine_cleared_requests_last(tmp_path: Path) -> None:
+    """Measurement and extra credits are judged after the cycle, when the engine has
+    already cleared `requests_last_by_sport`; `pulled_feeds` keeps the answer."""
+    from types import SimpleNamespace
+
+    client = SimpleNamespace(
+        requests_last_by_sport={}, pulled_feeds={"icehockey_nhl"}, budget=1,
+        requests_remaining="400", requests_made=1,
+    )  # fmt: skip
+    pacer = OddsPacer(client, 12, ledger=_ledger(tmp_path))  # type: ignore[arg-type]
+    pacer.measure_feed = "icehockey_nhl"
+    pacer.extra_feeds = ["icehockey_nhl"]
+    assert pacer.measure_pulled() and pacer.pulled("icehockey_nhl")
+    assert not pacer.pulled("soccer_epl")
