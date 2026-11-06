@@ -15,7 +15,7 @@ budget so the count is what the targets would ask for. Feed
 eligibility is the ledger's latest `feed_stats`, so a feed that became eligible
 mid-window is treated as eligible throughout. Local data only; no network.
 
-    git show paper-ledger:paper.sqlite > /tmp/paper.sqlite
+    git show paper-ledger:paper.sqlite.gz | gunzip > /tmp/paper.sqlite
     python scripts/replay_pull_plan.py --ledger /tmp/paper.sqlite --days 14
 """
 

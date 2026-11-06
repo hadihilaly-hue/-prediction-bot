@@ -540,6 +540,31 @@ def test_light_tick_runs_only_when_a_plan_target_is_due(tmp_path, monkeypatch, c
     assert ledger.conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == runs_before
 
 
+def test_light_tick_skips_when_the_plan_check_fails(tmp_path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
+    path = tmp_path / "tick.sqlite"
+    ledger = Ledger(path, Decimal("1000"))
+    ledger.conn.execute(
+        "INSERT INTO runs (ran_at,strategies,scanned,signals,filled,settled,cash,open_cost) "
+        "VALUES (?,?,0,0,0,0,'1000','0')",
+        ((datetime.now(UTC) - timedelta(minutes=10)).isoformat(), "book_scanner"),
+    )
+    ledger.conn.commit()
+    settings = Settings(_env_file=None, rules_version="v3", paper_db_path=path)  # type: ignore[call-arg]
+    monkeypatch.setattr(cli, "_settings", lambda: settings)
+
+    def boom(*_args: object) -> None:
+        raise RuntimeError("bad plan data")
+
+    monkeypatch.setattr(cli, "_due_plan_feed", boom)
+    cli.slot_guard(slot="scanner", within_minutes=25, plan_due=True)
+    assert capsys.readouterr().out.strip() == "skip"
+    # With no recent scanner run the tick still runs, whatever the plan check does.
+    ledger.conn.execute("DELETE FROM runs")
+    ledger.conn.commit()
+    cli.slot_guard(slot="scanner", within_minutes=25, plan_due=True)
+    assert capsys.readouterr().out.strip() == "run"
+
+
 def test_pull_due_target_prints_that_targets_feed_only_while_due(
     tmp_path, monkeypatch, capsys
 ) -> None:  # type: ignore[no-untyped-def]

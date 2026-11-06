@@ -1207,9 +1207,17 @@ def slot_guard(
             continue
         sportsbook = any(name.startswith("sportsbook") for name in strategies.split(","))
         if (slot == "sportsbook" and sportsbook) or (slot == "scanner" and not sportsbook):
-            if plan_due and slot == "scanner" and _due_plan_feed(ledger, s, now) is not None:
-                typer.echo("run")
-                return
+            if plan_due and slot == "scanner":
+                try:
+                    due = _due_plan_feed(ledger, s, now)
+                except Exception:
+                    # Fail closed: the scanner already ran within the window, so a
+                    # broken plan check costs at most one plan pull, never the run.
+                    log.exception("slot-guard: pull-plan check failed; skipping the tick")
+                    due = None
+                if due is not None:
+                    typer.echo("run")
+                    return
             typer.echo("skip")
             return
     typer.echo("run")

@@ -30,7 +30,13 @@ jobs:
         run: |
           git fetch origin paper-ledger:paper-ledger 2>/dev/null || true
           mkdir -p ledger
-          git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true
+          # The ledger is stored gzipped (GitHub rejects files over 100 MB); fall back
+          # to the uncompressed paper.sqlite that branches committed before that.
+          if git cat-file -e paper-ledger:paper.sqlite.gz 2>/dev/null; then
+            git show paper-ledger:paper.sqlite.gz | gunzip > ledger/paper.sqlite
+          else
+            git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true
+          fi
 
       - name: Check last run
         id: check
