@@ -279,6 +279,11 @@ class OddsClient:
         self.requests_made = 0
         self.odds_requests_made = 0
         self.requests_last_by_sport: dict[str, int | None] = {}
+        # Feeds pulled since the pacer's last start_run. `Engine.run_cycle` clears
+        # `requests_last_by_sport` at the end of each cycle, so bookkeeping that runs
+        # after the cycle (pull-plan marking, measurement pulls, extra credits) reads
+        # this instead.
+        self.pulled_feeds: set[str] = set()
         self.events_free = True
         self._events_requests_used_baseline: int | None = None
         self._memo: dict[tuple[str, str, str], tuple[float, list[dict[str, Any]]]] = {}
@@ -343,6 +348,7 @@ class OddsClient:
                 ) + requests_last_value
         else:
             self.requests_last_by_sport[sport] = requests_last_value
+        self.pulled_feeds.add(sport)
         log.info("odds api: %s x-requests-last=%s", sport, requests_last)
         if requests_last != "1":
             log.error(
@@ -509,8 +515,14 @@ class OddsPacer:
         self.extra_feeds.append(feed)
         return True
 
+    def pulled(self, feed: str) -> bool:
+        """Whether `feed` was pulled this run (survives the engine's per-cycle clear)."""
+        return feed in getattr(self.client, "pulled_feeds", ()) or (
+            feed in self.client.requests_last_by_sport
+        )
+
     def extra_pulled(self, feed: str) -> bool:
-        return feed in self.extra_feeds and feed in self.client.requests_last_by_sport
+        return feed in self.extra_feeds and self.pulled(feed)
 
     def grant_measure_credit(self, feed: str, daily_cap: int, now: datetime) -> bool:
         """Allow one shadow-only measurement pull for `feed` on top of this run's budget.
@@ -633,6 +645,9 @@ class OddsPacer:
         self.client.requests_made = 0
         self.client.odds_requests_made = 0
         self.client.requests_last_by_sport.clear()
+        pulled_feeds = getattr(self.client, "pulled_feeds", None)
+        if pulled_feeds is not None:
+            pulled_feeds.clear()
         self.measure_feed = None
         self.extra_feeds = []
         self.client.events_free = True

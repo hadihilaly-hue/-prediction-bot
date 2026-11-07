@@ -677,3 +677,101 @@ def test_paper_trigger_makes_one_paid_odds_request(  # type: ignore[no-untyped-d
     assert ledger.conn.execute("SELECT status FROM odds_triggers").fetchone() == ("pulled",)
     assert ledger.conn.execute("SELECT trigger_reason FROM runs").fetchone() == (f"move:{feed}",)
     assert ledger.odds_pacer_carry() == pytest.approx(carry_after)
+
+
+def test_plan_run_marks_its_target_pulled_after_the_engine_clears_requests_last(
+    tmp_path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    """Regression (2026-11-06): `Engine.run_cycle` clears `requests_last_by_sport`
+    at the end of the cycle; the post-cycle bookkeeping read that dict, so no plan
+    target was ever marked pulled and the same feed was re-pulled every tick."""
+    import httpx
+
+    import prediction_bot.cli as cli
+
+    now = datetime.now(timezone.utc)
+    path = tmp_path / "paper-plan.sqlite"
+    ledger = Ledger(path, Decimal("100"))
+    feed = "americanfootball_nfl"
+    ledger.conn.execute(
+        "INSERT INTO feed_stats (computed_at,feed,lead_p50_h,lead_p90_h,pulls_14d,"
+        "useful_pulls_14d,provisional,eligible) VALUES (?,?,100,200,0,0,0,1)",
+        ((now - timedelta(hours=1)).isoformat(), feed),
+    )
+    kickoff = now + timedelta(minutes=12)  # its T-10m close is due now
+    ledger.conn.execute(
+        "INSERT INTO market_snapshots (fetched_at,ticker,event_ticker,series,yes_bid,yes_ask,"
+        "yes_bid_size,yes_ask_size,open_interest,volume,expected_expiration) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            (now - timedelta(hours=1)).isoformat(), "KXNFLGAME-X-A", "KXNFLGAME-X",
+            "KXNFLGAME", "0.48", "0.50", "100", "100", "10", "10",
+            (kickoff + timedelta(hours=3)).isoformat(),
+        ),
+    )  # fmt: skip
+    ledger.conn.commit()
+    settings = Settings(
+        _env_file=None,
+        rules_version="v3",
+        v3_execution="taker",
+        paper_db_path=path,
+        odds_api_key="key",
+        odds_runs_per_day=12,
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        headers = {"x-requests-used": "10", "x-requests-remaining": "400"}
+        if request.url.path.endswith("/events"):
+            return httpx.Response(
+                200, json=[{"commence_time": kickoff.isoformat()}], headers=headers
+            )
+        if request.url.path.endswith("/odds"):
+            headers = {
+                "x-requests-used": "11",
+                "x-requests-remaining": "399",
+                "x-requests-last": "1",
+            }
+        return httpx.Response(200, json=[], headers=headers)
+
+    odds = OddsClient("key", client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+    class EngineStub:
+        def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
+            pass
+
+        def settle_open_positions(self):  # type: ignore[no-untyped-def]
+            return {}
+
+        def run_cycle(self, markets):  # type: ignore[no-untyped-def]
+            odds.h2h(feed)
+            odds.requests_last_by_sport.clear()  # what Engine.run_cycle does at the end
+            return CycleResult()
+
+    monkeypatch.setattr(cli, "_settings", lambda: settings)
+    monkeypatch.setattr(cli, "_client", lambda _settings: object())
+    monkeypatch.setattr(cli, "_odds_client", lambda _settings: odds)
+    monkeypatch.setattr(cli, "_fetch", lambda _client, _series: [])
+    monkeypatch.setattr(cli, "Engine", EngineStub)
+    monkeypatch.setattr(cli, "score_maker_shadows", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(cli, "backfill_clv_commence_times", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(cli, "record_clv", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(cli, "refresh_clv_statuses", lambda *args, **kwargs: 0)
+    cli._refresh_pull_plan(ledger, now, settings, cli._release_calendar(settings))
+    assert ledger.conn.execute(
+        "SELECT status FROM pull_plan WHERE event_ticker='KXNFLGAME-X' AND target='T-10m'"
+    ).fetchone() == ("planned",)
+
+    cli.paper(strategy=["sportsbook_v3"], series=["KXNFLGAME"], cycles=1, plan=feed)
+
+    status, pulled_at = ledger.conn.execute(
+        "SELECT status,pulled_at FROM pull_plan WHERE event_ticker='KXNFLGAME-X' AND target='T-10m'"
+    ).fetchone()
+    assert status == "pulled"
+    # One plan credit, shared by every target the pull satisfied.
+    total = ledger.conn.execute(
+        "SELECT SUM(credits) FROM pull_plan WHERE pulled_at=?", (pulled_at,)
+    ).fetchone()[0]
+    assert total == pytest.approx(1.0)
+    # So the next tick does not pull the same feed again.
+    monkeypatch.setattr(cli, "_settings", lambda: settings)
+    assert cli._due_plan_feed(ledger, settings, datetime.now(timezone.utc)) is None
