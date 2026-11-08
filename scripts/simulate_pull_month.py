@@ -142,8 +142,12 @@ def _ticks(minutes: tuple[int, ...]) -> list[datetime]:
     return out
 
 
-def simulate(grid: str, cadence: str, workdir: Path, with_moves: bool = True) -> dict[str, Any]:
-    settings = Settings(_env_file=None, rules_version="v3", odds_grid=grid)  # type: ignore[call-arg]
+def simulate(
+    grid: str, cadence: str, workdir: Path, with_moves: bool = True, entry_share: float = 0.5
+) -> dict[str, Any]:
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None, rules_version="v3", odds_grid=grid, odds_entry_share=entry_share
+    )
     release = ReleaseCalendar.load(ROOT / "data" / "release_calendar.json")
     cadence_cal = CadenceCalendar.load(ROOT / "data" / "cadence_calendar.json")
     ledger = Ledger(workdir / f"month-{grid}-{cadence}.sqlite", Decimal("1000"))
@@ -245,11 +249,18 @@ def main() -> None:
     parser.add_argument("--grid", choices=["rotation", "fallback"], action="append")
     parser.add_argument("--cadence", choices=sorted(CADENCES), action="append")
     parser.add_argument("--no-moves", action="store_true", help="simulate no move-trigger pulls")
+    parser.add_argument("--entry-share", type=float, default=0.5, help="ODDS_ENTRY_SHARE")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory() as tmp:
         for grid in args.grid or ["rotation", "fallback"]:
             for cadence in args.cadence or ["10min", "cron"]:
-                result = simulate(grid, cadence, Path(tmp), with_moves=not args.no_moves)
+                result = simulate(
+                    grid,
+                    cadence,
+                    Path(tmp),
+                    with_moves=not args.no_moves,
+                    entry_share=args.entry_share,
+                )
                 print(result)
 
 

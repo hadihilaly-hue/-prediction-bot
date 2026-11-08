@@ -731,3 +731,17 @@ def test_pacer_sees_feeds_pulled_before_the_engine_cleared_requests_last(tmp_pat
     pacer.extra_feeds = ["icehockey_nhl"]
     assert pacer.measure_pulled() and pacer.pulled("icehockey_nhl")
     assert not pacer.pulled("soccer_epl")
+
+
+def test_plan_hold_only_applies_in_the_last_week_of_the_month(tmp_path: Path) -> None:
+    from prediction_bot.pull_plan import plan_hold
+
+    ledger = _ledger(tmp_path)
+    _nfl_sunday(ledger)  # Nov 8 games
+    late = datetime(2026, 11, 29, 18, tzinfo=UTC)
+    _game(ledger, "KXNFLGAME-26NOV29G0", late)
+    _eligible(ledger, ["americanfootball_nfl"], datetime(2026, 11, 1, tzinfo=UTC))
+    # Mid-month: no hold, whatever the known demand.
+    assert plan_hold(ledger, SETTINGS, CAL, datetime(2026, 11, 7, 12, tzinfo=UTC)) == 0
+    # Final week: the month's last top-priority pulls are held for.
+    assert plan_hold(ledger, SETTINGS, CAL, datetime(2026, 11, 28, 12, tzinfo=UTC)) > 0
