@@ -72,7 +72,7 @@ jobs:
           TARGET: ${{ inputs.target || '' }}
           PBOT_RULES_VERSION: ${{ vars.PBOT_RULES_VERSION || 'v3' }}
           PBOT_ODDS_PULL_PLAN: ${{ vars.PBOT_ODDS_PULL_PLAN || 'hybrid' }}
-          PBOT_ODDS_ENTRY_SHARE: ${{ vars.PBOT_ODDS_ENTRY_SHARE || '0.5' }}
+          PBOT_ODDS_ENTRY_SHARE: ${{ vars.PBOT_ODDS_ENTRY_SHARE || '0.7' }}
           PBOT_ODDS_RELEASE_CALENDAR: ${{ vars.PBOT_ODDS_RELEASE_CALENDAR || 'on' }}
           PBOT_RELEASE_ENABLE_FEEDS: ${{ vars.PBOT_RELEASE_ENABLE_FEEDS || '' }}
           PBOT_ODDS_GRID: ${{ vars.PBOT_ODDS_GRID || 'rotation' }}
@@ -111,7 +111,7 @@ jobs:
           # Per-game pull targets (T-24h/T-6h/T-90m/T-10m) may spend the share of each
           # day's credits the rotation does not keep; 'off' disables the plan.
           PBOT_ODDS_PULL_PLAN: ${{ vars.PBOT_ODDS_PULL_PLAN || 'hybrid' }}
-          PBOT_ODDS_ENTRY_SHARE: ${{ vars.PBOT_ODDS_ENTRY_SHARE || '0.5' }}
+          PBOT_ODDS_ENTRY_SHARE: ${{ vars.PBOT_ODDS_ENTRY_SHARE || '0.7' }}
           # Phase 3-E: plan targets from data/release_calendar.json ('off' = Phase 3
           # T-24h/T-6h/T-90m/T-10m). PBOT_RELEASE_ENABLE_FEEDS=basketball_nba turns on
           # the RESERVED NBA entries. PBOT_ODDS_GRID=fallback (RESERVED) drops the 72h+

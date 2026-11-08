@@ -648,12 +648,22 @@ def plan_allowance_left(ledger: Ledger, settings: Settings, now: datetime) -> fl
     return None if allowance is None else allowance - plan_credits_month(ledger, now)
 
 
+# The rotation holds credits for the month's last top-priority pulls only in the
+# final days of the month. Holding the whole known demand all month (~50 credits on
+# the live 12-feed schedule) cut the 72h+ rotation's budget by about a third.
+PLAN_HOLD_WINDOW = timedelta(days=7)
+
+
 def plan_hold(ledger: Ledger, settings: Settings, calendar: ReleaseCalendar, now: datetime) -> int:
-    """Credits the rotation leaves above the plan floor (Phase 3-E): the known
-    top-priority demand to month end, capped by what the plan may still spend this
-    month."""
+    """Credits the rotation leaves above the plan floor (Phase 3-E).
+
+    Zero until the last `PLAN_HOLD_WINDOW` of the month; then the known top-priority
+    demand to month end, capped by what the plan may still spend this month.
+    """
     now = _utc(now)
     _start, end = _month_bounds(now)
+    if end - now > PLAN_HOLD_WINDOW:
+        return 0
     demand = must_demand(ledger, calendar, now, min(now + GAME_LOOKAHEAD, end))
     balance = month_start_balance(ledger, now)
     if balance is None:

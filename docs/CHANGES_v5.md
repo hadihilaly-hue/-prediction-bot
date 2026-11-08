@@ -737,6 +737,25 @@ Replaces Phase 3.1's fixed T−24h/T−6h/T−90m offsets with targets timed to 
 
 All of them are read from repo Variables in `paper.yml` (`PBOT_` prefix), and `PBOT_HEALTH_MAX_AGE_MINUTES` in `health.yml`.
 
+### Follow-up fixes after go-live (2026-11-06 to 11-08)
+- **Ledger over 100 MB** ([#73](https://github.com/hadihilaly-hue/-prediction-bot/pull/73)). GitHub rejected every ledger push from 2026-11-06 03:17 UTC. The ledger is now committed as `paper.sqlite.gz`: about 21 MB, and an unchanged ledger gives an identical file. The light tick fails closed (`skip`) if the plan check errors.
+- **Plan targets never marked pulled** ([#74](https://github.com/hadihilaly-hue/-prediction-bot/pull/74); present since Phase 3). `Engine.run_cycle` clears `requests_last_by_sport` before the post-cycle bookkeeping read it. As a result:
+  - due targets stayed due, so the same feed was re-pulled every tick;
+  - measurement pulls went unrecorded, so their cap never held;
+  - plan and measurement credits were charged to the rotation's carry.
+  The bookkeeping now reads `OddsClient.pulled_feeds`.
+- **More credits for the 72h+ rotation** (2026-11-08). On Nov 7–8 the rotation made 5 pulls against about 60 for the plan. Part of that was the plan catching up on spending #74 had left unrecorded; part was `plan_hold`, which kept about 50 credits aside all month on the live 12-feed schedule.
+  - `plan_hold` now applies only in the last 7 days of the month (`PLAN_HOLD_WINDOW`).
+  - `paper.yml`'s `PBOT_ODDS_ENTRY_SHARE` default goes from 0.5 to 0.7 (decision 6, taken by Hadi). A repo Variable still overrides it.
+- **Simulated November with these changes** (10-minute ticks, 3 move pulls a day):
+
+| `ODDS_ENTRY_SHARE` | Rotation | Plan | NFL Sun/Mon clocks | Closes |
+|---|---|---|---|---|
+| 0.5 | 228 | 184 | 20/20 | 169/170 |
+| 0.7 (live default) | 283 | 127 | 16/20 | 155/170 |
+
+  At 0.7 the plan's share is about 127 credits a month. The four skipped clocks are on the month's last weekend, when that share runs out. That is the cost of moving credits to the 72h+ window, where entries come from.
+
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:
    - Phase 1.2's centicent rounding stays RESERVED;
