@@ -615,23 +615,62 @@ def plan_share(settings: Settings) -> float:
     return min(1.0, max(0.0, 1.0 - settings.odds_entry_share))
 
 
+def _allowance_window(
+    ledger: Ledger, settings: Settings, now: datetime
+) -> tuple[datetime, datetime, int | None]:
+    """(start, end, usable credits) the plan's allowance accrues over.
+
+    Normally the UTC month, with usable = month-start balance less the hard and move
+    reserves. `plan_allowance_since` (a date inside this month) restarts it from that
+    day: usable = the balance on that day less the hard reserve and the move reserve
+    still unused, and only plan credits spent from then on count. Used when the
+    plan's share changes mid-month, so the new share is not applied retroactively.
+    """
+    now = _utc(now)
+    start, end = _month_bounds(now)
+    since = settings.plan_allowance_since
+    if since is not None and start.date() < since <= now.date():
+        epoch = datetime(since.year, since.month, since.day, tzinfo=timezone.utc)
+        row = ledger.conn.execute(
+            "SELECT MAX(odds_remaining) FROM runs WHERE odds_remaining IS NOT NULL "
+            "AND ran_at>=? AND ran_at<?",
+            (epoch.isoformat(), end.isoformat()),
+        ).fetchone()
+        balance = int(row[0]) if row is not None and row[0] is not None else None
+        reserve = move_reserve_left(ledger, settings, now)
+        if balance is not None:
+            return epoch, end, max(0, balance - PLAN_HARD_RESERVE - reserve)
+    balance = month_start_balance(ledger, now)
+    if balance is None:
+        return start, end, None
+    usable = max(0, balance - PLAN_HARD_RESERVE - max(0, settings.odds_move_reserve))
+    return start, end, usable
+
+
 def plan_allowance(ledger: Ledger, settings: Settings, now: datetime) -> float | None:
     """Phase 3-E month-to-date plan allowance, or None before any balance is recorded.
 
-    The plan may spend `plan_share` of the month's usable credits (month-start
-    balance less the hard and move reserves), accrued evenly by UTC day with
-    `PLAN_BORROW_DAYS` days borrowed ahead. Quiet days bank credit for busy ones (an
-    NFL Sunday), and over a month the plan can never take the rotation's share.
+    The plan may spend `plan_share` of the usable credits (see `_allowance_window`),
+    accrued evenly by UTC day with `PLAN_BORROW_DAYS` days borrowed ahead. Quiet days
+    bank credit for busy ones (an NFL Sunday), and over the window the plan can
+    never take the rotation's share.
     """
     now = _utc(now)
-    balance = month_start_balance(ledger, now)
-    if balance is None:
+    start, end, usable = _allowance_window(ledger, settings, now)
+    if usable is None:
         return None
-    usable = max(0, balance - PLAN_HARD_RESERVE - max(0, settings.odds_move_reserve))
-    start, end = _month_bounds(now)
     days = (end - start).days
-    accrued = min(1.0, (now.day + PLAN_BORROW_DAYS) / days)
+    elapsed = (now.date() - start.date()).days + 1
+    accrued = min(1.0, (elapsed + PLAN_BORROW_DAYS) / days)
     return plan_share(settings) * usable * accrued
+
+
+def plan_credits_between(ledger: Ledger, start: datetime, end: datetime) -> float:
+    row = ledger.conn.execute(
+        "SELECT COALESCE(SUM(credits),0) FROM pull_plan WHERE pulled_at>=? AND pulled_at<?",
+        (start.isoformat(), end.isoformat()),
+    ).fetchone()
+    return float(row[0])
 
 
 def plan_credits_month(ledger: Ledger, now: datetime) -> float:
@@ -645,7 +684,10 @@ def plan_credits_month(ledger: Ledger, now: datetime) -> float:
 
 def plan_allowance_left(ledger: Ledger, settings: Settings, now: datetime) -> float | None:
     allowance = plan_allowance(ledger, settings, now)
-    return None if allowance is None else allowance - plan_credits_month(ledger, now)
+    if allowance is None:
+        return None
+    start, end, _usable = _allowance_window(ledger, settings, now)
+    return allowance - plan_credits_between(ledger, start, end)
 
 
 # The rotation holds credits for the month's last top-priority pulls only in the
@@ -665,11 +707,10 @@ def plan_hold(ledger: Ledger, settings: Settings, calendar: ReleaseCalendar, now
     if end - now > PLAN_HOLD_WINDOW:
         return 0
     demand = must_demand(ledger, calendar, now, min(now + GAME_LOOKAHEAD, end))
-    balance = month_start_balance(ledger, now)
-    if balance is None:
+    start, end, usable = _allowance_window(ledger, settings, now)
+    if usable is None:
         return demand
-    usable = max(0, balance - PLAN_HARD_RESERVE - max(0, settings.odds_move_reserve))
-    unspent = plan_share(settings) * usable - plan_credits_month(ledger, now)
+    unspent = plan_share(settings) * usable - plan_credits_between(ledger, start, end)
     return max(0, min(demand, math.floor(unspent + 1e-9)))
 
 

@@ -745,3 +745,36 @@ def test_plan_hold_only_applies_in_the_last_week_of_the_month(tmp_path: Path) ->
     assert plan_hold(ledger, SETTINGS, CAL, datetime(2026, 11, 7, 12, tzinfo=UTC)) == 0
     # Final week: the month's last top-priority pulls are held for.
     assert plan_hold(ledger, SETTINGS, CAL, datetime(2026, 11, 28, 12, tzinfo=UTC)) > 0
+
+
+def test_plan_allowance_since_restarts_the_allowance_mid_month(tmp_path: Path) -> None:
+    """A mid-month share change must not be applied to credits already spent."""
+    from datetime import date
+
+    from prediction_bot.pull_plan import plan_allowance, plan_allowance_left
+
+    ledger = _ledger(tmp_path)
+    for at, left in (("2026-11-01T00:47:00+00:00", 500), ("2026-11-09T00:17:00+00:00", 300)):
+        ledger.conn.execute(
+            "INSERT INTO runs (ran_at,strategies,scanned,signals,filled,settled,cash,open_cost,"
+            "odds_remaining) VALUES (?,'sportsbook_v3',0,0,0,0,'1000','0',?)",
+            (at, left),
+        )
+    ledger.conn.execute(
+        "INSERT INTO pull_plan (event_ticker,feed,target,kickoff,target_at,window_start,"
+        "window_end,priority,status,credits,planned_at,pulled_at) VALUES ('E','soccer_epl',"
+        "'T-10m','k','t','s','e',1,'pulled',60,'p','2026-11-08T10:00:00+00:00')"
+    )
+    ledger.conn.commit()
+    now = datetime(2026, 11, 9, 18, tzinfo=UTC)
+    share = SETTINGS.model_copy(update={"odds_entry_share": 0.7})
+    # Month-to-date at 0.3: 0.3 x 425 x 11/30 = 46.75, already overdrawn by the 60.
+    assert plan_allowance_left(ledger, share, now) == pytest.approx(46.75 - 60)
+    restarted = share.model_copy(update={"plan_allowance_since": date(2026, 11, 9)})
+    # From Nov 9: usable 300 - 25 - 50 = 225 over 22 days, day 1 plus 2 borrowed.
+    assert plan_allowance(ledger, restarted, now) == pytest.approx(0.3 * 225 * 3 / 22)
+    assert plan_allowance_left(ledger, restarted, now) == pytest.approx(0.3 * 225 * 3 / 22)
+    # Outside that month the setting is ignored.
+    december = restarted.model_copy(update={"plan_allowance_since": date(2026, 10, 9)})
+    assert plan_allowance_left(ledger, december, now) == pytest.approx(46.75 - 60)
+    assert Settings(_env_file=None, plan_allowance_since="").plan_allowance_since is None  # type: ignore[call-arg]
