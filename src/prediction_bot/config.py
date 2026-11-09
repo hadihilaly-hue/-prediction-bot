@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
@@ -59,6 +60,11 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @field_validator("plan_allowance_since", mode="before")
+    @classmethod
+    def blank_date_is_none(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
 
     @model_validator(mode="after")
     def sync_entry_window(self) -> Settings:
@@ -272,6 +278,10 @@ class Settings(BaseSettings):
     # Credits per month kept for move-trigger pulls (`odds_triggers`): plan targets
     # never spend them, and the rotation paces as if they were already spent.
     odds_move_reserve: int = 50
+    # Restart the pull plan's month-to-date allowance from this UTC date (inside the
+    # current month), so a mid-month ODDS_ENTRY_SHARE change is not applied to the
+    # credits the plan already spent. Ignored in other months.
+    plan_allowance_since: date | None = None
 
     # Fees come from each series' Kalshi schedule (fees.fee_for_ticker); only the
     # rounding (`fee_rounding`) is configurable.

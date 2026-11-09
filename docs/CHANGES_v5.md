@@ -755,6 +755,9 @@ All of them are read from repo Variables in `paper.yml` (`PBOT_` prefix), and `P
 | 0.7 (live default) | 283 | 127 | 16/20 | 155/170 |
 
   At 0.7 the plan's share is about 127 credits a month. The four skipped clocks are on the month's last weekend, when that share runs out. That is the cost of moving credits to the 72h+ window, where entries come from.
+- **The share change paused the plan** (2026-11-09). Applied to the whole month, the new 0.3 plan share gave a month-to-date allowance of about 47. That was below the 60 credits the plan had already spent on Nov 7–8, so no closes, lineup pulls or NFL clocks were funded until about Nov 13.
+  - New setting `PLAN_ALLOWANCE_SINCE`, set to `2026-11-09` in `paper.yml`. It restarts the allowance from that date: it counts the balance on that day less the reserves still unused, and only plan credits spent from then on. It is ignored in other months.
+  - Effect: about 9.7 credits on Nov 9 and about 71 over Nov 9–30, roughly 3 a day. On the live schedule that funds about three closes a day, earliest and highest priority first; a T−10m close and a priority-5 NFL clock rank the same.
 
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:
