@@ -118,16 +118,38 @@ def test_cloudflare_worker_config_and_unit_tests() -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_ledger_is_stored_gzipped_with_a_fallback_to_the_raw_file() -> None:
-    """GitHub rejects files over 100 MB; the ledger crossed that on 2026-11-06."""
+def test_ledger_lives_on_the_release_not_in_branch_history() -> None:
+    """Every committed ~43 MB paper.sqlite.gz stayed in git history for good (PR #73)."""
     paper = (ROOT / ".github/workflows/paper.yml").read_text()
     health = (ROOT / ".github/workflows/health.yml").read_text()
-    for workflow in (paper, health):
-        assert "git show paper-ledger:paper.sqlite.gz | gunzip > ledger/paper.sqlite" in workflow
-        assert (
-            "git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true"
-        ) in workflow
-    assert "gzip -9 -n -c ledger/paper.sqlite > wt/paper.sqlite.gz" in paper
-    assert "git rm -q --cached --ignore-unmatch paper.sqlite" in paper
-    assert "git add paper.sqlite.gz last_run.txt" in paper
-    assert "cp ledger/paper.sqlite" not in paper
+    steps = paper.index("    steps:")
+    restore = paper.index("pbot ledger-restore --out ledger/paper.sqlite")
+    guard = paper.index("pbot slot-guard", steps)
+    assert steps < restore < guard < paper.index("pbot paper -s book_scanner")
+    assert paper.index("pbot paper -s book_scanner") < paper.index("pbot ledger-save", steps)
+    assert "timeout-minutes: 5" in paper[paper.index("- name: Restore ledger") : restore]
+    assert paper.count("GH_TOKEN: ${{ github.token }}") == 2
+    assert "gzip -9 -n -c ledger/paper.sqlite > wt/paper.sqlite.gz" not in paper
+    assert "git add paper.sqlite.gz" not in paper
+    assert "--force" not in paper
+    # health reads the manifest, falls back to the old database, and opens an issue on
+    # any failed or hung step.
+    assert "git show paper-ledger:ledger_manifest.json > ledger/ledger_manifest.json" in health
+    assert '--min-slots "$MIN_SLOTS"' in health
+    assert "vars.PBOT_HEALTH_MIN_SLOTS || '36'" in health
+    assert "if: failure()\n" in health and "steps.check.outcome == 'failure'" not in health
+    assert health.count("timeout-minutes: 2") == 2
+    assert "Failed step: %s" in health
+
+
+def test_ledger_reset_workflow_is_manual_and_guarded() -> None:
+    reset = (ROOT / ".github/workflows/ledger-reset-history.yml").read_text()
+    on = reset[reset.index("\non:") : reset.index("concurrency:")]
+    assert "workflow_dispatch:" in on and "schedule" not in on and "push" not in on
+    assert 'if [ "$CONFIRM" != "RESET" ]' in reset
+    assert "group: paper-ledger" in reset and "cancel-in-progress: false" in reset
+    assert "pbot ledger-restore --out verify/paper.sqlite --require-manifest" in reset
+    assert "grep -E '^paper\\.sqlite'" in reset
+    assert 'git commit-tree "${TIP}^{tree}"' in reset
+    assert '--force-with-lease="paper-ledger:${TIP}"' in reset
+    assert "--force " not in reset and "push -f" not in reset

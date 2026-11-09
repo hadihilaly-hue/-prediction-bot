@@ -1,11 +1,15 @@
 name: Paper trading
 
 # Paper-trades against Kalshi's *public production* market data (real prices, no
-# credentials, paper mode never places orders) and persists the SQLite ledger +
-# report on the `paper-ledger` branch. The book scanner runs every 30 min (free on a
-# public repo); each sportsbook run spends its pacer share of the quota left this
-# month (~16/day on the 500 free tier; most runs pull 1 feed and about every third
-# pulls 2). Skipped pulls are banked.
+# credentials, paper mode never places orders). The SQLite ledger is a gzipped asset on
+# the `ledger-store` GitHub Release; the `paper-ledger` branch keeps the small report
+# files plus ledger_manifest.json, which names the current asset and its sha256
+# (`pbot ledger-restore` / `pbot ledger-save`, src/prediction_bot/ledger_store.py). A
+# restore that cannot be verified fails the job before anything runs. A light tick
+# (slot guard says skip) saves nothing: no upload, no commit.
+# The book scanner runs every 30 min (free on a public repo); each sportsbook run
+# spends its pacer share of the quota left this month (~16/day on the 500 free tier;
+# most runs pull 1 feed and about every third pulls 2). Skipped pulls are banked.
 # Manual runs (no slot input) always include the sportsbook strategy.
 #
 # Scheduling (v5 Phase 6): GitHub drops 40-70% of scheduled slots, so a Cloudflare
@@ -50,17 +54,15 @@ jobs:
           cache: pip
       - run: pip install -e .
 
-      - name: Restore ledger branch
-        run: |
-          git fetch --depth=1 origin paper-ledger:paper-ledger 2>/dev/null || true
-          mkdir -p ledger
-          # The ledger is stored gzipped (GitHub rejects files over 100 MB); fall back
-          # to the uncompressed paper.sqlite that branches committed before that.
-          if git cat-file -e paper-ledger:paper.sqlite.gz 2>/dev/null; then
-            git show paper-ledger:paper.sqlite.gz | gunzip > ledger/paper.sqlite
-          else
-            git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true
-          fi
+      # Fails closed: the job stops here, before any strategy runs or odds credit is
+      # spent, unless the ledger was downloaded and verified (sha256, quick_check, runs).
+      - name: Restore ledger
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Only for a brand-new repo: start an empty ledger when none exists.
+          PBOT_LEDGER_BOOTSTRAP: ${{ vars.PBOT_LEDGER_BOOTSTRAP || 'false' }}
+        run: pbot ledger-restore --out ledger/paper.sqlite
 
       # Scheduled and Cloudflare-dispatched runs share one code path: the slot comes
       # from inputs.slot, else from the cron that fired. Manual runs skip the guard.
@@ -191,28 +193,10 @@ jobs:
           pbot reference-gaps > ledger/polymarket_alias_gaps.md || true
           touch ledger/.nojekyll
 
-      - name: Commit ledger
+      # Uploads the database as a new ledger-store release asset, then commits
+      # ledger_manifest.json and the report files to paper-ledger (plain push).
+      - name: Save ledger
         if: steps.guard.outputs.skip != 'true'
-        run: |
-          set -e
-          git config user.name "paper-bot"
-          git config user.email "paper-bot@users.noreply.github.com"
-          if git rev-parse -q --verify paper-ledger >/dev/null; then
-            git worktree add wt paper-ledger
-          else
-            git worktree add --detach wt HEAD
-            (cd wt && git checkout -q --orphan paper-ledger && git rm -rfq .)
-          fi
-          # gzip -n leaves out the name and timestamp, so an unchanged ledger gives an
-          # identical file and no commit. ~5.6x smaller than the raw sqlite.
-          gzip -9 -n -c ledger/paper.sqlite > wt/paper.sqlite.gz
-          cp ledger/last_run.txt ledger/REPORT.txt ledger/PREDICTIONS.md \
-             ledger/index.html ledger/.nojekyll ledger/polymarket_alias_gaps.md wt/
-          cd wt
-          git rm -q --cached --ignore-unmatch paper.sqlite
-          rm -f paper.sqlite
-          git add paper.sqlite.gz last_run.txt REPORT.txt PREDICTIONS.md index.html .nojekyll \
-            polymarket_alias_gaps.md
-          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
-          git commit -q -m "paper cycle $(date -u +%FT%TZ)"
-          git push origin paper-ledger
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pbot ledger-save --db ledger/paper.sqlite --dir ledger
