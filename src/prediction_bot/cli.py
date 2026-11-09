@@ -848,11 +848,19 @@ def report() -> None:
     pos = ledger.positions()
     if pos:
         pt = Table(title="Open positions")
-        for col in ("ticker", "side", "count", "cost", "avg fair"):
+        for col in ("bet", "game", "side", "count", "cost", "avg fair", "ticker"):
             pt.add_column(col)
+        titles = ledger.event_titles()
         for x in pos:
+            bet, game = ledger.position_label(x.ticker, x.side, titles)
             pt.add_row(
-                x.ticker, x.side.value, f"{x.count:.0f}", f"{x.cost:.2f}", f"{x.fair_prob_avg:.3f}"
+                bet,
+                game,
+                x.side.value,
+                f"{x.count:.0f}",
+                f"{x.cost:.2f}",
+                f"{x.fair_prob_avg:.3f}",
+                x.ticker,
             )
         console.print(pt)
 
@@ -899,6 +907,27 @@ def _outcome(p: Prediction) -> str:
     return f"{'WON' if p.won else 'lost'} ({p.result.value})"
 
 
+def _open_positions_markdown(ledger: Ledger) -> list[str]:
+    """'## Open positions' table: what each open paper bet is, in plain English."""
+    pos = ledger.positions()
+    if not pos:
+        return []
+    titles = ledger.event_titles()
+    lines = [
+        f"## Open positions ({len(pos)})",
+        "",
+        "| bet | game | contracts | cost | our chance | ticker |",
+        "|---|---|---|---|---|---|",
+    ]
+    for x in pos:
+        bet, game = ledger.position_label(x.ticker, x.side, titles)
+        lines.append(
+            f"| {_md(bet)} | {_md(game)} | {x.count:.0f} | ${x.cost:.2f} |"
+            f" {x.fair_prob_avg * 100:.0f}% | `{x.ticker}` |"
+        )
+    return [*lines, ""]
+
+
 def predictions_markdown(ledger: Ledger, preds: list[Prediction]) -> str:
     perf = ledger.performance()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -928,6 +957,7 @@ def predictions_markdown(ledger: Ledger, preds: list[Prediction]) -> str:
             for name, lp in ledger.performance_by_league().items()
         ],
         "",
+        *_open_positions_markdown(ledger),
         "`price` is what we (paper) pay for `side`; `fair` is the strategy's probability that"
         " `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or"
         " cash blocked the fill.",

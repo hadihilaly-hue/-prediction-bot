@@ -82,6 +82,7 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
         )
 
     positions: list[dict[str, object]] = []
+    event_titles = ledger.event_titles()
     for (version, key), legs in groups.items():
         count = sum(fill.count for fill, *_ in legs)
         avg_price = sum(fill.price * fill.count for fill, *_ in legs) / count
@@ -122,18 +123,17 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
             else None
         )
         outcome_name = team_name_for_code(key[0].split("-", 1)[0], key[1])
+        game = ledger.game_label(key[0], event_titles)
         if key[1].startswith("not "):
             excluded_name = team_name_for_code(key[0].split("-", 1)[0], key[1][4:])
             summary = (
-                f"Any outcome except {excluded_name} in {key[0]}"
+                f"Any outcome except {excluded_name} in {game}"
                 if excluded_name
-                else f"{key[1]} in {key[0]}"
+                else f"{key[1]} in {game}"
             )
         else:
             summary = (
-                f"{outcome_name} win in {key[0]}"
-                if outcome_name
-                else f"{key[1]} outcome in {key[0]}"
+                f"{outcome_name} win in {game}" if outcome_name else f"{key[1]} outcome in {game}"
             )
         strategy_tags = {fill.strategy for fill, *_ in legs}
         strategy_tags.update(
