@@ -57,13 +57,22 @@ from prediction_bot.odds_planner import PlannedGame, plan_odds_pulls
 from prediction_bot.orderbooks import snapshot_orderbooks
 from prediction_bot.paper.ledger import Ledger, Prediction
 from prediction_bot.pull_plan import (
+    CALENDAR_HORIZON,
+    close_out,
     eligible_feeds,
-    mark_pulled,
+    mark_pulled_ids,
+    merge_near_targets,
+    plan_feed_targets,
+    plan_hold,
     plan_kickoffs,
     plan_pulls,
+    primary_target,
+    record_pull_outcome,
     select_plan_pull,
+    tag_pull_rows,
 )
 from prediction_bot.reference_quotes import poll_reference_quotes
+from prediction_bot.release_calendar import ReleaseCalendar
 from prediction_bot.series import SPORTSBOOK_SERIES
 from prediction_bot.strategies import (
     STRATEGIES,
@@ -447,6 +456,9 @@ def paper(
             calendar=calendar,
             day_overrides=parse_day_overrides(s.cadence_day_override),
         )
+        if s.rules_version == "v3" and s.odds_pull_plan == "hybrid":
+            pacer.move_reserve = max(0, s.odds_move_reserve)
+            pacer.rotation_holds_floor = s.odds_release_calendar == "on"
         if (
             s.odds_pull_plan == "hybrid"
             and s.rules_version == "v3"
@@ -454,7 +466,12 @@ def paper(
             and trigger is None
             and plan is None
         ):
-            pacer.rotation_share = min(1.0, max(0.0, s.odds_entry_share))
+            # ODDS_GRID=fallback (RESERVED): no 72h+ rotation; the plan's grid targets
+            # keep one pull a day per eligible feed instead.
+            pacer.rotation_share = (
+                0.0 if s.odds_grid == "fallback" else min(1.0, max(0.0, s.odds_entry_share))
+            )
+    release_cal = _release_calendar(s) if s.rules_version == "v3" else None
     shadow_names = list(s.shadow_strategies)
     if s.rules_version == "v3" and "sportsbook_v3" in strategy:
         shadow_names = list(
@@ -508,6 +525,12 @@ def paper(
         )
         injury_client = InjuryClient()
         if pacer is not None:
+            if pacer.rotation_holds_floor and release_cal is not None:
+                try:
+                    pacer.plan_hold = plan_hold(ledger, s, release_cal, datetime.now(timezone.utc))
+                except Exception:
+                    log.exception("Plan demand estimate failed; rotation holds no extra")
+                    pacer.plan_hold = 0
             pacer.start_run()
         settled = engine.settle_open_positions()
         try:
@@ -569,6 +592,7 @@ def paper(
             )
         ledger.record_market_snapshots(snapshot_markets)
         plan_feed: str | None = None
+        plan_primary: tuple[int, str] | None = None
         if plan is not None:
             now = datetime.now(timezone.utc)
             if odds is not None:
@@ -580,6 +604,7 @@ def paper(
                 ):
                     odds.allowed_sports = {plan}
                     plan_feed = plan
+                    plan_primary = primary_target(ledger, plan, now)
         elif trigger is not None:
             now = datetime.now(timezone.utc)
             if odds is not None:
@@ -676,15 +701,17 @@ def paper(
                             if isinstance(strat, SportsbookV2Strategy):
                                 strat.measure_only_feeds = {measure.feed}
                 if pacer is not None and s.odds_feed_selection == "rotation":
-                    _refresh_pull_plan(ledger, now)
-                    pick = select_plan_pull(ledger, s, now, exclude=planned)
+                    _refresh_pull_plan(ledger, now, s, release_cal)
+                    pick = select_plan_pull(ledger, s, now, exclude=planned, calendar=release_cal)
                     if (
                         pick is not None
                         and _plan_games_listed(odds, ledger, pick.feed, now)
-                        and pacer.grant_extra_credit(pick.feed)
+                        and pacer.grant_extra_credit(pick.feed, floor=pacer.plan_floor(now))
                     ):
                         planned = [*planned, pick.feed]
                         plan_feed = pick.feed
+                        if pick.primary_id is not None:
+                            plan_primary = (pick.primary_id, pick.source or "default")
                 odds.allowed_sports = set(planned)
             except Exception:
                 odds.allowed_sports = set()
@@ -701,13 +728,22 @@ def paper(
             status = "pulled" if odds is not None and odds.odds_requests_made > 0 else "skipped"
             ledger.finish_odds_trigger(trigger, status)
         if odds is not None:
-            for pulled_feed in sorted(getattr(odds, "requests_last_by_sport", {})):
+            # `pulled_feeds`, not `requests_last_by_sport`: the engine clears the
+            # latter at the end of run_cycle, which left every plan target unmarked
+            # (and so re-pulled on the next tick) until 2026-11-06.
+            pulled_this_cycle = set(getattr(odds, "pulled_feeds", ())) | set(
+                getattr(odds, "requests_last_by_sport", {})
+            )
+            for pulled_feed in sorted(pulled_this_cycle):
                 try:
-                    mark_pulled(
+                    _record_feed_pull_source(
                         ledger,
                         pulled_feed,
-                        datetime.now(timezone.utc),
-                        1.0 if pulled_feed == plan_feed else 0.0,
+                        cycle_started_at,
+                        plan_feed=plan_feed,
+                        plan_primary=plan_primary,
+                        trigger=trigger,
+                        measure_feed=measure.feed if measure is not None else None,
                     )
                 except Exception:
                     log.exception("Pull-plan bookkeeping failed for %s", pulled_feed)
@@ -812,11 +848,19 @@ def report() -> None:
     pos = ledger.positions()
     if pos:
         pt = Table(title="Open positions")
-        for col in ("ticker", "side", "count", "cost", "avg fair"):
+        for col in ("bet", "game", "side", "count", "cost", "avg fair", "ticker"):
             pt.add_column(col)
+        titles = ledger.event_titles()
         for x in pos:
+            bet, game = ledger.position_label(x.ticker, x.side, titles)
             pt.add_row(
-                x.ticker, x.side.value, f"{x.count:.0f}", f"{x.cost:.2f}", f"{x.fair_prob_avg:.3f}"
+                bet,
+                game,
+                x.side.value,
+                f"{x.count:.0f}",
+                f"{x.cost:.2f}",
+                f"{x.fair_prob_avg:.3f}",
+                x.ticker,
             )
         console.print(pt)
 
@@ -863,6 +907,27 @@ def _outcome(p: Prediction) -> str:
     return f"{'WON' if p.won else 'lost'} ({p.result.value})"
 
 
+def _open_positions_markdown(ledger: Ledger) -> list[str]:
+    """'## Open positions' table: what each open paper bet is, in plain English."""
+    pos = ledger.positions()
+    if not pos:
+        return []
+    titles = ledger.event_titles()
+    lines = [
+        f"## Open positions ({len(pos)})",
+        "",
+        "| bet | game | contracts | cost | our chance | ticker |",
+        "|---|---|---|---|---|---|",
+    ]
+    for x in pos:
+        bet, game = ledger.position_label(x.ticker, x.side, titles)
+        lines.append(
+            f"| {_md(bet)} | {_md(game)} | {x.count:.0f} | ${x.cost:.2f} |"
+            f" {x.fair_prob_avg * 100:.0f}% | `{x.ticker}` |"
+        )
+    return [*lines, ""]
+
+
 def predictions_markdown(ledger: Ledger, preds: list[Prediction]) -> str:
     perf = ledger.performance()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -892,6 +957,7 @@ def predictions_markdown(ledger: Ledger, preds: list[Prediction]) -> str:
             for name, lp in ledger.performance_by_league().items()
         ],
         "",
+        *_open_positions_markdown(ledger),
         "`price` is what we (paper) pay for `side`; `fair` is the strategy's probability that"
         " `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or"
         " cash blocked the fill.",
@@ -931,11 +997,16 @@ def clv_report_command(
         None, help="Only rows created on/after this ISO date or timestamp, e.g. 2026-10-24"
     ),
     as_json: bool = typer.Option(False, "--json", help="Print the report as JSON"),
+    by_source: bool = typer.Option(
+        False, "--by-source", help="Also break each cohort down by why the odds pull ran"
+    ),
 ) -> None:
     """CLV evidence by cohort: n, mean, sd, se, 95% CI, share beating the close, verdict."""
     s = _settings()
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
-    data = clv_report(ledger.conn, since=since)
+    data = clv_report(
+        ledger.conn, since=since, by_source=by_source if isinstance(by_source, bool) else False
+    )
     if as_json:
         typer.echo(json.dumps(data, indent=2))
     else:
@@ -1042,10 +1113,39 @@ def _snapshot_markets(
     return list(by_ticker.values())
 
 
-def _refresh_pull_plan(ledger: Ledger, now: datetime) -> int:
-    """Plan T-24h/T-6h/T-90m/T-10m targets for eligible feeds' events; local SQL only."""
+def _release_calendar(s: Settings) -> ReleaseCalendar | None:
+    """The Phase 3-E release calendar, or None (off, or the file failed to load)."""
+    if s.odds_release_calendar != "on":
+        return None
+    try:
+        return ReleaseCalendar.load(s.release_calendar_path, enable=s.release_enable_feeds)
+    except (OSError, ValueError):
+        log.exception(
+            "release calendar load failed (%s); using Phase 3 targets", s.release_calendar_path
+        )
+        return None
+
+
+def _refresh_pull_plan(
+    ledger: Ledger, now: datetime, s: Settings, calendar: ReleaseCalendar | None = None
+) -> int:
+    """Rebuild planned targets for eligible feeds; local SQL only.
+
+    Without a release calendar: Phase 3's T-24h/T-6h/T-90m/T-10m for events within 26h.
+    With one: calendar targets for the next 48h (kickoff and clock entries, the T-10m
+    close, `grid` targets under ODDS_GRID=fallback), then same-feed targets within 20
+    minutes are merged.
+    """
     feeds = eligible_feeds(ledger.conn)
-    return plan_pulls(ledger, plan_kickoffs(ledger.conn, feeds, now), now)
+    if calendar is None:
+        return plan_pulls(ledger, plan_kickoffs(ledger.conn, feeds, now), now)
+    planned = plan_pulls(
+        ledger, plan_kickoffs(ledger.conn, feeds, now, CALENDAR_HORIZON), now, calendar
+    )
+    planned += plan_feed_targets(ledger, calendar, feeds, now, grid=s.odds_grid == "fallback")
+    merge_near_targets(ledger, now)
+    close_out(ledger, now)
+    return planned
 
 
 def _plan_games_listed(odds: OddsClient, ledger: Ledger, feed: str, now: datetime) -> bool:
@@ -1073,6 +1173,34 @@ def _plan_games_listed(odds: OddsClient, ledger: Ledger, feed: str, now: datetim
     return bool(events)
 
 
+def _record_feed_pull_source(
+    ledger: Ledger,
+    feed: str,
+    cycle_started_at: datetime,
+    *,
+    plan_feed: str | None,
+    plan_primary: tuple[int, str] | None,
+    trigger: str | None,
+    measure_feed: str | None,
+) -> None:
+    """Mark the feed's due plan targets pulled and tag this cycle's rows with why the
+    feed was pulled: the plan row's source when the plan paid, else move, measure or
+    rotation (targets that rode along keep `credits=0` and note who paid)."""
+    now = datetime.now(timezone.utc)
+    if feed == plan_feed:
+        source, plan_id = (plan_primary[1], plan_primary[0]) if plan_primary else ("default", None)
+        ids = mark_pulled_ids(ledger, feed, now, 1.0)
+    else:
+        source = (
+            "move" if trigger is not None else "measure" if feed == measure_feed else "rotation"
+        )
+        plan_id = None
+        ids = mark_pulled_ids(ledger, feed, now, 0.0, paid_by=source)
+    candidates, gate_candidates = tag_pull_rows(ledger, feed, cycle_started_at, source, plan_id)
+    if ids:
+        record_pull_outcome(ledger, ids, candidates, gate_candidates)
+
+
 def _run_times(ledger: Ledger, since: datetime) -> list[tuple[datetime, str, str | None]]:
     out = []
     for ran_at, strategies, reason in ledger.conn.execute(
@@ -1090,22 +1218,54 @@ def _run_times(ledger: Ledger, since: datetime) -> list[tuple[datetime, str, str
 def slot_guard(
     slot: str = typer.Option(..., help="scanner or sportsbook"),
     within_minutes: int = typer.Option(20, help="A run this recent means the slot already ran"),
+    plan_due: bool = typer.Option(
+        False,
+        "--plan-due",
+        help="Light tick: run a scanner slot that already ran if a funded plan target is due",
+    ),
 ) -> None:
     """Print `skip` if this slot already ran (both the Cloudflare dispatch and the GitHub
-    cron fallback fired), else `run`. Move-trigger and pull-plan runs don't count."""
+    cron fallback fired), else `run`. Move-trigger and pull-plan runs don't count.
+
+    With `--plan-due` (the 10-minute Cloudflare tick), a scanner slot that already ran
+    still runs when a pull-plan target is due and funded; otherwise the tick is idle
+    and writes nothing, so it costs no ledger commit.
+    """
     if slot not in {"scanner", "sportsbook"}:
         raise typer.BadParameter("slot must be scanner or sportsbook")
+    plan_due = plan_due if isinstance(plan_due, bool) else False
     s = _settings()
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
-    since = datetime.now(timezone.utc) - timedelta(minutes=within_minutes)
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(minutes=within_minutes)
     for _at, strategies, reason in _run_times(ledger, since):
         if reason is not None:
             continue
         sportsbook = any(name.startswith("sportsbook") for name in strategies.split(","))
         if (slot == "sportsbook" and sportsbook) or (slot == "scanner" and not sportsbook):
+            if plan_due and slot == "scanner":
+                try:
+                    due = _due_plan_feed(ledger, s, now)
+                except Exception:
+                    # Fail closed: the scanner already ran within the window, so a
+                    # broken plan check costs at most one plan pull, never the run.
+                    log.exception("slot-guard: pull-plan check failed; skipping the tick")
+                    due = None
+                if due is not None:
+                    typer.echo("run")
+                    return
             typer.echo("skip")
             return
     typer.echo("run")
+
+
+def _due_plan_feed(ledger: Ledger, s: Settings, now: datetime) -> str | None:
+    if s.odds_pull_plan == "off" or s.rules_version != "v3":
+        return None
+    calendar = _release_calendar(s)
+    _refresh_pull_plan(ledger, now, s, calendar)
+    pick = select_plan_pull(ledger, s, now, calendar=calendar)
+    return pick.feed if pick is not None else None
 
 
 @app.command()
@@ -1174,17 +1334,31 @@ def reference_gaps(
 
 
 @app.command("pull-due")
-def pull_due() -> None:
+def pull_due(
+    target: int | None = typer.Option(
+        None, "--target", help="A pull_plan id (workflow_dispatch input): print its feed if due"
+    ),
+) -> None:
     """Print one feed whose pull-plan targets are due and funded (local data only)."""
+    target = target if isinstance(target, int) else None
     s = _settings()
     if s.odds_pull_plan == "off" or s.rules_version != "v3":
         return
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
     now = datetime.now(timezone.utc)
-    _refresh_pull_plan(ledger, now)
-    pick = select_plan_pull(ledger, s, now)
-    if pick is not None:
-        typer.echo(pick.feed)
+    if target is not None:
+        # A dispatched target runs only that target's feed, and only while it is due.
+        row = ledger.conn.execute(
+            "SELECT feed FROM pull_plan WHERE id=? AND status='planned' "
+            "AND window_start<=? AND window_end>=?",
+            (target, now.isoformat(), now.isoformat()),
+        ).fetchone()
+        if row is not None:
+            typer.echo(str(row[0]))
+        return
+    feed = _due_plan_feed(ledger, s, now)
+    if feed is not None:
+        typer.echo(feed)
 
 
 def _measure_game_listed(odds: OddsClient, measure: MeasurePull) -> bool:

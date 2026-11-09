@@ -20,6 +20,19 @@ test("the :17 slot of even UTC hours is the sportsbook slot", () => {
   assert.equal(slotFor(new Date("2026-11-05T00:17:00Z")), "sportsbook");
 });
 
+test("the 10-minute ticks around the sportsbook slot stay scanner ticks", () => {
+  for (const minute of ["07", "27", "37", "47", "57"]) {
+    assert.equal(slotFor(new Date(`2026-11-05T04:${minute}:00Z`)), "scanner", minute);
+  }
+  assert.equal(slotFor(new Date("2026-11-05T05:17:00Z")), "scanner");
+});
+
+test("wrangler.toml ticks every 10 minutes, never on :00 or :30", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const toml = await readFile(new URL("./wrangler.toml", import.meta.url), "utf8");
+  assert.match(toml, /crons = \["7-57\/10 \* \* \* \*"\]/);
+});
+
 test("dispatch posts workflow_dispatch with the slot input", async () => {
   const calls = [];
   const fake = async (url, init) => {

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
@@ -49,6 +50,7 @@ class Settings(BaseSettings):
     @field_validator(
         "v2_disabled_sports",
         "measure_feeds",
+        "release_enable_feeds",
         "exp_road_dog_high_attention_events",
         "exp_road_dog_rivalries",
         mode="before",
@@ -58,6 +60,11 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @field_validator("plan_allowance_since", mode="before")
+    @classmethod
+    def blank_date_is_none(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
 
     @model_validator(mode="after")
     def sync_entry_window(self) -> Settings:
@@ -256,6 +263,25 @@ class Settings(BaseSettings):
         }
     )
     odds_entry_share: float = 0.5
+    # v5 Phase 3-E: information-release calendar for plan targets (clock entries such
+    # as NFL status reports, kickoff entries such as lineups). `off` reproduces the
+    # Phase 3 T-24h/T-6h/T-90m/T-10m targets exactly.
+    odds_release_calendar: Literal["off", "on"] = "on"
+    release_calendar_path: Path = Path("data/release_calendar.json")
+    # Feeds whose calendar entries are disabled in the file but should run (RESERVED:
+    # NBA ships disabled; `basketball_nba` here turns its 13:35/17:35 ET pulls on).
+    release_enable_feeds: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    # `rotation` (default) keeps the 72h+ entry rotation on sportsbook slots;
+    # `fallback` (RESERVED) drops it, gives the plan the whole day budget and adds one
+    # 15:00 ET `grid` target per eligible feed on days with no other target.
+    odds_grid: Literal["rotation", "fallback"] = "rotation"
+    # Credits per month kept for move-trigger pulls (`odds_triggers`): plan targets
+    # never spend them, and the rotation paces as if they were already spent.
+    odds_move_reserve: int = 50
+    # Restart the pull plan's month-to-date allowance from this UTC date (inside the
+    # current month), so a mid-month ODDS_ENTRY_SHARE change is not applied to the
+    # credits the plan already spent. Ignored in other months.
+    plan_allowance_since: date | None = None
 
     # Fees come from each series' Kalshi schedule (fees.fee_for_ticker); only the
     # rounding (`fee_rounding`) is configurable.

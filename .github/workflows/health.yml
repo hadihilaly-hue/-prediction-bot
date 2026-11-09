@@ -1,8 +1,10 @@
 name: Paper bot health
 
 # Dead-man check (v5 Phase 6.2): hourly, read the ledger on `paper-ledger` and fail if
-# its last run is older than 90 minutes. On failure, open (or comment on) one issue
-# titled "paper bot missed runs". Off the :00, :17 and :47 minutes on purpose.
+# its last run is older than PBOT_HEALTH_MAX_AGE_MINUTES (repo Variable, default 90;
+# drop it to 40 once the 10-minute Cloudflare trigger is live). On failure, open (or
+# comment on) one issue titled "paper bot missed runs". Off the :00, :17 and :47
+# minutes (and the Worker's :x7 ticks) on purpose.
 on:
   schedule:
     - cron: "33 * * * *"
@@ -28,15 +30,22 @@ jobs:
         run: |
           git fetch --depth=1 origin paper-ledger:paper-ledger 2>/dev/null || true
           mkdir -p ledger
-          git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true
+          # The ledger is stored gzipped (GitHub rejects files over 100 MB); fall back
+          # to the uncompressed paper.sqlite that branches committed before that.
+          if git cat-file -e paper-ledger:paper.sqlite.gz 2>/dev/null; then
+            git show paper-ledger:paper.sqlite.gz | gunzip > ledger/paper.sqlite
+          else
+            git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true
+          fi
 
       - name: Check last run
         id: check
         env:
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
+          MAX_AGE_MINUTES: ${{ vars.PBOT_HEALTH_MAX_AGE_MINUTES || '90' }}
         # Explicit bash runs with pipefail, so `tee` does not hide a failing check.
         shell: bash
-        run: pbot health --max-age-minutes 90 | tee health.txt
+        run: pbot health --max-age-minutes "$MAX_AGE_MINUTES" | tee health.txt
 
       - name: Open or update the missed-runs issue
         if: failure() && steps.check.outcome == 'failure'

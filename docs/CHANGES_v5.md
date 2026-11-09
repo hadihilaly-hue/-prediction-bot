@@ -22,6 +22,7 @@ It is still paper-only: no live-order path, no credential changes, and every led
 | 5: Polymarket reference | [#66](https://github.com/hadihilaly-hue/-prediction-bot/pull/66) | Read-only Polymarket client; tracked Kalshi events matched by team aliases and kickoff; `reference_quotes` mids on scanner runs (≤200 requests); `clv_polymarket` in every CLV table and `clv-report`; `pbot reference-gaps` |
 | 6: scheduler reliability | [#67](https://github.com/hadihilaly-hue/-prediction-bot/pull/67) | Cloudflare Worker cron (`infra/cloudflare-trigger`) dispatching `paper.yml` with a `slot` input; `pbot slot-guard` against double runs; `pbot health` and an hourly `health.yml` that opens a "paper bot missed runs" issue |
 | 7: audit and sizing | [#68](https://github.com/hadihilaly-hue/-prediction-bot/pull/68) | Stale-book check fails closed; Kalshi timestamps always aware; order-book parser tolerant of key and unit variants; `PBOT_SIZING_MODE` (`flat` default, `kelly` capped by supported cohort CLV) |
+| 3-E: event-clock odds pulls | this branch (`claude/event-clock-odds-pulls-4wwi7m`) | `data/release_calendar.json` (NFL status reports and inactives, NCAAF, lineups; NBA RESERVED off); plan targets from it with every pull tagged by source; month-to-date plan allowance; 50-credit move reserve; 10-minute Worker ticks with idle light ticks; `ODDS_GRID=fallback` (RESERVED); `odds_budget.py` and `clv-report --by-source` |
 | 8: dashboard and docs | [#69](https://github.com/hadihilaly-hue/-prediction-bot/pull/69) | Dashboard "Measurement health" section (CLV by cohort with CIs, share beating the close, realized vs model-expected P&L, maker fill rate and drift, feed freshness, runs per day, rejections per day); README "Current rules (v5)" and "How to read the evidence" |
 
 ## Phase 0: measurement fixes
@@ -599,6 +600,165 @@ The page also gets one CSS rule, `main > * { min-width:0; }`. Without it, wide t
 - every panel rendered;
 - the README stating the rule, linking `docs/evidence/`, and no longer giving the old schedule, fee formula, fixed feed list or WebSocket plan.
 
+## Phase 3-E: event-clock odds pulls
+
+Replaces Phase 3.1's fixed T−24h/T−6h/T−90m offsets with targets timed to scheduled news, and extends Phase 6's trigger to a 10-minute tick. The Phase 3 hybrid (the 72h+ rotation keeps `ODDS_ENTRY_SHARE` of the month) is unchanged.
+
+### Why (measured before this phase; not re-derived here)
+- **Minute of the hour has no effect on edge.** On 2,270 scored v3 candidates the ask-minus-sharp-fair gap is +0.71c / +0.68c / +0.61c / +0.70c for scans at :00–14 / :15–29 / :30–44 / :45–59 (se 0.04c). Nothing in this phase is keyed to :00/:15/:30/:45.
+- **What has a clock is news.** NFL practice and status reports are due at 4:00 pm ET, inactives 90 minutes before kickoff. Premier League lineups come 75 minutes out (60 elsewhere), MLB lineups 3–4 hours before first pitch, NBA reports by 5 pm local the day before and 11 am–1 pm local on game day.
+- **Kalshi NFL markets barely reprice overnight.** 2–5% of markets move per scan at 1–2 am ET, against 11–15% from 9 am to 8 pm. NBA, NHL and NCAAF reprice at 20–37% per scan around the clock.
+
+### 1. Release calendar (`data/release_calendar.json`, `release_calendar.py`)
+- **Format.** Per feed, in `America/New_York` wall time through `zoneinfo` (no fixed offsets), validated by pydantic at load. Unknown feeds, weekdays, times, priorities outside 1–5 and extra keys all fail the load.
+  - `clock` entries: weekdays (or `daily`) plus a local time. Feed-level, so one pull covers the slate. `requires_game_within_hours` (default 168) plans one only while the feed has a known game that soon after it, so off-weeks cost nothing.
+  - `kickoff` entries: minutes before each game's kickoff. Games of a feed sharing a target time share one pull.
+  - `priority` 1–5 (5 highest) and optional `max_per_day`. A per-feed `enabled` flag carries the RESERVED NBA entries.
+- **Seed.**
+
+| Feed | Entries | Priority |
+|---|---|---|
+| NFL | clock Wed/Thu/Fri 16:20; Sun 11:35, 14:55, 18:50; Mon 18:50; kickoff −95 | 5 (clocks), 4 (kickoff) |
+| NCAAF | clock Mon 11:30, Sat 09:30, Sun 13:30; kickoff −90 | 4 |
+| NBA (RESERVED, `enabled: false`) | clock daily 13:35 (game day) and 17:35 (day before); kickoff −75 | 3 |
+| EPL | kickoff −70 | 3 |
+| La Liga, Serie A, Bundesliga, Ligue 1, UCL, UEL, UECL, MLS, Liga MX | kickoff −55 | 3 |
+| NHL (measurement only) | kickoff −70 | 2 |
+| MLB | kickoff −200 | 2 |
+| UFC | kickoff −120 | 2 |
+| Every feed | T−10m sharp close (`clv_sharp_close`) | 5 |
+| Feeds without entries | Phase 3's T−24h, T−6h, T−90m | 2 |
+
+- **Loading.** `PBOT_ODDS_RELEASE_CALENDAR=on` (default). `off` gives Phase 3's targets exactly. `PBOT_RELEASE_ENABLE_FEEDS=basketball_nba` turns on a disabled feed without editing the file.
+
+### 2. Planner (`pull_plan.py`)
+- **`pull_plan` gains columns** (additive): `source` (`close`, `kickoff`, `release`, `default`, `grid`), `entry`, `max_per_day`, `merged_into`, `candidates`, `gate_candidates`, `note`. Old rows read `source='default'`.
+- **Every scanner run and `pbot pull-due`** rebuild the plan for the next 48h:
+  - **Kickoff targets** per game (kickoff from the linked Odds API `commence_time`, else `expected_expiration` minus the pre-game offset, as in Phase 3). The window is `[target, target + 60m]`, cut at kickoff − 2m.
+  - **The T−10m close** on every feed, with Phase 3's window (kickoff −20m to −2m). It is never taken after kickoff.
+  - **Clock targets**, stored with `event_ticker='feed:<feed>'` and `target='R-<local date>T<time>'`, window `[target, target + 60m]`.
+  - **Merging.** Same-feed targets within 20 minutes merge into the higher-priority one (ties: the earlier). A merged row is not funded on its own; it is pulled with its survivor and shares the credit. The 11:25 kickoff −95 target for 1:00 pm NFL games therefore rides the 11:35 inactives pull, which comes after the news. The close never merges.
+  - **Expiry and replacement.** A target whose window ends unpulled is `missed`, or `skipped_budget` (with the reason in `note`) if it was due but unfunded. Planned rows a calendar change no longer wants are `superseded`.
+- **Funding** (`select_plan_pull`):
+  - **Order.** Highest priority first, then the earliest window end. Phase 3's rule that a lower priority waits for higher-priority pulls still ahead today stays.
+  - **Month-to-date allowance** (replaces Phase 3's per-day cap under the calendar). The plan may spend `plan_share × usable` over the month, accrued evenly by UTC day with 2 days borrowed ahead. `usable` is the month-start balance less the 25 hard and 50 move reserves; `plan_share` is `1 − ODDS_ENTRY_SHARE`, or 1 under `ODDS_GRID=fallback`. Quiet days bank credit for an NFL Sunday. Over a month the plan cannot take the rotation's half (212.5 of 425 on the free tier).
+  - **Floors.** No plan pull below the 25-credit hard reserve plus the unused move reserve. Lower-priority pulls also leave one credit per top-priority pull (close or priority-5 clock) still ahead in the known schedule (`must_demand`).
+  - **Caps.** `max_per_day` per entry. Under the soccer weekend cap (`soccer_weekend_feed_cap`, 2), on a local Saturday or Sunday only the two soccer feeds with the most games that day are funded; others ride along only.
+  - **Unchanged.** The free `/events` check and the `x-requests-last == 1` assertion. `OddsPacer` stays the hard cap: one credit per plan run.
+- **Move reserve** (`PBOT_ODDS_MOVE_RESERVE`, 50).
+  - Move-trigger pulls (`odds_triggers`) draw on it first, and while it covers them they no longer charge the rotation's carry.
+  - The rotation paces around it, and around `plan_hold`: the known top-priority demand to month end, capped by the plan's unspent allowance. Past the reserve, a move pull does not take the hard reserve or those held credits.
+  - Without this hold, the rotation spent down to the floor before the month's last NFL Sunday in the simulation.
+- **`ODDS_GRID`** (`rotation` default; `fallback` RESERVED). `fallback` sets the rotation's share to 0, gives the plan the whole month, and plans one `grid` target at 15:00 ET for any eligible feed with no other target that local day.
+
+### 3. Scheduling
+- **Workflow.** `paper.yml` keeps its crons at :17/:47 and gains a `target` input (a `pull_plan` id). A dispatched target skips the guard and the rotation and runs only that target's feed, and only while it is due (`pbot pull-due --target`).
+- **Worker** (`infra/cloudflare-trigger`). The cron is now `7-57/10 * * * *` (:07, :17, … :57). The brief's `*/10` fires on :00/:30. `sportsbook` is still only the :17 tick of even UTC hours.
+- **Light tick.** `pbot slot-guard --within-minutes 25 --plan-due`: a scanner tick within 25 minutes of the last scanner run is skipped unless a funded plan target is due. A skipped tick runs nothing and commits nothing, so the ledger branch gets about 48 scanner commits a day plus due plan pulls, not 144.
+  - The commit step already skipped unchanged files (`git diff --cached --quiet`), but every full run writes a `runs` row, so hashing the sqlite alone would not have saved commits.
+- **Dead-man check.** `health.yml` reads `PBOT_HEALTH_MAX_AGE_MINUTES` (default 90). The brief's "raise to 40" is a tightening, and is for Hadi once the Worker is live.
+
+### 4. Evaluation
+- **Attribution.**
+  - Every pulled feed's `feed_pulls` row, and this cycle's `signals`, `fills` and `shadow_decisions` rows for that feed's series, get `pull_source` (a plan row's source when the plan paid, else `rotation`, `move` or `measure`), plus `pull_plan_id` for plan pulls.
+  - Rows are tagged once and never re-tagged.
+  - Plan rows record their pull's `candidates` and `gate_candidates`. Targets that rode along note who paid (`rode_along:rotation`).
+- **Reports.**
+  - `scripts/odds_budget.py` ends with "Pulls by source": credits, candidates, gate candidates, v3 rows, share with net edge ≥ 0 and mean ask-minus-fair gap (cents), by source, by source and feed, and by source and ISO week. Its pull-plan section adds a by-source table and buckets dated release targets by local time.
+  - `pbot clv-report --by-source` adds a `pull_source` breakdown to every cohort; rows from before this phase are `untagged`.
+- **Pre-registered hypothesis.** Candidates from `release` and `kickoff` pulls have a higher share of net edge ≥ 0 and a higher mid-CLV (`clv_kalshi`) than `rotation`, `default` and `grid` pulls. It is judged only under the Phase 0.2 rule (n ≥ 50 and the 95% CI of the difference above 0), not by eye.
+- **First two weeks.** Pending: no tagged pulls exist until this ships. After two weeks of paper runs, add the output of `python scripts/odds_budget.py --ledger <paper.sqlite> --days 14` ("Pulls by source") and `pbot clv-report --by-source`. Nothing is filled in here in advance.
+
+### Deviations from the brief
+1. **No new `pull_plan` table.** Phase 3's table is extended with additive columns, its statuses are kept (pending → `planned`, done → `pulled`, skipped → `skipped_budget` with `note`, expired → `missed`, plus `superseded`), and so is its priority direction (stored as `6 − priority`, so 1 is first). Feed-level rows use `event_ticker='feed:<feed>'` because the column is `NOT NULL`. `executed_at` is the existing `pulled_at`.
+2. **The 2-hour grid is not removed by default.** Phase 3 measured that removing it leaves no 72h+ odds and so no entries. Removal is `ODDS_GRID=fallback`, RESERVED.
+3. **The close keeps its window.** "Due at target, expires after 60 minutes" applies to release, kickoff and grid targets. T−10m keeps kickoff −20m to −2m, and nothing is pulled after kickoff − 2m.
+4. **Calendar entries replace T−24h/T−6h/T−90m on their feeds**; T−10m stays on every feed. Feeds with no entries (NCAAB, WNBA, and NBA while disabled) keep all four Phase 3 targets.
+5. **The 10% reserve is for move-trigger pulls (`odds_triggers`).** `sharp_move` (Phase 3.2) is a shadow detector and never pulls. Source label `move`.
+6. **The plan's daily cap is a month-to-date allowance under the calendar.** Phase 3's cap follows the rotation's cadence weights, which give an NFL Sunday about 4.5 credits (2 for the plan). In the simulation that skipped Sunday inactives pulls. The allowance keeps the plan inside its monthly share while letting busy days spend what quiet days banked. The busiest simulated day used 24 plan credits; `calendar off` keeps the Phase 3 cap.
+7. **Extra protection for top-priority targets**, beyond the brief's "skip lowest priority first". The rotation, lower-priority plan pulls and post-reserve move pulls hold back credits for the known closes and priority-5 clocks to month end. Without this, the month's last NFL Sunday and Monday clocks were skipped in the simulation.
+8. **`pbot odds-budget` is `scripts/odds_budget.py`**, as before; no new command.
+9. **Worker cron `7-57/10`**, not `*/10` (which fires on :00/:30).
+10. **No sqlite-hash commit guard.** The light tick does the job, and the existing `git diff --cached --quiet` already skips unchanged commits.
+11. **The soccer weekend cap is in the calendar file** (`soccer_weekend_feed_cap: 2`); the brief's seed list did not include it.
+12. **NBA times are fixed ET**, approximating "local" report times. The feed is RESERVED off.
+13. **NHL's −70 applies only if NHL becomes eligible.** Its Phase 2.5 measurement pulls keep their own T−6h/T−90m targets.
+14. **Feed key.** The Europa Conference League key in this repo is `soccer_uefa_europa_conference_league` (the brief wrote `_conf_league`).
+
+### Acceptance
+- **`tests/test_release_calendar.py`** (32 tests):
+  - Calendar: validation; the seed (NBA off, `enable` turns it on); local times across both DST changes (Fri 16:20 ET is 20:20Z on Oct 30 and 21:20Z on Nov 6 2026; 21:20Z on Mar 12 and 20:20Z on Mar 19 2027); Sunday 11:35 on the change days themselves.
+  - Sunday NFL slate on 10-minute ticks: three clock targets. The 1:00 pm, 4:25 pm and Sunday-night −95 targets merge into the 11:35, 14:55 and 18:50 clock pulls; the 4:05 pm one (25 minutes before 14:55) is its own pull. Closes at 17:47; 8 credits for 9 games.
+  - Midweek UCL slate: −55 grouped, one credit per target time. The 17:45 close is reachable on the 10-minute ticks and `missed` on :17/:47 only.
+  - Merging at 15 minutes and not at 25; expiry at window end; a kickoff window cut at kickoff − 2m; lowest priority skipped first.
+  - The move reserve (plan held at 70 left, funded once 30 move pulls leave 20 of it); the pacer's reserve and rotation floor; the month allowance with 2 days borrowed.
+  - The soccer weekend cap; `max_per_day`; `grid` targets under `fallback`; defaults.
+  - Light tick (`skip` / `run`, no run row written); `pull-due --target`; attribution tagging (once, by feed, after the cycle start); `clv-report --by-source`; the `odds_budget.py` source table; the additive migration from a Phase 3 ledger.
+  - The simulated month below, with default flags.
+- **Updated existing tests.** The workflow, health and Worker string checks follow the new lines, and the trigger-run test is parametrised: with no reserve it charges the carry as before, and with the reserve it leaves the carry untouched. Phase 3's own November simulation passes unchanged.
+- **Simulated month** (`scripts/simulate_pull_month.py`). November 2026, the real cadence and release calendars, the Phase 3 slate (Sunday NFL, Saturday NCAAF and EPL, Tuesday/Wednesday UCL) plus Monday Night Football, and 3 move-trigger pulls a day (the live ledger ran 3–4). Plan targets are counted by status; NFL clocks are Sunday and Monday only.
+
+| `ODDS_GRID` / ticks | Spent | Excl. moves | Rotation | Plan | Moves | Lowest balance | NFL Sun/Mon clocks | Closes | Kickoff | Release |
+|---|---|---|---|---|---|---|---|---|---|---|
+| rotation / 10-min (default) | 475 | **409** | 221 | 188 | 66 | 25 | **20/20** | 169/170 | 168/170 | 44/44 |
+| rotation / :17,:47 only | 474 | 402 | 239 | 163 | 72 | 26 | 19/20 | 145/170 | 169/170 | 43/44 |
+| fallback / 10-min | 304 | 253 | 0 | 253 | 51 | 196 | 20/20 | 169/170 | 170/170 | 44/44 |
+| fallback / :17,:47 only | 261 | 210 | 0 | 210 | 51 | 239 | 19/20 | 145/170 | 169/170 | 43/44 |
+
+  - **Every run is within the limits.** Excluding move pulls, each spends ≤ 450, and the balance never drops below the 25-credit hard reserve. With no move pulls at all, the default run spends 425 and keeps the 75-credit floor (25 + 50) unspent.
+  - **The one missed NFL clock on :17/:47** is Monday Nov 30 18:50 ET. Its window opens at 23:50Z and the first :17/:47 tick in it would be 00:17 on Dec 1, after the simulated month. The 10-minute ticks take it at 23:57.
+  - **Closes on :17/:47 only:** 21 of the 25 unpulled closes are `missed`, because no slot falls inside their 18-minute window (the 17:45 UCL kickoffs, 4:05/4:25 pm NFL). This is the latency the 10-minute Worker removes.
+  - **`fallback` spends only 210–253 credits:** with the 72h+ rotation gone, the plan's targets are all inside 48h of kickoff and the slate does not need more. Its grid pulls covered 46–56 of 78 feed-days.
+- **Replay** (`scripts/replay_pull_plan.py`, the `paper-ledger` ledger as of 2026-11-05 19:49 UTC; window Oct 22 19:00 – Nov 5 19:00 UTC).
+  - *capped* uses the ledger's own daily budgets and run balances; *demand* lifts every budget.
+  - Credits are plan credits only: the rotation, moves and measurement pulls would come on top.
+  - The live columns are what the bot actually spent. Its Phase 3 plan, deployed Nov 5, had funded no pull yet.
+
+| Window | Phase 3 plan, capped | Phase 3 plan, demand | Calendar plan, capped | Calendar plan, demand | Live, all | Live rotation | Live moves |
+|---|---|---|---|---|---|---|---|
+| 14 days | 121 | 326 | 79 | 270 | 167 | 118 | 49 |
+| Nov 1–5 | 46 | 88 | 42 | 65 | 61 | 43 | 18 |
+
+  - **October is not a fair comparison.** The month was nearly out of credits (highest recorded balance 149, lowest 34), so both capped plans are starved by the floor from Oct 25.
+  - **Nov 1–5:** the calendar plan wants 26% fewer credits than Phase 3's targets (65 vs 88). Under the real budget it spends about the same (42 vs 46).
+  - **By source over the 14 days.** Capped: close 68, kickoff 5, release 6. Demand: close 146, kickoff 105, release 19.
+  - **The close dominates.** One per kickoff cluster on each of the 12 eligible feeds is about 10 a day, more than the plan's whole free-tier share (~7 a day). At the brief's priorities, the close outranks every soccer lineup pull, so on the real schedule most lineup (−55/−70) pulls go unfunded. See decision 11.
+  - **Approximations.** Eligibility is the ledger's latest `feed_stats`, applied to the whole window. A replay tick sees only the snapshots fetched by then.
+
+### Config keys added
+| Key | Default | Meaning |
+|---|---|---|
+| `ODDS_RELEASE_CALENDAR` | `on` | `off` reproduces Phase 3's T−24h/T−6h/T−90m/T−10m targets and per-day cap |
+| `RELEASE_CALENDAR_PATH` | `data/release_calendar.json` | The calendar file |
+| `RELEASE_ENABLE_FEEDS` | (empty) | Turn on feeds disabled in the file (`basketball_nba`) |
+| `ODDS_GRID` | `rotation` | `fallback` (RESERVED) drops the 72h+ rotation and adds 15:00 ET grid targets |
+| `ODDS_MOVE_RESERVE` | `50` | Monthly credits held for move-trigger pulls |
+| `HEALTH_MAX_AGE_MINUTES` (health.yml only) | `90` | Dead-man threshold; 40 once the Worker is live |
+
+All of them are read from repo Variables in `paper.yml` (`PBOT_` prefix), and `PBOT_HEALTH_MAX_AGE_MINUTES` in `health.yml`.
+
+### Follow-up fixes after go-live (2026-11-06 to 11-08)
+- **Ledger over 100 MB** ([#73](https://github.com/hadihilaly-hue/-prediction-bot/pull/73)). GitHub rejected every ledger push from 2026-11-06 03:17 UTC. The ledger is now committed as `paper.sqlite.gz`: about 21 MB, and an unchanged ledger gives an identical file. The light tick fails closed (`skip`) if the plan check errors.
+- **Plan targets never marked pulled** ([#74](https://github.com/hadihilaly-hue/-prediction-bot/pull/74); present since Phase 3). `Engine.run_cycle` clears `requests_last_by_sport` before the post-cycle bookkeeping read it. As a result:
+  - due targets stayed due, so the same feed was re-pulled every tick;
+  - measurement pulls went unrecorded, so their cap never held;
+  - plan and measurement credits were charged to the rotation's carry.
+  The bookkeeping now reads `OddsClient.pulled_feeds`.
+- **More credits for the 72h+ rotation** (2026-11-08). On Nov 7–8 the rotation made 5 pulls against about 60 for the plan. Part of that was the plan catching up on spending #74 had left unrecorded; part was `plan_hold`, which kept about 50 credits aside all month on the live 12-feed schedule.
+  - `plan_hold` now applies only in the last 7 days of the month (`PLAN_HOLD_WINDOW`).
+  - `paper.yml`'s `PBOT_ODDS_ENTRY_SHARE` default goes from 0.5 to 0.7 (decision 6, taken by Hadi). A repo Variable still overrides it.
+- **Simulated November with these changes** (10-minute ticks, 3 move pulls a day):
+
+| `ODDS_ENTRY_SHARE` | Rotation | Plan | NFL Sun/Mon clocks | Closes |
+|---|---|---|---|---|
+| 0.5 | 228 | 184 | 20/20 | 169/170 |
+| 0.7 (live default) | 283 | 127 | 16/20 | 155/170 |
+
+  At 0.7 the plan's share is about 127 credits a month. The four skipped clocks are on the month's last weekend, when that share runs out. That is the cost of moving credits to the 72h+ window, where entries come from.
+- **The share change paused the plan** (2026-11-09). Applied to the whole month, the new 0.3 plan share gave a month-to-date allowance of about 47. That was below the 60 credits the plan had already spent on Nov 7–8, so no closes, lineup pulls or NFL clocks were funded until about Nov 13.
+  - New setting `PLAN_ALLOWANCE_SINCE`, set to `2026-11-09` in `paper.yml`. It restarts the allowance from that date: it counts the balance on that day less the reserves still unused, and only plan credits spent from then on. It is ignored in other months.
+  - Effect: about 9.7 credits on Nov 9 and about 71 over Nov 9–30, roughly 3 a day. On the live schedule that funds about three closes a day, earliest and highest priority first; a T−10m close and a priority-5 NFL clock rank the same.
+
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:
    - Phase 1.2's centicent rounding stays RESERVED;
@@ -618,3 +778,18 @@ The page also gets one CSS rule, `main > * { min-width:0; }`. Without it, wide t
 7. **Cloudflare account and PAT (Phase 6, RESERVED).** Create both and deploy the Worker by following `infra/cloudflare-trigger/README.md`, about 10 minutes. Until then the bot keeps running on the GitHub schedule alone, with the slot guard and health check already active.
 8. **Sizing mode (`flat` by default, as the brief asks).** Switch the repo Variable `PBOT_SIZING_MODE` to `kelly` to size by evidence once a fill cohort is supported.
 9. **Live orders**: out of scope.
+
+**Phase 3-E**
+
+10. **Deploy the 10-minute Worker** (`7-57/10`): `wrangler deploy` again from `infra/cloudflare-trigger` once the account and PAT exist (item 7). Then set the repo Variable `PBOT_HEALTH_MAX_AGE_MINUTES` to `40`. Until then the :17/:47 crons run the same planner, with up to 30 minutes of extra latency and the missed 17:45 closes shown above.
+11. **The close's priority on soccer.** At the brief's priorities, the T−10m close (5) outranks soccer lineup pulls (3). On the real schedule, closes alone ask about 10 credits a day against the plan's ~7, so most lineup pulls go unfunded (replay: kickoff 5 of 79 capped credits).
+    - **Option A:** lower `close_priority` in the calendar file (one number) to rank lineups ahead of closes.
+    - **Option B:** keep it at 5 and accept that `clv_sharp_close` is measured for more games than lineups are pulled.
+    - Phase 0's evidence uses the close, so the default stays 5.
+12. **Re-enable NBA** for the 13:35/17:35 ET pulls (about 14–21 credits a week): set the repo Variable `PBOT_RELEASE_ENABLE_FEEDS=basketball_nba`. NBA also needs to be eligible (it is measurement-only today), so on its own this changes nothing until NBA reaches the entry window.
+13. **`ODDS_GRID=fallback` (RESERVED, still `rotation`).**
+    - In the simulation it spends 210–253 credits a month and covers 46–56 of 78 feed-days with a 15:00 ET grid pull.
+    - It drops the 72h+ entry pulls, which is where every live entry comes from (window 72–168h, decision 3). In effect it flips the window decision.
+    - Only worth it together with a move of the entry window toward kickoff.
+14. **Soccer weekend cap**: keep two soccer feeds a day on Saturdays and Sundays (`soccer_weekend_feed_cap: 2` in the calendar), or set it to 0 and leave it to priority order.
+15. **Move reserve (50).** The live ledger ran 3–4 move pulls a day, so the reserve is used by mid-month. If move pulls stop (`odds_trigger_daily_cap`), lower `PBOT_ODDS_MOVE_RESERVE`; an unused reserve is left over at month end. With no move pulls the default run in the simulation finished with 75 unspent.

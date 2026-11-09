@@ -8,6 +8,7 @@ import math
 import sqlite3
 from collections import Counter, defaultdict
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -492,6 +493,16 @@ def _estimate(
 
 
 PLAN_TARGET_ORDER = ("T-10m", "T-90m", "T-6h", "T-24h")
+PLAN_SOURCE_ORDER = ("close", "kickoff", "release", "default", "grid")
+
+
+def _target_bucket(target: str) -> str:
+    """Release targets are named by date (`R-2026-11-08T11:35`): bucket by local time."""
+    if target.startswith("R-") and "T" in target:
+        return f"R-{target.rsplit('T', 1)[1]}"
+    if target.startswith("G-"):
+        return "G-15:00"
+    return target
 
 
 def pull_plan_section(path: Path, since: datetime) -> str:
@@ -505,15 +516,23 @@ def pull_plan_section(path: Path, since: datetime) -> str:
         tables = {str(row[0]) for row in conn.execute("SELECT name FROM sqlite_master")}
         if "pull_plan" not in tables:
             return "Pull plan: no pull_plan table in this ledger (pre-Phase 3)."
+        has_source = "source" in _columns(conn, "pull_plan")
         rows = conn.execute(
-            "SELECT target,feed,status,credits FROM pull_plan WHERE planned_at>=?",
+            "SELECT target,feed,status,credits,"
+            + ("source" if has_source else "'default'")
+            + " FROM pull_plan WHERE planned_at>=?",
             (since.isoformat(),),
         ).fetchall()
     by_target: dict[str, Counter[str]] = defaultdict(Counter)
     credits_by_target: dict[str, float] = defaultdict(float)
     by_feed: dict[str, Counter[str]] = defaultdict(Counter)
     credits_by_feed: dict[str, float] = defaultdict(float)
-    for target, feed, status, credits in rows:
+    by_source: dict[str, Counter[str]] = defaultdict(Counter)
+    credits_by_source: dict[str, float] = defaultdict(float)
+    for target, feed, status, credits, source in rows:
+        by_source[str(source)][str(status)] += 1
+        credits_by_source[str(source)] += float(credits or 0)
+        target = _target_bucket(str(target))
         by_target[str(target)][str(status)] += 1
         by_feed[str(feed)][str(status)] += 1
         credits_by_target[str(target)] += float(credits or 0)
@@ -532,6 +551,17 @@ def pull_plan_section(path: Path, since: datetime) -> str:
             f"{target},{counts['planned']},{counts['pulled']},{counts['skipped_budget']},"
             f"{counts['missed']},{credits_by_target.get(target, 0.0):.1f},{ratio(counts)}"
         )
+    lines.append("Pull plan by source:")
+    lines.append("source,planned,pulled,skipped_budget,missed,superseded,plan_credits,useful_ratio")
+    for source in [*PLAN_SOURCE_ORDER, *sorted(set(by_source) - set(PLAN_SOURCE_ORDER))]:
+        if source not in by_source:
+            continue
+        counts = by_source[source]
+        lines.append(
+            f"{source},{counts['planned']},{counts['pulled']},{counts['skipped_budget']},"
+            f"{counts['missed']},{counts['superseded']},{credits_by_source[source]:.1f},"
+            f"{ratio(counts)}"
+        )
     lines.append("Pull plan by feed:")
     lines.append("feed,targets,pulled,plan_credits,useful_ratio")
     for feed in sorted(by_feed):
@@ -541,6 +571,156 @@ def pull_plan_section(path: Path, since: datetime) -> str:
             f"{credits_by_feed[feed]:.1f},{ratio(counts)}"
         )
     return "\n".join(lines)
+
+
+PULL_SOURCE_ORDER = (
+    "release",
+    "kickoff",
+    "close",
+    "default",
+    "grid",
+    "rotation",
+    "move",
+    "measure",
+)
+
+
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {str(row[1]) for row in conn.execute(f"PRAGMA table_info({table})")}
+
+
+def _as_float(value: object) -> float | None:
+    try:
+        return float(str(value)) if value is not None else None
+    except ValueError:
+        return None
+
+
+def pull_source_rows(
+    conn: sqlite3.Connection, since: datetime
+) -> list[tuple[str, str, str, int, int, int, int, int, float | None, float | None]]:
+    """(source, feed, iso_week, credits, candidates, gate_candidates, v3 rows,
+    v3 rows with net edge, share net edge >= 0, mean ask-minus-fair gap in cents).
+
+    One `feed_pulls` row is one credit. The edge columns come from the pull's v3
+    `shadow_decisions` (sportsbook_v3), tagged with the same `pull_source`.
+    """
+    if "pull_source" not in _columns(conn, "feed_pulls"):
+        return []
+    stamp = since.isoformat()
+    pulls: dict[tuple[str, str, str], list[int]] = defaultdict(lambda: [0, 0, 0])
+    for created_at, feed, source, candidates, gate in conn.execute(
+        "SELECT created_at,feed,pull_source,candidates,gate_candidates FROM feed_pulls "
+        "WHERE pull_source IS NOT NULL AND created_at>=?",
+        (stamp,),
+    ):
+        year, week, _day = _utc(str(created_at)).isocalendar()
+        key = (str(source), str(feed), f"{year}-W{week:02d}")
+        pulls[key][0] += 1
+        pulls[key][1] += int(candidates or 0)
+        pulls[key][2] += int(gate or 0)
+    edges: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    gaps: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    counts: Counter[tuple[str, str, str]] = Counter()
+    if "pull_source" in _columns(conn, "shadow_decisions"):
+        for created_at, ticker, source, price, fair, net_edge in conn.execute(
+            "SELECT created_at,ticker,pull_source,price,fair,net_edge FROM shadow_decisions "
+            "WHERE pull_source IS NOT NULL AND rules_version='v3' AND strategy='sportsbook_v3' "
+            "AND created_at>=?",
+            (stamp,),
+        ):
+            feed = KALSHI_SERIES_TO_SPORT.get(str(ticker).split("-", 1)[0], "?")
+            year, week, _day = _utc(str(created_at)).isocalendar()
+            key = (str(source), feed, f"{year}-W{week:02d}")
+            counts[key] += 1
+            edge = _as_float(net_edge)
+            if edge is not None:
+                edges[key].append(edge)
+            ask, fair_value = _as_float(price), _as_float(fair)
+            if ask is not None and fair_value is not None:
+                gaps[key].append((ask - fair_value) * 100)
+    out = []
+    for key in sorted(set(pulls) | set(counts)):
+        credits, candidates, gate = pulls.get(key, [0, 0, 0])
+        edge_values, gap_values = edges.get(key, []), gaps.get(key, [])
+        out.append(
+            (
+                *key,
+                credits,
+                candidates,
+                gate,
+                counts.get(key, 0),
+                len(edge_values),
+                sum(e >= 0 for e in edge_values) / len(edge_values) if edge_values else None,
+                sum(gap_values) / len(gap_values) if gap_values else None,
+            )
+        )
+    return out
+
+
+@dataclass
+class _SourceTotals:
+    credits: int = 0
+    candidates: int = 0
+    gate_candidates: int = 0
+    v3_rows: int = 0
+    edge_rows: int = 0
+    edge_ge_0: float = 0.0
+    gap_rows: int = 0
+    gap_sum: float = 0.0
+
+    def line(self, key: Sequence[str]) -> str:
+        share = f"{self.edge_ge_0 / self.edge_rows:.1%}" if self.edge_rows else "-"
+        gap = f"{self.gap_sum / self.gap_rows:+.2f}" if self.gap_rows else "-"
+        return (
+            f"{','.join(key)},{self.credits},{self.candidates},{self.gate_candidates},"
+            f"{self.v3_rows},{share},{gap}"
+        )
+
+
+def pull_source_section(path: Path, since: datetime) -> str:
+    """v5 Phase 3-E: credits and candidate quality by why the pull ran."""
+    uri = f"{path.resolve().as_uri()}?mode=ro"
+    with sqlite3.connect(uri, uri=True) as conn:
+        rows = pull_source_rows(conn, since)
+    if not rows:
+        return "Pulls by source: no tagged feed_pulls rows (pre-Phase 3-E ledger or none yet)."
+    order = {name: i for i, name in enumerate(PULL_SOURCE_ORDER)}
+
+    def table(width: int) -> list[str]:
+        totals: dict[tuple[str, ...], _SourceTotals] = defaultdict(_SourceTotals)
+        for source, feed, week, credits, cands, gate, n_v3, n_edge, share, gap in rows:
+            key = (source, feed, week)[:1] if width == 0 else (source, (feed, week)[width - 1])
+            t = totals[key]
+            t.credits += credits
+            t.candidates += cands
+            t.gate_candidates += gate
+            t.v3_rows += n_v3
+            if share is not None:
+                t.edge_rows += n_edge
+                t.edge_ge_0 += share * n_edge
+            if gap is not None:
+                t.gap_rows += n_v3
+                t.gap_sum += gap * n_v3
+        return [
+            totals[key].line(key)
+            for key in sorted(totals, key=lambda k: (order.get(k[0], 99), k[1:]))
+        ]
+
+    header = "credits,candidates,gate_candidates,v3_rows,share_net_edge_ge_0,mean_gap_c"
+    return "\n".join(
+        [
+            "Pulls by source (v5 Phase 3-E; one feed_pulls row = one credit):",
+            f"source,{header}",
+            *table(0),
+            "Pulls by source and feed:",
+            f"source,feed,{header}",
+            *table(1),
+            "Pulls by source and ISO week:",
+            f"source,week,{header}",
+            *table(2),
+        ]
+    )
 
 
 def main() -> None:
@@ -562,6 +742,7 @@ def main() -> None:
     _estimate(events, runs, since)
     print(_feed_report_sections(args.ledger, runs, since, datetime.now(timezone.utc)))
     print(pull_plan_section(args.ledger, since))
+    print(pull_source_section(args.ledger, since))
 
 
 if __name__ == "__main__":

@@ -662,6 +662,8 @@ class Ledger:
                 "fair_pre_haircut": "TEXT",
                 "fee_type": "TEXT",
                 "fee_multiplier": "TEXT",
+                "pull_plan_id": "INTEGER",
+                "pull_source": "TEXT",
             },
             "fills": {
                 "net_edge": "TEXT",
@@ -686,6 +688,8 @@ class Ledger:
                 "clv_sharp_close": "TEXT",
                 "clv_sharp_source": "TEXT",
                 "clv_polymarket": "TEXT",
+                "pull_plan_id": "INTEGER",
+                "pull_source": "TEXT",
             },
             "odds_snapshots": {
                 "max_book_update": "TEXT",
@@ -695,6 +699,18 @@ class Ledger:
             "feed_pulls": {
                 "requests_last": "INTEGER",
                 "gate_candidates": "INTEGER",
+                "pull_plan_id": "INTEGER",
+                "pull_source": "TEXT",
+            },
+            # v5 Phase 3-E: what each target is for and how it was satisfied.
+            "pull_plan": {
+                "source": "TEXT NOT NULL DEFAULT 'default'",
+                "entry": "TEXT",
+                "max_per_day": "INTEGER",
+                "merged_into": "INTEGER",
+                "candidates": "INTEGER",
+                "gate_candidates": "INTEGER",
+                "note": "TEXT",
             },
             "paper_orders": {"tags": "TEXT"},
             "blocks": {"position_key": "TEXT"},
@@ -719,6 +735,8 @@ class Ledger:
                 "ask_depth": "TEXT",
                 "open_interest": "TEXT",
                 "clv_polymarket": "TEXT",
+                "pull_plan_id": "INTEGER",
+                "pull_source": "TEXT",
             },
             "execution_mode_log": {
                 "queue_n": "INTEGER",
@@ -1461,6 +1479,36 @@ class Ledger:
             for event_ticker, title, sub_title in rows
         }
 
+    def game_label(
+        self, event_ticker: str, titles: Mapping[str, tuple[str, str | None]] | None = None
+    ) -> str:
+        """Plain-English game, e.g. 'USC vs Indiana (Nov 14)'; the ticker if unknown."""
+        known = (titles if titles is not None else self.event_titles()).get(event_ticker)
+        if not known or not known[0]:
+            return event_ticker
+        when = re.search(r"\(([^()]*)\)\s*$", known[1] or "")
+        return f"{known[0]} ({when.group(1)})" if when else known[0]
+
+    def position_label(
+        self,
+        ticker: str,
+        side: OutcomeSide,
+        titles: Mapping[str, tuple[str, str | None]] | None = None,
+    ) -> tuple[str, str]:
+        """(bet, game) in plain English for an open position, e.g.
+        ('Indiana wins', 'USC vs Indiana (Nov 14)') for YES on the Indiana market, or
+        ('Fresno St. does NOT win', 'Fresno St. vs Texas St. (Nov 14)') for NO."""
+        row = self.conn.execute("SELECT title FROM markets WHERE ticker=?", (ticker,)).fetchone()
+        title = str(row[0]).strip() if row is not None and row[0] else ""
+        game = self.game_label(ticker.rsplit("-", 1)[0], titles)
+        if not title:
+            return f"{side.value.upper()} on {ticker}", game
+        if side == OutcomeSide.yes:
+            return title, game
+        if title.endswith(" wins"):
+            return f"{title[: -len(' wins')]} does NOT win", game
+        return f"NOT: {title}", game
+
     def missing_event_titles(self, event_tickers: Iterable[str]) -> list[str]:
         known = self.event_titles()
         return list(
@@ -2190,6 +2238,18 @@ class Ledger:
         now = self._utc(at or datetime.now(timezone.utc))
         start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
         end = start + timedelta(days=1)
+        row = self.conn.execute(
+            "SELECT COUNT(*) FROM odds_triggers WHERE status='pulled' "
+            "AND created_at>=? AND created_at<?",
+            (start.isoformat(), end.isoformat()),
+        ).fetchone()
+        return int(row[0]) if row is not None else 0
+
+    def odds_triggers_pulled_in_month(self, at: datetime | None = None) -> int:
+        """Move-trigger pulls this UTC month (they draw on `odds_move_reserve`)."""
+        now = self._utc(at or datetime.now(timezone.utc))
+        start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+        end = datetime(now.year + (now.month == 12), now.month % 12 + 1, 1, tzinfo=timezone.utc)
         row = self.conn.execute(
             "SELECT COUNT(*) FROM odds_triggers WHERE status='pulled' "
             "AND created_at>=? AND created_at<?",

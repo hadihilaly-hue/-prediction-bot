@@ -7,6 +7,7 @@ never compare them in SQL without a CAST (string comparison silently mis-buckets
 from __future__ import annotations
 
 import math
+import re
 import sqlite3
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -165,6 +166,16 @@ def summarize(values: list[float]) -> dict[str, Any]:
     }
 
 
+def _with_pull_source(conn: sqlite3.Connection, sql: str) -> str:
+    """Append the row's `pull_source` (v5 Phase 3-E) to a cohort query, or NULL for a
+    table without one (maker_shadow, older ledgers)."""
+    match = re.search(r" FROM (\w+)", sql)
+    table = match.group(1) if match else ""
+    columns = {str(row[1]) for row in conn.execute(f"PRAGMA table_info({table})")}
+    expr = "pull_source" if "pull_source" in columns else "NULL"
+    return sql.replace(" FROM ", f",{expr} FROM ", 1)
+
+
 def _rows(conn: sqlite3.Connection, sql: str, since: str | None) -> list[dict[str, Any]]:
     rows = []
     for (
@@ -174,8 +185,10 @@ def _rows(conn: sqlite3.Connection, sql: str, since: str | None) -> list[dict[st
         raw_edge,
         stored_window,
         raw_commence,
-        *metric_values,
+        *rest,
     ) in conn.execute(sql):
+        metric_values = rest[: len(METRICS)]
+        pull_source = rest[len(METRICS)] if len(rest) > len(METRICS) else None
         if since and str(created_at) < since:
             continue
         price = _decimal(raw_price)
@@ -193,6 +206,7 @@ def _rows(conn: sqlite3.Connection, sql: str, since: str | None) -> list[dict[st
                 "price_band": price_band(price) if price is not None else "unknown",
                 "sport": str(ticker).split("-", 1)[0],
                 "edge_bucket": edge_bucket(_decimal(raw_edge)),
+                "pull_source": str(pull_source) if pull_source else "untagged",
                 **{
                     metric: _decimal(value)
                     for metric, value in zip(METRICS, metric_values, strict=True)
@@ -221,14 +235,22 @@ def _values(
     ]
 
 
-def clv_report(conn: sqlite3.Connection, since: str | None = None) -> dict[str, Any]:
+def clv_report(
+    conn: sqlite3.Connection, since: str | None = None, by_source: bool = False
+) -> dict[str, Any]:
+    """CLV by cohort. `by_source` adds a breakdown by why the odds pull ran
+    (`pull_source`: release, kickoff, close, default, grid, rotation, move, measure;
+    `untagged` for rows written before Phase 3-E)."""
     cohorts: dict[str, Any] = {}
+    keys = ("window", "price_band", "sport", "edge_bucket") + (
+        ("pull_source",) if by_source else ()
+    )
     for name, (label, sql) in COHORTS.items():
-        rows = _rows(conn, sql, since)
+        rows = _rows(conn, _with_pull_source(conn, sql) if by_source else sql, since)
         metrics: dict[str, Any] = {}
         for metric in METRICS:
             breakdown: dict[str, Any] = {"all": summarize(_values(rows, metric))}
-            for key in ("window", "price_band", "sport", "edge_bucket"):
+            for key in keys:
                 present = {str(r[key]) for r in rows if r[metric] is not None}
                 breakdown[f"by_{key}"] = {
                     group: summarize(_values(rows, metric, key, group))

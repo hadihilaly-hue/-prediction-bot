@@ -1,8 +1,12 @@
 // Cloudflare Workers cron trigger for the paper bot (v5 Phase 6.1).
 //
-// GitHub drops many scheduled workflow slots, so this Worker fires at :17 and :47 UTC
-// and calls the `workflow_dispatch` API for paper.yml with inputs.slot. The :17 slot of
-// even UTC hours is the sportsbook slot, matching paper.yml's "17 */2 * * *" cron.
+// GitHub drops many scheduled workflow slots, so this Worker calls the
+// `workflow_dispatch` API for paper.yml with inputs.slot. Since v5 Phase 3-E it ticks
+// every 10 minutes at :07, :17, ... :57 UTC (one cron expression, never :00/:30). The
+// :17 tick of even UTC hours is the sportsbook slot, matching paper.yml's
+// "17 */2 * * *" cron; every other tick is a scanner slot. The scanner decides what is
+// due (`pbot slot-guard --plan-due`): a tick within 25 minutes of the last scanner run
+// is idle unless a pull-plan target is due, so the Worker needs no DST logic.
 // paper.yml keeps its own schedule as a fallback; `pbot slot-guard` stops the second
 // run when both fire.
 //
@@ -10,7 +14,9 @@
 // write". Vars (wrangler.toml): GITHUB_OWNER, GITHUB_REPO, WORKFLOW_FILE, GITHUB_REF.
 
 export function slotFor(when) {
-  return when.getUTCHours() % 2 === 0 && when.getUTCMinutes() < 30 ? "sportsbook" : "scanner";
+  const minute = when.getUTCMinutes();
+  // [17, 27) so a late-firing :17 tick still counts, and :07/:27 stay scanner ticks.
+  return when.getUTCHours() % 2 === 0 && minute >= 17 && minute < 27 ? "sportsbook" : "scanner";
 }
 
 export function dispatchRequest(env, when) {
