@@ -940,38 +940,72 @@ class Ledger:
             )
             self.conn.commit()
 
-    def backfill_model_side(self) -> int:
+    def backfill_model_side(self, archives: Sequence[Path] = ()) -> int:
         """Set mid/model_side on shadow_decisions rows that lack them, from the
-        market_snapshots row nearest the decision within 5 minutes. Returns rows set."""
+        market_snapshots row nearest the decision within 5 minutes. `archives` are
+        archive databases (ledger_archive) whose market_snapshots are searched too, for
+        rows whose snapshots the daily archive has already moved out. Returns rows set.
+        """
         rows = self.conn.execute(
             "SELECT id,created_at,ticker,side,fair FROM shadow_decisions "
             "WHERE mid IS NULL AND fair IS NOT NULL"
         ).fetchall()
         window = self.MODEL_SIDE_BACKFILL_WINDOW
-        updated = 0
+        parsed: list[tuple[int, datetime, str, str, Decimal]] = []
         for row_id, created_at, ticker, side, raw_fair in rows:
             try:
-                at = self._utc(datetime.fromisoformat(str(created_at)))
-                fair = Decimal(str(raw_fair))
+                parsed.append(
+                    (
+                        int(row_id),
+                        self._utc(datetime.fromisoformat(str(created_at))),
+                        str(ticker),
+                        str(side),
+                        Decimal(str(raw_fair)),
+                    )
+                )
             except (ValueError, ArithmeticError):
                 continue
-            nearest: tuple[timedelta, Decimal] | None = None
-            for fetched_at, raw_bid, raw_ask in self.conn.execute(
-                "SELECT fetched_at,yes_bid,yes_ask FROM market_snapshots WHERE ticker=? "
-                "AND fetched_at>=? AND fetched_at<=? AND yes_bid IS NOT NULL "
-                "AND yes_ask IS NOT NULL",
-                (ticker, (at - window).isoformat(), (at + window).isoformat()),
-            ):
-                try:
-                    gap = abs(self._utc(datetime.fromisoformat(str(fetched_at))) - at)
-                    yes_mid = (Decimal(str(raw_bid)) + Decimal(str(raw_ask))) / 2
-                except (ValueError, ArithmeticError):
-                    continue
-                if gap <= window and (nearest is None or gap < nearest[0]):
-                    nearest = (gap, yes_mid)
-            if nearest is None:
+        nearest: dict[int, tuple[timedelta, Decimal]] = {}
+
+        def search(schema: str) -> None:
+            sql = (
+                f"SELECT fetched_at,yes_bid,yes_ask FROM {schema}.market_snapshots "
+                "WHERE ticker=? AND fetched_at>=? AND fetched_at<=? "
+                "AND yes_bid IS NOT NULL AND yes_ask IS NOT NULL"
+            )
+            for row_id, at, ticker, _side, _fair in parsed:
+                for fetched_at, raw_bid, raw_ask in self.conn.execute(
+                    sql, (ticker, (at - window).isoformat(), (at + window).isoformat())
+                ):
+                    try:
+                        gap = abs(self._utc(datetime.fromisoformat(str(fetched_at))) - at)
+                        yes_mid = (Decimal(str(raw_bid)) + Decimal(str(raw_ask))) / 2
+                    except (ValueError, ArithmeticError):
+                        continue
+                    best = nearest.get(row_id)
+                    if gap <= window and (best is None or gap < best[0]):
+                        nearest[row_id] = (gap, yes_mid)
+
+        search("main")
+        for archive in archives:
+            self.conn.execute("ATTACH DATABASE ? AS snap_archive", (str(archive),))
+            try:
+                tables = {
+                    str(r[0])
+                    for r in self.conn.execute(
+                        "SELECT name FROM snap_archive.sqlite_master WHERE type='table'"
+                    )
+                }
+                if "market_snapshots" in tables:
+                    search("snap_archive")
+            finally:
+                self.conn.execute("DETACH DATABASE snap_archive")
+        updated = 0
+        for row_id, _at, _ticker, side, fair in parsed:
+            found = nearest.get(row_id)
+            if found is None:
                 continue
-            mid = nearest[1] if str(side) == "yes" else Decimal(1) - nearest[1]
+            mid = found[1] if side == "yes" else Decimal(1) - found[1]
             self.conn.execute(
                 "UPDATE shadow_decisions SET mid=?, model_side=? WHERE id=?",
                 (str(mid), 1 if fair > mid else 0, row_id),
@@ -979,6 +1013,23 @@ class Ledger:
             updated += 1
         self.conn.commit()
         return updated
+
+    ARCHIVE_BACKFILL_KEY = "scoreboard:model_side_archive_backfill"
+
+    def archive_backfill_done(self) -> bool:
+        return (
+            self.conn.execute(
+                "SELECT 1 FROM ledger_migrations WHERE key=?", (self.ARCHIVE_BACKFILL_KEY,)
+            ).fetchone()
+            is not None
+        )
+
+    def mark_archive_backfill_done(self, detail: str) -> None:
+        self.conn.execute(
+            "INSERT OR IGNORE INTO ledger_migrations (key,applied_at,detail) VALUES (?,?,?)",
+            (self.ARCHIVE_BACKFILL_KEY, datetime.now(timezone.utc).isoformat(), detail),
+        )
+        self.conn.commit()
 
     @staticmethod
     def _ensure_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:

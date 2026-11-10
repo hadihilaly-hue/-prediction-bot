@@ -222,6 +222,18 @@ jobs:
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
         run: pbot ledger-archive --db ledger/paper.sqlite
 
+      # One-time: fill shadow_decisions.mid/model_side from archived market snapshots
+      # (the scoreboard backfill ran after the archive had moved them out). Later runs
+      # return at once; a failure only warns and the next run retries.
+      - name: Back-fill model_side from the archive
+        if: steps.guard.outputs.skip != 'true'
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PBOT_PAPER_DB_PATH: ledger/paper.sqlite
+        run: pbot ledger-backfill-model-side --db ledger/paper.sqlite
+
       # Uploads the database as a new ledger-store release asset, then commits
       # ledger_manifest.json and the report files to paper-ledger (plain push).
       - name: Save ledger
