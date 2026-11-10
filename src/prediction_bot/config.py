@@ -184,6 +184,10 @@ class Settings(BaseSettings):
     odds_measurement_windows: bool = False
     odds_weekday_prior: bool = True
     odds_trigger_daily_cap: int = 4
+    # Credits 2.3: a move trigger needs an ask to move at least this much since the
+    # feed's last pull, and fires at most once per this many minutes.
+    odds_trigger_min_move: Decimal = Decimal("0.02")
+    odds_trigger_min_gap_minutes: int = 180
     # Credit cadence: 'calendar' blends the static day weights in
     # cadence_calendar.json with the daily /events count; 'off' uses static
     # weights only (no events calls); 'legacy' is the old flat share. See

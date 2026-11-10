@@ -245,3 +245,95 @@ def test_every_credit_spent_in_a_cycle_has_a_feed_pulls_row(
     assert rows == [("americanfootball_nfl", 0, 1, 1)]
     run_used = [int(u) for (u,) in ledger.conn.execute("SELECT odds_used FROM runs ORDER BY id")]
     assert sum(r[2] for r in rows) == run_used[-1] - 100
+
+
+# --- 2.3 move triggers fire on real moves, not noise -------------------------------------
+
+NFL = "americanfootball_nfl"
+EVENT = "KXNFLGAME-26NOV22KCBUF"
+
+
+def _snap(ledger: Ledger, ticker: str, at: datetime, bid: str, ask: str) -> None:
+    ledger.conn.execute(
+        "INSERT INTO market_snapshots (fetched_at,ticker,event_ticker,series,yes_bid,yes_ask,"
+        "yes_bid_size,yes_ask_size,open_interest,volume,expected_expiration) "
+        "VALUES (?,?,?,'KXNFLGAME',?,?,'10','10','0','0',?)",
+        (at.isoformat(), ticker, EVENT, bid, ask, (at + timedelta(days=5)).isoformat()),
+    )
+    ledger.conn.commit()
+
+
+def _trigger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ledger: Ledger, now: datetime) -> str:
+    import prediction_bot.cli as cli
+    from prediction_bot.config import Settings
+    from prediction_bot.odds_planner import PlannedGame
+
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None, rules_version="v3", min_lead_hours=72, paper_db_path=ledger.path,
+        odds_trigger_daily_cap=2,
+    )  # fmt: skip
+    monkeypatch.setattr(cli, "_settings", lambda: settings)
+    monkeypatch.setattr(cli, "_client", lambda _settings: object())
+    monkeypatch.setattr(cli, "_fetch", lambda _client, _series: [])
+    monkeypatch.setattr(
+        cli,
+        "_planner_games",
+        lambda *_args: {NFL: [PlannedGame(now + timedelta(hours=100), event_ticker=EVENT)]},
+    )
+    out: list[str] = []
+    monkeypatch.setattr(cli.typer, "echo", lambda text: out.append(str(text)))
+    cli.odds_trigger(series=["KXNFLGAME"])
+    return out[0] if out else ""
+
+
+def test_one_cent_is_noise_two_cents_is_a_move(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ledger = _ledger(tmp_path)
+    now = datetime.now(UTC)
+    last_pull = now - timedelta(hours=2)
+    _snap(ledger, f"{EVENT}-KC", last_pull - timedelta(minutes=5), "0.47", "0.49")
+    ledger.record_feed_pulls({NFL: 1}, "v3", last_pull)
+    _snap(ledger, f"{EVENT}-KC", now - timedelta(minutes=1), "0.47", "0.50")  # 1c
+    # A market listed since the last pull is not a move either.
+    _snap(ledger, f"{EVENT}-BUF", now - timedelta(minutes=1), "0.31", "0.34")
+    assert _trigger(tmp_path, monkeypatch, ledger, now) == ""
+    _snap(ledger, f"{EVENT}-KC", now, "0.47", "0.51")  # 2c since the last pull
+    assert _trigger(tmp_path, monkeypatch, ledger, now + timedelta(seconds=1)) == NFL
+    assert ledger.conn.execute("SELECT ticker,ask,move FROM odds_triggers").fetchall() == [
+        (f"{EVENT}-KC", "0.51", "0.02")
+    ]
+
+
+def test_the_largest_move_is_taken_first(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    ledger = _ledger(tmp_path)
+    now = datetime.now(UTC)
+    last_pull = now - timedelta(hours=2)
+    for leg in ("KC", "BUF"):
+        _snap(ledger, f"{EVENT}-{leg}", last_pull - timedelta(minutes=5), "0.47", "0.49")
+    ledger.record_feed_pulls({NFL: 1}, "v3", last_pull)
+    _snap(ledger, f"{EVENT}-BUF", now - timedelta(minutes=1), "0.49", "0.52")  # 3c
+    _snap(ledger, f"{EVENT}-KC", now - timedelta(minutes=1), "0.41", "0.43")  # 6c
+    assert _trigger(tmp_path, monkeypatch, ledger, now) == NFL
+    assert ledger.conn.execute("SELECT ticker,move FROM odds_triggers").fetchall() == [
+        (f"{EVENT}-KC", "0.06")
+    ]
+
+
+def test_move_triggers_are_at_least_three_hours_apart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ledger = _ledger(tmp_path)
+    now = datetime.now(UTC)
+    last_pull = now - timedelta(hours=2)
+    _snap(ledger, f"{EVENT}-KC", last_pull - timedelta(minutes=5), "0.47", "0.49")
+    ledger.record_feed_pulls({NFL: 1}, "v3", last_pull)
+    _snap(ledger, f"{EVENT}-KC", now - timedelta(minutes=1), "0.52", "0.55")
+    ledger.record_odds_trigger("soccer_epl", "X", "0.5", now - timedelta(hours=2, minutes=59))
+    ledger.finish_odds_trigger("soccer_epl", "pulled")
+    assert _trigger(tmp_path, monkeypatch, ledger, now) == ""
+    ledger.conn.execute(
+        "UPDATE odds_triggers SET created_at=?", ((now - timedelta(hours=3)).isoformat(),)
+    )
+    ledger.conn.commit()
+    assert _trigger(tmp_path, monkeypatch, ledger, now) == NFL

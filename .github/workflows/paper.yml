@@ -124,6 +124,11 @@ jobs:
           PBOT_RELEASE_ENABLE_FEEDS: ${{ vars.PBOT_RELEASE_ENABLE_FEEDS || '' }}
           PBOT_ODDS_GRID: ${{ vars.PBOT_ODDS_GRID || 'rotation' }}
           PBOT_ODDS_MOVE_RESERVE: ${{ vars.PBOT_ODDS_MOVE_RESERVE || '50' }}
+          # Move triggers: at most this many a UTC day, on an ask move of at least
+          # MIN_MOVE dollars since the feed's last pull, MIN_GAP_MINUTES apart.
+          PBOT_ODDS_TRIGGER_DAILY_CAP: ${{ vars.PBOT_ODDS_TRIGGER_DAILY_CAP || '2' }}
+          PBOT_ODDS_TRIGGER_MIN_MOVE: ${{ vars.PBOT_ODDS_TRIGGER_MIN_MOVE || '0.02' }}
+          PBOT_ODDS_TRIGGER_MIN_GAP_MINUTES: ${{ vars.PBOT_ODDS_TRIGGER_MIN_GAP_MINUTES || '180' }}
           # The plan's allowance restarts on this date (ODDS_ENTRY_SHARE went 0.5 -> 0.7
           # on 2026-11-08); ignored outside that month.
           PBOT_PLAN_ALLOWANCE_SINCE: ${{ vars.PBOT_PLAN_ALLOWANCE_SINCE || '2026-11-09' }}

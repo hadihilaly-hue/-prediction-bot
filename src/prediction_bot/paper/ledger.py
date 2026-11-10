@@ -740,6 +740,8 @@ class Ledger:
             # Credits 2.1: the day's cadence share already granted (before
             # rotation_share), so the day's slots sum to its target.
             "cadence_days": {"granted": "REAL NOT NULL DEFAULT 0"},
+            # Credits 2.3: the ask move (dollars) that fired a move trigger.
+            "odds_triggers": {"move": "TEXT"},
             "paper_orders": {"tags": "TEXT"},
             # Change-only writes: a repeat of the ticker's latest row updates last_seen_at
             # (and seen_count for blocks) instead of inserting.
@@ -2341,22 +2343,32 @@ class Ledger:
         at: datetime | None = None,
         *,
         since: datetime | None = None,
+        move: Decimal | None = None,
     ) -> int | None:
         ask_text = self._odds_trigger_ask(ask)
         if self.has_odds_trigger(feed, ticker, ask_text, since=since):
             return None
         cursor = self.conn.execute(
-            "INSERT INTO odds_triggers(created_at,feed,ticker,ask,status) VALUES(?,?,?,?,?)",
+            "INSERT INTO odds_triggers(created_at,feed,ticker,ask,status,move) VALUES(?,?,?,?,?,?)",
             (
                 self._utc(at or datetime.now(timezone.utc)).isoformat(),
                 feed,
                 ticker,
                 ask_text,
                 "planned",
+                None if move is None else str(move),
             ),
         )
         self.conn.commit()
         return int(cursor.lastrowid) if cursor.lastrowid is not None else None
+
+    def last_odds_trigger_pulled_at(self) -> datetime | None:
+        row = self.conn.execute(
+            "SELECT MAX(created_at) FROM odds_triggers WHERE status='pulled'"
+        ).fetchone()
+        if row is None or row[0] is None:
+            return None
+        return self._utc(datetime.fromisoformat(str(row[0])))
 
     def odds_triggers_pulled_today(self, at: datetime | None = None) -> int:
         now = self._utc(at or datetime.now(timezone.utc))

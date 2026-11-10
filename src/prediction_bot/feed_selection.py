@@ -414,14 +414,23 @@ def rotation_scores(
     return scored
 
 
-def market_ask_moves_since(
+def market_ask_move_sizes(
     ledger: Ledger,
     event_ticker: str,
     last_pull: datetime,
     now: datetime,
     spread_gate: Decimal | None = None,
-) -> list[tuple[str, Decimal]]:
-    moves: dict[str, set[Decimal]] = {}
+    *,
+    min_move: Decimal = Decimal("0.01"),
+    new_is_move: bool = True,
+) -> list[tuple[str, Decimal, Decimal]]:
+    """(ticker, lowest moved ask, largest move) for each market of the event whose yes or
+    no ask moved by at least `min_move` between `last_pull` and `now`.
+
+    A market with no snapshot at `last_pull` counts as moved (move 0) only with
+    `new_is_move`.
+    """
+    moves: dict[str, list[tuple[Decimal, Decimal]]] = {}
     tickers = ledger.conn.execute(
         "SELECT DISTINCT ticker FROM market_snapshots WHERE event_ticker=? ORDER BY ticker",
         (event_ticker,),
@@ -457,9 +466,30 @@ def market_ask_moves_since(
                 Decimal(1) - Decimal(str(before_bid)) if before_bid is not None else None,
             )
         for previous, current in zip(before_asks, after_asks, strict=True):
-            if previous is None or abs(current - previous) >= Decimal("0.01"):
-                moves.setdefault(ticker, set()).add(current.normalize())
-    return [(ticker, min(asks)) for ticker, asks in sorted(moves.items())]
+            if previous is None:
+                if new_is_move:
+                    moves.setdefault(ticker, []).append((current.normalize(), Decimal(0)))
+            elif abs(current - previous) >= min_move:
+                moves.setdefault(ticker, []).append((current.normalize(), abs(current - previous)))
+    return [
+        (ticker, min(a for a, _m in found), max(m for _a, m in found))
+        for ticker, found in sorted(moves.items())
+    ]
+
+
+def market_ask_moves_since(
+    ledger: Ledger,
+    event_ticker: str,
+    last_pull: datetime,
+    now: datetime,
+    spread_gate: Decimal | None = None,
+) -> list[tuple[str, Decimal]]:
+    return [
+        (ticker, ask)
+        for ticker, ask, _move in market_ask_move_sizes(
+            ledger, event_ticker, last_pull, now, spread_gate
+        )
+    ]
 
 
 def _market_moved_since(

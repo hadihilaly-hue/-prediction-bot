@@ -40,7 +40,7 @@ from prediction_bot.feed_selection import (
     entry_lookahead,
     feed_scores,
     liquidity_weights,
-    market_ask_moves_since,
+    market_ask_move_sizes,
     rotation_scores,
     select_entry_feeds,
     select_measure_pull,
@@ -338,8 +338,13 @@ def odds_trigger(
     )
     if ledger.odds_triggers_pulled_today(now) >= s.odds_trigger_daily_cap:
         return
+    last_trigger = ledger.last_odds_trigger_pulled_at()
+    if last_trigger is not None and now - last_trigger < timedelta(
+        minutes=s.odds_trigger_min_gap_minutes
+    ):
+        return
 
-    candidates: list[tuple[Decimal, datetime, str, str, Decimal, datetime]] = []
+    candidates: list[tuple[Decimal, Decimal, datetime, str, str, Decimal, datetime]] = []
     for feed, games in games_by_sport.items():
         score = scores[feed]
         if score.value <= 0:
@@ -360,16 +365,20 @@ def odds_trigger(
         for game in games:
             if not entry_start <= _utc(game.kickoff) <= entry_end:
                 continue
-            for ticker, ask in market_ask_moves_since(
+            # A market with no earlier snapshot is not a move.
+            for ticker, ask, move in market_ask_move_sizes(
                 ledger,
                 game.event_ticker,
                 last_pull,
                 now,
                 spread_gate=s.v2_max_spread,
+                min_move=s.odds_trigger_min_move,
+                new_is_move=False,
             ):
                 if not ledger.has_odds_trigger(feed, ticker, ask, since=last_pull):
                     candidates.append(
                         (
+                            move,
                             score.score,
                             score.soonest_kickoff or datetime.max.replace(tzinfo=timezone.utc),
                             feed,
@@ -380,11 +389,12 @@ def odds_trigger(
                     )
     if not candidates:
         return
-    _score, _kickoff, feed, ticker, ask, last_pull = min(
+    # The largest move first, then the feed's rotation score.
+    move, _score, _kickoff, feed, ticker, ask, last_pull = min(
         candidates,
-        key=lambda item: (-item[0], item[1], item[2], item[3], item[4]),
+        key=lambda item: (-item[0], -item[1], item[2], item[3], item[4], item[5]),
     )
-    if ledger.record_odds_trigger(feed, ticker, ask, now, since=last_pull) is not None:
+    if ledger.record_odds_trigger(feed, ticker, ask, now, since=last_pull, move=move) is not None:
         typer.echo(feed)
 
 

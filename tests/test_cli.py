@@ -290,6 +290,7 @@ def test_odds_trigger_prints_one_moved_feed_and_dedupes(tmp_path, monkeypatch, c
         min_lead_hours=72,
         paper_db_path=path,
         odds_trigger_daily_cap=4,
+        odds_trigger_min_move=Decimal("0.01"),  # dedupe here, not the move threshold
     )
     monkeypatch.setattr(cli, "_settings", lambda: settings)
     monkeypatch.setattr(cli, "_client", lambda _settings: object())
@@ -350,6 +351,7 @@ def test_odds_trigger_uses_its_snapshot_and_resets_dedupe_after_feed_pulls(
         min_lead_hours=72,
         paper_db_path=path,
         odds_trigger_daily_cap=4,
+        odds_trigger_min_move=Decimal("0.01"),  # dedupe here, not the move threshold
     )
     monkeypatch.setattr(cli, "datetime", Clock)
     monkeypatch.setattr(Ledger, "record_market_snapshots", record_at_snapshot_time)
@@ -511,10 +513,10 @@ def test_odds_trigger_records_and_dedupes_using_selected_feed_pull(
         },
     )
 
-    def moved_asks(_ledger, event, _since, _now, *, spread_gate):  # type: ignore[no-untyped-def]
-        return [(ticker, Decimal("0.41"))] if event == selected_event else []
+    def moved_asks(_ledger, event, _since, _now, *, spread_gate, min_move, new_is_move):  # type: ignore[no-untyped-def]
+        return [(ticker, Decimal("0.41"), Decimal("0.03"))] if event == selected_event else []
 
-    monkeypatch.setattr(cli, "market_ask_moves_since", moved_asks)
+    monkeypatch.setattr(cli, "market_ask_move_sizes", moved_asks)
 
     cli.odds_trigger(series=["KXNFLGAME", "KXNBAGAME"])
     assert capsys.readouterr().out.strip() == selected_feed
