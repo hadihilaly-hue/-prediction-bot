@@ -181,6 +181,11 @@ def test_expiry_offset_static_table_then_series_median(tmp_path: Path) -> None:
         kickoffs.observe(conn, event, kickoff, "odds", kickoff - timedelta(hours=1))
         expected = timedelta(hours=2, minutes=50) if i < 4 else timedelta(minutes=170)
         assert kickoffs.expiry_offset(conn, "KXNHLGAME", now) == expected
+    # The daily archive drops market_snapshots of closed games after 7 days; the
+    # expirations kept on event_kickoffs still give the 30-day median.
+    kickoffs.ensure_schema(conn)
+    conn.execute("DELETE FROM market_snapshots")
+    assert kickoffs.expiry_offset(conn, "KXNHLGAME", now) == timedelta(minutes=170)
     # Estimates never feed the median.
     conn.execute("UPDATE event_kickoffs SET source='kalshi_expiry'")
     assert kickoffs.expiry_offset(conn, "KXNHLGAME", now) == timedelta(hours=2, minutes=50)
@@ -194,6 +199,12 @@ def test_no_ncaaf_close_from_a_kalshi_estimate(tmp_path: Path) -> None:
     kickoffs_ = plan_kickoffs(ledger.conn, eligible_feeds(ledger.conn), now)
     assert kickoffs_[EVENT] == ("americanfootball_ncaaf", SAT.replace(hour=20, minute=30))
     assert kickoffs.resolve(ledger.conn, EVENT)[1] == "kalshi_expiry"  # type: ignore[index]
+    assert (
+        ledger.conn.execute(
+            "SELECT kalshi_expiration FROM event_kickoffs WHERE event_ticker=?", (EVENT,)
+        ).fetchone()[0]
+        == SAT.replace(hour=23, minute=30).isoformat()
+    )
     plan_pulls(ledger, kickoffs_, now)
     targets = {str(t) for (t,) in ledger.conn.execute("SELECT target FROM pull_plan")}
     assert "T-10m" not in targets and targets

@@ -59,7 +59,8 @@ CREATE TABLE IF NOT EXISTS event_kickoffs (
     observed_at TEXT NOT NULL,
     odds_event_id TEXT,
     prev_kickoff TEXT,
-    changed_at TEXT
+    changed_at TEXT,
+    kalshi_expiration TEXT
 );
 CREATE TABLE IF NOT EXISTS kickoff_state (
     key TEXT PRIMARY KEY,
@@ -90,8 +91,26 @@ def _parse(value: object) -> datetime | None:
         return None
 
 
+# The latest pre-kickoff Kalshi expected_expiration of an event, from market_snapshots.
+_LATEST_EXPIRATION = (
+    "SELECT m.expected_expiration FROM market_snapshots m "
+    "WHERE m.event_ticker=event_kickoffs.event_ticker AND m.expected_expiration IS NOT NULL "
+    "AND m.fetched_at<event_kickoffs.kickoff ORDER BY m.fetched_at DESC LIMIT 1"
+)
+
+
 def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    columns = {str(r[1]) for r in conn.execute("PRAGMA table_info(event_kickoffs)")}
+    if "kalshi_expiration" not in columns:
+        conn.execute("ALTER TABLE event_kickoffs ADD COLUMN kalshi_expiration TEXT")
+    # Kept on the event row because the daily archive removes market_snapshots of
+    # closed games after 7 days, and the expiry offset looks back 30.
+    conn.execute(
+        f"UPDATE event_kickoffs SET kalshi_expiration=({_LATEST_EXPIRATION}) "
+        "WHERE kalshi_expiration IS NULL"
+    )
+    conn.commit()
 
 
 def _state(conn: sqlite3.Connection, key: str) -> str | None:
@@ -231,12 +250,9 @@ def expiry_offsets(
         return out
     samples: dict[str, list[float]] = {}
     rows = conn.execute(
-        "SELECT k.event_ticker,k.kickoff,("
-        "SELECT m.expected_expiration FROM market_snapshots m "
-        "WHERE m.event_ticker=k.event_ticker AND m.expected_expiration IS NOT NULL "
-        "AND m.fetched_at<k.kickoff ORDER BY m.fetched_at DESC LIMIT 1) "
-        "FROM event_kickoffs k WHERE k.source IN ('odds','odds_events') "
-        "AND k.kickoff>=? AND k.kickoff<=?",
+        "SELECT event_ticker,kickoff,COALESCE(kalshi_expiration,"
+        f"({_LATEST_EXPIRATION})) FROM event_kickoffs "
+        "WHERE source IN ('odds','odds_events') AND kickoff>=? AND kickoff<=?",
         ((now - OFFSET_LOOKBACK).isoformat(), now.isoformat()),
     ).fetchall()
     for event_ticker, kickoff, expiration in rows:
@@ -262,7 +278,8 @@ def observe_kalshi_expiry(
     expirations: Mapping[str, tuple[datetime | str, datetime | str]],
     now: datetime,
 ) -> None:
-    """Estimate kickoffs for events with no odds-based kickoff.
+    """Estimate kickoffs for events with no odds-based kickoff, and keep every event's
+    latest pre-kickoff expiration for `expiry_offsets`.
 
     `expirations` maps event_ticker -> (expected_expiration, fetched_at).
     """
@@ -275,6 +292,15 @@ def observe_kalshi_expiry(
         if end is None:
             continue
         observe(conn, event, end - offsets[event.split("-", 1)[0]], KALSHI_EXPIRY, fetched_at)
+    for event, (expiration, fetched_at) in expirations.items():
+        end, seen = _parse(expiration), _parse(fetched_at)
+        if end is None or seen is None:
+            continue
+        # Only expirations Kalshi listed before the game, as the offset measures.
+        conn.execute(
+            "UPDATE event_kickoffs SET kalshi_expiration=? WHERE event_ticker=? AND kickoff>?",
+            (end.isoformat(), event, seen.isoformat()),
+        )
     conn.commit()
 
 
