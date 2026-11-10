@@ -144,6 +144,37 @@ sha256, `PRAGMA quick_check` and `runs` count, and writes the file only if all p
 hand: `git show origin/paper-ledger:ledger_manifest.json`, then
 `gh release download ledger-store --pattern <asset>` and `gunzip`.
 
+#### Keeping the ledger small
+
+Two things keep the hot ledger at roughly 20 MB gzipped (it was 43 MB and growing 4-6 MB
+a day):
+
+- **Change-only writes.** A Kalshi quote equal to the ticker's latest stored row (all of
+  bid, ask, last price, volume and open interest) moves that row's `last_seen_at` instead
+  of adding a row. A gate block equal to the ticker's latest block of the same UTC day
+  adds 1 to its `seen_count`. Readers get the same answers: "the latest quote at or
+  before t" is unchanged, and block counts are `SUM(seen_count)`. `market_snapshots` was
+  already change-only (bid, ask, open interest, plus a 6-hour heartbeat) and is unchanged.
+  `python scripts/check_change_only.py <ledger>` replays a real ledger through the new
+  writers and compares the readers.
+- **A daily archive.** Once per UTC day, `pbot ledger-archive` (a `paper.yml` step) moves
+  rows of markets that closed more than a day ago and were last seen over 7 days ago, and
+  order books older than 3 days, into `archive-YYYY-MM-DD.sqlite.gz` on the
+  `ledger-archive` release, then VACUUMs. Markets with an open position, order or maker
+  shadow stay. It deletes only after the upload is confirmed and only warns on failure.
+  Archived blocks keep their counts in `blocks_rollup` (the dashboard's all-time column),
+  and a maker shadow keeps its quote at expiry. The dashboard's 7-day block counts start
+  at midnight UTC seven days ago.
+
+For analysis across the whole history (needs `gh auth login`):
+
+```bash
+pbot ledger-archive-fetch --out analysis/paper.sqlite
+```
+
+It restores the hot ledger and merges every archive file into it, refusing if an id
+holds two different rows. Point `scripts/replay.py` and the other scripts at that file.
+
 In the workflow the restore fails closed: if the ledger cannot be downloaded and verified,
 the job fails before any strategy runs, and nothing is saved. `pbot ledger-save` refuses a
 database with fewer runs than it restored, uploads before it commits, and never

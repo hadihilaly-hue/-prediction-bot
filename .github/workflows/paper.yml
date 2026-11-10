@@ -193,6 +193,19 @@ jobs:
           pbot reference-gaps > ledger/polymarket_alias_gaps.md || true
           touch ledger/.nojekyll
 
+      # Once per UTC day: move rows of closed markets older than 7 days (order books
+      # older than 3 days) to the ledger-archive release, then VACUUM. Deletes nothing
+      # unless the archive file is uploaded and confirmed; any problem only warns, and
+      # the save below still runs.
+      - name: Archive old ledger rows
+        if: steps.guard.outputs.skip != 'true'
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PBOT_PAPER_DB_PATH: ledger/paper.sqlite
+        run: pbot ledger-archive --db ledger/paper.sqlite
+
       # Uploads the database as a new ledger-store release asset, then commits
       # ledger_manifest.json and the report files to paper-ledger (plain push).
       - name: Save ledger
