@@ -52,7 +52,7 @@ PGA Tour odds, so those series are not covered.
 | `sportsbook_v3` | The strategy the scheduled runs trade with (`PBOT_RULES_VERSION=v3`). Rules are under [Current rules (v5)](#current-rules-v5). |
 | `book_scanner` | Buys both YES and NO when the asks sum to < $1 after fees (locked profit; rare, mostly a pipeline check). |
 | `sportsbook_arb` | De-vigs h2h odds from several sportsbooks, averages them, and buys a team on Kalshi when its ask is below consensus probability minus fees and `PBOT_MIN_EDGE`. Only enters while the event still has `PBOT_MIN_LEAD_HOURS` (default 72) before it resolves — same-day entries in efficient markets lose. v1 rules; the workflow does not run it under v3. |
-| `underdog_value` | Same consensus model, but only buys sides priced 10c-40c (`PBOT_UNDERDOG_MIN_PRICE`/`MAX_PRICE`): skips near-certain favourites and takes the high-payout side when the books say it is undervalued. Tracked separately so its results can be compared with `sportsbook_arb`. Shares one odds fetch per cycle with `sportsbook_arb`, so it costs no extra quota. v1 rules; the workflow does not run it under v3. |
+| `underdog_value` | Same consensus model, but only buys sides priced 10c-25c (`PBOT_UNDERDOG_MIN_PRICE`/`MAX_PRICE`): skips near-certain favourites and takes the high-payout side when the books say it is undervalued. Tracked separately so its results can be compared with `sportsbook_arb`. Shares one odds fetch per cycle with `sportsbook_arb`, so it costs no extra quota. v1 rules. Under v3 it runs in shadow, and with `PBOT_UNDERDOG_LANE=paper` (the workflow default) its picks are entered as the underdog lane: resting paper orders that fill only when the market trades through them, beside an instant-fill comparison book. See [docs/CHANGES_underdog_lane.md](docs/CHANGES_underdog_lane.md). |
 
 Add a strategy by subclassing `prediction_bot.strategies.base.Strategy`, implementing
 `evaluate(markets) -> list[Signal]` (use `self.make_signal(...)` so fees, `min_edge`
@@ -219,6 +219,9 @@ An hourly `health.yml` workflow (GitHub's `:33` cron, plus a dispatch from the W
   can override them. The scheduled workflow reads them from the repository *variables*
   `PBOT_KILL_SWITCH` / `PBOT_MAX_DAILY_LOSS` (Settings → Secrets and variables → Actions →
   Variables), so you can pull the plug without a code change.
+* The underdog lane has its own daily stop, `PBOT_UNDERDOG_LANE_MAX_DAILY_LOSS` (default
+  50). `PBOT_MAX_DAILY_LOSS` does not count lane fills, so a bad underdog day pauses the
+  lane only; the kill switch and a global halt still stop the lane too.
 * `pbot report`, `PREDICTIONS.md` and the dashboard break settled count, wins, realized
   PnL and Brier out **per strategy**, so `book_scanner`, `sportsbook_arb` and
   `underdog_value` can be judged on their own.
