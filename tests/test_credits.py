@@ -594,3 +594,20 @@ def test_lost_credits_are_recorded_once_and_shown(tmp_path: Path) -> None:
     assert ledger.conn.execute("SELECT COUNT(*) FROM credit_gaps").fetchone() == (1,)
     assert ledger.credit_gap_month(now) == 9
     assert _cadence_data(ledger)["month_lost"] == 9
+
+
+# --- acceptance: the rest of November from the Nov 9 state -------------------------------
+
+
+def test_nov9_projection_keeps_the_rotation_funded_to_month_end(tmp_path: Path) -> None:
+    from scripts.simulate_pull_month import simulate_from_nov9
+
+    result = simulate_from_nov9(tmp_path)
+    assert result["rotation_by_day"].get("2026-11-30", 0) > 0
+    assert all(
+        low > OddsPacer.MEASURE_RESERVE
+        for day, low in result["lowest_by_day"].items()
+        if day < "2026-11-29"
+    )
+    assert result["left"] >= OddsPacer.MEASURE_RESERVE
+    assert result["measure_pulls"] <= 22  # at most one a day

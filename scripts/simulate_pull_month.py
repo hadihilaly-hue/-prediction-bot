@@ -16,7 +16,7 @@ from __future__ import annotations
 import argparse
 import tempfile
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -30,6 +30,7 @@ from prediction_bot.paper.ledger import Ledger
 from prediction_bot.pull_plan import (
     mark_pulled_ids,
     plan_allowance,
+    plan_allowance_left,
     plan_hold,
     select_plan_pull,
 )
@@ -147,33 +148,65 @@ def seed_slate(ledger: Ledger) -> None:
     ledger.conn.commit()
 
 
-def _ticks(minutes: tuple[int, ...]) -> list[datetime]:
+def _ticks(minutes: tuple[int, ...], start: datetime = START) -> list[datetime]:
     out = []
-    at = START
+    at = start.replace(minute=0, second=0, microsecond=0)
     while at < START + timedelta(days=30):
-        out.extend(at.replace(minute=m) for m in minutes)
+        out.extend(t for t in (at.replace(minute=m) for m in minutes) if t >= start)
         at += timedelta(hours=1)
     return out
 
 
+# Credits fix (Part 2): the state on 2026-11-09 20:55Z and the new policies.
+NOV9 = datetime(2026, 11, 9, 20, 55, tzinfo=UTC)
+NOV9_CREDITS = 266
+NOV9_MOVES_USED = 34  # move-trigger pulls Nov 1-9 (of the 50-credit reserve)
+NEW_MOVE_HOURS = (14, 18)  # cap 2 a day, at least 3 hours apart
+
+
 def simulate(
-    grid: str, cadence: str, workdir: Path, with_moves: bool = True, entry_share: float = 0.5
+    grid: str,
+    cadence: str,
+    workdir: Path,
+    with_moves: bool = True,
+    entry_share: float = 0.5,
+    *,
+    start: datetime = START,
+    credits: int = MONTH_CREDITS,
+    move_hours: tuple[int, ...] = MOVE_HOURS,
+    moves_used: int = 0,
+    measure_per_day: int = 0,
+    allowance_since: date | None = None,
 ) -> dict[str, Any]:
     settings = Settings(  # type: ignore[call-arg]
-        _env_file=None, rules_version="v3", odds_grid=grid, odds_entry_share=entry_share
+        _env_file=None,
+        rules_version="v3",
+        odds_grid=grid,
+        odds_entry_share=entry_share,
+        plan_allowance_since=allowance_since,
     )
     release = ReleaseCalendar.load(ROOT / "data" / "release_calendar.json")
     cadence_cal = CadenceCalendar.load(ROOT / "data" / "cadence_calendar.json")
     ledger = Ledger(workdir / f"month-{grid}-{cadence}.sqlite", Decimal("1000"))
     seed_slate(ledger)
-    client = Credits(MONTH_CREDITS)
+    for i in range(moves_used):  # move pulls before `start` draw on the reserve
+        ledger.conn.execute(
+            "INSERT INTO odds_triggers (created_at,feed,ticker,ask,status) "
+            "VALUES (?,'move',?,'0.5','pulled')",
+            ((START + timedelta(hours=i)).isoformat(), f"P{i}"),
+        )
+    client = Credits(credits)
+    rotation_by_day: dict[str, int] = defaultdict(int)
+    lowest_by_day: dict[str, int] = {}
     rotation = OddsPacer(client, 12, ledger=ledger, cadence_mode="off", calendar=cadence_cal)  # type: ignore[arg-type]
     rotation.rotation_share = 0.0 if grid == "fallback" else settings.odds_entry_share
     rotation.move_reserve = settings.odds_move_reserve
     rotation.rotation_holds_floor = True
     counts: dict[str, int] = defaultdict(int)
     plan_by_day: dict[str, int] = defaultdict(int)
-    for now in _ticks(CADENCES[cadence]):
+    for now in _ticks(CADENCES[cadence], start):
+        day = now.date().isoformat()
+        lowest_by_day[day] = min(lowest_by_day.get(day, client.left), client.left)
         # Every run records the Odds API balance, as `pbot paper` does.
         ledger.conn.execute(
             "INSERT INTO runs (ran_at,strategies,scanned,signals,filled,settled,cash,"
@@ -186,7 +219,21 @@ def simulate(
             rotation.plan_hold = hold
             budget = rotation.start_run(now)
             for i in range(budget):
-                counts["rotation"] += client.pull(f"rotation_{i}")
+                pulled = client.pull(f"rotation_{i}")
+                counts["rotation"] += pulled
+                rotation_by_day[day] += pulled
+            if measure_per_day and now.hour == 0:
+                # One shadow-only measurement pull a day, paid from the plan's share.
+                allowance = plan_allowance_left(ledger, settings, now)
+                if (
+                    (allowance is None or allowance >= 1)
+                    and rotation.grant_measure_credit("icehockey_nhl", measure_per_day, now)
+                    and client.pull("icehockey_nhl")
+                ):
+                    ledger.record_measure_pull(
+                        "icehockey_nhl", f"KXNHLGAME-{day}", "T-90m", now, now
+                    )
+                    counts["measure"] += 1
             pick = select_plan_pull(ledger, settings, now, calendar=release)
             if (
                 pick is not None
@@ -198,7 +245,7 @@ def simulate(
                 plan_by_day[now.date().isoformat()] += 1
             rotation.finish_run(now)
             continue
-        if now.minute == 47 and now.hour in MOVE_HOURS and with_moves:
+        if now.minute == 47 and now.hour in move_hours and with_moves:
             mover = OddsPacer(client, 12, ledger=ledger, trigger_mode=True)  # type: ignore[arg-type]
             mover.move_reserve = settings.odds_move_reserve
             mover.rotation_holds_floor = True
@@ -244,11 +291,15 @@ def simulate(
         "lowest_balance": min(int(lowest), client.left),
         "grid": grid,
         "cadence": cadence,
-        "spent": MONTH_CREDITS - client.left,
-        "spent_excluding_moves": MONTH_CREDITS - client.left - counts["move"],
+        "spent": credits - client.left,
+        "spent_excluding_moves": credits - client.left - counts["move"],
         "rotation_pulls": counts["rotation"],
         "plan_pulls": counts["plan"],
         "move_pulls": counts["move"],
+        "measure_pulls": counts["measure"],
+        "left": client.left,
+        "rotation_by_day": dict(rotation_by_day),
+        "lowest_by_day": lowest_by_day,
         # The plan's month allowance (its share of the usable credits) and its
         # busiest UTC day.
         "plan_allowance": round(allowance or 0, 1),
@@ -258,13 +309,42 @@ def simulate(
     }
 
 
+def simulate_from_nov9(workdir: Path) -> dict[str, Any]:
+    """The rest of November from the 2026-11-09 20:55Z state under the credits fix:
+    266 credits, 16 of the move reserve left, moves capped at 2 a day 3h apart, one
+    measurement pull a day, ODDS_ENTRY_SHARE 0.7, the plan allowance restarted Nov 9."""
+    return simulate(
+        "rotation",
+        "10min",
+        workdir,
+        entry_share=0.7,
+        start=NOV9,
+        credits=NOV9_CREDITS,
+        move_hours=NEW_MOVE_HOURS,
+        moves_used=NOV9_MOVES_USED,
+        measure_per_day=1,
+        allowance_since=NOV9.date(),
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--from-nov9", action="store_true", help="the credits-fix projection from Nov 9"
+    )
     parser.add_argument("--grid", choices=["rotation", "fallback"], action="append")
     parser.add_argument("--cadence", choices=sorted(CADENCES), action="append")
     parser.add_argument("--no-moves", action="store_true", help="simulate no move-trigger pulls")
     parser.add_argument("--entry-share", type=float, default=0.5, help="ODDS_ENTRY_SHARE")
     args = parser.parse_args()
+    if args.from_nov9:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = simulate_from_nov9(Path(tmp))
+        for key in ("rotation_pulls", "plan_pulls", "move_pulls", "measure_pulls", "spent", "left"):
+            print(f"{key}: {result[key]}")
+        print("rotation pulls by day:", result["rotation_by_day"])
+        print("lowest balance by day:", result["lowest_by_day"])
+        return
     with tempfile.TemporaryDirectory() as tmp:
         for grid in args.grid or ["rotation", "fallback"]:
             for cadence in args.cadence or ["10min", "cron"]:
