@@ -570,25 +570,31 @@ def merge_near_targets(ledger: Ledger, now: datetime) -> int:
     ledger.conn.execute(
         "UPDATE pull_plan SET merged_into=NULL WHERE status='planned' AND merged_into IS NOT NULL"
     )
+    # Only a row a pull really paid for or rode along with can absorb others (credits
+    # 2.6a); a row that was itself absorbed (credits 0, note 'merged:') never chains.
     rows = ledger.conn.execute(
-        "SELECT id,feed,priority,target_at,status FROM pull_plan WHERE source<>'close' "
-        "AND ((status='planned' AND window_end>=?) OR (status='pulled' AND pulled_at>=?)) "
+        "SELECT id,feed,priority,target_at,status,pulled_at FROM pull_plan "
+        "WHERE source<>'close' AND ((status='planned' AND window_end>=?) "
+        f"OR (status='pulled' AND pulled_at>=? AND {_REALLY_PULLED})) "
         "ORDER BY feed,CASE status WHEN 'pulled' THEN 0 ELSE 1 END,priority,target_at,id",
         (now.isoformat(), (now - RELEASE_WINDOW).isoformat()),
     ).fetchall()
-    survivors: dict[str, list[tuple[int, datetime]]] = {}
+    survivors: dict[str, list[tuple[int, datetime, datetime | None]]] = {}
     merges: list[tuple[int, int]] = []
-    for row_id, feed, _priority, target_at, status in rows:
+    for row_id, feed, _priority, target_at, status, pulled_at in rows:
         at = _utc(str(target_at))
         near = [
             (abs((at - other).total_seconds()), sid)
-            for sid, other in survivors.get(str(feed), [])
+            for sid, other, pulled in survivors.get(str(feed), [])
             if abs(at - other) <= MERGE_WINDOW
+            # A pull made before a target's time cannot satisfy it.
+            and (pulled is None or at <= pulled)
         ]
         if near and status == "planned":
             merges.append((min(near)[1], int(row_id)))
         else:
-            survivors.setdefault(str(feed), []).append((int(row_id), at))
+            pulled_time = _utc(str(pulled_at)) if status == "pulled" and pulled_at else None
+            survivors.setdefault(str(feed), []).append((int(row_id), at, pulled_time))
     if merges:
         ledger.conn.executemany("UPDATE pull_plan SET merged_into=? WHERE id=?", merges)
     _absorb_merged_into_pulled(ledger)
@@ -596,14 +602,21 @@ def merge_near_targets(ledger: Ledger, now: datetime) -> int:
     return len(merges)
 
 
+# A pull_plan row a pull really satisfied: it was paid, or rode along a paid pull.
+_REALLY_PULLED = "(credits>0 OR COALESCE(note,'') LIKE 'rode_along%')"
+
+
 def _absorb_merged_into_pulled(ledger: Ledger) -> None:
-    """Rows merged into a survivor that is already pulled count as pulled by it."""
+    """Rows merged into a survivor that is already pulled count as pulled by it, when
+    that survivor was really pulled and the pull came at or after the row's time."""
     ledger.conn.execute(
         "UPDATE pull_plan SET status='pulled',credits=0,"
         "pulled_at=(SELECT s.pulled_at FROM pull_plan s WHERE s.id=pull_plan.merged_into),"
         "note=COALESCE(note,'merged:'||merged_into) "
-        "WHERE status='planned' AND merged_into IN "
-        "(SELECT id FROM pull_plan WHERE status='pulled')"
+        "WHERE status='planned' AND EXISTS (SELECT 1 FROM pull_plan s "
+        "WHERE s.id=pull_plan.merged_into AND s.status='pulled' "
+        "AND (s.credits>0 OR COALESCE(s.note,'') LIKE 'rode_along%') "
+        "AND s.pulled_at>=pull_plan.target_at)"
     )
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -424,3 +425,75 @@ def test_a_late_cron_run_does_not_repeat_the_sportsbook_slot(
     # The scanner path keeps its window.
     ledger.record_run(["book_scanner"], 0, 0, 0, 0, at=datetime(2026, 11, 7, 20, 0, tzinfo=UTC))
     assert guard("scanner") == "skip"
+
+
+# --- 2.6a only a really pulled row absorbs, and only targets it came after ---------------
+
+
+def _plan_row(
+    ledger: Ledger,
+    event: str,
+    target_at: datetime,
+    *,
+    status: str = "planned",
+    credits: float = 0.0,
+    pulled_at: datetime | None = None,
+    note: str | None = None,
+    priority: int = 2,
+) -> int:
+    cursor = ledger.conn.execute(
+        "INSERT INTO pull_plan (event_ticker,feed,target,kickoff,target_at,window_start,"
+        "window_end,priority,status,credits,planned_at,pulled_at,source,note) "
+        "VALUES (?,'soccer_epl','K-90m',?,?,?,?,?,?,?,?,?,'kickoff',?)",
+        (event, (target_at + timedelta(minutes=90)).isoformat(), target_at.isoformat(),
+         target_at.isoformat(), (target_at + timedelta(minutes=60)).isoformat(), priority,
+         status, credits, target_at.isoformat(),
+         None if pulled_at is None else pulled_at.isoformat(), note),
+    )  # fmt: skip
+    ledger.conn.commit()
+    return int(cursor.lastrowid or 0)
+
+
+def _status_of(ledger: Ledger, row_id: int) -> tuple[str, Any]:
+    row = ledger.conn.execute(
+        "SELECT status,merged_into FROM pull_plan WHERE id=?", (row_id,)
+    ).fetchone()
+    return str(row[0]), row[1]
+
+
+def test_a_pull_never_absorbs_a_target_due_after_it(tmp_path: Path) -> None:
+    from prediction_bot.pull_plan import merge_near_targets
+
+    ledger = _ledger(tmp_path)
+    t = datetime(2026, 11, 7, 13, tzinfo=UTC)
+    paid = _plan_row(ledger, "E1", t, status="pulled", credits=1.0, pulled_at=t)
+    before = _plan_row(ledger, "E2", t - timedelta(minutes=15))
+    after = _plan_row(ledger, "E3", t + timedelta(minutes=15))
+    merge_near_targets(ledger, t + timedelta(minutes=1))
+    assert ledger.conn.execute("SELECT status FROM pull_plan WHERE id=?", (paid,)).fetchone() == (
+        "pulled",
+    )
+    assert _status_of(ledger, before) == ("pulled", paid)
+    # Its window opens 15 minutes after the pull: it stays to be pulled on its own.
+    assert _status_of(ledger, after) == ("planned", None)
+
+
+def test_an_absorbed_row_never_absorbs_further_rows(tmp_path: Path) -> None:
+    from prediction_bot.pull_plan import merge_near_targets
+
+    ledger = _ledger(tmp_path)
+    t = datetime(2026, 11, 7, 13, tzinfo=UTC)
+    absorbed = _plan_row(
+        ledger, "E1", t, status="pulled", credits=0.0, pulled_at=t + timedelta(minutes=30),
+        note="merged:1",
+    )  # fmt: skip
+    chained = _plan_row(ledger, "E2", t + timedelta(minutes=15))
+    rode = _plan_row(
+        ledger, "E3", t + timedelta(hours=2), status="pulled", pulled_at=t + timedelta(hours=2),
+        note="rode_along:rotation",
+    )  # fmt: skip
+    rider = _plan_row(ledger, "E4", t + timedelta(hours=2) - timedelta(minutes=10))
+    merge_near_targets(ledger, t + timedelta(minutes=5))
+    assert _status_of(ledger, chained) == ("planned", None)
+    assert _status_of(ledger, rider) == ("pulled", rode)
+    assert absorbed
