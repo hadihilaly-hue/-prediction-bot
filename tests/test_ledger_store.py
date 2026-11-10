@@ -103,7 +103,14 @@ def _make_db(path: Path, runs: int, now: datetime = NOW) -> Path:
 
 
 def _gz(path: Path) -> bytes:
-    return gzip.compress(path.read_bytes(), compresslevel=9, mtime=0)
+    """Gzip exactly as `ledger-save` does. gzip.compress() writes a different OS byte on
+    some Python versions (3 on 3.12, 255 on 3.13), which would make equal databases
+    look changed."""
+    out = path.with_suffix(".fixture.gz")
+    ls.gzip_file(path, out)
+    data = out.read_bytes()
+    out.unlink()
+    return data
 
 
 def _manifest_for(name: str, blob: bytes, runs: int) -> ls.Manifest:
