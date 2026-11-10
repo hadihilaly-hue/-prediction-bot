@@ -31,6 +31,8 @@ class PolyMarket:
     token_ids: tuple[str, ...]
     subject: str  # groupItemTitle when present (the team or "Draw" a Yes/No market is about)
     start: datetime | None
+    # Gamma's `sportsMarketType` ("moneyline", "spreads", "totals", ...) when it sends one.
+    market_type: str = ""
 
 
 @dataclass(frozen=True)
@@ -79,6 +81,7 @@ def parse_event(raw: dict[str, Any]) -> PolyEvent:
                 token_ids=tuple(tokens),
                 subject=str(market.get("groupItemTitle") or ""),
                 start=_time(market.get("gameStartTime")) or _time(market.get("startDate")),
+                market_type=str(market.get("sportsMarketType") or "").strip().casefold(),
             )
         )
     return PolyEvent(

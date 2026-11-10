@@ -28,18 +28,23 @@ def _near_miss(
     strategy: str = "sportsbook_v3",
     rules_version: str = "v3",
     would_trade: int = 0,
+    model_side: int | None = 1,
+    fair: str | None = None,
+    mid: str | None = None,
+    side: str = "yes",
+    tags: str | None = None,
 ) -> None:
     ledger.conn.execute(
         "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
-        "would_trade,reason,price,net_edge,clv_kalshi,clv_kalshi_bid,clv_status,commence_time) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "would_trade,reason,price,net_edge,clv_kalshi,clv_kalshi_bid,clv_status,commence_time,"
+        "model_side,fair,mid,tags) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             created_at,
             rules_version,
             window,
             strategy,
             ticker,
-            "yes",
+            side,
             would_trade,
             reason,
             price,
@@ -48,6 +53,10 @@ def _near_miss(
             clv_bid,
             status,
             KICKOFF.isoformat(),
+            model_side,
+            fair,
+            mid,
+            tags,
         ),
     )
 
@@ -163,4 +172,4 @@ def test_clv_report_command_prints_json(tmp_path, monkeypatch, capsys) -> None: 
     data = json.loads(capsys.readouterr().out)
     assert data["since"] == "2026-10-24"
     assert data["cohorts"]["v3_net_edge"]["metrics"]["clv_kalshi_bid"]["all"]["n"] == 1
-    assert data["rule"]["min_n"] == 50
+    assert data["rule"]["min_games"] == 30

@@ -1281,7 +1281,7 @@ _TEMPLATE = """<!doctype html>
 
   <section class="block">
     <h2>Measurement health</h2>
-    <p class="hint">How to read the evidence: a cohort counts as evidence only with 50+ scored rows and the whole 95% range of its closing-price gain above zero (rejected when the whole range is below zero). Profit and loss is not evidence: at this sample size it is mostly variance.</p>
+    <p class="hint">How to read the evidence: a cohort counts as evidence only with 30+ games and the whole 95% range of its closing-price gain <b>after fees</b> above zero (rejected when the whole range is below zero). The range is clustered by game, because rows from one game are not independent. Near-miss cohorts show the side the model favoured; their all-rows mean is minus half the spread by construction. Profit and loss is not evidence: at this sample size it is mostly variance.</p>
     <div class="cards" id="v5cards"></div>
     <div class="tablewrap" style="margin-top:14px"><table id="v5clv"></table></div>
     <details>
@@ -1342,9 +1342,10 @@ _TEMPLATE = """<!doctype html>
     </details>
     <details>
       <summary>Closing-line evidence by cohort (pbot clv-report)</summary>
-      <p class="hint">Cents per contract, counting only rows with a clean closing price. Mid and bid are Kalshi 5 minutes before kickoff; sharp is the devigged Pinnacle (or Circa/BetOnline) line in the last 20 minutes before kickoff; Polymarket is its mid in the last 35 minutes before kickoff (reference only, never traded). A cohort is supported at 50+ rows with the whole 95% range above zero, rejected with the whole range below zero, and open otherwise. Profit and loss is not evidence.</p>
+      <p class="hint">Cents per contract, counting only rows with a clean closing price. Mid and bid are Kalshi 5 minutes before kickoff; sharp is the devigged Pinnacle (or Circa/BetOnline) line in the last 20 minutes before kickoff; Polymarket is its mid in the last 35 minutes before kickoff (reference only, never traded). Net is after the per-contract Kalshi fee at the entry price (taker fee, or maker fee for maker cohorts). A cohort is supported at 30+ games with the whole game-clustered 95% range of net gain above zero, rejected with the whole range below zero, and open otherwise. Profit and loss is not evidence.</p>
       <label class="hint" for="clvr-cohort">Cohort </label><select id="clvr-cohort"></select>
       <div class="tablewrap"><table id="clvreport"></table></div>
+      <div class="tablewrap" style="margin-top:10px"><table id="clvdose"></table></div>
     </details>
     <details>
       <summary>Why bets were skipped, and data quality</summary>
@@ -1842,7 +1843,7 @@ _TEMPLATE = """<!doctype html>
   function renderClvReport() {
     const name = $('clvr-cohort').value;
     const cohort = (R.cohorts || {})[name];
-    if (!cohort) { table('clvreport', '', ['Group'], [], 'No CLV report yet.'); return; }
+    if (!cohort) { table('clvreport', '', ['Group'], [], 'No CLV report yet.'); table('clvdose', '', ['Fair − mid'], [], ''); return; }
     const mid = cohort.metrics.clv_kalshi || {};
     const bid = cohort.metrics.clv_kalshi_bid || {};
     const sharp = cohort.metrics.clv_sharp_close || {};
@@ -1852,9 +1853,16 @@ _TEMPLATE = """<!doctype html>
     const pick = (m, k, g) => k === 'all' ? m.all : (m[k] || {})[g];
     const rows = groups.map(([label, k, g]) => {
       const a = pick(mid, k, g) || {}, b = pick(bid, k, g) || {}, c = pick(sharp, k, g) || {}, d = pick(poly, k, g) || {};
-      return [label, String(a.n || 0), {v: signedCents(a.mean), cls: tone(a.mean)}, ciText(a), num(a.beat_close) ? pct(a.beat_close) : '–', verdictPill(a.verdict), {v: signedCents(b.mean), cls: tone(b.mean)}, verdictPill(b.verdict), String(c.n || 0), {v: signedCents(c.mean), cls: tone(c.mean)}, verdictPill(c.verdict), String(d.n || 0), {v: signedCents(d.mean), cls: tone(d.mean)}];
+      return [label, String(a.n || 0), String(a.games || 0), {v: signedCents(a.mean), cls: tone(a.mean)}, {v: signedCents(a.mean_net), cls: tone(a.mean_net)}, ciText(a), num(a.beat_close) ? pct(a.beat_close) : '–', verdictPill(a.verdict), {v: signedCents(b.mean_net), cls: tone(b.mean_net)}, verdictPill(b.verdict), String(c.n || 0), {v: signedCents(c.mean_net), cls: tone(c.mean_net)}, verdictPill(c.verdict), String(d.n || 0), {v: signedCents(d.mean), cls: tone(d.mean)}];
     });
-    table('clvreport', cohort.label + ' (' + String(cohort.rows || 0) + ' rows).', ['Group', '#Rows', '#Vs mid', 'Mid 95% range', '#Beat close', 'Mid verdict', '#Vs bid', 'Bid verdict', '#Sharp rows', '#Vs sharp close', 'Sharp verdict', '#Polymarket rows', '#Vs Polymarket'], rows, 'No scored rows yet.');
+    if (cohort.all_rows) {
+      const a = cohort.all_rows;
+      rows.push(['All rows, both sides (equals minus half the spread by construction)', String(a.n || 0), String(a.games || 0), {v: signedCents(a.mean), cls: tone(a.mean)}, {v: signedCents(a.mean_net), cls: tone(a.mean_net)}, ciText(a), num(a.beat_close) ? pct(a.beat_close) : '–', '', '', '', '', '', '', '', '']);
+    }
+    const head = cohort.headline ? ' Headline: ' + cohort.headline + '.' : '';
+    table('clvreport', cohort.label + ' (' + String(cohort.rows || 0) + ' rows, ' + String(cohort.games || 0) + ' games).' + head, ['Group', '#Rows', '#Games', '#Vs mid', '#Net of fee', 'Net 95% range (by game)', '#Beat close', 'Verdict', '#Bid, net', 'Bid verdict', '#Sharp rows', '#Sharp, net', 'Sharp verdict', '#Polymarket rows', '#Vs Polymarket'], rows, 'No scored rows yet.');
+    const dose = cohort.dose_response || [];
+    table('clvdose', dose.length ? 'Dose-response: both sides bucketed by how far the model fair was above the Kalshi mid (cents). Move is the mid-to-mid change to 5 minutes before kickoff; a real edge shows move rising with fair − mid.' : '', ['Fair − mid', '#Rows', '#Games', '#Mid move', '#Vs mid', '#Net of fee', 'Net 95% range', 'Verdict'], dose.map(b => [b.bucket, String(b.n || 0), String(b.games || 0), {v: signedCents(b.mean_move), cls: tone(b.mean_move)}, {v: signedCents(b.mean), cls: tone(b.mean)}, {v: signedCents(b.mean_net), cls: tone(b.mean_net)}, ciText(b), verdictPill(b.verdict)]), dose.length ? 'No rows.' : '');
   }
   $('clvr-cohort').innerHTML = Object.entries(R.cohorts || {}).map(([k, c]) => '<option value="' + esc(k) + '">' + esc(c.label) + '</option>').join('');
   $('clvr-cohort').addEventListener('change', renderClvReport);
@@ -1873,9 +1881,9 @@ _TEMPLATE = """<!doctype html>
     ['Bets beating the close', num(beat.beat_close) ? pct(beat.beat_close) : '–', (beat.n || 0) + ' paper bets with a clean Kalshi closing price', '']
   ];
   $('v5cards').innerHTML = v5cards.map(c => '<div class="stat"><div class="k">' + esc(c[0]) + '</div><div class="v ' + c[3] + '">' + esc(c[1]) + '</div><div class="d">' + esc(c[2]) + '</div></div>').join('');
-  table('v5clv', 'Closing-price gain by cohort, cents per contract (the pbot clv-report table; details by window, price, series and edge are under Details).', ['Cohort', '#Scored', '#Vs Kalshi mid', 'Mid 95% range', '#Beat close', 'Mid verdict', '#Vs Kalshi bid', 'Bid verdict', '#Sharp rows', '#Vs sharp close', 'Sharp verdict'], Object.values(R.cohorts || {}).map(c => {
+  table('v5clv', 'Closing-price gain by cohort, cents per contract (the pbot clv-report table; details by window, price, series and edge are under Details). Near-miss cohorts: favoured side only. Verdicts: 30+ games and the game-clustered 95% range of the gain after fees clear of zero.', ['Cohort', '#Scored', '#Games', '#Vs Kalshi mid', '#Net of fee', 'Net 95% range (by game)', '#Beat close', 'Verdict', '#Bid, net', 'Bid verdict', '#Sharp rows', '#Sharp, net', 'Sharp verdict'], Object.values(R.cohorts || {}).map(c => {
     const a = (c.metrics.clv_kalshi || {}).all || {}, b = (c.metrics.clv_kalshi_bid || {}).all || {}, s = (c.metrics.clv_sharp_close || {}).all || {};
-    return [c.label, String(a.n || 0), {v: signedCents(a.mean), cls: tone(a.mean)}, ciText(a), num(a.beat_close) ? pct(a.beat_close) : '–', verdictPill(a.verdict), {v: signedCents(b.mean), cls: tone(b.mean)}, verdictPill(b.verdict), String(s.n || 0), {v: signedCents(s.mean), cls: tone(s.mean)}, verdictPill(s.verdict)];
+    return [c.label + (c.headline ? ' (favoured side)' : ''), String(a.n || 0), String(a.games || 0), {v: signedCents(a.mean), cls: tone(a.mean)}, {v: signedCents(a.mean_net), cls: tone(a.mean_net)}, ciText(a), num(a.beat_close) ? pct(a.beat_close) : '–', verdictPill(a.verdict), {v: signedCents(b.mean_net), cls: tone(b.mean_net)}, verdictPill(b.verdict), String(s.n || 0), {v: signedCents(s.mean_net), cls: tone(s.mean_net)}, verdictPill(s.verdict)];
   }), 'No CLV report yet.');
   const ruleNames = {queue: 'Queue model (behind resting size, from the trade tape)', trade_through: 'Trade-through (price traded past ours)', optimistic: 'Optimistic (price touched ours)'};
   table('v5maker', 'Each rule decides whether a practice resting order would have filled. Drift is the Kalshi price at 5 minutes before kickoff minus our fill price, in cents: negative drift after fills means the fills were adverse.', ['Fill rule', '#Scored', '#Filled', '#Fill rate', '#Drift to close (mid)', '#Drift to close (bid)', '#Settled P&L'], ['queue', 'trade_through', 'optimistic'].map(k => {

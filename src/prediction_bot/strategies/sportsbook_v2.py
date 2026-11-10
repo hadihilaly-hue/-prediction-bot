@@ -248,6 +248,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             commence=commence,
             now=now,
             reason="thin_market",
+            mid=market.quote.mid_for(side),
             ask_depth=market.quote.ask_size_for(side),
             open_interest=market.open_interest,
         )
@@ -381,6 +382,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     if lagged
                     else "kalshi_followed",
                 ),
+                mid=quote.mid_for(side),
                 ask_depth=quote.ask_size_for(side),
                 open_interest=market.open_interest,
             )
@@ -440,6 +442,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         tags: tuple[str, ...] = (),
         ask_depth: Decimal | None = None,
         open_interest: Decimal | None = None,
+        mid: Decimal | None = None,
     ) -> None:
         """Queue a blocked candidate for near-miss CLV scoring.
 
@@ -470,6 +473,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     tags=tags or None,
                     available_size=ask_depth,
                     open_interest=open_interest,
+                    mid=mid,
                 ),
                 reason,
             )
@@ -562,13 +566,17 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             position_key = f"{event_ticker}:{position_outcome}"
             if any(sig.position_key == position_key for sig in self._line_move_decisions):
                 continue
+            # Priced at the side's ask: a follower would have to cross the spread.
+            ask = market.quote.ask_for(side)
+            if ask is None:
+                continue
             self._line_move_decisions.append(
                 Signal(
                     strategy="line_move_follower",
                     ticker=market.ticker,
                     side=side,
                     fair_prob=side_fair,
-                    limit_price=current_mid,
+                    limit_price=ask,
                     edge=abs(reference_delta),
                     size=Decimal(1),
                     rationale=(
@@ -581,6 +589,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     event_ticker=event_ticker,
                     tags=("line_move_follower",),
                     commence_time=commence,
+                    mid=current_mid,
                 )
             )
 
@@ -1799,6 +1808,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             commence=commence,
                             now=now,
                             reason="price_floor",
+                            mid=market.quote.mid_for(side),
                             ask_depth=ask_depth,
                             open_interest=market.open_interest,
                         )
@@ -1829,6 +1839,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             commence=commence,
                             now=now,
                             tags=self._threshold_tags(price),
+                            mid=market.quote.mid_for(side),
                             ask_depth=ask_depth,
                             open_interest=market.open_interest,
                         )
@@ -1903,6 +1914,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                                 commence=commence,
                                 now=now,
                                 reason="price_floor",
+                                mid=active_market.quote.mid_for(side),
                                 ask_depth=active_market.quote.ask_size_for(side),
                                 open_interest=active_market.open_interest,
                             )
@@ -1943,6 +1955,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                                 commence=commence,
                                 now=now,
                                 tags=self._threshold_tags(price),
+                                mid=active_market.quote.mid_for(side),
                                 ask_depth=active_market.quote.ask_size_for(side),
                                 open_interest=active_market.open_interest,
                             )
@@ -1984,6 +1997,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             commence=commence,
                             now=now,
                             tags=self._threshold_tags(price),
+                            mid=active_market.quote.mid_for(side),
                             ask_depth=active_market.quote.ask_size_for(side),
                             open_interest=active_market.open_interest,
                         )
@@ -2038,6 +2052,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         ),
                         commence_time=commence,
                         maker_price=maker_price if maker_candidate else None,
+                        mid=active_market.quote.mid_for(side),
                     )
                     tags = {"value"} if is_main_candidate or maker_candidate else set()
                     if reference_source == "soft_reference":
