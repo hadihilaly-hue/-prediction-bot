@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from prediction_bot.config import Settings
 from prediction_bot.odds_planner import PlannedGame, _priority
+from prediction_bot.teams import evaluable_feed
 
 if TYPE_CHECKING:
     import sqlite3
@@ -104,7 +105,7 @@ def select_measure_pull(
             recent[str(feed)] = recent.get(str(feed), 0) + 1
     candidates: list[tuple[int, int, datetime, int, MeasurePull]] = []
     for order, feed in enumerate(settings.measure_feeds):
-        if feed in excluded:
+        if feed in excluded or not evaluable_feed(feed):
             continue
         upcoming = [g for g in games_by_sport.get(feed, ()) if _utc(g.kickoff) > now_utc]
         if not upcoming:
@@ -250,6 +251,8 @@ def compute_feed_stats(ledger: Ledger, feeds: Iterable[str], now: datetime) -> d
 
 
 def eligible(stat: FeedStat, settings: Settings) -> bool:
+    if not evaluable_feed(stat.feed):
+        return False
     return stat.lead_p90_h >= settings.min_lead_hours + 6 and (
         settings.rules_version == "v1" or stat.feed not in settings.v2_disabled_sports
     )

@@ -84,6 +84,7 @@ from prediction_bot.strategies import (
     SportsbookV2Strategy,
     Strategy,
 )
+from prediction_bot.teams import evaluable_feed
 from prediction_bot.venues.kalshi import KalshiClient
 from prediction_bot.venues.kalshi_auth import KalshiSigner
 from prediction_bot.venues.polymarket import PolymarketClient
@@ -718,6 +719,7 @@ def paper(
                     pick = select_plan_pull(ledger, s, now, exclude=planned, calendar=release_cal)
                     if (
                         pick is not None
+                        and evaluable_feed(pick.feed)
                         and _plan_games_listed(odds, ledger, pick.feed, now)
                         and pacer.grant_extra_credit(pick.feed, floor=pacer.plan_floor(now))
                     ):
@@ -731,8 +733,22 @@ def paper(
                 log.exception("Lead-aware odds planning failed; no odds feeds selected")
         elif odds is not None:
             odds.allowed_sports = None
+        if odds is not None and odds.allowed_sports is not None:
+            # No credit on a feed v3 cannot evaluate (unmapped teams, MMA), whichever
+            # path selected it.
+            odds.allowed_sports = {f for f in odds.allowed_sports if evaluable_feed(f)}
         cycle_started_at = datetime.now(timezone.utc)
+        credits_before = dict(getattr(odds, "pulled_credits", {}) or {})
         res = engine.run_cycle(markets)
+        if odds is not None:
+            spent = {
+                feed: n - credits_before.get(feed, 0)
+                for feed, n in (getattr(odds, "pulled_credits", {}) or {}).items()
+            }
+            try:
+                ledger.record_shadow_only_pulls(spent, cycle_started_at, s.rules_version)
+            except Exception:
+                log.exception("Shadow-only feed_pulls accounting failed")
         for strat in (*strats, *shadow_strategies):
             if isinstance(strat, SportsbookV2Strategy):
                 strat.measure_only_feeds = set()

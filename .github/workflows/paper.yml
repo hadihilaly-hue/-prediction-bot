@@ -109,7 +109,7 @@ jobs:
           PBOT_ENTRY_WINDOW_MAX_HOURS: ${{ vars.PBOT_ENTRY_WINDOW_MAX_HOURS || '168' }}
           # Shadow-only T-6h / T-90m pulls for feeds that never reach the window;
           # set the cap Variable to 0 to stop them.
-          PBOT_MEASURE_FEEDS: ${{ vars.PBOT_MEASURE_FEEDS || 'icehockey_nhl,basketball_nba,basketball_ncaab' }}
+          PBOT_MEASURE_FEEDS: ${{ vars.PBOT_MEASURE_FEEDS || 'icehockey_nhl,basketball_nba' }}
           PBOT_MEASURE_DAILY_CREDIT_CAP: ${{ vars.PBOT_MEASURE_DAILY_CREDIT_CAP || '2' }}
           # Per-game pull targets (T-24h/T-6h/T-90m/T-10m) may spend the share of each
           # day's credits the rotation does not keep; 'off' disables the plan.

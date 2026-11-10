@@ -720,6 +720,8 @@ class Ledger:
                 "event_ticker": "TEXT",
             },
             "feed_pulls": {
+                # Credits 2.2: a pull no primary strategy recorded (a shadow fetched it).
+                "shadow_only": "INTEGER NOT NULL DEFAULT 0",
                 "requests_last": "INTEGER",
                 "gate_candidates": "INTEGER",
                 "pull_plan_id": "INTEGER",
@@ -2109,6 +2111,36 @@ class Ledger:
         self.conn.executemany(
             "INSERT INTO feed_pulls "
             "(created_at,feed,rules_version,candidates,requests_last) VALUES (?,?,?,?,?)",
+            rows,
+        )
+        if rows:
+            self.conn.commit()
+        return len(rows)
+
+    def record_shadow_only_pulls(
+        self,
+        credits: Mapping[str, int],
+        since: datetime,
+        rules_version: str,
+        at: datetime | None = None,
+    ) -> int:
+        """A `feed_pulls` row (candidates 0, shadow_only) for every feed that spent
+        credits this cycle without a row since `since`, so no credit goes unrecorded.
+        Only primary strategies write `feed_pulls`; a shadow strategy's fetch did not."""
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        start = self._utc(since).isoformat()
+        rows = [
+            (stamp, feed, rules_version, int(spent))
+            for feed, spent in sorted(credits.items())
+            if spent > 0
+            and self.conn.execute(
+                "SELECT 1 FROM feed_pulls WHERE feed=? AND created_at>=?", (feed, start)
+            ).fetchone()
+            is None
+        ]
+        self.conn.executemany(
+            "INSERT INTO feed_pulls (created_at,feed,rules_version,candidates,requests_last,"
+            "shadow_only) VALUES (?,?,?,0,?,1)",
             rows,
         )
         if rows:

@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 from prediction_bot import kickoffs
 from prediction_bot.config import Settings
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
+from prediction_bot.teams import evaluable_feed, event_teams_mapped
 
 if TYPE_CHECKING:
     from prediction_bot.paper.ledger import Ledger
@@ -110,9 +111,15 @@ def plan_kickoffs(
     'kalshi_expiry' estimate here).
     """
     now = _utc(now)
-    wanted = set(feeds)
+    wanted = {feed for feed in feeds if evaluable_feed(feed)}
     kickoffs.sync_snapshots(conn)
     cutoff = (now - SNAPSHOT_MAX_AGE).isoformat()
+    legs: dict[str, set[str]] = {}
+    for event_ticker, ticker in conn.execute(
+        "SELECT DISTINCT event_ticker,ticker FROM market_snapshots WHERE fetched_at>=?",
+        (cutoff,),
+    ):
+        legs.setdefault(str(event_ticker), set()).add(str(ticker))
     events: dict[str, str] = {}
     expirations: dict[str, tuple[str, str]] = {}
     # Bare columns with MAX(fetched_at) come from the latest snapshot of each event.
@@ -123,6 +130,9 @@ def plan_kickoffs(
     ):
         feed = KALSHI_SERIES_TO_SPORT.get(str(event_ticker).split("-", 1)[0])
         if feed is None or feed not in wanted:
+            continue
+        # A game whose teams cannot all be mapped can never be linked to the books.
+        if not event_teams_mapped(str(event_ticker), legs.get(str(event_ticker), ())):
             continue
         events[str(event_ticker)] = feed
         expirations[str(event_ticker)] = (str(expiration), str(fetched_at))
@@ -142,6 +152,46 @@ def _close_allowed(conn: sqlite3.Connection, event_ticker: str, feed: str) -> bo
     return kickoffs.resolve_odds(conn, event_ticker) is not None
 
 
+def supersede_unevaluable(ledger: Ledger) -> int:
+    """Still-planned rows that can never pay off: feeds v3 cannot evaluate
+    ('unevaluable_feed') and per-event rows whose team legs do not all map
+    ('unmapped_teams'). Returns rows changed."""
+    changed = 0
+    for feed in {
+        str(f)
+        for (f,) in ledger.conn.execute(
+            "SELECT DISTINCT feed FROM pull_plan WHERE status='planned'"
+        )
+    }:
+        if not evaluable_feed(feed):
+            changed += ledger.conn.execute(
+                "UPDATE pull_plan SET status='superseded',note='unevaluable_feed' "
+                "WHERE status='planned' AND feed=?",
+                (feed,),
+            ).rowcount
+    events = [
+        str(e)
+        for (e,) in ledger.conn.execute(
+            "SELECT DISTINCT event_ticker FROM pull_plan WHERE status='planned' "
+            f"AND event_ticker NOT LIKE '{FEED_EVENT_PREFIX}%'"
+        )
+    ]
+    for event in events:
+        tickers = [
+            str(t)
+            for (t,) in ledger.conn.execute(
+                "SELECT DISTINCT ticker FROM market_snapshots WHERE event_ticker=?", (event,)
+            )
+        ]
+        if tickers and not event_teams_mapped(event, tickers):
+            changed += ledger.conn.execute(
+                "UPDATE pull_plan SET status='superseded',note='unmapped_teams' "
+                "WHERE status='planned' AND event_ticker=?",
+                (event,),
+            ).rowcount
+    return changed
+
+
 def retime_planned(ledger: Ledger, now: datetime) -> int:
     """Keep still-planned per-event rows on the resolved kickoff.
 
@@ -151,7 +201,7 @@ def retime_planned(ledger: Ledger, now: datetime) -> int:
     Returns rows changed.
     """
     now = _utc(now)
-    changed = 0
+    changed = supersede_unevaluable(ledger)
     rows = ledger.conn.execute(
         "SELECT id,event_ticker,feed,target,kickoff,target_at,window_start,window_end,"
         "priority,source,entry,max_per_day FROM pull_plan WHERE status='planned' "
@@ -423,7 +473,7 @@ def plan_feed_targets(
     """
 
     now = _utc(now)
-    feeds = sorted(set(feeds))
+    feeds = sorted({feed for feed in feeds if evaluable_feed(feed)})
     games: dict[str, list[datetime]] = {}
     for _event, (feed, kickoff) in plan_kickoffs(ledger.conn, feeds, now, GAME_LOOKAHEAD).items():
         games.setdefault(feed, []).append(kickoff)

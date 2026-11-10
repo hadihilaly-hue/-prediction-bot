@@ -25,7 +25,7 @@ from prediction_bot import kickoffs
 from prediction_bot.cadence import CadenceCalendar
 from prediction_bot.cli import _refresh_pull_plan
 from prediction_bot.config import Settings
-from prediction_bot.odds import OddsPacer
+from prediction_bot.odds import KALSHI_SERIES_TO_SPORT, OddsPacer
 from prediction_bot.paper.ledger import Ledger
 from prediction_bot.pull_plan import (
     mark_pulled_ids,
@@ -34,6 +34,7 @@ from prediction_bot.pull_plan import (
     select_plan_pull,
 )
 from prediction_bot.release_calendar import ReleaseCalendar
+from prediction_bot.teams import _TEAMS
 
 UTC = timezone.utc
 ROOT = Path(__file__).parents[1]
@@ -80,6 +81,14 @@ class Credits:
         return True
 
 
+def team_code(event: str) -> str:
+    """A Kalshi team code that maps for the event's series (plan targets are only
+    made for games whose team legs all map)."""
+    sport = KALSHI_SERIES_TO_SPORT[event.split("-", 1)[0]]
+    teams = _TEAMS[sport]
+    return str(teams[sorted(teams)[0]]["kalshi_codes"][0])
+
+
 def _game(ledger: Ledger, event: str, kickoff: datetime, offset_h: float = 3) -> None:
     ledger.conn.execute(
         "INSERT INTO market_snapshots (fetched_at,ticker,event_ticker,series,yes_bid,yes_ask,"
@@ -87,7 +96,7 @@ def _game(ledger: Ledger, event: str, kickoff: datetime, offset_h: float = 3) ->
         "VALUES (?,?,?,?,'0.48','0.50','100','100','10','10',?)",
         (
             (kickoff - timedelta(hours=30)).isoformat(),
-            f"{event}-A",
+            f"{event}-{team_code(event)}",
             event,
             event.split("-", 1)[0],
             (kickoff + timedelta(hours=offset_h)).isoformat(),

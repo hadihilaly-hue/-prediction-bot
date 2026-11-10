@@ -284,6 +284,9 @@ class OddsClient:
         # after the cycle (pull-plan marking, measurement pulls, extra credits) reads
         # this instead.
         self.pulled_feeds: set[str] = set()
+        # Credits spent per feed over the client's life (x-requests-last, 1 when
+        # missing); never cleared, so callers diff it around a cycle.
+        self.pulled_credits: dict[str, int] = {}
         self.events_free = True
         self._events_requests_used_baseline: int | None = None
         self._memo: dict[tuple[str, str, str], tuple[float, list[dict[str, Any]]]] = {}
@@ -349,6 +352,9 @@ class OddsClient:
         else:
             self.requests_last_by_sport[sport] = requests_last_value
         self.pulled_feeds.add(sport)
+        self.pulled_credits[sport] = self.pulled_credits.get(sport, 0) + (
+            requests_last_value if requests_last_value is not None else 1
+        )
         log.info("odds api: %s x-requests-last=%s", sport, requests_last)
         if requests_last != "1":
             log.error(

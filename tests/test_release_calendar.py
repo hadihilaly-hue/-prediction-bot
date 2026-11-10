@@ -24,6 +24,7 @@ from prediction_bot.pull_plan import (
     tag_pull_rows,
 )
 from prediction_bot.release_calendar import ReleaseCalendar, plan_priority
+from scripts.simulate_pull_month import team_code
 
 UTC = timezone.utc
 ROOT = Path(__file__).parents[1]
@@ -52,7 +53,7 @@ def _game(ledger: Ledger, event: str, kickoff: datetime, offset_h: float = 3) ->
         "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (
             (kickoff - timedelta(hours=30)).isoformat(),
-            f"{event}-A",
+            f"{event}-{team_code(event)}",
             event,
             event.split("-", 1)[0],
             "0.48",

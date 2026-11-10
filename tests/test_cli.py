@@ -704,7 +704,7 @@ def test_plan_run_marks_its_target_pulled_after_the_engine_clears_requests_last(
         "yes_bid_size,yes_ask_size,open_interest,volume,expected_expiration) "
         "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (
-            (now - timedelta(hours=1)).isoformat(), "KXNFLGAME-X-A", "KXNFLGAME-X",
+            (now - timedelta(hours=1)).isoformat(), "KXNFLGAME-X-KC", "KXNFLGAME-X",
             "KXNFLGAME", "0.48", "0.50", "100", "100", "10", "10",
             (kickoff + timedelta(hours=3)).isoformat(),
         ),

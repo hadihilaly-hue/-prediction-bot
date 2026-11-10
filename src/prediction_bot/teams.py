@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -73,6 +74,32 @@ def mapped_odds_names(sport: str) -> set[str] | None:
     if not teams:
         return None
     return {name for aliases in teams.values() for name in aliases["odds_names"]}
+
+
+# v3 never evaluates these even when teams map (sportsbook_v2 blocks them as
+# 'unsupported_series'), so no credit may be spent on them.
+UNEVALUABLE_FEEDS = frozenset({"mma_mixed_martial_arts"})
+_DRAW_CODES = frozenset({"TIE", "DRAW"})
+
+
+def evaluable_feed(feed: str) -> bool:
+    """Whether v3 can use an odds pull of `feed`: its teams map and it is supported."""
+    return feed not in UNEVALUABLE_FEEDS and mapped_odds_names(feed) is not None
+
+
+def event_teams_mapped(event_ticker: str, tickers: Iterable[str]) -> bool:
+    """True when every team leg of the event (ticker suffix after the event) maps.
+
+    Draw legs are ignored; an event with no team leg at all does not count as mapped.
+    """
+    series = event_ticker.split("-", 1)[0]
+    prefix = f"{event_ticker}-"
+    codes = {
+        ticker[len(prefix) :]
+        for ticker in tickers
+        if ticker.startswith(prefix) and ticker[len(prefix) :].upper() not in _DRAW_CODES
+    }
+    return bool(codes) and all(team_for_code(series, code) is not None for code in codes)
 
 
 def team_for_odds_name(sport: str, name: str) -> str | None:
