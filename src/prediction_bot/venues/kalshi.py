@@ -409,3 +409,298 @@ class KalshiClient:
     def cancel_order(self, order_id: str) -> JSON:
         self._require_auth()
         return self._request("DELETE", f"/portfolio/events/orders/{order_id}")
+
+
+# ---- public trade tape (maker backtest) ------------------------------------
+#
+# Added for scripts/maker_backtest.py. These sit beside `parse_trade`/`get_trades`
+# and leave them untouched: the backtest needs the trade id, the block-trade flag,
+# Kalshi's newer `taker_outcome_side` field and the /historical endpoints, and it
+# pages without a cap under its own request budget.
+
+
+class TapeUnavailable(RuntimeError):
+    """An endpoint refused the request outright (e.g. /historical/trades without a key)."""
+
+
+class BudgetExhausted(RuntimeError):
+    """The run reached its request budget; resume from the cache on the next run."""
+
+
+class PublicTrade:
+    """One row of Kalshi's public trade tape, normalised.
+
+    `taker_side` is the side the taker bought: `taker_outcome_side` when present,
+    else the deprecated `taker_side`. A taker who sells YES into a resting YES bid
+    shows `taker_outcome_side = no`.
+    """
+
+    __slots__ = (
+        "trade_id",
+        "ticker",
+        "created_at",
+        "yes_price",
+        "count",
+        "taker_side",
+        "is_block",
+        "raw_taker_side",
+        "raw_taker_outcome_side",
+    )
+
+    def __init__(
+        self,
+        *,
+        trade_id: str,
+        ticker: str,
+        created_at: datetime,
+        yes_price: Decimal,
+        count: Decimal,
+        taker_side: OutcomeSide,
+        is_block: bool = False,
+        raw_taker_side: str | None = None,
+        raw_taker_outcome_side: str | None = None,
+    ) -> None:
+        self.trade_id = trade_id
+        self.ticker = ticker
+        self.created_at = created_at
+        self.yes_price = yes_price
+        self.count = count
+        self.taker_side = taker_side
+        self.is_block = is_block
+        self.raw_taker_side = raw_taker_side
+        self.raw_taker_outcome_side = raw_taker_outcome_side
+
+    def _key(self) -> tuple[Any, ...]:
+        return tuple(getattr(self, name) for name in self.__slots__)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, PublicTrade) and self._key() == other._key()
+
+    def __hash__(self) -> int:
+        return hash(self._key())
+
+    def __repr__(self) -> str:
+        return f"PublicTrade({self.trade_id!r}, {self.ticker!r}, {self.created_at.isoformat()})"
+
+    def to_trade(self) -> Trade:
+        return Trade(
+            ticker=self.ticker,
+            created_at=self.created_at,
+            count=self.count,
+            yes_price=self.yes_price,
+            taker_side=self.taker_side,
+        )
+
+
+def _trade_ts(value: object) -> datetime | None:
+    """A trade timestamp as aware UTC. Unlike `_ts`, tolerates any number of fractional
+    digits (Python 3.10's fromisoformat takes only 3 or 6) and returns None when the
+    text is not a timestamp."""
+    if not isinstance(value, str) or not value:
+        return None
+    text = value.strip().replace("Z", "+00:00")
+    head, dot, rest = text.partition(".")
+    if dot:
+        digits = len(rest) - len(rest.lstrip("0123456789"))
+        text = f"{head}.{rest[:digits][:6].ljust(6, '0')}{rest[digits:]}"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
+
+
+def _side_text(value: object) -> str | None:
+    text = str(value or "").strip().lower()
+    return text or None
+
+
+def parse_public_trade(row: JSON) -> PublicTrade | None:
+    """Parse one public trade row (live or historical); None when a needed field is missing.
+
+    Side: `taker_outcome_side`, falling back to `taker_side` (deprecated by Kalshi).
+    Price: `yes_price_dollars`, then `no_price_dollars`, then legacy `yes_price` in
+    cents (then legacy `no_price`). Count: `count_fp`, then `count`.
+    """
+    outcome = _side_text(row.get("taker_outcome_side"))
+    legacy = _side_text(row.get("taker_side"))
+    side = outcome or legacy
+    created = _trade_ts(row.get("created_time"))
+    trade_id = str(row.get("trade_id") or "")
+    yes_price: Decimal | None
+    dollars = row.get("yes_price_dollars")
+    no_dollars = row.get("no_price_dollars")
+    if dollars not in (None, ""):
+        yes_price = _dec(dollars)
+    elif no_dollars not in (None, ""):
+        yes_price = Decimal(1) - _dec(no_dollars)
+    else:
+        yes_price = _price_dollars({"yes_price": row.get("yes_price")}, "yes_price")
+        if yes_price is None:
+            no_price = _price_dollars({"no_price": row.get("no_price")}, "no_price")
+            yes_price = None if no_price is None else Decimal(1) - no_price
+    count = _opt_dec(row.get("count_fp"))
+    if count is None:
+        count = _opt_dec(row.get("count"))
+    if (
+        created is None
+        or not trade_id
+        or side not in {"yes", "no"}
+        or yes_price is None
+        or count is None
+    ):
+        return None
+    return PublicTrade(
+        trade_id=trade_id,
+        ticker=str(row.get("ticker", "")),
+        created_at=created.astimezone(timezone.utc),
+        yes_price=yes_price,
+        count=count,
+        taker_side=OutcomeSide(side),
+        is_block=bool(row.get("is_block_trade") or False),
+        raw_taker_side=legacy,
+        raw_taker_outcome_side=outcome,
+    )
+
+
+def parse_cutoff_ts(value: object) -> int | None:
+    """`trades_created_ts` from /historical/cutoff as Unix seconds (ISO text, s or ms)."""
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    if isinstance(value, (int, float)) or text.replace(".", "", 1).isdigit():
+        number = int(float(text))
+        return number // 1000 if number > 10**11 else number
+    parsed = _ts(text)
+    return None if parsed is None else int(parsed.timestamp())
+
+
+class PoliteFetcher:
+    """GET-only public Kalshi client with a request budget, a rate limit and retries.
+
+    At most `rate_per_sec` requests a second; 429, 5xx and transport errors retry
+    with exponential backoff up to `tries` attempts. Every attempt counts against
+    `max_calls`; reaching it raises `BudgetExhausted` before the request is sent.
+    401/403/404 raise `TapeUnavailable`; other 4xx raise `KalshiError`.
+    """
+
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        max_calls: int = 6000,
+        rate_per_sec: float = 4.0,
+        tries: int = 5,
+        client: httpx.Client | None = None,
+        sleep: Any = time.sleep,
+        monotonic: Any = time.monotonic,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.max_calls = max_calls
+        self.min_interval = 1.0 / rate_per_sec
+        self.tries = tries
+        self.calls = 0
+        self._client = client or httpx.Client(timeout=30.0)
+        self._sleep = sleep
+        self._monotonic = monotonic
+        self._last: float | None = None
+        self._cutoff: int | None = None
+        self._cutoff_loaded = False
+
+    def get(self, path: str, params: JSON | None = None) -> JSON:
+        url = f"{self.base_url}{path}"
+        for attempt in range(self.tries):
+            if self.calls >= self.max_calls:
+                raise BudgetExhausted(f"reached --max-calls={self.max_calls}")
+            if self._last is not None:
+                wait = self.min_interval - (self._monotonic() - self._last)
+                if wait > 0:
+                    self._sleep(wait)
+            self._last = self._monotonic()
+            self.calls += 1
+            last_try = attempt == self.tries - 1
+            try:
+                resp = self._client.get(url, params=params)
+            except httpx.TransportError as exc:
+                if last_try:
+                    raise KalshiError(0, f"transport error on {path}: {exc}") from exc
+                self._sleep(2.0**attempt)
+                continue
+            if resp.status_code == 429 or resp.status_code >= 500:
+                if last_try:
+                    raise KalshiError(resp.status_code, resp.text)
+                self._sleep(2.0**attempt)
+                continue
+            if resp.status_code in (401, 403, 404):
+                raise TapeUnavailable(f"{path}: HTTP {resp.status_code}: {resp.text[:200]}")
+            if resp.status_code >= 400:
+                raise KalshiError(resp.status_code, resp.text)
+            return cast(JSON, resp.json()) if resp.content else {}
+        raise KalshiError(0, f"retries exhausted on {path}")  # pragma: no cover
+
+    def cutoff_ts(self) -> int | None:
+        """GET /historical/cutoff once per fetcher; None when it is unavailable."""
+        if not self._cutoff_loaded:
+            self._cutoff_loaded = True
+            try:
+                data = self.get("/historical/cutoff")
+            except TapeUnavailable:
+                data = {}
+            self._cutoff = parse_cutoff_ts(data.get("trades_created_ts"))
+        return self._cutoff
+
+
+LIVE_TRADES_PATH = "/markets/trades"
+HISTORICAL_TRADES_PATH = "/historical/trades"
+
+
+def trade_segments(min_ts: int, max_ts: int, cutoff: int | None) -> list[tuple[str, int, int]]:
+    """Split [min_ts, max_ts] by the historical cutoff into (path, lo, hi) segments.
+
+    Windows at or after the cutoff use /markets/trades, windows before it use
+    /historical/trades, and a window that straddles it uses both, split at the
+    cutoff. With no known cutoff everything goes to /markets/trades.
+    """
+    if cutoff is None or min_ts >= cutoff:
+        return [(LIVE_TRADES_PATH, min_ts, max_ts)]
+    if max_ts < cutoff:
+        return [(HISTORICAL_TRADES_PATH, min_ts, max_ts)]
+    return [(HISTORICAL_TRADES_PATH, min_ts, cutoff), (LIVE_TRADES_PATH, cutoff, max_ts)]
+
+
+def iter_segment(
+    fetcher: PoliteFetcher, path: str, ticker: str, min_ts: int, max_ts: int
+) -> Iterator[JSON]:
+    """Every raw trade row of one endpoint between two timestamps, following the cursor
+    until it is empty (limit 1000, no page cap)."""
+    params: JSON = {"ticker": ticker, "min_ts": min_ts, "max_ts": max_ts, "limit": 1000}
+    cursor: str | None = None
+    while True:
+        page = dict(params)
+        if cursor:
+            page["cursor"] = cursor
+        data = fetcher.get(path, page)
+        yield from data.get("trades") or []
+        cursor = data.get("cursor") or None
+        if not cursor:
+            return
+
+
+def iter_trades(
+    fetcher: PoliteFetcher, ticker: str, min_ts: int, max_ts: int
+) -> Iterator[tuple[JSON, PublicTrade | None]]:
+    """(raw row, parsed trade) for `ticker` in [min_ts, max_ts], de-duplicated by trade_id.
+
+    Reads the historical cutoff once (cached on the fetcher) and routes each part of
+    the window to its endpoint (see `trade_segments`). Errors propagate, including
+    `TapeUnavailable` and `BudgetExhausted`.
+    """
+    seen: set[str] = set()
+    for path, lo, hi in trade_segments(min_ts, max_ts, fetcher.cutoff_ts()):
+        for row in iter_segment(fetcher, path, ticker, lo, hi):
+            key = str(row.get("trade_id") or "")
+            if key in seen:
+                continue
+            if key:
+                seen.add(key)
+            yield row, parse_public_trade(row)

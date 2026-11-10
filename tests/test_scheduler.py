@@ -84,7 +84,8 @@ def test_paper_workflow_takes_the_slot_from_the_dispatch_input() -> None:
         'DECISION="$(pbot slot-guard --slot "$SLOT" --within-minutes 25 --plan-due)"'
     ) in workflow
     assert "      target:" in workflow and 'pbot pull-due --target "$TARGET"' in workflow
-    assert workflow.count("if: steps.guard.outputs.skip != 'true'") == 2
+    # Run cycle, archive old rows, save: none of them on a light tick.
+    assert workflow.count("if: steps.guard.outputs.skip != 'true'") == 3
     # The GitHub schedule stays as the fallback, off :00.
     for cron in ('"17 */2 * * *"', '"47 * * * *"', '"17 1-23/2 * * *"'):
         assert f"- cron: {cron}" in workflow
@@ -128,7 +129,7 @@ def test_ledger_lives_on_the_release_not_in_branch_history() -> None:
     assert steps < restore < guard < paper.index("pbot paper -s book_scanner")
     assert paper.index("pbot paper -s book_scanner") < paper.index("pbot ledger-save", steps)
     assert "timeout-minutes: 5" in paper[paper.index("- name: Restore ledger") : restore]
-    assert paper.count("GH_TOKEN: ${{ github.token }}") == 2
+    assert paper.count("GH_TOKEN: ${{ github.token }}") == 3  # restore, archive, save
     assert "gzip -9 -n -c ledger/paper.sqlite > wt/paper.sqlite.gz" not in paper
     assert "git add paper.sqlite.gz" not in paper
     assert "--force" not in paper

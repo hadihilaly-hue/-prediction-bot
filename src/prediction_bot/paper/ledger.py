@@ -446,6 +446,28 @@ CREATE INDEX IF NOT EXISTS market_snapshots_ticker_fetched_at
     ON market_snapshots(ticker, fetched_at);
 CREATE INDEX IF NOT EXISTS market_snapshots_event_ticker_fetched_at
     ON market_snapshots(event_ticker, fetched_at);
+CREATE INDEX IF NOT EXISTS quote_snapshots_ticker_time
+    ON quote_snapshots(ticker, created_at);
+CREATE INDEX IF NOT EXISTS blocks_ticker_time ON blocks(ticker, created_at);
+-- Part 2 ledger size control: one row per archive batch moved to the ledger-archive
+-- release (src/prediction_bot/ledger_archive.py).
+CREATE TABLE IF NOT EXISTS archive_log (
+    day TEXT PRIMARY KEY,
+    asset TEXT NOT NULL,
+    sha256 TEXT NOT NULL,
+    gz_bytes INTEGER NOT NULL,
+    rows_json TEXT NOT NULL,
+    archived_at TEXT NOT NULL
+);
+-- Block counts (SUM(seen_count)) of archived blocks rows, so all-time counts survive.
+CREATE TABLE IF NOT EXISTS blocks_rollup (
+    day TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    rules_version TEXT NOT NULL DEFAULT '',
+    strategy TEXT NOT NULL DEFAULT '',
+    n INTEGER NOT NULL,
+    PRIMARY KEY (day, reason, rules_version, strategy)
+);
 CREATE TABLE IF NOT EXISTS closing_quotes (
     ticker TEXT NOT NULL,
     commence_time TEXT NOT NULL,
@@ -714,7 +736,14 @@ class Ledger:
                 "note": "TEXT",
             },
             "paper_orders": {"tags": "TEXT"},
-            "blocks": {"position_key": "TEXT"},
+            # Change-only writes: a repeat of the ticker's latest row updates last_seen_at
+            # (and seen_count for blocks) instead of inserting.
+            "blocks": {
+                "position_key": "TEXT",
+                "last_seen_at": "TEXT",
+                "seen_count": "INTEGER NOT NULL DEFAULT 1",
+            },
+            "quote_snapshots": {"last_seen_at": "TEXT"},
             "edge_reviews": {"position_key": "TEXT"},
             "runs": {
                 "odds_used": "INTEGER",
@@ -768,6 +797,11 @@ class Ledger:
                 "clv_status": "TEXT",
                 "clv_polymarket": "TEXT",
                 "commence_time_decision": "TEXT",
+                # The quote at expires_at, copied before the archive removes the ticker's
+                # quote_snapshots rows (maker_shadow_metrics reads it).
+                "expiry_yes_bid": "TEXT",
+                "expiry_yes_ask": "TEXT",
+                "expiry_quote_at": "TEXT",
             },
         }.items():
             self._ensure_columns(self.conn, table, columns)
@@ -1404,25 +1438,26 @@ class Ledger:
             ]
         )
         rows = self.conn.execute(
-            "SELECT m.ticker, m.side, m.price, m.size, m.maker_fee, m.expires_at, s.result"
+            "SELECT m.ticker, m.side, m.price, m.size, m.maker_fee, m.expires_at, s.result,"
+            " m.expiry_quote_at, m.expiry_yes_bid, m.expiry_yes_ask"
             " FROM maker_shadow m LEFT JOIN settlements s ON s.ticker=m.ticker"
             " WHERE m.status='filled'"
         )
         pnl = Decimal(0)
         settled = 0
         clvs: list[Decimal] = []
-        for ticker, side, price, size, fee, expires_at, result in rows:
+        for ticker, side, price, size, fee, expires_at, result, frozen_at, f_bid, f_ask in rows:
             if result is not None:
                 settled += 1
                 cost = Decimal(price) * Decimal(size) + Decimal(fee)
                 cost = Decimal(size) - cost if result == side else -cost
                 pnl += cost
-            quote = self.conn.execute(
-                "SELECT yes_bid, yes_ask FROM quote_snapshots WHERE ticker=? AND created_at<=?"
-                " AND yes_bid IS NOT NULL AND yes_ask IS NOT NULL ORDER BY created_at DESC, id DESC"
-                " LIMIT 1",
-                (ticker, expires_at),
-            ).fetchone()
+            # Copied by the archive before it removed the ticker's quote_snapshots rows.
+            quote: tuple[str, str] | None
+            if frozen_at is not None:
+                quote = None if f_bid is None or f_ask is None else (str(f_bid), str(f_ask))
+            else:
+                quote = self.quote_at(str(ticker), str(expires_at))
             if quote is not None:
                 mid = (Decimal(quote[0]) + Decimal(quote[1])) / 2
                 side_mid = mid if side == OutcomeSide.yes.value else Decimal(1) - mid
@@ -2381,46 +2416,89 @@ class Ledger:
         )
 
     def record_blocks(self, blocks: Sequence[Block]) -> int:
-        self.conn.executemany(
-            "INSERT INTO blocks (created_at, rules_version, strategy, ticker, event_ticker,"
-            " reason, detail, position_key) VALUES (?,?,?,?,?,?,?,?)",
-            [
-                (
-                    self._utc(block.created_at).isoformat(),
-                    block.rules_version,
-                    block.strategy,
-                    block.ticker,
-                    block.event_ticker,
-                    block.reason,
-                    block.detail,
-                    block.position_key,
+        """Change-only: a block equal to the ticker's latest row from the same UTC day
+        (reason, detail, rules_version, strategy, event_ticker, position_key) bumps that
+        row's seen_count and last_seen_at instead of inserting. Rows never span a UTC day,
+        so per-day SUM(seen_count) equals the old per-day COUNT(*)."""
+        for block in blocks:
+            at = self._utc(block.created_at).isoformat()
+            values = (
+                block.rules_version,
+                block.strategy,
+                block.ticker,
+                block.event_ticker,
+                block.reason,
+                block.detail,
+                block.position_key,
+            )
+            latest = None
+            if block.ticker:
+                latest = self.conn.execute(
+                    "SELECT id,created_at,COALESCE(last_seen_at,created_at),rules_version,"
+                    "strategy,ticker,event_ticker,reason,detail,position_key FROM blocks "
+                    "WHERE ticker=? ORDER BY created_at DESC,id DESC LIMIT 1",
+                    (block.ticker,),
+                ).fetchone()
+            if (
+                latest is not None
+                and tuple(latest[3:]) == values
+                and str(latest[1])[:10] == at[:10]
+                and at >= str(latest[2])
+            ):
+                self.conn.execute(
+                    "UPDATE blocks SET seen_count=seen_count+1,last_seen_at=? WHERE id=?",
+                    (at, latest[0]),
                 )
-                for block in blocks
-            ],
-        )
+                continue
+            self.conn.execute(
+                "INSERT INTO blocks (created_at, rules_version, strategy, ticker, event_ticker,"
+                " reason, detail, position_key) VALUES (?,?,?,?,?,?,?,?)",
+                (at, *values),
+            )
         self.conn.commit()
         return len(blocks)
 
     def record_quote_snapshots(self, snapshots: Sequence[QuoteSnapshot]) -> int:
-        self.conn.executemany(
-            "INSERT INTO quote_snapshots (created_at, ticker, event_ticker, yes_bid, yes_ask,"
-            " last_price, volume, open_interest) VALUES (?,?,?,?,?,?,?,?)",
-            [
-                (
-                    self._utc(snapshot.created_at).isoformat(),
-                    snapshot.ticker,
-                    snapshot.event_ticker,
-                    str(snapshot.yes_bid) if snapshot.yes_bid is not None else None,
-                    str(snapshot.yes_ask) if snapshot.yes_ask is not None else None,
-                    str(snapshot.last_price) if snapshot.last_price is not None else None,
-                    str(snapshot.volume),
-                    str(snapshot.open_interest),
+        """Change-only: a snapshot equal to the ticker's latest row in all five value
+        columns moves that row's last_seen_at instead of inserting, so "the latest quote
+        at or before t" is unchanged for every t."""
+        for snapshot in snapshots:
+            at = self._utc(snapshot.created_at).isoformat()
+            values = (
+                str(snapshot.yes_bid) if snapshot.yes_bid is not None else None,
+                str(snapshot.yes_ask) if snapshot.yes_ask is not None else None,
+                str(snapshot.last_price) if snapshot.last_price is not None else None,
+                str(snapshot.volume),
+                str(snapshot.open_interest),
+            )
+            latest = self.conn.execute(
+                "SELECT id,COALESCE(last_seen_at,created_at),yes_bid,yes_ask,last_price,volume,"
+                "open_interest FROM quote_snapshots WHERE ticker=? "
+                "ORDER BY created_at DESC,id DESC LIMIT 1",
+                (snapshot.ticker,),
+            ).fetchone()
+            if latest is not None and tuple(latest[2:]) == values and at >= str(latest[1]):
+                self.conn.execute(
+                    "UPDATE quote_snapshots SET last_seen_at=? WHERE id=?", (at, latest[0])
                 )
-                for snapshot in snapshots
-            ],
-        )
+                continue
+            self.conn.execute(
+                "INSERT INTO quote_snapshots (created_at, ticker, event_ticker, yes_bid, yes_ask,"
+                " last_price, volume, open_interest) VALUES (?,?,?,?,?,?,?,?)",
+                (at, snapshot.ticker, snapshot.event_ticker, *values),
+            )
         self.conn.commit()
         return len(snapshots)
+
+    def quote_at(self, ticker: str, at: str) -> tuple[str, str] | None:
+        """The newest two-sided quote at or before `at` (an ISO timestamp)."""
+        row = self.conn.execute(
+            "SELECT yes_bid, yes_ask FROM quote_snapshots WHERE ticker=? AND created_at<=?"
+            " AND yes_bid IS NOT NULL AND yes_ask IS NOT NULL ORDER BY created_at DESC, id DESC"
+            " LIMIT 1",
+            (ticker, at),
+        ).fetchone()
+        return None if row is None else (str(row[0]), str(row[1]))
 
     def record_market_snapshots(
         self,
@@ -2584,16 +2662,20 @@ class Ledger:
     def has_recent_large_gap_record(self, position_key: str, now: datetime) -> bool:
         end = self._utc(now) - timedelta(hours=2)
         start = self._utc(now) - timedelta(hours=36)
+        # A merged blocks row covers [created_at, last_seen_at]. Both ends are real
+        # observations and a row never spans a UTC day (gaps < 24h, window 34h), so any
+        # overlap with the window holds an observation inside it: same answer as the
+        # one-row-per-observation query this replaces.
         row = self.conn.execute(
             "SELECT 1 FROM blocks WHERE position_key=? AND reason IN ('big_edge','large_gap')"
-            " AND created_at BETWEEN ? AND ? UNION ALL "
+            " AND created_at<=? AND COALESCE(last_seen_at,created_at)>=? UNION ALL "
             "SELECT 1 FROM edge_reviews WHERE position_key=? AND created_at BETWEEN ? AND ? "
             "UNION ALL SELECT 1 FROM signals WHERE position_key=? AND rules_version='v3'"
             " AND tags LIKE '%large_gap%' AND created_at BETWEEN ? AND ? LIMIT 1",
             (
                 position_key,
-                start.isoformat(),
                 end.isoformat(),
+                start.isoformat(),
                 position_key,
                 start.isoformat(),
                 end.isoformat(),
