@@ -347,6 +347,8 @@ def evaluate_signal(
                 fair_pre = (
                     min(Decimal(value) for value in methods.values())
                     if settings.v3_devig_method == "worst_case"
+                    else min(Decimal(methods["power"]), Decimal(methods["shin"]))
+                    if settings.v3_devig_method == "conservative"
                     else Decimal(methods[settings.v3_devig_method])
                 )
         except (KeyError, TypeError, ValueError, json.JSONDecodeError):

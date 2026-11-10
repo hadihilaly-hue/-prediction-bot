@@ -459,20 +459,23 @@ def test_score_maker_shadows_persists_both_fill_rules(tmp_path: Path) -> None:
                 }
             ]
 
+        def get_trades(self, ticker, min_ts, max_ts):  # type: ignore[no-untyped-def]
+            return []
+
     assert (
         score_maker_shadows(
             ledger,
             Candles(),
             now=expires + timedelta(minutes=1),  # type: ignore[arg-type]
         )
-        == 1
+        == 2  # candles, then the trade tape
     )
     row = ledger.conn.execute(
-        "SELECT fill_trade_through_at,fill_optimistic_at,score_status,score_attempts "
-        "FROM maker_shadow"
+        "SELECT fill_trade_through_at,fill_optimistic_at,score_status,score_attempts,"
+        "fill_at,fill_rule FROM maker_shadow"
     ).fetchone()
     expected_fill = (created + timedelta(minutes=1)).isoformat()
-    assert row == (expected_fill, expected_fill, "scored", 1)
+    assert row == (expected_fill, expected_fill, "scored", 1, expected_fill, "run_over")
     assert ledger.maker_shadow_metrics()["trade_through_filled"] == 1
     assert ledger.maker_shadow_metrics()["optimistic_filled"] == 1
 

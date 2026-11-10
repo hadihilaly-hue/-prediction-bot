@@ -25,7 +25,9 @@ Z95 = 1.96
 METRICS: dict[str, str] = {
     "clv_kalshi": "Kalshi side mid at T-5 minus entry",
     "clv_kalshi_bid": "Kalshi side bid at T-5 minus entry",
-    "clv_sharp_close": "devigged sharp-book close minus entry",
+    "clv_sharp_close": "power-devigged sharp-book close minus entry",
+    "clv_sharp_close_shin": "Shin-devigged sharp-book close minus entry",
+    "clv_sharp_close_mult": "multiplicatively devigged sharp-book close minus entry",
     "clv_polymarket": "Polymarket mid at the Kalshi close minus entry",
 }
 
@@ -294,6 +296,11 @@ def _columns(conn: sqlite3.Connection, table: str) -> str:
     return ",".join(exprs)
 
 
+def fee_schedule(conn: sqlite3.Connection) -> _Schedule:
+    """The ledger's series_fees as a fee lookup (Kalshi's general schedule otherwise)."""
+    return _Schedule(_fee_schedule(conn))
+
+
 def _fee_schedule(conn: sqlite3.Connection) -> dict[str, tuple[str, Decimal]]:
     try:
         return {
@@ -427,6 +434,12 @@ def dose_response(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+# Price-band results on the sharp close depend on the devig method (power lifts
+# favourites, Shin lifts longshots), so they are shown under each and judged by none.
+SHARP_METRICS = ("clv_sharp_close", "clv_sharp_close_shin", "clv_sharp_close_mult")
+PER_METHOD = "per-method"
+
+
 def _breakdowns(rows: list[dict[str, Any]], keys: tuple[str, ...]) -> dict[str, Any]:
     metrics: dict[str, Any] = {}
     for metric in METRICS:
@@ -437,6 +450,9 @@ def _breakdowns(rows: list[dict[str, Any]], keys: tuple[str, ...]) -> dict[str, 
                 group: summarize_rows([r for r in rows if str(r[key]) == group], metric)
                 for group in _ordered_groups(key, present)
             }
+            if key == "price_band" and metric in SHARP_METRICS:
+                for summary in breakdown[f"by_{key}"].values():
+                    summary["verdict"] = PER_METHOD
         metrics[metric] = breakdown
     return metrics
 
@@ -496,6 +512,8 @@ def clv_report(
             "units": "cents per contract",
             "status_filter": "clv_status='ok'",
             "clusters": "games (ticker without its outcome segment)",
+            "sharp_price_bands": "sharp-close price bands are shown under power, Shin and "
+            "multiplicative devig with no verdict (per-method)",
         },
         "metrics": METRICS,
         "cohorts": cohorts,

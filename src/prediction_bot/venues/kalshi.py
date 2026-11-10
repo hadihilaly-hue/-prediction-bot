@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import logging
 import time
 import uuid
@@ -148,10 +149,15 @@ def parse_trade(trade: JSON) -> Trade | None:
     """Parse one `/markets/trades` row; None if a field we rely on is missing.
 
     Field names follow Kalshi's fixed-point convention (`count_fp`, `yes_price_dollars`)
-    with the older integer forms (`count`, `yes_price` in cents) as fallbacks.
+    with the older integer forms (`count`, `yes_price` in cents) as fallbacks. Block
+    trades parse to None. For rows with a `trade_id`, `get_trades` uses the backtest's
+    `parse_public_trade`; this is the fallback for rows without one.
     """
     created = _ts(trade.get("created_time"))
-    side = str(trade.get("taker_side") or "").lower()
+    # `taker_outcome_side` replaces `taker_side`, which Kalshi marks deprecated.
+    side = str(trade.get("taker_outcome_side") or trade.get("taker_side") or "").lower()
+    if trade.get("is_block_trade"):
+        return None  # negotiated off the book: it never touched a resting order
     yes_price = _price_dollars(trade, "yes_price")
     if yes_price is None:
         no_price = _price_dollars(trade, "no_price")
@@ -243,9 +249,10 @@ class KalshiClient:
             out.append(parse_market(page))
         return out
 
-    def _paginate(self, path: str, key: str, params: JSON, max_pages: int) -> Iterator[JSON]:
+    def _paginate(self, path: str, key: str, params: JSON, max_pages: int | None) -> Iterator[JSON]:
+        """Rows across pages; `max_pages=None` follows the cursor to the end."""
         cursor: str | None = None
-        for _ in range(max_pages):
+        for _ in range(max_pages) if max_pages is not None else itertools.count():
             p = dict(params)
             if cursor:
                 p["cursor"] = cursor
@@ -297,15 +304,23 @@ class KalshiClient:
         max_ts: int,
         *,
         limit: int = 1000,
-        max_pages: int = 5,
+        max_pages: int | None = None,
     ) -> list[Trade]:
-        """Public trades for `ticker` between two Unix timestamps (seconds), oldest first."""
+        """Public trades for `ticker` between two Unix timestamps (seconds), oldest first.
+
+        Follows the cursor to the end (a busy market's window can exceed 5 pages, and a
+        truncated tape reads as "unfilled"). Side is `taker_outcome_side`, falling back
+        to the deprecated `taker_side`; block trades are dropped.
+        """
         params: JSON = {"ticker": ticker, "min_ts": min_ts, "max_ts": max_ts, "limit": limit}
-        trades = [
-            parsed
-            for row in self._paginate("/markets/trades", "trades", params, max_pages)
-            if (parsed := parse_trade(row)) is not None
-        ]
+        trades: list[Trade] = []
+        for row in self._paginate("/markets/trades", "trades", params, max_pages):
+            if row.get("trade_id"):
+                public = parse_public_trade(row)
+                if public is not None and not public.is_block:
+                    trades.append(public.to_trade())
+            elif (parsed := parse_trade(row)) is not None:
+                trades.append(parsed)
         return sorted(trades, key=lambda trade: trade.created_at)
 
     def get_events(

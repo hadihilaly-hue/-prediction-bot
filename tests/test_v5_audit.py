@@ -168,7 +168,31 @@ def test_kelly_is_flat_until_the_cohort_is_supported(tmp_path) -> None:  # type:
 
 
 def test_kelly_caps_the_edge_at_half_the_supported_cohort_clv(tmp_path) -> None:  # type: ignore[no-untyped-def]
-    strategy = _sizer(tmp_path, "kelly", ["1.5", "2.5"] * 25)  # mean 2c, supported
-    # Edge used = min(5c model, 2c / 2 = 1c); quarter-Kelly at 0.50: 0.01 / 0.5 x 0.25 x 1000.
+    # Gross 3.75c minus the 1.75c taker fee at 0.50 = 2c net, 50 games: supported.
+    strategy = _sizer(tmp_path, "kelly", ["3.25", "4.25"] * 25)
+    # Edge used = min(5c model, 2c net / 2 = 1c); quarter-Kelly at 0.50: 0.01 / 0.5 x 0.25 x 1000.
     assert strategy._stake(Decimal("0.05"), Decimal("0.50"), Decimal("1000")) == Decimal("5.00")
     assert strategy._stake(Decimal("0.004"), Decimal("0.50"), Decimal("1000")) == Decimal("2.000")
+
+
+def test_kelly_stakes_flat_when_the_cohort_loses_after_fees(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    # +1.0c gross, tight and over 60 games, but the taker fee is 1.5c (multiplier 6/7 at 0.50).
+    strategy = _sizer(tmp_path, "kelly", ["0.9", "1.1"] * 30)
+    assert strategy.ledger is not None
+    strategy.ledger.save_series_fee(
+        "KXNFLGAME",
+        "quadratic",
+        Decimal(6) / Decimal(7),
+        datetime(2026, 10, 1, tzinfo=timezone.utc),
+    )
+    assert strategy._stake(Decimal("0.05"), Decimal("0.50"), Decimal("1000")) == Decimal("25")
+    assert strategy._cohort_clv_cents() is None
+
+
+def test_kelly_ignores_a_supported_row_count_on_too_few_games(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    strategy = _sizer(tmp_path, "kelly", ["3.25", "4.25"] * 25)
+    assert strategy.ledger is not None
+    strategy.ledger.conn.execute("UPDATE fills SET ticker='KXNFLGAME-ONE-A' WHERE id % 2 = 0")
+    strategy.ledger.conn.execute("UPDATE fills SET ticker='KXNFLGAME-TWO-A' WHERE id % 2 = 1")
+    strategy.ledger.conn.commit()
+    assert strategy._stake(Decimal("0.05"), Decimal("0.50"), Decimal("1000")) == Decimal("25")

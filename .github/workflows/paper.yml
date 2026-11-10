@@ -91,8 +91,13 @@ jobs:
         env:
           PBOT_MODE: paper
           PBOT_RULES_VERSION: ${{ vars.PBOT_RULES_VERSION || 'v3' }}
-          # Set the repo Variable to taker to force automatic maker-first off.
-          PBOT_V3_EXECUTION: ${{ vars.PBOT_V3_EXECUTION || 'auto' }}
+          # Taker unless the repo Variable says otherwise: execution never switches by
+          # itself. Set the Variable to auto to let the maker gate decide.
+          PBOT_V3_EXECUTION: ${{ vars.PBOT_V3_EXECUTION || 'taker' }}
+          # Fair for the side bought: the lower of power and Shin unless the Variable says.
+          PBOT_V3_DEVIG_METHOD: ${{ vars.PBOT_V3_DEVIG_METHOD || 'conservative' }}
+          # Road-dog experiment: shadow rows only unless the Variable says trade.
+          PBOT_EXP_ROAD_DOG_MODE: ${{ vars.PBOT_EXP_ROAD_DOG_MODE || 'shadow' }}
           PBOT_KALSHI_API_BASE: https://api.elections.kalshi.com/trade-api/v2
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
           # v1 strategies only (book_scanner and the sportsbook_arb/underdog_value

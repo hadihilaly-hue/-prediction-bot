@@ -357,12 +357,15 @@ def test_v3_replay_selects_power_and_does_not_apply_v2_haircut() -> None:
     decision = evaluate_signal(
         recorded,
         FEES,
-        settings(longshot_haircut="slope", v3_longshot_haircut="off"),
+        settings(longshot_haircut="slope", v3_longshot_haircut="off", v3_devig_method="power"),
         [recorded],
         "v3",
     )
     assert decision.fair == Decimal("0.60")
     assert "open_interest" not in decision.unknown
+    # The default (conservative) takes the lower of power and Shin for the side.
+    default = evaluate_signal(recorded, FEES, settings(v3_longshot_haircut="off"), [recorded], "v3")
+    assert default.fair == Decimal("0.59")
 
 
 def test_v3_replay_uses_stored_quote_and_requires_prior_record_and_tight_sharp_books() -> None:

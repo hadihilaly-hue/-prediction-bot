@@ -506,13 +506,39 @@ def paper(
         n += 1
         measure: MeasurePull | None = None
         run_settings, gate = _resolve_v3_execution(s, ledger, strategy)
+        if (
+            gate is None
+            and s.rules_version == "v3"
+            and "sportsbook_v3" in strategy
+            and not s.is_live
+        ):
+            # A configured mode (taker / maker_first) is logged too, with the gate's
+            # current evidence, so the log shows what every run executed as.
+            configured = evaluate_maker_gate(ledger, s)
+            ledger.record_execution_mode(
+                rules_version="v3",
+                requested=s.v3_execution,
+                resolved=run_settings.v3_execution,
+                reason=f"configured ({configured.reason})",
+                taker_n=configured.taker_n,
+                taker_mean=configured.taker_mean,
+                taker_ci_low=configured.taker_ci_low,
+                maker_scored=configured.maker_scored,
+                maker_clv_n=configured.maker_clv_n,
+                maker_mean=configured.maker_mean,
+                queue_n=configured.queue_n,
+                queue_mean=configured.queue_mean,
+                queue_ci_low=configured.queue_ci_low,
+            )
         if gate is not None:
             resolved = run_settings.v3_execution
             detail = gate.reason
             if gate.reason == "queue_fills":
                 detail = f"queue_fills: {gate.queue_n}/{s.v3_maker_gate_min_queue_fills}"
+            elif gate.reason == "fill_games":
+                detail = f"fill_games: {gate.queue_games} games"
             elif gate.reason == "queue_ci":
-                detail = f"queue_ci: low {gate.queue_ci_low}"
+                detail = f"queue_ci: net low {gate.queue_ci_low}"
             console.print(f"v3 execution: auto -> {resolved} ({detail})")
             ledger.record_execution_mode(
                 rules_version="v3",
@@ -559,7 +585,7 @@ def paper(
             log.exception("Kickoff re-anchoring failed; continuing paper cycle")
         settled = engine.settle_open_positions()
         try:
-            score_maker_shadows(ledger, client, max_calls=50)
+            score_maker_shadows(ledger, client, max_calls=120)
         except Exception:
             log.exception("Maker-shadow scoring failed; continuing paper cycle")
         try:
