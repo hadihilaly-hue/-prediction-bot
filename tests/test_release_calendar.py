@@ -245,9 +245,9 @@ def test_midweek_ucl_slate_kickoff_55_grouped_and_the_17_45_close(tmp_path: Path
         ledger = _ledger(path)
         _eligible(ledger, ["soccer_uefa_champs_league"], tuesday - timedelta(days=3))
         for i in range(2):
-            _game(ledger, f"KXUCLGAME-26NOV03E{i}", tuesday.replace(hour=17, minute=45), 2)
+            _game(ledger, f"KXUCLGAME-26NOV03E{i}", tuesday.replace(hour=17, minute=45), 3)
         for i in range(6):
-            _game(ledger, f"KXUCLGAME-26NOV03L{i}", tuesday.replace(hour=20), 2)
+            _game(ledger, f"KXUCLGAME-26NOV03L{i}", tuesday.replace(hour=20), 3)
         _budget(ledger, tuesday - timedelta(days=1), 3, 100)
         return ledger
 
@@ -273,9 +273,9 @@ def test_same_feed_targets_within_20_minutes_share_one_pull(tmp_path: Path) -> N
     saturday = datetime(2026, 11, 7, tzinfo=UTC)
     ledger = _ledger(tmp_path)
     _eligible(ledger, ["soccer_epl"], saturday - timedelta(days=3))
-    _game(ledger, "KXEPLGAME-26NOV07A", saturday.replace(hour=15), 2)  # -70 at 13:50
-    _game(ledger, "KXEPLGAME-26NOV07B", saturday.replace(hour=15, minute=15), 2)  # 14:05
-    _game(ledger, "KXEPLGAME-26NOV07C", saturday.replace(hour=15, minute=40), 2)  # 14:30
+    _game(ledger, "KXEPLGAME-26NOV07A", saturday.replace(hour=15), 3)  # -70 at 13:50
+    _game(ledger, "KXEPLGAME-26NOV07B", saturday.replace(hour=15, minute=15), 3)  # 14:05
+    _game(ledger, "KXEPLGAME-26NOV07C", saturday.replace(hour=15, minute=40), 3)  # 14:30
     _budget(ledger, saturday - timedelta(days=1), 3, 100)
     # Stop before A's T-10m close window (14:40) so only kickoff pulls are counted.
     pulls = _run(ledger, saturday.replace(hour=13), saturday.replace(hour=14, minute=39))
@@ -291,7 +291,7 @@ def test_same_feed_targets_within_20_minutes_share_one_pull(tmp_path: Path) -> N
 def test_release_target_expires_after_its_window(tmp_path: Path) -> None:
     ledger = _ledger(tmp_path)
     _eligible(ledger, ["soccer_epl"], SUNDAY - timedelta(days=3))
-    _game(ledger, "KXEPLGAME-26NOV08A", SUNDAY.replace(hour=16), 2)  # K-70m at 14:50
+    _game(ledger, "KXEPLGAME-26NOV08A", SUNDAY.replace(hour=16), 3)  # K-70m at 14:50
     before = SUNDAY.replace(hour=14)
     cli._refresh_pull_plan(ledger, before, SETTINGS, CAL)
     row = _rows(ledger, "target='K-70m'")[0]
@@ -311,7 +311,7 @@ def test_kickoff_window_never_runs_past_kickoff_minus_two(tmp_path: Path) -> Non
     )
     ledger = _ledger(tmp_path)
     _eligible(ledger, ["soccer_epl"], SUNDAY - timedelta(days=3))
-    _game(ledger, "KXEPLGAME-26NOV08A", SUNDAY.replace(hour=16), 2)
+    _game(ledger, "KXEPLGAME-26NOV08A", SUNDAY.replace(hour=16), 3)
     cli._refresh_pull_plan(ledger, SUNDAY.replace(hour=12), SETTINGS, calendar)
     assert _rows(ledger, "target='K-30m'")[0]["window_end"] == "2026-11-08T15:58:00+00:00"
 
@@ -435,10 +435,10 @@ def test_soccer_weekend_cap_funds_the_two_busiest_feeds(tmp_path: Path) -> None:
     feeds = ["soccer_epl", "soccer_spain_la_liga", "soccer_italy_serie_a"]
     _eligible(ledger, feeds, saturday - timedelta(days=3))
     for i in range(4):
-        _game(ledger, f"KXEPLGAME-26NOV07E{i}", saturday.replace(hour=17), 2)
+        _game(ledger, f"KXEPLGAME-26NOV07E{i}", saturday.replace(hour=17), 3)
     for i in range(3):
-        _game(ledger, f"KXLALIGAGAME-26NOV07L{i}", saturday.replace(hour=17), 2)
-    _game(ledger, "KXSERIEAGAME-26NOV07S0", saturday.replace(hour=17), 2)
+        _game(ledger, f"KXLALIGAGAME-26NOV07L{i}", saturday.replace(hour=17), 3)
+    _game(ledger, "KXSERIEAGAME-26NOV07S0", saturday.replace(hour=17), 3)
     _budget(ledger, saturday - timedelta(days=1), 3, 100)
     _run(ledger, saturday.replace(hour=14), saturday.replace(hour=18))
     funded = {
@@ -458,8 +458,8 @@ def test_max_per_day_caps_an_entry(tmp_path: Path) -> None:
     wednesday = datetime(2026, 11, 4, tzinfo=UTC)
     ledger = _ledger(tmp_path)
     _eligible(ledger, ["soccer_usa_mls"], wednesday - timedelta(days=3))
-    _game(ledger, "KXMLSGAME-26NOV04A", wednesday.replace(hour=19), 2)
-    _game(ledger, "KXMLSGAME-26NOV04B", wednesday.replace(hour=23), 2)
+    _game(ledger, "KXMLSGAME-26NOV04A", wednesday.replace(hour=19), 17 / 6)  # MLS: 2h50m
+    _game(ledger, "KXMLSGAME-26NOV04B", wednesday.replace(hour=23), 17 / 6)  # MLS: 2h50m
     _budget(ledger, wednesday, 2, 100)
     _run(
         ledger, wednesday.replace(hour=16), wednesday.replace(hour=23, minute=50), calendar=calendar
@@ -484,7 +484,7 @@ def test_grid_fallback_plans_one_15_00_pull_on_quiet_days(tmp_path: Path) -> Non
     monday = datetime(2026, 11, 9, 12, tzinfo=UTC)
     ledger = _ledger(tmp_path)
     _eligible(ledger, ["soccer_epl", "americanfootball_nfl"], monday - timedelta(days=3))
-    _game(ledger, "KXEPLGAME-26NOV09A", monday.replace(hour=20), 2)  # targets today
+    _game(ledger, "KXEPLGAME-26NOV09A", monday.replace(hour=20), 3)  # targets today
     _game(ledger, "KXNFLGAME-26NOV15G0", monday.replace(day=15, hour=18))  # 6 days out
     _budget(ledger, monday, 2, 10)
     cli._refresh_pull_plan(ledger, monday, fallback, CAL)
@@ -572,8 +572,8 @@ def test_pull_due_target_prints_that_targets_feed_only_while_due(
     ledger = Ledger(path, Decimal("1000"))
     now = datetime.now(UTC)
     _eligible(ledger, ["soccer_epl"], now - timedelta(hours=1))
-    _game(ledger, "KXEPLGAME-X", now + timedelta(minutes=60), 2)  # K-70m due now
-    _game(ledger, "KXEPLGAME-Y", now + timedelta(hours=10), 2)  # nothing due
+    _game(ledger, "KXEPLGAME-X", now + timedelta(minutes=60), 3)  # K-70m due now
+    _game(ledger, "KXEPLGAME-Y", now + timedelta(hours=10), 3)  # nothing due
     settings = Settings(_env_file=None, rules_version="v3", paper_db_path=path)  # type: ignore[call-arg]
     cli._refresh_pull_plan(ledger, now, settings, CAL)
     due = _rows(ledger, "event_ticker='KXEPLGAME-X' AND target='K-70m'")[0]["id"]

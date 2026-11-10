@@ -16,9 +16,9 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from prediction_bot import kickoffs
 from prediction_bot.clv import leg_outcome
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
-from prediction_bot.pull_plan import pregame_offset
 from prediction_bot.teams import team_for_reference_name
 from prediction_bot.venues.polymarket import PolyEvent, PolymarketClient
 
@@ -88,20 +88,20 @@ def tracked_events(ledger: Ledger, now: datetime) -> list[TrackedEvent]:
 
 
 def _event_kickoff(ledger: Ledger, event: str, sport: str) -> datetime | None:
+    """`kickoffs.resolve`, else the latest Kalshi expiration minus the series offset."""
+    found = kickoffs.resolve(ledger.conn, event)
+    if found is not None:
+        return found[0]
     row = ledger.conn.execute(
-        "SELECT MAX(commence_time) FROM odds_snapshots WHERE event_ticker=?", (event,)
+        "SELECT expected_expiration,MAX(fetched_at) FROM market_snapshots "
+        "WHERE event_ticker=? AND expected_expiration IS NOT NULL",
+        (event,),
     ).fetchone()
     if row and row[0]:
         try:
-            return _utc(str(row[0]))
-        except ValueError:
-            pass
-    row = ledger.conn.execute(
-        "SELECT MAX(expected_expiration) FROM market_snapshots WHERE event_ticker=?", (event,)
-    ).fetchone()
-    if row and row[0]:
-        try:
-            return _utc(str(row[0])) - pregame_offset(sport)
+            return _utc(str(row[0])) - kickoffs.expiry_offset(
+                ledger.conn, event.split("-", 1)[0], datetime.now(timezone.utc)
+            )
         except ValueError:
             return None
     return None

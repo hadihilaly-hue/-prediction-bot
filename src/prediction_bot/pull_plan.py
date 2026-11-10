@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from typing import TYPE_CHECKING
 
+from prediction_bot import kickoffs
 from prediction_bot.config import Settings
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
 
@@ -83,15 +84,6 @@ def _utc(value: datetime | str) -> datetime:
     )
 
 
-def pregame_offset(feed: str) -> timedelta:
-    """Kalshi `expected_expiration` minus kickoff (same table as cli._planner_games)."""
-    if feed.startswith("soccer_"):
-        return timedelta(hours=2)
-    if feed == "basketball_nba":
-        return timedelta(hours=2.5)
-    return timedelta(hours=3)
-
-
 def eligible_feeds(conn: sqlite3.Connection) -> set[str]:
     """Feeds whose latest `feed_stats` row is eligible for the entry window."""
     return {
@@ -110,43 +102,103 @@ def plan_kickoffs(
     now: datetime,
     horizon: timedelta = PLAN_HORIZON,
 ) -> dict[str, tuple[str, datetime]]:
-    """event_ticker -> (feed, kickoff) for events kicking off within `PLAN_HORIZON`.
+    """event_ticker -> (feed, kickoff) for events kicking off within `horizon`.
 
-    Kickoff is the Odds API `commence_time` from a linked snapshot when one exists,
-    else the latest `market_snapshots.expected_expiration` minus the pre-game offset.
+    Events are those Kalshi listed in the last `SNAPSHOT_MAX_AGE`. The kickoff comes from
+    `kickoffs.resolve`: the latest pre-game odds kickoff when the books list the game,
+    else Kalshi's `expected_expiration` minus `kickoffs.expiry_offset` (recorded as a
+    'kalshi_expiry' estimate here).
     """
     now = _utc(now)
     wanted = set(feeds)
-    out: dict[str, tuple[str, datetime]] = {}
+    kickoffs.sync_snapshots(conn)
     cutoff = (now - SNAPSHOT_MAX_AGE).isoformat()
-    for event_ticker, expiration in conn.execute(
-        "SELECT event_ticker,MAX(expected_expiration) FROM market_snapshots "
+    events: dict[str, str] = {}
+    expirations: dict[str, tuple[str, str]] = {}
+    # Bare columns with MAX(fetched_at) come from the latest snapshot of each event.
+    for event_ticker, expiration, fetched_at in conn.execute(
+        "SELECT event_ticker,expected_expiration,MAX(fetched_at) FROM market_snapshots "
         "WHERE expected_expiration IS NOT NULL AND fetched_at>=? GROUP BY event_ticker",
         (cutoff,),
     ):
         feed = KALSHI_SERIES_TO_SPORT.get(str(event_ticker).split("-", 1)[0])
         if feed is None or feed not in wanted:
             continue
-        try:
-            kickoff = _utc(str(expiration)) - pregame_offset(feed)
-        except ValueError:
+        events[str(event_ticker)] = feed
+        expirations[str(event_ticker)] = (str(expiration), str(fetched_at))
+    kickoffs.observe_kalshi_expiry(conn, expirations, now)
+    out: dict[str, tuple[str, datetime]] = {}
+    for event_ticker, feed in events.items():
+        found = kickoffs.resolve(conn, event_ticker)
+        if found is not None and now < found[0] <= now + horizon:
+            out[event_ticker] = (feed, found[0])
+    return out
+
+
+def _close_allowed(conn: sqlite3.Connection, event_ticker: str, feed: str) -> bool:
+    """No T-10m close for NCAAF from a Kalshi estimate (its expirations are placeholders)."""
+    if feed != "americanfootball_ncaaf":
+        return True
+    return kickoffs.resolve_odds(conn, event_ticker) is not None
+
+
+def retime_planned(ledger: Ledger, now: datetime) -> int:
+    """Keep still-planned per-event rows on the resolved kickoff.
+
+    A row whose event kickoff moved is shifted by the same amount through `_upsert`; a
+    row whose kickoff moved into the past is `superseded` ('kickoff_passed') and can
+    never fund a pull. An NCAAF close planned from a Kalshi estimate is superseded too.
+    Returns rows changed.
+    """
+    now = _utc(now)
+    changed = 0
+    rows = ledger.conn.execute(
+        "SELECT id,event_ticker,feed,target,kickoff,target_at,window_start,window_end,"
+        "priority,source,entry,max_per_day FROM pull_plan WHERE status='planned' "
+        f"AND event_ticker NOT LIKE '{FEED_EVENT_PREFIX}%'"
+    ).fetchall()
+    for (
+        row_id, event, feed, target, stored, target_at, start, end, priority, source, entry, cap
+    ) in rows:  # fmt: skip
+        found = kickoffs.resolve(ledger.conn, str(event))
+        if found is None:
             continue
-        out[str(event_ticker)] = (feed, kickoff)
-    for event_ticker, commence in conn.execute(
-        "SELECT event_ticker,MAX(commence_time) FROM odds_snapshots "
-        "WHERE event_ticker IS NOT NULL AND created_at>=? GROUP BY event_ticker",
-        (cutoff,),
-    ):
-        if str(event_ticker) in out:
-            try:
-                out[str(event_ticker)] = (out[str(event_ticker)][0], _utc(str(commence)))
-            except ValueError:
-                continue
-    return {
-        event: (feed, kickoff)
-        for event, (feed, kickoff) in out.items()
-        if now < kickoff <= now + horizon
-    }
+        kickoff = found[0]
+        delta = kickoff - _utc(str(stored))
+        moved = abs(delta) > timedelta(seconds=60)
+        if moved and kickoff <= now:
+            ledger.conn.execute(
+                "UPDATE pull_plan SET status='superseded',note='kickoff_passed' WHERE id=?",
+                (row_id,),
+            )
+            changed += 1
+            continue
+        if target == "T-10m" and not _close_allowed(ledger.conn, str(event), str(feed)):
+            ledger.conn.execute(
+                "UPDATE pull_plan SET status='superseded',note='no_odds_kickoff' WHERE id=?",
+                (row_id,),
+            )
+            changed += 1
+            continue
+        if not moved:
+            continue
+        changed += _upsert(
+            ledger,
+            event_ticker=str(event),
+            feed=str(feed),
+            target=str(target),
+            kickoff=kickoff,
+            target_at=_utc(str(target_at)) + delta,
+            start=_utc(str(start)) + delta,
+            end=_utc(str(end)) + delta,
+            priority=int(priority),
+            source=str(source),
+            entry=None if entry is None else str(entry),
+            max_per_day=None if cap is None else int(cap),
+            now=now,
+        )
+    ledger.conn.commit()
+    return changed
 
 
 def plan_pulls(
@@ -164,6 +216,7 @@ def plan_pulls(
             _plan_event_targets(ledger, calendar, event, feed, _utc(kickoff), _utc(now))
             for event, (feed, kickoff) in kickoffs.items()
         )
+        retime_planned(ledger, now)
         close_out(ledger, now)
         return planned
     now = _utc(now)
@@ -175,6 +228,8 @@ def plan_pulls(
             target_at = kickoff - offset
             start, end = target_at - early, target_at + late
             if end < now:
+                continue
+            if name == "T-10m" and not _close_allowed(ledger.conn, event_ticker, feed):
                 continue
             cursor = ledger.conn.execute(
                 "INSERT INTO pull_plan (event_ticker,feed,target,kickoff,target_at,window_start,"
@@ -197,6 +252,7 @@ def plan_pulls(
                 ),
             )
             planned += cursor.rowcount
+    retime_planned(ledger, now)
     close_out(ledger, now)
     return planned
 
@@ -280,6 +336,8 @@ def _plan_event_targets(
     for name, offset, early, late, _priority in TARGETS:
         target_at = kickoff - offset
         if name == "T-10m":
+            if not _close_allowed(ledger.conn, event_ticker, feed):
+                continue
             rows.append(
                 (
                     name,
@@ -369,14 +427,14 @@ def plan_feed_targets(
     games: dict[str, list[datetime]] = {}
     for _event, (feed, kickoff) in plan_kickoffs(ledger.conn, feeds, now, GAME_LOOKAHEAD).items():
         games.setdefault(feed, []).append(kickoff)
-    for kickoffs in games.values():
-        kickoffs.sort()
+    for starts in games.values():
+        starts.sort()
     planned = 0
     for feed in feeds:
-        kickoffs = games.get(feed, [])
+        starts = games.get(feed, [])
         for target in calendar.clock_targets(feed, now - RELEASE_WINDOW, now + CALENDAR_HORIZON):
             reach = timedelta(hours=target.entry.requires_game_within_hours)
-            upcoming = [k for k in kickoffs if target.target_at < k <= target.target_at + reach]
+            upcoming = [k for k in starts if target.target_at < k <= target.target_at + reach]
             if not upcoming:
                 continue
             planned += _upsert(

@@ -712,6 +712,7 @@ class Ledger:
                 "clv_polymarket": "TEXT",
                 "pull_plan_id": "INTEGER",
                 "pull_source": "TEXT",
+                "commence_time_decision": "TEXT",
             },
             "odds_snapshots": {
                 "max_book_update": "TEXT",
@@ -766,6 +767,7 @@ class Ledger:
                 "clv_polymarket": "TEXT",
                 "pull_plan_id": "INTEGER",
                 "pull_source": "TEXT",
+                "commence_time_decision": "TEXT",
             },
             "execution_mode_log": {
                 "queue_n": "INTEGER",
@@ -794,6 +796,7 @@ class Ledger:
                 "queue_status": "TEXT",
                 "clv_status": "TEXT",
                 "clv_polymarket": "TEXT",
+                "commence_time_decision": "TEXT",
                 # The quote at expires_at, copied before the archive removes the ticker's
                 # quote_snapshots rows (maker_shadow_metrics reads it).
                 "expiry_yes_bid": "TEXT",
@@ -812,11 +815,39 @@ class Ledger:
                 "WHERE clv_kalshi_bid IS NULL AND clv_exit IS NOT NULL"
             )
         self.conn.commit()
+        self._migrate_kickoffs()
         self.starting_cash = starting_cash
         row = self.conn.execute("SELECT balance FROM cash WHERE id = 1").fetchone()
         if row is None:
             self.conn.execute("INSERT INTO cash (id, balance) VALUES (1, ?)", (str(starting_cash),))
             self.conn.commit()
+
+    def _migrate_kickoffs(self) -> None:
+        """`event_kickoffs` (one source of truth for kickoff times) and its one-time
+        backfill from the existing odds snapshots."""
+        from prediction_bot import kickoffs
+
+        kickoffs.ensure_schema(self.conn)
+        done = self.conn.execute(
+            "SELECT 1 FROM kickoff_state WHERE key='migration:event_kickoffs'"
+        ).fetchone()
+        if done is not None:
+            return
+        # Latest pre-game snapshot per event_ticker (live snapshots never count).
+        kickoffs.sync_snapshots(self.conn)
+        # KXMLSGAME-26NOV01VANSEA predates event linking, so no snapshot can correct it:
+        # 8 rows were stored with a 21:30Z kickoff (real kickoff 20:30Z) and so were
+        # scored an hour into the game. Keep their numbers, take them out of reports.
+        self.conn.execute(
+            "UPDATE shadow_decisions SET clv_status='kickoff_mismatch' "
+            "WHERE ticker LIKE 'KXMLSGAME-26NOV01VANSEA-%' AND clv_status='ok' "
+            "AND COALESCE(commence_time,commence_time_backfill)='2026-11-01T21:30:00+00:00'"
+        )
+        self.conn.execute(
+            "INSERT INTO kickoff_state (key,value) VALUES ('migration:event_kickoffs',?)",
+            (datetime.now(timezone.utc).isoformat(),),
+        )
+        self.conn.commit()
 
     @staticmethod
     def _ensure_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
@@ -2013,6 +2044,15 @@ class Ledger:
             " event_ticker) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             rows,
         )
+        from prediction_bot import kickoffs
+
+        for feed_events in seen.values():
+            for game in feed_events.values():
+                linked = links.get(game.event_id)
+                if linked:
+                    kickoffs.observe(
+                        self.conn, linked, game.commence_time, "odds", stamp, game.event_id
+                    )
         self.conn.commit()
         return len(rows)
 

@@ -21,6 +21,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from prediction_bot import kickoffs
 from prediction_bot.cadence import CadenceCalendar
 from prediction_bot.cli import _refresh_pull_plan
 from prediction_bot.config import Settings
@@ -92,6 +93,10 @@ def _game(ledger: Ledger, event: str, kickoff: datetime, offset_h: float = 3) ->
             (kickoff + timedelta(hours=offset_h)).isoformat(),
         ),
     )
+    if event.startswith("KXNCAAFGAME-"):
+        # NCAAF expirations are placeholders, so no close is planned from them: the
+        # books' kickoff (here from the free /events listing, days ahead) is needed.
+        kickoffs.observe(ledger.conn, event, kickoff, "odds_events", kickoff - timedelta(days=4))
 
 
 def seed_slate(ledger: Ledger) -> None:
@@ -124,11 +129,11 @@ def seed_slate(ledger: Ledger) -> None:
                     ledger, f"KXNCAAFGAME-{day:02d}C{i}", date.replace(hour=h, minute=30 * (i % 2))
                 )
             for i, h in enumerate([12, 15, 15, 15, 17]):
-                _game(ledger, f"KXEPLGAME-{day:02d}E{i}", date.replace(hour=h), offset_h=2)
+                _game(ledger, f"KXEPLGAME-{day:02d}E{i}", date.replace(hour=h), offset_h=3)
         if weekday in (1, 2):  # UCL Tuesday/Wednesday
             for i, (h, m) in enumerate([(17, 45), (17, 45)] + [(20, 0)] * 6):
                 _game(
-                    ledger, f"KXUCLGAME-{day:02d}U{i}", date.replace(hour=h, minute=m), offset_h=2
+                    ledger, f"KXUCLGAME-{day:02d}U{i}", date.replace(hour=h, minute=m), offset_h=3
                 )
     ledger.conn.commit()
 

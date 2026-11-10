@@ -55,8 +55,10 @@ def refresh_clv_statuses(ledger: Ledger, settings: Settings) -> int:
     changed = 0
     queries = {
         table: f"SELECT id,created_at,ticker,COALESCE(commence_time,commence_time_backfill),"
-        f"clv_kalshi FROM {table} WHERE clv_status IS NULL OR clv_status='pending' "
-        "OR commence_time_backfill IS NOT NULL"
+        f"clv_kalshi FROM {table} WHERE (clv_status IS NULL OR clv_status='pending' "
+        "OR commence_time_backfill IS NOT NULL) "
+        # A scored row flagged by reanchor_kickoffs keeps its flag.
+        "AND COALESCE(clv_status,'')<>'kickoff_mismatch'"
         for table in ("fills", "shadow_decisions")
     }
     # Maker shadows (v5 Phase 4) carry their own commence time and no backfill.
@@ -84,6 +86,18 @@ def refresh_clv_statuses(ledger: Ledger, settings: Settings) -> int:
             changed += 1
     ledger.conn.commit()
     return changed
+
+
+def reanchor_kickoffs(ledger: Ledger, settings: Settings | None = None) -> dict[str, int]:
+    """Bring unscored rows onto the resolved kickoff before anything is scored.
+
+    Rows keep the kickoff they were written with, and college kickoffs move when TV
+    slots are set. See `kickoffs.reanchor` for the rules.
+    """
+    from prediction_bot import kickoffs
+
+    kickoffs.sync_snapshots(ledger.conn)
+    return kickoffs.reanchor(ledger.conn, settings)
 
 
 def backfill_clv_commence_times(
@@ -428,7 +442,17 @@ def record_clv(
                             SOURCE,
                         ),
                     )
-                if usable_quotes == 0 and attempt_number >= 3:
+                has_close = commence is None or (
+                    ledger.conn.execute(
+                        "SELECT 1 FROM closing_quotes WHERE ticker=? AND commence_time=? "
+                        "AND t_minus_min=5",
+                        (ticker, commence.isoformat()),
+                    ).fetchone()
+                    is not None
+                )
+                # Give up after 3 attempts when nothing usable came back, or when the
+                # T-5 close is still missing (T-60/T-15 alone never score a row).
+                if attempt_number >= 3 and (usable_quotes == 0 or not has_close):
                     ledger.conn.execute(
                         "UPDATE clv_fetch_attempts SET status='unavailable' WHERE ticker=?",
                         (ticker,),
