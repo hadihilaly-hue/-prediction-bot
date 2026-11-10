@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import sqlite3
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -14,7 +15,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from prediction_bot import ledger_store
+from prediction_bot import ledger_archive, ledger_store
 from prediction_bot.analysis import event_datetime as _event_datetime
 from prediction_bot.analysis import start_time
 from prediction_bot.cadence import CadenceCalendar, parse_day_overrides
@@ -1368,6 +1369,56 @@ def ledger_save(
         typer.echo(f"warning: prune: {error}", err=True)
 
 
+@app.command("ledger-archive")
+def ledger_archive_command(
+    db: Path = typer.Option(Path("ledger/paper.sqlite"), help="The hot ledger"),
+    keep_days: int = typer.Option(
+        ledger_archive.KEEP_DAYS, help="Keep closed markets' rows this many days"
+    ),
+    orderbook_days: int = typer.Option(
+        ledger_archive.ORDERBOOK_DAYS, help="Keep order books this many days"
+    ),
+) -> None:
+    """Once per UTC day, move old rows of closed markets to the ledger-archive release.
+
+    Never fails the job: any error leaves the ledger untouched and only warns."""
+    s = _settings()
+    try:
+        ledger = Ledger(db, s.paper_starting_cash)
+        result = ledger_archive.run_archive(
+            ledger_store.SubprocessRunner(),
+            ledger.conn,
+            db.parent,
+            keep_days=keep_days,
+            orderbook_days=orderbook_days,
+        )
+    except Exception as exc:  # noqa: BLE001 - an archive problem must not stop the cycle
+        log.exception("ledger-archive failed")
+        typer.echo(f"warning: ledger-archive skipped: {exc}", err=True)
+        return
+    rows = ", ".join(f"{t} {n}" for t, n in result.rows.items()) or "no rows"
+    typer.echo(f"ledger-archive {result.day}: {result.status} {result.asset} ({rows})")
+
+
+@app.command("ledger-archive-fetch")
+def ledger_archive_fetch(
+    out: Path = typer.Option(Path("analysis/paper.sqlite"), help="Write the full history here"),
+) -> None:
+    """Restore the hot ledger and merge every archive asset into it (for analysis)."""
+    runner = ledger_store.SubprocessRunner()
+    try:
+        ledger_store.restore(runner, out)
+        conn = sqlite3.connect(str(out))
+        merged = ledger_archive.fetch_full_history(runner, conn, out.parent)
+        conn.close()
+    except (ledger_store.LedgerStoreError, ledger_archive.ArchiveError) as exc:
+        typer.echo(f"ledger-archive-fetch failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    for name, added in merged.items():
+        typer.echo(f"{name}: " + ", ".join(f"{t} +{n}" for t, n in added.items()))
+    typer.echo(f"full history in {out} ({len(merged)} archive files merged)")
+
+
 @app.command("reference-gaps")
 def reference_gaps(
     days: int = typer.Option(14, help="Look back this many days"),
@@ -1468,11 +1519,14 @@ def _planner_games(
     pending = {
         str(row[0])
         for row in ledger.conn.execute(
+            # A merged row spans [created_at, last_seen_at] within one UTC day; overlap with
+            # the window means an observation inside it (Ledger.has_recent_large_gap_record).
             "SELECT DISTINCT ticker FROM blocks WHERE rules_version='v3' "
-            "AND reason IN ('big_edge','large_gap') AND created_at BETWEEN ? AND ?",
+            "AND reason IN ('big_edge','large_gap') AND created_at<=? "
+            "AND COALESCE(last_seen_at,created_at)>=?",
             (
-                (now - timedelta(hours=36)).isoformat(),
                 (now - timedelta(hours=2)).isoformat(),
+                (now - timedelta(hours=36)).isoformat(),
             ),
         )
     }
