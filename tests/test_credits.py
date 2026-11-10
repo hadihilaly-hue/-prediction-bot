@@ -611,3 +611,22 @@ def test_nov9_projection_keeps_the_rotation_funded_to_month_end(tmp_path: Path) 
     )
     assert result["left"] >= OddsPacer.MEASURE_RESERVE
     assert result["measure_pulls"] <= 22  # at most one a day
+
+
+def test_dashboard_lists_each_lost_credit_gap(tmp_path: Path) -> None:
+    from prediction_bot.dashboard import _credit_gap_data, render_dashboard
+
+    ledger = _ledger(tmp_path)
+    now = datetime(2026, 11, 6, 8, tzinfo=UTC)
+    ledger.record_credit_gap(now - timedelta(hours=5), 210, 205)
+    ledger.record_credit_gap(now, 219, 215)
+    ledger.record_credit_gap(datetime(2026, 10, 30, tzinfo=UTC), 400, 390)  # last month
+    data = _credit_gap_data(ledger, now)
+    assert data["month_total"] == 9
+    assert data["rows"] == [
+        {"at": now.isoformat(), "api_used": 219, "ledger_used": 215, "lost": 4},
+        {"at": (now - timedelta(hours=5)).isoformat(), "api_used": 210, "ledger_used": 205,
+         "lost": 5},
+    ]  # fmt: skip
+    page = render_dashboard(ledger)
+    assert 'id="creditgaps"' in page and "Lost credits (spent, never saved)" in page

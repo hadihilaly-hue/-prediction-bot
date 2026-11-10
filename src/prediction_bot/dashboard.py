@@ -905,6 +905,20 @@ def _cadence_data(ledger: Ledger) -> dict[str, object]:
     }
 
 
+def _credit_gap_data(ledger: Ledger, now: datetime | None = None) -> dict[str, object]:
+    """This month's lost credits: credits the Odds API counted that no saved run
+    recorded (a run whose ledger save failed), one row per gap found at a run start."""
+    now = now or datetime.now(timezone.utc)
+    rows = ledger.credit_gaps_in_month(now)
+    return {
+        "month_total": sum(api - seen for _at, api, seen in rows),
+        "rows": [
+            {"at": at, "api_used": api, "ledger_used": seen, "lost": api - seen}
+            for at, api, seen in rows
+        ],
+    }
+
+
 def _when(value: object) -> datetime | None:
     """Parse a ledger timestamp as aware UTC (naive means UTC; Python 3.10 has no `Z`)."""
     if not value:
@@ -1052,6 +1066,7 @@ def dashboard_data(ledger: Ledger, settings: Settings | None = None) -> dict[str
     perf = ledger.performance()
     return {
         "cadence": _cadence_data(ledger),
+        "credit_gaps": _credit_gap_data(ledger),
         "v5": _v5_health_data(ledger),
         "clv_report": clv_report(ledger.conn),
         "injuries": _injury_data(ledger),
@@ -1357,6 +1372,11 @@ _TEMPLATE = """<!doctype html>
       <summary>Credit cadence</summary>
       <p class="hint">Are we spending the month's ~500 odds credits on the right days? Weight is the day's share of remaining budget: the calendar base times any cluster bump or dead-zone cut, blended up to ±50% with how many mapped games sit in the pull window (dyn). Pulled is what the slots actually spent. On/after the 20th, an under-spend month lets slots pull extra feeds.</p>
       <div class="tablewrap"><table id="cadence"></table></div>
+    </details>
+    <details>
+      <summary>Lost credits (spent, never saved)</summary>
+      <p class="hint">Odds credits the API counted that no saved run recorded, usually a run whose ledger save failed after it pulled. Found at the start of the next run: the API's credits-used count against the last count the ledger saved this month. A gap of one credit is ignored.</p>
+      <div class="tablewrap"><table id="creditgaps"></table></div>
     </details>
     <details>
       <summary>Results by league</summary>
@@ -1814,6 +1834,8 @@ _TEMPLATE = """<!doctype html>
   table('injuriesproxy', 'College football proxy: consensus line moved 4¢+ against our side before kickoff (not real injury data).', headsInj, injuryRows((D.injuries || {}).proxy || []), 'No settled college-football bets with a CLV value yet.');
   table('injuriesgate', 'Bets the injury gate would have blocked (it ran in log mode, so they still traded) vs the rest.', headsInj, injuryRows((D.injuries || {}).gate || []), 'No settled bets with a CLV value yet.');
   const C = D.cadence || {};
+  const G = D.credit_gaps || {};
+  table('creditgaps', 'Newest first. Lost this month: ' + (G.month_total || 0) + ' credits.', ['When (UTC)', 'API used', 'Ledger saw', 'Lost'], (G.rows || []).map(r => [String(r.at || '').slice(0, 16).replace('T', ' '), String(r.api_used), String(r.ledger_used), String(r.lost)]), 'No lost credits this month.');
   table('cadence', 'Newest first. Pulled this month so far: ' + (C.month_pulled || 0) + ' of ~500 credits. Lost this month (spent by runs whose ledger save failed): ' + (C.month_lost || 0) + '.', ['Day', 'Mode', 'Weight', 'Dyn', 'Blended', 'Budget', 'Pulled', 'Feeds'], (C.rows || []).map(r => [r.day, r.mode || '', r.static_w != null ? Number(r.static_w).toFixed(2) : '–', r.dyn_count != null ? String(r.dyn_count) : '–', r.blended_w != null ? Number(r.blended_w).toFixed(2) : '–', r.budget != null ? Number(r.budget).toFixed(1) : '–', String(r.pulled || 0), JSON.parse(r.feeds || '[]').join(', ')]), 'No cadence days recorded yet.');
   const R = D.clv_report || {cohorts: {}};
   const verdictPill = v => v === 'supported' ? pill('won', 'Supported') : v === 'rejected' ? pill('lost', 'Rejected') : pill('', 'Open');

@@ -2409,6 +2409,20 @@ class Ledger:
             )
         self.conn.commit()
 
+    def credit_gaps_in_month(self, at: datetime) -> list[tuple[str, int, int]]:
+        """(at, api_used, ledger_used) for this UTC month's gaps, newest first."""
+        now = self._utc(at)
+        start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+        end = datetime(now.year + (now.month == 12), now.month % 12 + 1, 1, tzinfo=timezone.utc)
+        return [
+            (str(r[0]), int(r[1]), int(r[2]))
+            for r in self.conn.execute(
+                "SELECT at,api_used,ledger_used FROM credit_gaps WHERE at>=? AND at<? "
+                "ORDER BY at DESC,id DESC",
+                (start.isoformat(), end.isoformat()),
+            )
+        ]
+
     def credit_gap_month(self, at: datetime) -> int:
         now = self._utc(at)
         start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
