@@ -497,3 +497,40 @@ def test_an_absorbed_row_never_absorbs_further_rows(tmp_path: Path) -> None:
     assert _status_of(ledger, chained) == ("planned", None)
     assert _status_of(ledger, rider) == ("pulled", rode)
     assert absorbed
+
+
+# --- 2.6b a second due feed is deferred, not budget-blocked -------------------------------
+
+
+def test_second_due_feed_is_deferred_then_pulled_next(tmp_path: Path) -> None:
+    from prediction_bot.config import Settings
+    from prediction_bot.pull_plan import (
+        eligible_feeds,
+        mark_pulled,
+        plan_kickoffs,
+        plan_pulls,
+        select_plan_pull,
+    )
+
+    settings = Settings(_env_file=None, rules_version="v3")  # type: ignore[call-arg]
+    ledger = _ledger(tmp_path)
+    kickoff = datetime(2026, 11, 22, 18, tzinfo=UTC)
+    now = kickoff - timedelta(minutes=10)
+    _eligible(ledger, ["americanfootball_nfl", "soccer_epl"], now - timedelta(days=1))
+    _legs(ledger, "KXNFLGAME-26NOV22KCBUF", ["KC", "BUF"], kickoff, now - timedelta(hours=1))
+    _legs(ledger, "KXEPLGAME-26NOV22ARSTOT", ["ARS", "TOT"], kickoff, now - timedelta(hours=1))
+    ledger.record_cadence_day(
+        now.date(), static_w=1, dyn_count=None, dyn_json=None, blended_w=1, budget=20,
+        mode="off", at=now,
+    )  # fmt: skip
+    plan_pulls(ledger, plan_kickoffs(ledger.conn, eligible_feeds(ledger.conn), now), now)
+    first = select_plan_pull(ledger, settings, now)
+    assert first is not None
+    other = ({"americanfootball_nfl", "soccer_epl"} - {first.feed}).pop()
+    loser = ledger.conn.execute(
+        "SELECT note,budget_blocked_at FROM pull_plan WHERE feed=? AND target='T-10m'", (other,)
+    ).fetchone()
+    assert loser == ("deferred_other_feed", None)
+    mark_pulled(ledger, first.feed, now, 1.0)
+    second = select_plan_pull(ledger, settings, now + timedelta(minutes=1))
+    assert second is not None and second.feed == other

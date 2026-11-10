@@ -184,6 +184,12 @@ jobs:
             if [ -n "$PLAN_FEED" ]; then
               pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \
                 --plan "$PLAN_FEED" | tee -a ledger/last_run.txt || true
+              # A second feed due this tick, if the allowance still covers it.
+              PLAN_FEED="$(pbot pull-due)" || PLAN_FEED=""
+              if [ -n "$PLAN_FEED" ]; then
+                pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \
+                  --plan "$PLAN_FEED" | tee -a ledger/last_run.txt || true
+              fi
             elif [ -z "$TARGET" ]; then
               FEED="$(pbot odds-trigger $SPORTSBOOK_SERIES_ARGS)" || FEED=""
               if [ -n "$FEED" ]; then

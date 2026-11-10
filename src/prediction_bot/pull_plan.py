@@ -914,7 +914,9 @@ def select_plan_pull(
     """The funded feed to pull now for its due targets, or None.
 
     Due targets that cannot be funded are stamped `budget_blocked_at`, so if they
-    expire unpulled they are recorded as `skipped_budget` rather than `missed`.
+    expire unpulled they are recorded as `skipped_budget` rather than `missed`. Due
+    targets of another feed that were fundable but lost to this tick's pick get the
+    note `deferred_other_feed` and no budget stamp.
     With `calendar`, a row past its entry's `max_per_day` and soccer feeds over the
     weekend cap are held back too, with the reason in `note`. Plan pulls never spend
     the month's last `plan_floor` credits (hard reserve plus move reserve).
@@ -979,14 +981,19 @@ def select_plan_pull(
         key=lambda item: (min(p for _i, p, _e in item[1]), min(e for _i, _p, e in item[1])),
     )
     blocked: list[int] = []
+    deferred: list[int] = []
     pick: PlanPick | None = None
     for feed, rows in ordered:
         priority = min(p for _i, p, _e in rows)
-        if (
-            pick is None
-            and not (low_blocked and priority > top)
+        fundable = (
+            not (low_blocked and priority > top)
             and remaining - _groups_ahead(ledger, now, priority) >= 1
-        ):
+        )
+        if fundable and pick is not None:
+            # Lost only to the feed picked this tick: not a budget block (credits
+            # 2.6b). The workflow asks `pull-due` again once that pull is recorded.
+            deferred.extend(i for i, _p, _e in rows)
+        elif fundable:
             primary = min(rows, key=lambda r: (r[1], r[2], r[0]))[0]
             source_row = ledger.conn.execute(
                 "SELECT source FROM pull_plan WHERE id=?", (primary,)
@@ -1001,6 +1008,12 @@ def select_plan_pull(
         else:
             blocked.extend(i for i, _p, _e in rows)
     blocked.extend(held)
+    if deferred:
+        ledger.conn.executemany(
+            "UPDATE pull_plan SET note=COALESCE(note,'deferred_other_feed') WHERE id=?",
+            [(row_id,) for row_id in deferred],
+        )
+        ledger.conn.commit()
     if blocked:
         # Rows merged into a blocked survivor are blocked with it.
         merged = [
