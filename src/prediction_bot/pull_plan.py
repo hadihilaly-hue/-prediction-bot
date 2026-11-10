@@ -774,11 +774,17 @@ def plan_allowance(ledger: Ledger, settings: Settings, now: datetime) -> float |
 
 
 def plan_credits_between(ledger: Ledger, start: datetime, end: datetime) -> float:
+    """Credits charged to the plan's allowance: plan pulls, plus one per measurement
+    pull (credits 2.4: measurement pulls are paid from the plan's share)."""
     row = ledger.conn.execute(
         "SELECT COALESCE(SUM(credits),0) FROM pull_plan WHERE pulled_at>=? AND pulled_at<?",
         (start.isoformat(), end.isoformat()),
     ).fetchone()
-    return float(row[0])
+    measured = ledger.conn.execute(
+        "SELECT COUNT(*) FROM measure_pulls WHERE created_at>=? AND created_at<?",
+        (start.isoformat(), end.isoformat()),
+    ).fetchone()
+    return float(row[0]) + float(measured[0])
 
 
 def plan_credits_month(ledger: Ledger, now: datetime) -> float:

@@ -66,6 +66,7 @@ from prediction_bot.pull_plan import (
     eligible_feeds,
     mark_pulled_ids,
     merge_near_targets,
+    plan_allowance_left,
     plan_feed_targets,
     plan_hold,
     plan_kickoffs,
@@ -714,6 +715,12 @@ def paper(
                     and s.rules_version == "v3"
                 ):
                     measure = select_measure_pull(ledger, games_by_sport, s, now, exclude=planned)
+                    if measure is not None:
+                        # Measurement pulls are paid from the plan's allowance.
+                        allowance = plan_allowance_left(ledger, s, now)
+                        if allowance is not None and allowance < 1:
+                            ledger.record_feed_skips({measure.feed: "measure_no_allowance"}, now)
+                            measure = None
                     if measure is not None and not _measure_game_listed(odds, measure):
                         ledger.record_feed_skips({measure.feed: "measure_no_events"}, now)
                         measure = None

@@ -337,3 +337,40 @@ def test_move_triggers_are_at_least_three_hours_apart(
     )
     ledger.conn.commit()
     assert _trigger(tmp_path, monkeypatch, ledger, now) == NFL
+
+
+# --- 2.4 measurement pulls are paid from the plan's share --------------------------------
+
+
+def test_measure_pulls_are_charged_to_the_plan_allowance(tmp_path: Path) -> None:
+    from prediction_bot.config import Settings
+    from prediction_bot.pull_plan import plan_allowance_left
+
+    settings = Settings(_env_file=None, rules_version="v3")  # type: ignore[call-arg]
+    ledger = _ledger(tmp_path)
+    now = datetime(2026, 11, 20, 12, tzinfo=UTC)
+    ledger.record_run(["x"], 0, 0, 0, 0, odds_used=200, odds_remaining=300)
+    ledger.conn.execute(
+        "UPDATE runs SET ran_at=?", (datetime(2026, 11, 1, tzinfo=UTC).isoformat(),)
+    )
+    ledger.conn.commit()
+    before = plan_allowance_left(ledger, settings, now)
+    assert before is not None
+    ledger.record_measure_pull("basketball_nba", "KXNBAGAME-X", "T-90m", now, now)
+    assert plan_allowance_left(ledger, settings, now) == pytest.approx(before - 1)
+
+
+def test_measure_credit_is_refused_below_the_plan_floor(tmp_path: Path) -> None:
+    ledger = _ledger(tmp_path)
+    now = datetime(2026, 11, 20, 12, tzinfo=UTC)
+
+    def pacer(left: int) -> OddsPacer:
+        client = _Quota(left)
+        client.budget = 0
+        p = OddsPacer(client, 12, ledger=ledger)  # type: ignore[arg-type]
+        p.move_reserve = 50
+        return p
+
+    # Floor = 25 hard reserve + 50 unused move reserve.
+    assert not pacer(75).grant_measure_credit("basketball_nba", 1, now)
+    assert pacer(76).grant_measure_credit("basketball_nba", 1, now)

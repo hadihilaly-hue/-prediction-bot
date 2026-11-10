@@ -534,14 +534,15 @@ class OddsPacer:
         """Allow one shadow-only measurement pull for `feed` on top of this run's budget.
 
         Refused in trigger runs, once `daily_cap` measurement pulls are recorded for the
-        UTC day, or when it would dip into the month's reserve. The credit is kept out
-        of the carry so it never borrows from the next run's share.
+        UTC day, or below `plan_floor()` (the pull is paid from the plan's share, so it
+        stops where plan pulls stop). The credit is kept out of the carry so it never
+        borrows from the next run's share.
         """
         if self.ledger is None or self.measure_feed is not None or daily_cap <= 0:
             return False
         if self.ledger.measure_pulls_on(_utc(now).date()) >= daily_cap:
             return False
-        if not self.grant_extra_credit(feed):
+        if not self.grant_extra_credit(feed, floor=self.plan_floor(now)):
             return False
         self.measure_feed = feed
         return True
