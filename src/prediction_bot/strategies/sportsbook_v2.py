@@ -118,6 +118,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._quotes: list[QuoteSnapshot] = []
         self._reviews: list[EdgeReview] = []
         self._maker_shadows: list[MakerShadowCandidate] = []
+        self._event_fees: dict[str, tuple[str, Decimal]] = {}
         self._shadow_updates: dict[tuple[str, OutcomeSide], MakerShadowUpdate] = {}
         self._entry_window_decisions: list[Signal] = []
         self._single_sharp_decisions: list[Signal] = []
@@ -1044,6 +1045,121 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             fair=fair if fair is not None else previous.fair if previous else None,
         )
 
+    # Near-miss reasons that are a gate the taker path applies (sharp_move is an
+    # observation, not a gate).
+    MAKER_FEED_GATES = ("net_edge", "entry_window", "price_floor", "thin_market")
+
+    def _feed_maker_shadows(
+        self,
+        markets: Sequence[Market],
+        candidates: Mapping[str, Sequence[Signal]],
+        entry_window_events: set[str],
+        now: datetime,
+    ) -> None:
+        """Maker shadows from every evaluated side the model favours, not only taker
+        signals (PR 2). A side qualifies when fair > its mid (model_side = 1) and
+        fair - maker price - maker fee >= v3_maker_shadow_min_edge, in any window and
+        whatever the taker threshold, entry window, price floor and depth gates say;
+        tags name the gates that would have blocked a taker entry. One shadow per
+        position (the best edge); the ledger keeps at most one open per position_key.
+        Price rule, TTL and queue are as before: join the bid at a 1c spread, bid + 1c
+        otherwise; queue_ahead from this scan's quote (an orderbook snapshot replaces
+        it only when it is under 5 minutes old). Size is one contract: the evidence is
+        per contract."""
+        if self.rules_version != "v3":
+            return
+        by_ticker = {market.ticker: market for market in markets}
+        sides: list[tuple[Signal, str | None]] = [
+            (sig, reason)
+            for sig, reason in self._near_miss_decisions
+            if reason in self.MAKER_FEED_GATES
+        ]
+        sides += [(sig, None) for signals in candidates.values() for sig in signals]
+        best: dict[str, tuple[Decimal, MakerShadowCandidate]] = {}
+        for sig, reason in sides:
+            market = by_ticker.get(sig.ticker)
+            fees = self._event_fees.get(sig.event_ticker or "")
+            if (
+                market is None
+                or fees is None
+                or sig.position_key is None
+                or sig.event_ticker is None
+                or sig.commence_time is None
+                or sig.mid is None
+                or sig.fair_prob <= sig.mid
+            ):
+                continue
+            bid = market.quote.bid_for(sig.side)
+            ask = market.quote.ask_for(sig.side)
+            shadow_price: Decimal | None = None
+            price_rule: str | None = None
+            if self.settings.v3_execution == "maker_first" and sig.maker_price is not None:
+                shadow_price, price_rule = sig.maker_price, "maker_first"
+            elif bid is not None and ask is not None:
+                if ask - bid >= Decimal("0.02"):
+                    shadow_price, price_rule = bid + Decimal("0.01"), "bid_plus_1"
+                elif ask - bid == Decimal("0.01"):
+                    shadow_price, price_rule = bid, "at_bid"
+            if shadow_price is None or ask is None or bid is None or shadow_price >= ask:
+                continue
+            schedule = FixedFee(*fees)
+            maker_rate = fee_for_ticker(
+                sig.ticker, shadow_price, Decimal(1), "maker", schedule=schedule, rounding=None
+            )
+            edge = sig.fair_prob - shadow_price - maker_rate
+            if edge < self.settings.v3_maker_shadow_min_edge:
+                continue
+            buffer = self.settings.kickoff_buffer_minutes.get(
+                KALSHI_SERIES_TO_SPORT.get(sig.event_ticker.split("-", 1)[0], ""),
+                self.settings.kickoff_buffer_default_minutes,
+            )
+            expires_at = min(
+                sig.commence_time - timedelta(minutes=buffer),
+                now + timedelta(minutes=self.settings.v3_maker_ttl_minutes),
+            )
+            if expires_at <= now:
+                continue
+            taker_price = market.quote.ask_for(sig.side) or ask
+            blocked = {
+                "net_edge": sig.edge < self._net_edge_threshold(taker_price),
+                "entry_window": sig.event_ticker in entry_window_events,
+                "price_floor": taker_price < self.settings.v2_price_floor,
+                "thin_market": reason == "thin_market",
+            }
+            tags = tuple(f"blocked_{gate}" for gate, hit in blocked.items() if hit) or (
+                "taker_pass",
+            )
+            queue_ahead = Decimal(0) if shadow_price > bid else market.quote.bid_size_for(sig.side)
+            candidate = MakerShadowCandidate(
+                created_at=now,
+                ticker=sig.ticker,
+                side=sig.side,
+                event_ticker=sig.event_ticker,
+                position_key=sig.position_key,
+                price=shadow_price,
+                size=Decimal(1),
+                fair=sig.fair_prob,
+                maker_fee=fee_for_ticker(
+                    sig.ticker,
+                    shadow_price,
+                    Decimal(1),
+                    "maker",
+                    schedule=schedule,
+                    rounding=self.settings.fee_rounding,
+                ),
+                expires_at=expires_at,
+                commence_time=sig.commence_time,
+                rules_version=self.rules_version,
+                queue_ahead=queue_ahead,
+                maker_price_rule=price_rule,
+                tags=tags,
+                origin="maker_feed",
+            )
+            previous = best.get(sig.position_key)
+            if previous is None or edge > previous[0]:
+                best[sig.position_key] = (edge, candidate)
+        self._maker_shadows.extend(candidate for _edge, candidate in best.values())
+
     def _v3_maker_price(
         self,
         market: Market,
@@ -1365,6 +1481,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._fetched_feeds.clear()
         self._blocks.clear()
         self._maker_shadows.clear()
+        self._event_fees.clear()
         self._shadow_updates.clear()
         self._entry_window_decisions.clear()
         self._single_sharp_decisions.clear()
@@ -1594,6 +1711,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             if fee_type not in {"quadratic", "quadratic_with_maker_fees"}:
                 self._block("unknown_fee_type", event_ticker, legs[0].ticker, fee_type)
                 continue
+            self._event_fees[event_ticker] = (fee_type, fee_multiplier)
             expected_outcomes = set(ids_by_ticker.values())
             book_probabilities = self._book_probabilities(sport, game, expected_outcomes)
             minimum_books = self.settings.min_books_by_sport.get(sport, self.settings.min_books)
@@ -2126,81 +2244,6 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     sig.ticker,
                 ),
             )
-            sized_shadow = self._size_v2_signal(
-                selected_shadow,
-                reserved_position={},
-                reserved_event={},
-                reserved_day=Decimal(0),
-                reserved_total=Decimal(0),
-                reserved_cash=Decimal(0),
-            )
-            if (
-                sized_shadow is not None
-                and sized_shadow.event_ticker is not None
-                and sized_shadow.commence_time is not None
-                and sized_shadow.event_ticker not in entry_window_events
-            ):
-                shadow_market = next(m for m in markets if m.ticker == sized_shadow.ticker)
-                bid = shadow_market.quote.bid_for(sized_shadow.side)
-                ask = shadow_market.quote.ask_for(sized_shadow.side)
-                # v5 Phase 4 price rule: with a 1c spread bid+1c IS the ask, so the
-                # shadow rests at the bid instead; with 2c+ it improves the bid by 1c.
-                shadow_price: Decimal | None = None
-                price_rule: str | None = None
-                if (
-                    sized_shadow.rules_version == "v3"
-                    and self.settings.v3_execution == "maker_first"
-                    and sized_shadow.maker_price is not None
-                ):
-                    shadow_price, price_rule = sized_shadow.maker_price, "maker_first"
-                elif bid is not None and ask is not None:
-                    if ask - bid >= Decimal("0.02"):
-                        shadow_price, price_rule = bid + Decimal("0.01"), "bid_plus_1"
-                    elif ask - bid == Decimal("0.01"):
-                        shadow_price, price_rule = bid, "at_bid"
-                queue_ahead = (
-                    None
-                    if shadow_price is None or bid is None or shadow_price < bid
-                    else Decimal(0)
-                    if shadow_price > bid
-                    else shadow_market.quote.bid_size_for(sized_shadow.side)
-                )
-                if shadow_price is not None and ask is not None and shadow_price < ask:
-                    buffer = self.settings.kickoff_buffer_minutes.get(
-                        KALSHI_SERIES_TO_SPORT.get(sized_shadow.event_ticker.split("-", 1)[0], ""),
-                        self.settings.kickoff_buffer_default_minutes,
-                    )
-                    expires_at = sized_shadow.commence_time - timedelta(minutes=buffer)
-                    if self.rules_version == "v3":
-                        expires_at = min(
-                            expires_at,
-                            now + timedelta(minutes=self.settings.v3_maker_ttl_minutes),
-                        )
-                    self._maker_shadows.append(
-                        MakerShadowCandidate(
-                            created_at=now,
-                            ticker=sized_shadow.ticker,
-                            side=sized_shadow.side,
-                            event_ticker=sized_shadow.event_ticker or "",
-                            position_key=position_key,
-                            price=shadow_price,
-                            size=sized_shadow.size,
-                            fair=sized_shadow.fair_prob,
-                            maker_fee=fee_for_ticker(
-                                sized_shadow.ticker,
-                                shadow_price,
-                                sized_shadow.size,
-                                "maker",
-                                schedule=self._signal_fee(sized_shadow),
-                                rounding=self.settings.fee_rounding,
-                            ),
-                            expires_at=expires_at,
-                            commence_time=sized_shadow.commence_time,
-                            rules_version=self.rules_version,
-                            queue_ahead=queue_ahead,
-                            maker_price_rule=price_rule,
-                        )
-                    )
             trade_candidates = sorted(
                 (
                     sig
@@ -2287,5 +2330,6 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         rejected.ticker,
                         position_key,
                     )
+        self._feed_maker_shadows(markets, candidates, entry_window_events, now)
         self._finish_feed_pulls(out)
         return out

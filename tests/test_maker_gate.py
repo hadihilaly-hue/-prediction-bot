@@ -61,8 +61,8 @@ def _add_maker_shadows(
         ledger.conn.execute(
             "INSERT INTO maker_shadow (created_at,ticker,side,position_key,price,size,fair,"
             "maker_fee,status,status_at,trade_through_at,event_ticker,expires_at,rules_version,"
-            "fill_trade_through_at,clv_kalshi,score_status,fill_queue_at,clv_status) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "fill_trade_through_at,clv_kalshi,score_status,fill_queue_at,clv_status,fill_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 now,
                 f"KXNFLGAME-MAKER{index}-HOME",
@@ -83,14 +83,15 @@ def _add_maker_shadows(
                 "scored",
                 trade_through if queue else None,
                 clv_status if trade_through else None,
+                trade_through if queue else None,
             ),
         )
     ledger.conn.commit()
 
 
-def _ready_ledger(ledger: Ledger, maker_mean: str = "2") -> None:
+def _ready_ledger(ledger: Ledger, maker_mean: str = "2", taker_clv: str = "2") -> None:
     for index in range(50):
-        _add_fill(ledger, f"taker-{index}", "2")
+        _add_fill(ledger, f"taker-{index}", taker_clv)
     _add_maker_shadows(
         ledger,
         filled_clv=50,
@@ -136,7 +137,10 @@ def test_maker_gate_passes_with_complete_evidence() -> None:
     assert gate.reason == "passed"
     assert gate.queue_n == 50
     assert gate.queue_ci_low is not None and gate.queue_ci_low > 0
-    assert gate.queue_mean is not None and gate.queue_mean >= gate.taker_mean  # type: ignore[operator]
+    # Both judged net of fees: maker 2.05c - 0.43c maker fee vs taker 2c - 1.75c taker fee.
+    assert gate.taker_compared and gate.taker_games == 50 and gate.queue_games == 50
+    assert gate.queue_mean is not None and gate.taker_net_mean is not None
+    assert gate.queue_mean >= gate.taker_net_mean
     assert gate.taker_n == 50 and gate.maker_scored == 50
 
 
@@ -149,7 +153,8 @@ def test_queue_gate_needs_no_taker_cohort() -> None:
 
 def test_maker_mean_below_taker_fails_last_gate() -> None:
     ledger = Ledger(":memory:", Decimal("1000"))
-    _ready_ledger(ledger, maker_mean="1.9")
+    # Maker net ~1.5c; taker 4c gross is 2.25c net of its 1.75c fee.
+    _ready_ledger(ledger, maker_mean="1.9", taker_clv="4")
     gate = evaluate_maker_gate(ledger, _settings())
     assert gate.reason == "maker_worse_than_taker"
 
@@ -217,7 +222,7 @@ def test_auto_resolution_and_live_fallback(monkeypatch) -> None:  # type: ignore
     assert gate_live is None
 
 
-def test_paper_auto_logs_once_per_run_and_explicit_modes_do_not(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_paper_logs_execution_mode_once_per_run_auto_or_configured(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     class EngineStub:
         def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
             pass
@@ -258,10 +263,10 @@ def test_paper_auto_logs_once_per_run_and_explicit_modes_do_not(tmp_path, monkey
         )
         cli.paper(strategy=["sportsbook_v3"], cycles=1, interval=0)
         explicit_ledger = Ledger(path, Decimal("1000"))
-        assert (
-            explicit_ledger.conn.execute("SELECT COUNT(*) FROM execution_mode_log").fetchone()[0]
-            == 0
-        )
+        # A configured mode is logged as itself (the gate's evidence rides along).
+        assert explicit_ledger.conn.execute(
+            "SELECT requested,resolved,reason FROM execution_mode_log"
+        ).fetchall() == [(mode, mode, "configured (queue_fills)")]
 
 
 def test_taker_mode_still_expires_open_paper_orders(monkeypatch) -> None:  # type: ignore[no-untyped-def]

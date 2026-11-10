@@ -136,6 +136,8 @@ class Settings(BaseSettings):
     # v5 Phase 4: the gate that decides is queue-model maker fills with clean CLV.
     v3_maker_gate_min_queue_fills: int = 50
     v3_maker_cancel_move: Decimal = Decimal("0.01")
+    # Maker shadow feed: fair - maker price - maker fee needed to place a shadow.
+    v3_maker_shadow_min_edge: Decimal = Decimal("0.01")
     v3_maker_ttl_minutes: int = Field(
         default=480,
         description=(

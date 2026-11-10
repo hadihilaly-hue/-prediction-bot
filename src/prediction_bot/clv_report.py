@@ -294,6 +294,11 @@ def _columns(conn: sqlite3.Connection, table: str) -> str:
     return ",".join(exprs)
 
 
+def fee_schedule(conn: sqlite3.Connection) -> _Schedule:
+    """The ledger's series_fees as a fee lookup (Kalshi's general schedule otherwise)."""
+    return _Schedule(_fee_schedule(conn))
+
+
 def _fee_schedule(conn: sqlite3.Connection) -> dict[str, tuple[str, Decimal]]:
     try:
         return {

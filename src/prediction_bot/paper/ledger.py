@@ -806,6 +806,13 @@ class Ledger:
                 "expiry_yes_bid": "TEXT",
                 "expiry_yes_ask": "TEXT",
                 "expiry_quote_at": "TEXT",
+                # Maker shadow (PR 2): fill_at is the earlier of the queue fill and a
+                # run-over; fill_rule says which ('queue', 'run_over'). origin is what
+                # created the shadow; tags name the taker gates that would have blocked it.
+                "fill_at": "TEXT",
+                "fill_rule": "TEXT",
+                "origin": "TEXT",
+                "tags": "TEXT",
             },
         }.items():
             self._ensure_columns(self.conn, table, columns)
@@ -1076,7 +1083,8 @@ class Ledger:
             self.conn.commit()
 
     # A depth snapshot older than this when a shadow is placed is not its queue.
-    ORDERBOOK_QUEUE_MAX_AGE = timedelta(minutes=30)
+    # Older than this, the quote seen when the shadow was placed is the better queue.
+    ORDERBOOK_QUEUE_MAX_AGE = timedelta(minutes=5)
 
     def record_orderbook_snapshot(
         self,
@@ -1142,8 +1150,8 @@ class Ledger:
                     "INSERT INTO maker_shadow (created_at, ticker, side, position_key, price,"
                     " size, fair, maker_fee, status, status_at, trade_through_at, event_ticker,"
                     " expires_at, commence_time, rules_version, queue_ahead, queue_source,"
-                    " maker_price_rule) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    " maker_price_rule, origin, tags) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         self._utc(shadow.created_at).isoformat(),
                         shadow.ticker,
@@ -1165,6 +1173,8 @@ class Ledger:
                         None if queue_ahead is None else str(queue_ahead),
                         queue_source,
                         shadow.maker_price_rule,
+                        shadow.origin,
+                        ",".join(shadow.tags) if shadow.tags else None,
                     ),
                 )
             except sqlite3.IntegrityError:
@@ -1257,11 +1267,14 @@ class Ledger:
         status: str,
         queue_at: datetime | None = None,
         queue_status: str | None = None,
+        fill_at: datetime | None = None,
+        fill_rule: str | None = None,
     ) -> None:
         self.conn.execute(
             "UPDATE maker_shadow SET fill_trade_through_at=?,fill_optimistic_at=?,"
             "scored_at=?,score_attempts=score_attempts+1,score_status=?,"
-            "fill_queue_at=?,queue_status=COALESCE(?,queue_status) WHERE id=?",
+            "fill_queue_at=?,queue_status=COALESCE(?,queue_status),fill_at=?,fill_rule=? "
+            "WHERE id=?",
             (
                 None if trade_through_at is None else self._utc(trade_through_at).isoformat(),
                 None if optimistic_at is None else self._utc(optimistic_at).isoformat(),
@@ -1269,6 +1282,8 @@ class Ledger:
                 status,
                 None if queue_at is None else self._utc(queue_at).isoformat(),
                 queue_status,
+                None if fill_at is None else self._utc(fill_at).isoformat(),
+                fill_rule,
                 shadow_id,
             ),
         )

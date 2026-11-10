@@ -91,8 +91,9 @@ jobs:
         env:
           PBOT_MODE: paper
           PBOT_RULES_VERSION: ${{ vars.PBOT_RULES_VERSION || 'v3' }}
-          # Set the repo Variable to taker to force automatic maker-first off.
-          PBOT_V3_EXECUTION: ${{ vars.PBOT_V3_EXECUTION || 'auto' }}
+          # Taker unless the repo Variable says otherwise: execution never switches by
+          # itself. Set the Variable to auto to let the maker gate decide.
+          PBOT_V3_EXECUTION: ${{ vars.PBOT_V3_EXECUTION || 'taker' }}
           PBOT_KALSHI_API_BASE: https://api.elections.kalshi.com/trade-api/v2
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
           # v1 strategies only (book_scanner and the sportsbook_arb/underdog_value
