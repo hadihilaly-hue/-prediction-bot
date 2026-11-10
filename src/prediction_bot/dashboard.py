@@ -266,15 +266,20 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
     for entry in calibration.values():
         entry["observed_win_rate"] = entry["wins"] / entry["n"]
         entry["predicted_win_rate"] = entry["expected_wins"] / entry["n"]
+    # A blocks row stands for seen_count identical blocks on one ticker within one UTC
+    # day; blocks_rollup holds the counts of rows the archive moved out of the ledger.
     blocks = ledger.conn.execute(
-        "SELECT reason,COUNT(*) FROM blocks GROUP BY reason ORDER BY COUNT(*) DESC"
+        "SELECT reason,SUM(n) FROM (SELECT reason,seen_count AS n FROM blocks "
+        "UNION ALL SELECT reason,n FROM blocks_rollup) GROUP BY reason ORDER BY SUM(n) DESC"
     ).fetchall()
-    recent_cutoff = datetime.now(timezone.utc).timestamp() - 7 * 86400
+    # From midnight UTC 7 days ago: a merged row never spans a UTC day, so a day-aligned
+    # window counts exactly what one row per block would have.
+    recent_cutoff = _blocks_week_start(datetime.now(timezone.utc))
     recent_blocks = []
     for reason, count in blocks:
         recent = ledger.conn.execute(
-            "SELECT COUNT(*) FROM blocks WHERE reason=? AND created_at >= ?",
-            (reason, datetime.fromtimestamp(recent_cutoff, timezone.utc).isoformat()),
+            "SELECT COALESCE(SUM(seen_count),0) FROM blocks WHERE reason=? AND created_at >= ?",
+            (reason, recent_cutoff),
         ).fetchone()[0]
         recent_blocks.append({"reason": reason, "7d": recent, "all": count})
     latest_run = ledger.conn.execute(
@@ -909,10 +914,18 @@ def _when(value: object) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
+def _blocks_week_start(now: datetime) -> str:
+    """Midnight UTC seven days before `now`: the start of the dashboard's 7-day block
+    windows, day-aligned because a blocks row (seen_count repeats) stays in one UTC day."""
+    day = (now.astimezone(timezone.utc) - timedelta(days=7)).date()
+    return datetime(day.year, day.month, day.day, tzinfo=timezone.utc).isoformat()
+
+
 # Data feeds the bot reads, newest row per feed: (label, table, time column, filter).
 _FRESHNESS_FEEDS: tuple[tuple[str, str, str, str], ...] = (
     ("Kalshi markets", "market_snapshots", "fetched_at", ""),
-    ("Kalshi quotes", "quote_snapshots", "created_at", ""),
+    # A repeated quote moves last_seen_at instead of adding a row.
+    ("Kalshi quotes", "quote_snapshots", "COALESCE(last_seen_at,created_at)", ""),
     ("Kalshi order books", "orderbook_snapshots", "fetched_at", ""),
     ("Kalshi closing prices", "closing_quotes", "fetched_at", ""),
     ("Polymarket reference", "reference_quotes", "fetched_at", "WHERE source='polymarket'"),
@@ -1004,9 +1017,9 @@ def _v5_health_data(ledger: Ledger, now: datetime | None = None) -> dict[str, ob
     rejections = [
         {"day": day, "reason": reason, "n": n}
         for day, reason, n in ledger.conn.execute(
-            "SELECT substr(created_at,1,10),reason,COUNT(*) FROM blocks WHERE created_at>=? "
-            "GROUP BY 1,2 ORDER BY 1 DESC,3 DESC",
-            (week_ago,),
+            "SELECT substr(created_at,1,10),reason,SUM(seen_count) FROM blocks "
+            "WHERE created_at>=? GROUP BY 1,2 ORDER BY 1 DESC,3 DESC",
+            (_blocks_week_start(now),),
         )
     ]
     return {

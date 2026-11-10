@@ -504,49 +504,60 @@ class SaveResult:
     prune_errors: list[str]
 
 
-def _release_view(runner: Runner, sleep: Sleep) -> str:
-    argv = ["gh", "release", "view", RELEASE_TAG, "--json", "assets"]
-    return run_retry(runner, argv, 3, sleep, f"gh release view {RELEASE_TAG}").text
+def _release_view(runner: Runner, sleep: Sleep, tag: str = RELEASE_TAG) -> str:
+    argv = ["gh", "release", "view", tag, "--json", "assets"]
+    return run_retry(runner, argv, 3, sleep, f"gh release view {tag}").text
 
 
-def _ensure_release(runner: Runner, sleep: Sleep) -> None:
-    if runner.run(["gh", "release", "view", RELEASE_TAG, "--json", "tagName"]).returncode == 0:
+STORE_NOTES = (
+    "Paper ledger snapshots. The current one is named in ledger_manifest.json "
+    "on the paper-ledger branch. Written by `pbot ledger-save`."
+)
+
+
+def _ensure_release(
+    runner: Runner,
+    sleep: Sleep,
+    tag: str = RELEASE_TAG,
+    title: str = "Paper ledger store",
+    notes: str = STORE_NOTES,
+) -> None:
+    if runner.run(["gh", "release", "view", tag, "--json", "tagName"]).returncode == 0:
         return
     create = [
         "gh",
         "release",
         "create",
-        RELEASE_TAG,
+        tag,
         "--prerelease",
         "--latest=false",
         "--target",
         "main",
         "--title",
-        "Paper ledger store",
+        title,
         "--notes",
-        "Paper ledger snapshots. The current one is named in ledger_manifest.json "
-        "on the paper-ledger branch. Written by `pbot ledger-save`.",
+        notes,
     ]
     if runner.run(create).returncode == 0:
         return
     # Created concurrently, or a network blip: either way it must exist now.
     run_retry(
         runner,
-        ["gh", "release", "view", RELEASE_TAG, "--json", "tagName"],
+        ["gh", "release", "view", tag, "--json", "tagName"],
         3,
         sleep,
-        f"create release {RELEASE_TAG}",
+        f"create release {tag}",
     )
 
 
-def _upload(runner: Runner, path: Path, sleep: Sleep) -> None:
+def _upload(runner: Runner, path: Path, sleep: Sleep, tag: str = RELEASE_TAG) -> None:
     size = path.stat().st_size
     last = ""
     for attempt in range(4):
-        result = runner.run(["gh", "release", "upload", RELEASE_TAG, str(path)])
+        result = runner.run(["gh", "release", "upload", tag, str(path)])
         last = result.err
         # Check even after a failed upload: an earlier attempt may have landed.
-        view = runner.run(["gh", "release", "view", RELEASE_TAG, "--json", "assets"])
+        view = runner.run(["gh", "release", "view", tag, "--json", "assets"])
         if view.returncode == 0 and asset_on_release(view.text, path.name, size):
             return
         log.warning("upload of %s not confirmed (attempt %d/4): %s", path.name, attempt + 1, last)

@@ -1,0 +1,109 @@
+name: Maker backtest
+
+# Manual only. Replays the v3 near-miss decisions as resting maker bids against
+# Kalshi's public trade tape (scripts/maker_backtest.py). Read-only on the ledger: it
+# restores a copy to a temp path and never saves it, so it touches neither the
+# `paper-ledger` branch nor the ledger release. No odds credits, no Kalshi key, paper
+# only. The trade tape is cached between runs (actions/cache), so a run that stops at
+# max_calls resumes where it left off. Reports go to the `reports` branch under
+# reports/maker_backtest/<UTC date>/ (plain push, never force).
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "First decision day (UTC, YYYY-MM-DD)"
+        default: "2026-10-23"
+        required: false
+      until:
+        description: "Last decision day, inclusive (UTC, YYYY-MM-DD); empty = latest"
+        default: ""
+        required: false
+      max_calls:
+        description: "Kalshi request budget for this run (0 = cache only)"
+        default: "6000"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: maker-backtest
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .
+
+      - name: Restore ledger (read-only copy)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pbot ledger-restore --out "$RUNNER_TEMP/ledger/paper.sqlite"
+
+      - name: Restore trade cache
+        uses: actions/cache/restore@v4
+        with:
+          path: trade_cache.sqlite
+          key: maker-backtest-trade-cache-${{ github.run_id }}
+          restore-keys: maker-backtest-trade-cache-
+
+      - name: Run backtest
+        id: run
+        env:
+          SINCE: ${{ inputs.since }}
+          UNTIL: ${{ inputs.until }}
+          MAX_CALLS: ${{ inputs.max_calls }}
+        run: |
+          day="$(date -u +%F)"
+          echo "day=$day" >> "$GITHUB_OUTPUT"
+          args=(--db "$RUNNER_TEMP/ledger/paper.sqlite" --cache trade_cache.sqlite
+                --since "${SINCE:-2026-10-23}" --max-calls "${MAX_CALLS:-6000}"
+                --out-dir "$RUNNER_TEMP/out")
+          if [ -n "$UNTIL" ]; then args+=(--until "$UNTIL"); fi
+          python scripts/maker_backtest.py "${args[@]}"
+
+      # Saved even when the run fails, so the requests already made are not repeated.
+      - name: Save trade cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: trade_cache.sqlite
+          key: maker-backtest-trade-cache-${{ github.run_id }}
+
+      - name: Job summary
+        run: cat "$RUNNER_TEMP/out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push report to the reports branch
+        env:
+          DAY: ${{ steps.run.outputs.day }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          wt="$RUNNER_TEMP/reports-branch"
+          if git ls-remote --exit-code --heads origin reports >/dev/null; then
+            git fetch --depth=1 origin reports
+            git worktree add -B reports "$wt" FETCH_HEAD
+          else
+            git worktree add --detach "$wt" HEAD
+            git -C "$wt" checkout --orphan reports
+            git -C "$wt" rm -rf -q .
+            git -C "$wt" clean -fdxq
+          fi
+          dest="$wt/reports/maker_backtest/$DAY"
+          mkdir -p "$dest"
+          cp "$RUNNER_TEMP/out/summary.md" "$RUNNER_TEMP/out/summary.json" \
+             "$RUNNER_TEMP/out/orders.csv" "$dest/"
+          git -C "$wt" add reports
+          if git -C "$wt" diff --cached --quiet; then
+            echo "report unchanged; nothing to push"
+            exit 0
+          fi
+          git -C "$wt" commit -q -m "Maker backtest report $DAY (run ${{ github.run_id }})"
+          git -C "$wt" push origin HEAD:refs/heads/reports

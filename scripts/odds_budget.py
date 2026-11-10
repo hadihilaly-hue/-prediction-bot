@@ -168,17 +168,25 @@ def _feed_report_sections(
                         "WHERE gate_candidates IS NOT NULL"
                     )
                 ]
+        # Change-only blocks (Part 2 ledger fix): a row repeated within a UTC day keeps
+        # its first created_at and moves last_seen_at, so a row stands for an observation at
+        # each end; both ends are replayed here.
+        block_columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(blocks)")}
+        last_seen = (
+            "COALESCE(last_seen_at,created_at)" if "last_seen_at" in block_columns else "created_at"
+        )
         blocks = [
             (
-                _utc(str(created_at)),
+                _utc(str(at)),
                 str(event_ticker or ""),
                 str(reason),
                 str(rules_version or ""),
             )
-            for created_at, event_ticker, reason, rules_version in conn.execute(
-                "SELECT created_at,event_ticker,reason,rules_version FROM blocks "
+            for created_at, seen_at, event_ticker, reason, rules_version in conn.execute(
+                f"SELECT created_at,{last_seen},event_ticker,reason,rules_version FROM blocks "
                 "WHERE reason IN ('net_edge','entry_window')"
             )
+            for at in ((created_at,) if seen_at == created_at else (created_at, seen_at))
         ]
         signals = [
             (_utc(str(created_at)), str(event_ticker or ""), str(rules_version or ""))
