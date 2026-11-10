@@ -28,7 +28,7 @@ jobs:
 
       - name: Restore ledger branch
         run: |
-          git fetch origin paper-ledger:paper-ledger 2>/dev/null || true
+          git fetch --depth=1 origin paper-ledger:paper-ledger 2>/dev/null || true
           mkdir -p ledger
           # The ledger is stored gzipped (GitHub rejects files over 100 MB); fall back
           # to the uncompressed paper.sqlite that branches committed before that.
