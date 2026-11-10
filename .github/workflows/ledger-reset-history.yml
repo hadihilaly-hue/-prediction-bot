@@ -1,0 +1,92 @@
+name: Ledger reset history
+
+# MANUAL, DESTRUCTIVE: replaces the paper-ledger branch's history with one parentless
+# commit holding the tip's tree, to drop the ~43 MB paper.sqlite.gz blobs committed
+# before the ledger moved to the `ledger-store` release. Run it only after a day of clean
+# runs on the new layout. It refuses unless:
+#   - the `confirm` input is exactly RESET;
+#   - the tip has ledger_manifest.json and its asset downloads and verifies
+#     (`pbot ledger-restore --require-manifest`: size, sha256, quick_check, runs);
+#   - the tip tree has no paper.sqlite* file.
+# The push uses --force-with-lease against the tip it checked, so a paper cycle that
+# lands in between makes the push fail instead of being lost. It shares the paper-ledger
+# concurrency group, so it waits for a running cycle.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type RESET to replace paper-ledger's history with one commit"
+        required: true
+        default: ""
+
+concurrency:
+  group: paper-ledger
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Require confirmation
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$CONFIRM" != "RESET" ]; then
+            echo "confirm must be exactly RESET (got '$CONFIRM'); nothing changed"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .
+
+      - name: Verify the tip's manifest and asset
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verify
+          pbot ledger-restore --out verify/paper.sqlite --require-manifest
+          TIP="$(git rev-parse paper-ledger)"
+          if git ls-tree --name-only "$TIP" | grep -E '^paper\.sqlite'; then
+            echo "the tip tree still has a paper.sqlite* file; run a cycle on the new layout first"
+            exit 1
+          fi
+          echo "tip=$TIP" >> "$GITHUB_OUTPUT"
+          echo "verified tip $TIP"
+
+      - name: Replace history with one commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TIP: ${{ steps.verify.outputs.tip }}
+          GIT_AUTHOR_NAME: paper-bot
+          GIT_AUTHOR_EMAIL: paper-bot@users.noreply.github.com
+          GIT_COMMITTER_NAME: paper-bot
+          GIT_COMMITTER_EMAIL: paper-bot@users.noreply.github.com
+        shell: bash
+        run: |
+          set -euo pipefail
+          count() {
+            gh api graphql -F owner="${GITHUB_REPOSITORY%/*}" -F name="${GITHUB_REPOSITORY#*/}" \
+              -f query='query($owner: String!, $name: String!) {
+                repository(owner: $owner, name: $name) {
+                  ref(qualifiedName: "refs/heads/paper-ledger") {
+                    target { ... on Commit { oid history { totalCount } } }
+                  }
+                }
+              }' --jq '.data.repository.ref.target | "\(.history.totalCount) commits at \(.oid)"'
+          }
+          echo "before: $(count)"
+          NEW="$(git commit-tree "${TIP}^{tree}" -m "ledger branch reset $(date -u +%F)")"
+          git push --force-with-lease="paper-ledger:${TIP}" origin "${NEW}:refs/heads/paper-ledger"
+          echo "after: $(count)"
+          echo "paper-ledger is now ${NEW} (tree of ${TIP})"

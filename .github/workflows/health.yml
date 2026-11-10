@@ -1,10 +1,16 @@
 name: Paper bot health
 
-# Dead-man check (v5 Phase 6.2): hourly, read the ledger on `paper-ledger` and fail if
-# its last run is older than PBOT_HEALTH_MAX_AGE_MINUTES (repo Variable, default 90;
-# drop it to 40 once the 10-minute Cloudflare trigger is live). On failure, open (or
-# comment on) one issue titled "paper bot missed runs". Off the :00, :17 and :47
-# minutes (and the Worker's :x7 ticks) on purpose.
+# Dead-man check (v5 Phase 6.2): hourly, read ledger_manifest.json on `paper-ledger`
+# (a depth-1 fetch; the database itself is not downloaded) and fail if its last run is
+# older than PBOT_HEALTH_MAX_AGE_MINUTES (repo Variable, default 90; drop it to 40 once
+# the 10-minute Cloudflare trigger is live), or if fewer than PBOT_HEALTH_MIN_SLOTS
+# (default 36) of the last 24h's 48 half-hour slots ran, which catches a dead Worker
+# token while the GitHub cron fallback keeps the last run fresh. Until the branch has a
+# manifest it falls back to the old paper.sqlite.gz. On any failed step, including a
+# fetch that hangs, open (or comment on) one issue titled "paper bot missed runs".
+# Off the :00, :17 and :47 minutes (and the Worker's :x7 ticks) on purpose; the
+# Cloudflare Worker also dispatches this workflow once an hour, since GitHub drops many
+# scheduled slots.
 on:
   schedule:
     - cron: "33 * * * *"
@@ -17,44 +23,68 @@ permissions:
 jobs:
   health:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # Above the step timeouts below, so a hang fails a step (and the issue step runs)
+    # instead of cancelling the job.
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
+        id: checkout
       - uses: actions/setup-python@v5
+        id: python
         with:
           python-version: "3.12"
           cache: pip
       - run: pip install -e .
+        id: install
 
-      - name: Restore ledger branch
+      - name: Fetch ledger manifest
+        id: fetch
+        timeout-minutes: 2
+        shell: bash
         run: |
-          git fetch --depth=1 origin paper-ledger:paper-ledger 2>/dev/null || true
+          git fetch --depth=1 origin paper-ledger:paper-ledger
           mkdir -p ledger
-          # The ledger is stored gzipped (GitHub rejects files over 100 MB); fall back
-          # to the uncompressed paper.sqlite that branches committed before that.
-          if git cat-file -e paper-ledger:paper.sqlite.gz 2>/dev/null; then
-            git show paper-ledger:paper.sqlite.gz | gunzip > ledger/paper.sqlite
+          if git cat-file -e paper-ledger:ledger_manifest.json 2>/dev/null; then
+            git show paper-ledger:ledger_manifest.json > ledger/ledger_manifest.json
+          elif git cat-file -e paper-ledger:paper.sqlite.gz 2>/dev/null; then
+            # Old layout, until the first `pbot ledger-save` writes a manifest.
+            git show paper-ledger:paper.sqlite.gz | gunzip > ledger/legacy.sqlite.tmp
+            mv ledger/legacy.sqlite.tmp ledger/legacy.sqlite
           else
-            git show paper-ledger:paper.sqlite > ledger/paper.sqlite 2>/dev/null || true
+            echo "paper-ledger has neither ledger_manifest.json nor paper.sqlite.gz"
+            exit 1
           fi
 
       - name: Check last run
         id: check
+        timeout-minutes: 2
         env:
-          PBOT_PAPER_DB_PATH: ledger/paper.sqlite
+          PBOT_PAPER_DB_PATH: ledger/legacy.sqlite
           MAX_AGE_MINUTES: ${{ vars.PBOT_HEALTH_MAX_AGE_MINUTES || '90' }}
+          MIN_SLOTS: ${{ vars.PBOT_HEALTH_MIN_SLOTS || '36' }}
         # Explicit bash runs with pipefail, so `tee` does not hide a failing check.
         shell: bash
-        run: pbot health --max-age-minutes "$MAX_AGE_MINUTES" | tee health.txt
+        run: |
+          pbot health --max-age-minutes "$MAX_AGE_MINUTES" --min-slots "$MIN_SLOTS" \
+            --manifest ledger/ledger_manifest.json | tee health.txt
 
       - name: Open or update the missed-runs issue
-        if: failure() && steps.check.outcome == 'failure'
+        if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
+          OUTCOMES: >-
+            checkout=${{ steps.checkout.outcome }}
+            setup-python=${{ steps.python.outcome }}
+            pip-install=${{ steps.install.outcome }}
+            fetch-ledger-manifest=${{ steps.fetch.outcome }}
+            check-last-run=${{ steps.check.outcome }}
         run: |
           TITLE="paper bot missed runs"
-          BODY="$(printf 'The hourly health check failed at %s UTC.\n\n```\n%s\n```\n\nRun: %s/%s/actions/runs/%s' \
-            "$(date -u +%FT%TZ)" "$(cat health.txt 2>/dev/null || echo 'no output')" \
+          FAILED="$(printf '%s\n' $OUTCOMES | grep -E '=(failure|cancelled)$' | cut -d= -f1 \
+            | paste -sd, -)"
+          BODY="$(printf 'The hourly health check failed at %s UTC.\n\nFailed step: %s\n\n```\n%s\n```\n\nRun: %s/%s/actions/runs/%s' \
+            "$(date -u +%FT%TZ)" "${FAILED:-unknown}" \
+            "$(cat health.txt 2>/dev/null || echo 'no output')" \
             "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")"
           NUMBER="$(gh issue list --state open --search "in:title \"$TITLE\"" \
             --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -1)"

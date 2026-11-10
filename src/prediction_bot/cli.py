@@ -8,11 +8,13 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
+from prediction_bot import ledger_store
 from prediction_bot.analysis import event_datetime as _event_datetime
 from prediction_bot.analysis import start_time
 from prediction_bot.cadence import CadenceCalendar, parse_day_overrides
@@ -1271,25 +1273,99 @@ def _due_plan_feed(ledger: Ledger, s: Settings, now: datetime) -> str | None:
 @app.command()
 def health(
     max_age_minutes: int = typer.Option(90, help="Fail if the last run is older than this"),
+    min_slots: Annotated[
+        int,
+        typer.Option(help="Also fail when fewer of the last 24h's 48 half-hour slots ran (0=off)"),
+    ] = 0,
+    manifest: Annotated[
+        Path | None,
+        typer.Option(
+            help="Read last_run_at and slots_last_24h from this ledger_manifest.json instead "
+            "of the database; falls back to the database when the file does not exist",
+        ),
+    ] = None,
 ) -> None:
-    """Dead-man check: exit 1 if the ledger's last run is older than `max_age_minutes`."""
-    s = _settings()
-    ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+    """Dead-man check: exit 1 if the last run is older than `max_age_minutes`, or fewer
+    than `min_slots` half-hour slots ran in the last 24h."""
     now = datetime.now(timezone.utc)
-    day = _run_times(ledger, now - timedelta(days=1))
-    row = ledger.conn.execute("SELECT MAX(ran_at) FROM runs").fetchone()
-    last = _utc(datetime.fromisoformat(str(row[0]))) if row and row[0] else None
-    slots = len({(at.hour, at.minute // 30) for at, _s, reason in day if reason is None})
+    if manifest is not None and manifest.is_file():
+        data = ledger_store.Manifest.from_json(manifest.read_text())
+        raw_last, slots, source = data.last_run_at, data.slots_last_24h, "manifest"
+    else:
+        s = _settings()
+        ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+        slots = ledger_store.slots_last_24h(ledger.conn, now)
+        row = ledger.conn.execute("SELECT MAX(ran_at) FROM runs").fetchone()
+        raw_last, source = (str(row[0]) if row and row[0] else None), "database"
+    last = _utc(datetime.fromisoformat(raw_last)) if raw_last else None
     if last is None:
         typer.echo("no runs recorded")
         raise typer.Exit(1)
     age = (now - last).total_seconds() / 60
     typer.echo(
         f"last run {last.isoformat(timespec='minutes')} ({age:.0f} min ago); "
-        f"{slots} of 48 half-hour slots ran in the last 24h"
+        f"{slots} of 48 half-hour slots ran in the last 24h (from the {source})"
     )
+    failed = False
     if age > max_age_minutes:
+        typer.echo(f"FAIL: the last run is older than {max_age_minutes} minutes")
+        failed = True
+    if min_slots > 0 and slots < min_slots:
+        typer.echo(
+            f"FAIL: {slots} slots is below {min_slots} of 48; check the Cloudflare Worker "
+            "token (infra/cloudflare-trigger)"
+        )
+        failed = True
+    if failed:
         raise typer.Exit(1)
+
+
+@app.command("ledger-restore")
+def ledger_restore(
+    out: Path = typer.Option(Path("ledger/paper.sqlite"), help="Write the verified ledger here"),
+    bootstrap: bool = typer.Option(
+        False,
+        envvar="PBOT_LEDGER_BOOTSTRAP",
+        help="Start an empty ledger when the branch or its ledger does not exist",
+    ),
+    require_manifest: bool = typer.Option(
+        False, help="Fail unless the branch tip has a ledger_manifest.json"
+    ),
+) -> None:
+    """Restore the paper ledger from the ledger-store release (fails closed)."""
+    try:
+        result = ledger_store.restore(
+            ledger_store.SubprocessRunner(),
+            out,
+            bootstrap=bootstrap,
+            require_manifest=require_manifest,
+        )
+    except ledger_store.LedgerStoreError as exc:
+        typer.echo(f"ledger-restore failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"ledger restored from {result.source}: {result.detail}")
+
+
+@app.command("ledger-save")
+def ledger_save(
+    db: Path = typer.Option(Path("ledger/paper.sqlite"), help="The ledger to save"),
+    dir: Path = typer.Option(Path("ledger"), help="Folder with the report files"),
+    worktree: Path = typer.Option(Path("wt"), help="Scratch worktree of paper-ledger"),
+) -> None:
+    """Upload the ledger as a release asset and commit its manifest to paper-ledger."""
+    try:
+        result = ledger_store.save(ledger_store.SubprocessRunner(), db, dir, worktree=worktree)
+    except ledger_store.LedgerStoreError as exc:
+        typer.echo(f"ledger-save failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    m = result.manifest
+    typer.echo(
+        f"ledger saved: {m.asset} ({m.gz_bytes} bytes, {m.runs} runs, "
+        f"{'uploaded' if result.uploaded else 'unchanged, not re-uploaded'}); "
+        f"pruned {len(result.pruned)} old assets"
+    )
+    for error in result.prune_errors:
+        typer.echo(f"warning: prune: {error}", err=True)
 
 
 @app.command("reference-gaps")

@@ -118,10 +118,38 @@ The full change log is `docs/CHANGES_v5.md`.
 are used). The book scanner runs every cycle. The sportsbook strategy runs on the :17 cycle
 of every even UTC hour (and on manual runs). The other cycles pull odds only for a
 due pull-plan target or a line-move trigger. An odds pacer keeps the month inside The
-Odds API free tier (500 requests/month). Each cycle commits the ledger as `paper.sqlite.gz` (gzipped: GitHub rejects files over 100 MB; read it with `git show paper-ledger:paper.sqlite.gz | gunzip > paper.sqlite`), `last_run.txt`, `REPORT.txt` and a human-readable
+Odds API free tier (500 requests/month). Each cycle commits `last_run.txt`, `REPORT.txt` and a human-readable
 `PREDICTIONS.md` (every signal with price, fair estimate, edge and outcome once settled) to
 the `paper-ledger` branch — that file is the place to see what the bot is predicting.
 Locally, `pbot predictions` prints the same table.
+
+#### Where the ledger lives
+
+The SQLite ledger is not in git. Each cycle that does work uploads it, gzipped, as a new
+asset on the `ledger-store` GitHub Release (`paper-<UTC yyyymmddThhmmssZ>-r<runs>.sqlite.gz`)
+and commits `ledger_manifest.json` to `paper-ledger`. The manifest is the only record of
+which asset is current, with its sha256, size, `runs` count, `last_run_at` and
+`slots_last_24h`. Old assets are pruned to the 10 newest plus the newest of each of the
+last 7 UTC days. (Before November 2026 each cycle committed a fresh ~43 MB
+`paper.sqlite.gz`, which grew the repo by gigabytes a day.)
+
+To get the current ledger locally (needs `gh auth login`), from a clone of this repo:
+
+```bash
+pbot ledger-restore --out ledger/paper.sqlite
+```
+
+It fetches the branch tip, downloads the asset the manifest names, checks its size,
+sha256, `PRAGMA quick_check` and `runs` count, and writes the file only if all pass. By
+hand: `git show origin/paper-ledger:ledger_manifest.json`, then
+`gh release download ledger-store --pattern <asset>` and `gunzip`.
+
+In the workflow the restore fails closed: if the ledger cannot be downloaded and verified,
+the job fails before any strategy runs, and nothing is saved. `pbot ledger-save` refuses a
+database with fewer runs than it restored, uploads before it commits, and never
+force-pushes. Set the repo Variable `PBOT_LEDGER_BOOTSTRAP=true` only to start an empty
+ledger in a new repo. `.github/workflows/ledger-reset-history.yml` (manual, input `RESET`)
+squashes `paper-ledger` to one commit once its tip holds no database.
 
 The run also writes `index.html`, a self-contained dashboard (cards, equity curve, per-run
 activity, and sortable/filterable Predictions / Trades / Runs tables). Publish it with
@@ -144,7 +172,7 @@ overstate what the real book offers — evaluate strategies on production data.
 
 GitHub drops many scheduled slots. A Cloudflare Worker (`infra/cloudflare-trigger`, setup steps in its README) can start `paper.yml` every 10 minutes (:07, :17, … :57) through `workflow_dispatch` with a `slot` input. The GitHub schedule stays as a fallback, and `pbot slot-guard` stops a second run of the same slot. A tick within 25 minutes of the last scanner run is idle (no ledger commit) unless a pull-plan target is due.
 
-An hourly `health.yml` workflow runs `pbot health`, which fails once the ledger's last run is more than 90 minutes old (repo Variable `PBOT_HEALTH_MAX_AGE_MINUTES`; 40 once the Worker is live). On failure it opens or updates one issue titled "paper bot missed runs".
+An hourly `health.yml` workflow (GitHub's `:33` cron, plus a dispatch from the Worker's `:37` tick) runs `pbot health` against `ledger_manifest.json`, without downloading the database. It fails once the last run is more than 90 minutes old (repo Variable `PBOT_HEALTH_MAX_AGE_MINUTES`; 40 once the Worker is live), or when fewer than 36 of the last 24h's 48 half-hour slots ran (`PBOT_HEALTH_MIN_SLOTS`), which catches a dead Worker token while the GitHub cron fallback keeps the last run fresh. When any step fails or times out, it opens or updates one issue titled "paper bot missed runs", naming the failed step.
 
 ## Safety
 

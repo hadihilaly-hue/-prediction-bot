@@ -12,5 +12,7 @@ crons = ["7-57/10 * * * *"]
 GITHUB_OWNER = "hadihilaly-hue"
 GITHUB_REPO = "-prediction-bot"
 WORKFLOW_FILE = "paper.yml"
+# The :37 tick also dispatches the hourly dead-man check.
+HEALTH_WORKFLOW_FILE = "health.yml"
 GITHUB_REF = "main"
 # GITHUB_TOKEN is a secret: `wrangler secret put GITHUB_TOKEN`, never in this file.

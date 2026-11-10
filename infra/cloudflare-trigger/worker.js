@@ -10,8 +10,13 @@
 // paper.yml keeps its own schedule as a fallback; `pbot slot-guard` stops the second
 // run when both fire.
 //
+// The :37 tick of every hour also dispatches health.yml (the dead-man check), because
+// GitHub ran only 17 of about 100 of its hourly scheduled slots. A duplicate with
+// health.yml's own :33 cron is harmless: the check only reads.
+//
 // Secret: GITHUB_TOKEN, a fine-grained PAT for this repo only with "Actions: read and
-// write". Vars (wrangler.toml): GITHUB_OWNER, GITHUB_REPO, WORKFLOW_FILE, GITHUB_REF.
+// write". Vars (wrangler.toml): GITHUB_OWNER, GITHUB_REPO, WORKFLOW_FILE,
+// HEALTH_WORKFLOW_FILE, GITHUB_REF.
 
 export function slotFor(when) {
   const minute = when.getUTCMinutes();
@@ -19,10 +24,18 @@ export function slotFor(when) {
   return when.getUTCHours() % 2 === 0 && minute >= 17 && minute < 27 ? "sportsbook" : "scanner";
 }
 
-export function dispatchRequest(env, when) {
+// [37, 47) so a late-firing :37 tick still counts, once per hour.
+export function healthDue(when) {
+  const minute = when.getUTCMinutes();
+  return minute >= 37 && minute < 47;
+}
+
+function workflowRequest(env, workflowFile, inputs) {
   const url =
     `https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}` +
-    `/actions/workflows/${env.WORKFLOW_FILE || "paper.yml"}/dispatches`;
+    `/actions/workflows/${workflowFile}/dispatches`;
+  const body = { ref: env.GITHUB_REF || "main" };
+  if (inputs) body.inputs = inputs;
   return {
     url,
     init: {
@@ -34,24 +47,52 @@ export function dispatchRequest(env, when) {
         "User-Agent": "paper-bot-cloudflare-trigger",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ ref: env.GITHUB_REF || "main", inputs: { slot: slotFor(when) } }),
+      body: JSON.stringify(body),
     },
   };
 }
 
-export async function dispatch(env, when, fetchImpl = fetch) {
-  const { url, init } = dispatchRequest(env, when);
+export function dispatchRequest(env, when) {
+  return workflowRequest(env, env.WORKFLOW_FILE || "paper.yml", { slot: slotFor(when) });
+}
+
+export function healthRequest(env) {
+  // health.yml takes no inputs.
+  return workflowRequest(env, env.HEALTH_WORKFLOW_FILE || "health.yml", null);
+}
+
+async function post({ url, init }, fetchImpl) {
   const response = await fetchImpl(url, init);
   // GitHub answers 204 No Content on success.
   if (response.status !== 204) {
     throw new Error(`workflow_dispatch failed: ${response.status} ${await response.text()}`);
   }
+}
+
+export async function dispatch(env, when, fetchImpl = fetch) {
+  await post(dispatchRequest(env, when), fetchImpl);
   return slotFor(when);
+}
+
+export async function dispatchHealth(env, fetchImpl = fetch) {
+  await post(healthRequest(env), fetchImpl);
+  return "health";
+}
+
+// Every dispatch due at `when`; one failing does not stop the other, but any failure
+// rejects so the Worker logs a failed invocation.
+export async function tick(env, when, fetchImpl = fetch) {
+  const jobs = [dispatch(env, when, fetchImpl)];
+  if (healthDue(when)) jobs.push(dispatchHealth(env, fetchImpl));
+  const results = await Promise.allSettled(jobs);
+  const failed = results.filter((r) => r.status === "rejected");
+  if (failed.length) throw new Error(failed.map((r) => r.reason.message).join("; "));
+  return results.map((r) => r.value);
 }
 
 export default {
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(dispatch(env, new Date(event.scheduledTime)));
+    ctx.waitUntil(tick(env, new Date(event.scheduledTime)));
   },
   async fetch() {
     return new Response("paper-bot trigger: cron only\n", { status: 404 });
