@@ -14,12 +14,13 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from prediction_bot import ledger_store
+from prediction_bot import kickoffs, ledger_store
 from prediction_bot.analysis import event_datetime as _event_datetime
 from prediction_bot.analysis import start_time
 from prediction_bot.cadence import CadenceCalendar, parse_day_overrides
 from prediction_bot.clv import (
     backfill_clv_commence_times,
+    reanchor_kickoffs,
     record_clv,
     record_polymarket_clv,
     record_sharp_clv,
@@ -534,6 +535,15 @@ def paper(
                     log.exception("Plan demand estimate failed; rotation holds no extra")
                     pacer.plan_hold = 0
             pacer.start_run()
+        if odds is not None:
+            try:
+                kickoffs.refresh_free(ledger.conn, odds, datetime.now(timezone.utc))
+            except Exception:
+                log.exception("Free kickoff refresh failed; continuing paper cycle")
+        try:
+            reanchor_kickoffs(ledger, s)
+        except Exception:
+            log.exception("Kickoff re-anchoring failed; continuing paper cycle")
         settled = engine.settle_open_positions()
         try:
             score_maker_shadows(ledger, client, max_calls=50)
@@ -1409,6 +1419,45 @@ def reference_gaps(
     typer.echo("\n".join(lines))
 
 
+@app.command("audit-kickoffs")
+def audit_kickoffs(
+    day: str | None = typer.Option(
+        None, "--day", help="Only events whose resolved or stored kickoff is on this UTC date"
+    ),
+    unscored: bool = typer.Option(False, "--unscored", help="Only rows not yet scored"),
+) -> None:
+    """Rows whose stored kickoff differs from the resolved one by more than 5 minutes.
+
+    Read-only: compares against `event_kickoffs` as it stands (odds-based kickoffs only).
+    """
+    s = _settings()
+    ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
+    rows = kickoffs.kickoff_rows(ledger.conn)
+    if day is not None:
+        rows = [
+            r
+            for r in rows
+            if day in (r["resolved"].date().isoformat(), r["stored"].date().isoformat())
+        ]
+    if unscored:
+        rows = [r for r in rows if not r["scored"]]
+    lines = [
+        "| table | id | ticker | stored | resolved | off (min) | status |",
+        "|---|---:|---|---|---|---:|---|",
+    ]
+    for r in sorted(rows, key=lambda r: (r["event_ticker"], r["table"], r["id"])):
+        minutes = round((r["resolved"] - r["stored"]).total_seconds() / 60)
+        status = r["status"] or ("scored" if r["scored"] else "pending")
+        lines.append(
+            f"| {r['table']} | {r['id']} | {r['ticker']} | {r['stored']:%Y-%m-%d %H:%MZ} "
+            f"| {r['resolved']:%Y-%m-%d %H:%MZ} | {minutes:+d} | {status} |"
+        )
+    pending = sum(1 for r in rows if not r["scored"])
+    lines.append("")
+    lines.append(f"{len(rows)} rows more than 5 minutes off ({pending} not yet scored).")
+    typer.echo("\n".join(lines))
+
+
 @app.command("pull-due")
 def pull_due(
     target: int | None = typer.Option(
@@ -1491,26 +1540,29 @@ def _planner_games(
                 event_starts[ticker] = kickoff
 
     games_by_sport: dict[str, list[PlannedGame]] = {}
+    offsets = kickoffs.expiry_offsets(
+        ledger.conn, {ticker.split("-", 1)[0] for ticker in event_markets}, now
+    )
     for event_ticker, legs in event_markets.items():
         series = event_ticker.split("-", 1)[0]
         sport = series_to_sport.get(series)
         if sport is None:
             continue
-        kickoff = event_starts.get(event_ticker) or start_time(event_ticker)[0]
+        # Books' kickoff first, then Kalshi's own start, then any estimate on record.
+        resolved = kickoffs.resolve(ledger.conn, event_ticker)
+        kickoff = (
+            kickoffs.resolve_odds(ledger.conn, event_ticker)
+            or event_starts.get(event_ticker)
+            or start_time(event_ticker)[0]
+            or (resolved[0] if resolved is not None else None)
+        )
         if kickoff is None and series not in KALSHI_SERIES_TO_OUTRIGHT:
             expiration = next(
                 (market.expected_expiration for market in legs if market.expected_expiration),
                 None,
             )
             if expiration is not None:
-                duration = (
-                    timedelta(hours=2)
-                    if sport.startswith("soccer_")
-                    else timedelta(hours=2.5)
-                    if sport == "basketball_nba"
-                    else timedelta(hours=3)
-                )
-                kickoff = expiration - duration
+                kickoff = expiration - offsets[series]
         if kickoff is None:
             continue
         games_by_sport.setdefault(sport, []).append(

@@ -153,11 +153,11 @@ TUESDAY = datetime(2026, 11, 3, tzinfo=UTC)
 def test_midweek_ucl_slate_and_the_17_45_close_gap(tmp_path) -> None:  # type: ignore[no-untyped-def]
     ledger = _ledger(tmp_path)
     _eligible(ledger, ["soccer_uefa_champs_league"], TUESDAY - timedelta(days=2))
-    _game(ledger, "KXUCLGAME-26NOV03EARLY1", TUESDAY.replace(hour=17, minute=45), offset_h=2)
-    _game(ledger, "KXUCLGAME-26NOV03EARLY2", TUESDAY.replace(hour=17, minute=45), offset_h=2)
+    _game(ledger, "KXUCLGAME-26NOV03EARLY1", TUESDAY.replace(hour=17, minute=45), offset_h=3)
+    _game(ledger, "KXUCLGAME-26NOV03EARLY2", TUESDAY.replace(hour=17, minute=45), offset_h=3)
     late = [f"KXUCLGAME-26NOV03LATE{i}" for i in range(6)]
     for event in late:
-        _game(ledger, event, TUESDAY.replace(hour=20), offset_h=2)
+        _game(ledger, event, TUESDAY.replace(hour=20), offset_h=3)
     for day in (TUESDAY - timedelta(days=1), TUESDAY):
         _budget(ledger, day, 100)
 
@@ -263,11 +263,11 @@ def test_simulated_november_never_exceeds_the_monthly_budget(tmp_path) -> None: 
                     ledger, f"KXNCAAFGAME-{day:02d}C{i}", date.replace(hour=h, minute=30 * (i % 2))
                 )
             for i, h in enumerate([12, 15, 15, 15, 17]):
-                _game(ledger, f"KXEPLGAME-{day:02d}E{i}", date.replace(hour=h), offset_h=2)
+                _game(ledger, f"KXEPLGAME-{day:02d}E{i}", date.replace(hour=h), offset_h=3)
         if weekday in (1, 2):  # UCL Tuesday/Wednesday
             for i, (h, m) in enumerate([(17, 45), (17, 45)] + [(20, 0)] * 6):
                 _game(
-                    ledger, f"KXUCLGAME-{day:02d}U{i}", date.replace(hour=h, minute=m), offset_h=2
+                    ledger, f"KXUCLGAME-{day:02d}U{i}", date.replace(hour=h, minute=m), offset_h=3
                 )
 
     client = FakeOdds(500)
