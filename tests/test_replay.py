@@ -435,6 +435,47 @@ def test_replay_mapping_distinguishes_aliases_from_fair_orientation() -> None:
     assert _mapping_reason(outsider) == "mapping_mismatch"
 
 
+def test_v3_reference_rationale_maps_instead_of_failing() -> None:
+    # The format sportsbook_v2/v3 write: the leg's own team and the side's fair.
+    indiana = signal(
+        ticker="KXNCAAFGAME-26NOV14USCIND-IND",
+        fair="0.7317",
+        rationale="Indiana Hoosiers pinnacle reference, 3 books, fair 0.732",
+    )
+    fresno_no = signal(
+        ticker="KXNCAAFGAME-26NOV14FRESTXST-FRES",
+        side="no",
+        fair="0.7655",
+        rationale="Fresno State Bulldogs pinnacle reference, 3 books, fair 0.766",
+    )
+    raiders = signal(
+        ticker="KXNFLGAME-26OCT04KCLV-LV",
+        fair="0.41",
+        rationale="Las Vegas Raiders consensus reference, 5 books, fair 0.410",
+    )
+    wrong_team = signal(
+        ticker="KXNCAAFGAME-26NOV14USCIND-IND",
+        fair="0.7317",
+        rationale="USC Trojans pinnacle reference, 3 books, fair 0.732",
+    )
+    wrong_fair = signal(
+        ticker="KXNCAAFGAME-26NOV14USCIND-IND",
+        fair="0.70",
+        rationale="Indiana Hoosiers pinnacle reference, 3 books, fair 0.732",
+    )
+    unknown = signal(
+        ticker="KXNCAAFGAME-26NOV14USCIND-IND",
+        fair="0.7317",
+        rationale="Nowhere Nobodies pinnacle reference, 3 books, fair 0.732",
+    )
+    assert _mapping_reason(indiana) is None
+    assert _mapping_reason(fresno_no) is None
+    assert _mapping_reason(raiders) is None
+    assert _mapping_reason(wrong_team) == "mapping_mismatch"
+    assert _mapping_reason(wrong_fair) == "mapping_mismatch"
+    assert _mapping_reason(unknown) == "mapping_failed"
+
+
 def test_replay_report_counts_blocks_beyond_alias_coverage() -> None:
     item = signal(rationale="unknown consensus")
     decision = Decision(signal=item, fair=item.fair, reasons=["mapping_failed"])

@@ -220,7 +220,42 @@ def _event_team_ids(signal: ReplaySignal, sport: str) -> set[str] | None:
     return None
 
 
+# v3 signals (sportsbook_v2/v3): "<market's team> <source> reference, <n> books, fair <p>",
+# where <p> is the fair of the side bought (not a YES probability).
+_V3_RATIONALE = re.compile(
+    r"^(?P<name>.+?)\s+(?P<source>\S+)\s+reference,\s+\d+\s+books?,\s+fair\s+"
+    r"(?P<fair>[0-9]+(?:\.[0-9]+)?)",
+    re.IGNORECASE,
+)
+
+
+def _v3_mapping_reason(signal: ReplaySignal, match: re.Match[str]) -> str | None:
+    """A v3 rationale names the Kalshi leg's own outcome and the side's stored fair, so
+    the leg's team must be that outcome and the stored fair must match the rationale."""
+    sport = KALSHI_SERIES_TO_SPORT.get(signal.series)
+    if sport is None:
+        return "mapping_failed"
+    name = match.group("name").strip()
+    if signal.code in {"TIE", "DRAW"}:
+        drawn = "draw" in name.casefold() or "tie" in name.casefold()
+        return None if drawn else "mapping_mismatch"
+    ticker_team = team_for_code(signal.series, signal.code)
+    rationale_team = team_for_odds_name(sport, name)
+    if ticker_team is None or rationale_team is None:
+        return "mapping_failed"
+    if rationale_team != ticker_team:
+        return "mapping_mismatch"
+    event_teams = _event_team_ids(signal, sport)
+    if event_teams is not None and ticker_team not in event_teams:
+        return "mapping_mismatch"
+    stated = Decimal(match.group("fair"))
+    return "mapping_mismatch" if abs(signal.fair - stated) > Decimal("0.02") else None
+
+
 def _mapping_reason(signal: ReplaySignal, fair: Decimal | None = None) -> str | None:
+    v3_match = _V3_RATIONALE.match(signal.rationale.strip())
+    if v3_match is not None:
+        return _v3_mapping_reason(signal, v3_match)
     sport = KALSHI_SERIES_TO_SPORT.get(signal.series)
     reference = _rationale_reference(signal)
     if sport is None or reference is None:
