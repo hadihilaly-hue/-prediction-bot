@@ -1260,6 +1260,14 @@ def _run_times(ledger: Ledger, since: datetime) -> list[tuple[datetime, str, str
     return out
 
 
+def sportsbook_slot_start(now: datetime) -> datetime:
+    """H:17 of the most recent even UTC hour H with H:17 at or before `now`: the
+    Worker and the GitHub cron both fire the sportsbook slot at :17 of even hours."""
+    now = _utc(now)
+    start = now.replace(hour=now.hour - now.hour % 2, minute=17, second=0, microsecond=0)
+    return start if start <= now else start - timedelta(hours=2)
+
+
 @app.command("slot-guard")
 def slot_guard(
     slot: str = typer.Option(..., help="scanner or sportsbook"),
@@ -1284,6 +1292,10 @@ def slot_guard(
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
     now = datetime.now(timezone.utc)
     since = now - timedelta(minutes=within_minutes)
+    if slot == "sportsbook":
+        # The nominal slot, not a window: a late cron run 77 minutes after the
+        # Worker's dispatch repeated the slot (14 times on Nov 6-9).
+        since = sportsbook_slot_start(now)
     for _at, strategies, reason in _run_times(ledger, since):
         if reason is not None:
             continue

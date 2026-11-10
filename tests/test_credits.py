@@ -374,3 +374,53 @@ def test_measure_credit_is_refused_below_the_plan_floor(tmp_path: Path) -> None:
     # Floor = 25 hard reserve + 50 unused move reserve.
     assert not pacer(75).grant_measure_credit("basketball_nba", 1, now)
     assert pacer(76).grant_measure_credit("basketball_nba", 1, now)
+
+
+# --- 2.5 one sportsbook run per nominal slot ---------------------------------------------
+
+
+def test_sportsbook_slot_start() -> None:
+    from prediction_bot.cli import sportsbook_slot_start
+
+    def at(h: int, m: int, day: int = 6) -> datetime:
+        return datetime(2026, 11, day, h, m, tzinfo=UTC)
+
+    assert sportsbook_slot_start(at(20, 17)) == at(20, 17)
+    assert sportsbook_slot_start(at(21, 36)) == at(20, 17)
+    assert sportsbook_slot_start(at(22, 16)) == at(20, 17)
+    assert sportsbook_slot_start(at(0, 10, 7)) == at(22, 17)
+
+
+def test_a_late_cron_run_does_not_repeat_the_sportsbook_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import prediction_bot.cli as cli
+    from prediction_bot.config import Settings
+
+    path = tmp_path / "slots.sqlite"
+    ledger = Ledger(path, Decimal("1000"))
+    ledger.record_run(["sportsbook_v3"], 0, 0, 0, 0, at=datetime(2026, 11, 6, 20, 19, tzinfo=UTC))
+    clock = {"now": datetime(2026, 11, 6, 21, 36, tzinfo=UTC)}
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[no-untyped-def]
+            return clock["now"]
+
+    monkeypatch.setattr(cli, "datetime", Clock)
+    monkeypatch.setattr(cli, "_settings", lambda: Settings(_env_file=None, paper_db_path=path))  # type: ignore[call-arg]
+
+    def guard(slot: str = "sportsbook") -> str:
+        cli.slot_guard(slot=slot, within_minutes=25, plan_due=False)
+        return capsys.readouterr().out.strip()
+
+    assert guard() == "skip"  # the 20:17 slot ran at 20:19; 21:36 is the same slot
+    clock["now"] = datetime(2026, 11, 6, 22, 18, tzinfo=UTC)
+    assert guard() == "run"  # the 22:17 slot has not run
+    # A late run of the previous slot (20:10 for 18:17) does not cover the 20:17 slot.
+    ledger.record_run(["sportsbook_v3"], 0, 0, 0, 0, at=datetime(2026, 11, 7, 20, 10, tzinfo=UTC))
+    clock["now"] = datetime(2026, 11, 7, 20, 20, tzinfo=UTC)
+    assert guard() == "run"
+    # The scanner path keeps its window.
+    ledger.record_run(["book_scanner"], 0, 0, 0, 0, at=datetime(2026, 11, 7, 20, 0, tzinfo=UTC))
+    assert guard("scanner") == "skip"

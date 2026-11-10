@@ -39,7 +39,7 @@ def test_slot_guard_skips_a_slot_that_already_ran(tmp_path, monkeypatch, capsys)
         [
             (timedelta(minutes=5), "book_scanner", None),
             (timedelta(minutes=4), "sportsbook_v3", "plan:americanfootball_nfl"),  # not a slot
-            (timedelta(minutes=50), "sportsbook_v3", None),  # previous sportsbook slot
+            (timedelta(hours=2, minutes=10), "sportsbook_v3", None),  # previous slot
         ],
     )
     _use(monkeypatch, path)
