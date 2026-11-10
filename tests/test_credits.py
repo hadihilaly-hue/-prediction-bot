@@ -534,3 +534,37 @@ def test_second_due_feed_is_deferred_then_pulled_next(tmp_path: Path) -> None:
     mark_pulled(ledger, first.feed, now, 1.0)
     second = select_plan_pull(ledger, settings, now + timedelta(minutes=1))
     assert second is not None and second.feed == other
+
+
+# --- 2.6c the restarted allowance does not grow as move pulls use the reserve -----------
+
+
+def test_restarted_allowance_uses_the_reserve_unused_on_the_restart_date(tmp_path: Path) -> None:
+    from prediction_bot.config import Settings
+    from prediction_bot.pull_plan import plan_allowance, plan_share
+
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None, rules_version="v3", plan_allowance_since=date(2026, 11, 9),
+        odds_move_reserve=50,
+    )  # fmt: skip
+    ledger = _ledger(tmp_path)
+    ledger.record_run(
+        ["x"], 0, 0, 0, 0, at=datetime(2026, 11, 9, 1, tzinfo=UTC), odds_used=234,
+        odds_remaining=266,
+    )  # fmt: skip
+    for day in (3, 5):  # two move pulls before the restart date
+        ledger.record_odds_trigger(
+            "soccer_epl", f"T{day}", "0.5", datetime(2026, 11, day, tzinfo=UTC)
+        )
+        ledger.finish_odds_trigger("soccer_epl", "pulled")
+    now = datetime(2026, 11, 12, 12, tzinfo=UTC)
+    before = plan_allowance(ledger, settings, now)
+    for day in (10, 11):  # two more after it
+        ledger.record_odds_trigger(
+            "soccer_nfl", f"U{day}", "0.5", datetime(2026, 11, day, tzinfo=UTC)
+        )
+        ledger.finish_odds_trigger("soccer_nfl", "pulled")
+    assert plan_allowance(ledger, settings, now) == pytest.approx(before)  # type: ignore[arg-type]
+    # usable = 266 - 25 hard reserve - (50 - 2) move reserve unused on Nov 9, accrued
+    # over 4 of the window's 22 days plus 2 borrowed.
+    assert before == pytest.approx(plan_share(settings) * (266 - 25 - 48) * (4 + 2) / 22)

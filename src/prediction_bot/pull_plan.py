@@ -744,7 +744,7 @@ def _allowance_window(
     Normally the UTC month, with usable = month-start balance less the hard and move
     reserves. `plan_allowance_since` (a date inside this month) restarts it from that
     day: usable = the balance on that day less the hard reserve and the move reserve
-    still unused, and only plan credits spent from then on count. Used when the
+    unused on that day, and only plan credits spent from then on count. Used when the
     plan's share changes mid-month, so the new share is not applied retroactively.
     """
     now = _utc(now)
@@ -758,7 +758,14 @@ def _allowance_window(
             (epoch.isoformat(), end.isoformat()),
         ).fetchone()
         balance = int(row[0]) if row is not None and row[0] is not None else None
-        reserve = move_reserve_left(ledger, settings, now)
+        # The move reserve unused on the restart date, not now: otherwise `usable`
+        # (and the allowance) grows as move pulls use the reserve (credits 2.6c).
+        used = ledger.conn.execute(
+            "SELECT COUNT(*) FROM odds_triggers WHERE status='pulled' "
+            "AND created_at>=? AND created_at<?",
+            (start.isoformat(), epoch.isoformat()),
+        ).fetchone()[0]
+        reserve = max(0, settings.odds_move_reserve - int(used))
         if balance is not None:
             return epoch, end, max(0, balance - PLAN_HARD_RESERVE - reserve)
     balance = month_start_balance(ledger, now)
