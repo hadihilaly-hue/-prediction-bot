@@ -120,3 +120,66 @@ def _utc(value: datetime) -> datetime:
         if value.tzinfo is None
         else value.astimezone(timezone.utc)
     )
+
+
+def run_over_fill(
+    trades: Sequence[Trade],
+    candles: list[dict[str, Any]],
+    quotes: Sequence[tuple[datetime, Decimal | None, Decimal | None]],
+    side: OutcomeSide | str,
+    price: Decimal,
+    start: datetime,
+    end: datetime,
+) -> datetime | None:
+    """First time the market ran over a resting buy of `side` at `price`, whether or not
+    the queue ahead of it traded (orders ahead can cancel while price runs through).
+
+    Run-over: a public trade strictly through the price (YES bid: yes_price < price;
+    NO bid: 1 - yes_price < price), a 1-minute candle trading strictly through it, or
+    the side's ask at or below the price in a candle or a quote snapshot. `quotes` are
+    (time, yes_bid, yes_ask) rows. None when nothing in [start, end) qualifies.
+    """
+    outcome = OutcomeSide(side)
+    start_utc, end_utc = _utc(start), _utc(end)
+    if end_utc <= start_utc:
+        return None
+    found: list[datetime] = []
+    for trade in trades:
+        at = _utc(trade.created_at)
+        if not start_utc <= at < end_utc:
+            continue
+        side_price = trade.yes_price if outcome is OutcomeSide.yes else 1 - trade.yes_price
+        if side_price < price:
+            found.append(at)
+            break
+    for rule in (
+        trade_through_fill(candles, outcome, price, start_utc, end_utc),
+        optimistic_fill(candles, outcome, price, start_utc, end_utc),
+    ):
+        if rule is not None:
+            found.append(rule)
+    for at_raw, yes_bid, yes_ask in sorted(quotes, key=lambda q: q[0]):
+        at = _utc(at_raw)
+        if not start_utc <= at < end_utc:
+            continue
+        ask = yes_ask if outcome is OutcomeSide.yes else (None if yes_bid is None else 1 - yes_bid)
+        if ask is not None and ask <= price:
+            found.append(at)
+            break
+    return min(found) if found else None
+
+
+def candle_volume(candles: list[dict[str, Any]], start: datetime, end: datetime) -> Decimal:
+    """Contracts traded in [start, end) according to 1-minute candles."""
+    start_utc, end_utc = _utc(start), _utc(end)
+    total = Decimal(0)
+    for candle in candles:
+        at = candle_time(candle)
+        if at is None or not start_utc <= at < end_utc:
+            continue
+        raw = candle.get("volume_fp", candle.get("volume"))
+        try:
+            total += Decimal(str(raw)) if raw not in (None, "") else Decimal(0)
+        except ArithmeticError:
+            continue
+    return total

@@ -163,6 +163,10 @@ class MakerShadowCandidate:
     # price was chosen: `bid_plus_1` (spread >= 2c) or `at_bid` (1c spread).
     queue_ahead: Decimal | None = None
     maker_price_rule: str | None = None
+    # PR 2: the taker gates that would have blocked this side (`blocked_net_edge`, ...,
+    # or `taker_pass`) and what created it (`maker_feed`).
+    tags: tuple[str, ...] | None = None
+    origin: str | None = None
 
 
 @dataclass(frozen=True)
