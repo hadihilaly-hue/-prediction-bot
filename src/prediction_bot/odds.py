@@ -676,6 +676,7 @@ class OddsPacer:
         if left is None:
             self.client.budget = 0
             return 0
+        self._check_credit_gap(now or datetime.now(timezone.utc))
         if self.plan_mode:
             self.client.budget = 1 if left - 1 >= self.plan_floor(now) else 0
             self.client._events_requests_used_baseline = (
@@ -710,6 +711,24 @@ class OddsPacer:
         )
         log.info("odds api: %d requests left this month, run budget %d", left, self.client.budget)
         return self.client.budget
+
+    def _check_credit_gap(self, now: datetime) -> None:
+        """Credits 2.6d: the API counted more than one credit the ledger never saw (runs
+        whose ledger save failed spent them); record the gap."""
+        if self.ledger is None or self.client.requests_used is None:
+            return
+        try:
+            api_used = int(self.client.requests_used)
+        except ValueError:
+            return
+        ledger_used = self.ledger.last_odds_used(now)
+        if ledger_used is not None and api_used - ledger_used > 1:
+            log.warning(
+                "odds api: %d credits used, ledger's last run saw %d; recording the gap",
+                api_used,
+                ledger_used,
+            )
+            self.ledger.record_credit_gap(now, api_used, ledger_used)
 
     def finish_run(self, now: datetime | None = None, feeds: list[str] | None = None) -> None:
         if self.ledger is None:

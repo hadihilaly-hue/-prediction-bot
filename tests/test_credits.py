@@ -568,3 +568,29 @@ def test_restarted_allowance_uses_the_reserve_unused_on_the_restart_date(tmp_pat
     # usable = 266 - 25 hard reserve - (50 - 2) move reserve unused on Nov 9, accrued
     # over 4 of the window's 22 days plus 2 borrowed.
     assert before == pytest.approx(plan_share(settings) * (266 - 25 - 48) * (4 + 2) / 22)
+
+
+# --- 2.6d credits spent by runs whose ledger save failed are counted ---------------------
+
+
+def test_lost_credits_are_recorded_once_and_shown(tmp_path: Path) -> None:
+    from prediction_bot.dashboard import _cadence_data
+
+    ledger = _ledger(tmp_path)
+    now = datetime.now(UTC)
+    # Keep all five hours inside this month (the dashboard reads the real month).
+    now = max(now, now.replace(day=1, hour=6, minute=0, second=0, microsecond=0))
+    ledger.record_run(["sportsbook_v3"], 0, 0, 0, 0, at=now - timedelta(hours=5), odds_used=220)
+
+    def start(used: int, at: datetime) -> None:
+        client = _Quota(500 - used)
+        client.requests_used = str(used)
+        OddsPacer(client, 12, ledger=ledger).start_run(at)  # type: ignore[arg-type]
+
+    start(221, now - timedelta(hours=4))  # one credit: within tolerance
+    assert ledger.credit_gap_month(now) == 0
+    start(226, now - timedelta(hours=3))  # 6 credits no saved run recorded
+    start(229, now - timedelta(hours=2))  # the same baseline seen again: 9 in all
+    assert ledger.conn.execute("SELECT COUNT(*) FROM credit_gaps").fetchone() == (1,)
+    assert ledger.credit_gap_month(now) == 9
+    assert _cadence_data(ledger)["month_lost"] == 9

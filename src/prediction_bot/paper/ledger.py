@@ -378,6 +378,12 @@ CREATE TABLE IF NOT EXISTS cadence_days (
     mode TEXT,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS credit_gaps (
+    id INTEGER PRIMARY KEY,
+    at TEXT NOT NULL,
+    api_used INTEGER NOT NULL,
+    ledger_used INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS odds_triggers (
     id INTEGER PRIMARY KEY,
     created_at TEXT NOT NULL,
@@ -2369,6 +2375,49 @@ class Ledger:
         if row is None or row[0] is None:
             return None
         return self._utc(datetime.fromisoformat(str(row[0])))
+
+    def last_odds_used(self, at: datetime) -> int | None:
+        """The Odds API's x-requests-used as of the last run this UTC month that read it."""
+        now = self._utc(at)
+        start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+        row = self.conn.execute(
+            "SELECT odds_used FROM runs WHERE odds_used IS NOT NULL AND ran_at>=? "
+            "ORDER BY ran_at DESC,id DESC LIMIT 1",
+            (start.isoformat(),),
+        ).fetchone()
+        return None if row is None else int(row[0])
+
+    def record_credit_gap(self, at: datetime, api_used: int, ledger_used: int) -> None:
+        """Credits the API counted that no saved run recorded (a run whose ledger save
+        failed). One row per ledger baseline a month; a later sighting of the same
+        baseline keeps the larger gap."""
+        now = self._utc(at)
+        start = datetime(now.year, now.month, 1, tzinfo=timezone.utc).isoformat()
+        row = self.conn.execute(
+            "SELECT id,api_used FROM credit_gaps WHERE ledger_used=? AND at>=?",
+            (ledger_used, start),
+        ).fetchone()
+        if row is None:
+            self.conn.execute(
+                "INSERT INTO credit_gaps (at,api_used,ledger_used) VALUES (?,?,?)",
+                (now.isoformat(), api_used, ledger_used),
+            )
+        elif api_used > int(row[1]):
+            self.conn.execute(
+                "UPDATE credit_gaps SET api_used=?,at=? WHERE id=?",
+                (api_used, now.isoformat(), row[0]),
+            )
+        self.conn.commit()
+
+    def credit_gap_month(self, at: datetime) -> int:
+        now = self._utc(at)
+        start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+        end = datetime(now.year + (now.month == 12), now.month % 12 + 1, 1, tzinfo=timezone.utc)
+        row = self.conn.execute(
+            "SELECT COALESCE(SUM(api_used-ledger_used),0) FROM credit_gaps WHERE at>=? AND at<?",
+            (start.isoformat(), end.isoformat()),
+        ).fetchone()
+        return int(row[0])
 
     def odds_triggers_pulled_today(self, at: datetime | None = None) -> int:
         now = self._utc(at or datetime.now(timezone.utc))
