@@ -36,8 +36,12 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from prediction_bot import ledger_store as ls
+
+if TYPE_CHECKING:
+    from prediction_bot.paper.ledger import Ledger
 
 log = logging.getLogger(__name__)
 
@@ -455,3 +459,37 @@ def fetch_full_history(
     finally:
         shutil.rmtree(work, ignore_errors=True)
     return out
+
+
+# ------------------------------------------------------- model_side from the archive
+
+
+def backfill_model_side_from_archives(
+    runner: ls.Runner,
+    ledger: Ledger,
+    workdir: Path,
+    sleep: ls.Sleep = time.sleep,
+) -> tuple[int, list[str]] | None:
+    """One-time: set mid/model_side on shadow rows whose market snapshots the daily
+    archive moved out before the scoreboard backfill ran. Downloads every archive asset,
+    searches its market_snapshots (nothing is merged into the hot ledger), writes the
+    rows and records `ledger_migrations` so later runs skip it. Returns (rows set,
+    assets read), or None when it already ran. Raises when the release cannot be read
+    or an asset cannot be downloaded, leaving the marker unset so the next run retries.
+    """
+    if ledger.archive_backfill_done():
+        return None
+    names = _asset_names(runner)
+    if names is None:
+        raise ArchiveError(f"cannot list the {ARCHIVE_TAG} release")
+    assets = sorted(n for n in names if n.startswith(ARCHIVE_PREFIX) and n.endswith(ARCHIVE_SUFFIX))
+    work = workdir / ".model-side-backfill"
+    shutil.rmtree(work, ignore_errors=True)
+    work.mkdir(parents=True)
+    try:
+        paths = [_download(runner, name, work, sleep) for name in assets]
+        updated = ledger.backfill_model_side(paths)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    ledger.mark_archive_backfill_done(f"rows={updated} assets={len(assets)}")
+    return updated, assets

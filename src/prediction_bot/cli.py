@@ -1500,6 +1500,35 @@ def ledger_archive_fetch(
     typer.echo(f"full history in {out} ({len(merged)} archive files merged)")
 
 
+@app.command("ledger-backfill-model-side")
+def ledger_backfill_model_side(
+    db: Path = typer.Option(Path("ledger/paper.sqlite"), help="The hot ledger to update"),
+) -> None:
+    """One-time: fill shadow_decisions.mid/model_side from archived market snapshots.
+
+    The scoreboard backfill only searched the hot ledger, after the daily archive had
+    already moved older snapshots out. This reads every ledger-archive asset once,
+    writes the rows it can, and marks itself done; later runs return at once. Failures
+    only warn (the next run retries) so a paper cycle is never stopped by it.
+    """
+    s = _settings()
+    ledger = Ledger(db, s.paper_starting_cash)
+    try:
+        result = ledger_archive.backfill_model_side_from_archives(
+            ledger_store.SubprocessRunner(), ledger, db.parent
+        )
+    except (ledger_store.LedgerStoreError, ledger_archive.ArchiveError, sqlite3.Error) as exc:
+        typer.echo(f"ledger-backfill-model-side: skipped ({exc}); will retry next run", err=True)
+        return
+    finally:
+        ledger.close()
+    if result is None:
+        typer.echo("ledger-backfill-model-side: already done")
+        return
+    updated, assets = result
+    typer.echo(f"ledger-backfill-model-side: {updated} rows set from {len(assets)} archive files")
+
+
 @app.command("reference-gaps")
 def reference_gaps(
     days: int = typer.Option(14, help="Look back this many days"),
