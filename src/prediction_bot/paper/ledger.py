@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
 from prediction_bot.fees import FEE_MODEL_VERSION
@@ -32,6 +32,26 @@ if TYPE_CHECKING:
     from prediction_bot.odds import ConsensusOdds
 
 log = logging.getLogger(__name__)
+
+
+# Underdog lane (`prediction_bot.underdog_lane`): `underdog_value` picks placed as real
+# paper entries. Its fills and paper orders carry the tag; the instant-fill comparison
+# book lives in `shadow_decisions` under the reason. Position keys are prefixed so the
+# lane never shares a key with a v3 position.
+UNDERDOG_LANE_STRATEGY = "underdog_value"
+UNDERDOG_LANE_TAG = "underdog_lane"
+UNDERDOG_LANE_REASON = "underdog_lane"
+UNDERDOG_LANE_RULES = "v1"
+UNDERDOG_LANE_KEY_PREFIX = "ud:"
+
+
+def lane_fill_sql(alias: str = "") -> str:
+    """SQL condition selecting the lane's rows of `fills` or `paper_orders`."""
+    dot = f"{alias}." if alias else ""
+    return (
+        f"{dot}strategy='{UNDERDOG_LANE_STRATEGY}' AND "
+        f"(',' || COALESCE({dot}tags,'') || ',') LIKE '%,{UNDERDOG_LANE_TAG},%'"
+    )
 
 
 def describe(
@@ -1083,7 +1103,7 @@ class Ledger:
         )
         if not include_v3:
             return fills_cost
-        return fills_cost + self.paper_order_reserved_cost()
+        return fills_cost + self.paper_order_reserved_cost(include_lane=False)
 
     def v2_new_risk_since(self, since: datetime, include_v3: bool = False) -> Decimal:
         versions = "IN ('v2','v3')" if include_v3 else "='v2'"
@@ -1514,9 +1534,12 @@ class Ledger:
             is not None
         )
 
-    def paper_order_reserved_cost(self) -> Decimal:
+    def paper_order_reserved_cost(self, include_lane: bool = True) -> Decimal:
+        """Cash held back for open paper orders. `include_lane=False` leaves out the
+        underdog lane's orders, which v3's own risk caps do not count."""
+        lane = "" if include_lane else f" AND NOT ({lane_fill_sql()})"
         rows = self.conn.execute(
-            "SELECT price,size,maker_fee FROM paper_orders WHERE status='open'"
+            f"SELECT price,size,maker_fee FROM paper_orders WHERE status='open'{lane}"
         ).fetchall()
         return sum(
             (Decimal(price) * Decimal(size) + Decimal(fee) for price, size, fee in rows),
@@ -1552,6 +1575,8 @@ class Ledger:
         by_contract = {(update.ticker, update.side): update for update in updates}
         changed = 0
         for order in self.open_paper_orders():
+            if UNDERDOG_LANE_TAG in (order.tags or ()):
+                continue  # priced from the book consensus, not the v3 sharp fair
             update = by_contract.get((order.ticker, order.side))
             if update is None or update.fair is None:
                 continue
@@ -1620,6 +1645,108 @@ class Ledger:
             self.conn.rollback()
             raise
         return True
+
+    # ---- underdog lane ------------------------------------------------------
+
+    @staticmethod
+    def underdog_lane_key(event_ticker: str, outcome: str) -> str:
+        return f"{UNDERDOG_LANE_KEY_PREFIX}{event_ticker}:{outcome}"
+
+    def open_underdog_lane_orders(self) -> list[PaperOrder]:
+        return [o for o in self.open_paper_orders() if UNDERDOG_LANE_TAG in (o.tags or ())]
+
+    def underdog_lane_event_state(self, event_ticker: str) -> str | None:
+        """`held` once the lane has filled in this game (settled or not), `resting` while
+        one of its orders is open there, else None: the lane takes one side per game."""
+        held = self.conn.execute(
+            f"SELECT 1 FROM fills WHERE event_ticker=? AND {lane_fill_sql()} LIMIT 1",
+            (event_ticker,),
+        ).fetchone()
+        if held is not None:
+            return "held"
+        resting = self.conn.execute(
+            "SELECT 1 FROM paper_orders WHERE status='open' AND event_ticker=? "
+            f"AND {lane_fill_sql()} LIMIT 1",
+            (event_ticker,),
+        ).fetchone()
+        return None if resting is None else "resting"
+
+    def underdog_lane_open_cost(self) -> Decimal:
+        """Cash tied up by the lane: unsettled lane fills plus its resting orders."""
+        fills = self.conn.execute(
+            "SELECT f.price,f.count,f.fee FROM fills f LEFT JOIN settlements s "
+            f"ON s.ticker=f.ticker WHERE s.ticker IS NULL AND {lane_fill_sql('f')}"
+        ).fetchall()
+        total = sum(
+            (Decimal(price) * Decimal(count) + Decimal(fee) for price, count, fee in fills),
+            Decimal(0),
+        )
+        return total + sum(
+            (o.price * o.size + o.maker_fee for o in self.open_underdog_lane_orders()),
+            Decimal(0),
+        )
+
+    def has_underdog_lane_entry(self, event_ticker: str) -> bool:
+        """Whether the instant-fill book already holds a pick in this game."""
+        prefix = self.underdog_lane_key(event_ticker, "")
+        row = self.conn.execute(
+            "SELECT 1 FROM shadow_decisions WHERE reason=? AND substr(position_key,1,?)=? LIMIT 1",
+            (UNDERDOG_LANE_REASON, len(prefix), prefix),
+        ).fetchone()
+        return row is not None
+
+    def record_underdog_lane_entry(self, sig: Signal, fee: Decimal) -> bool:
+        """Log `sig` in the instant-fill book: the pick as if it had filled at its price
+        the moment it was made. One per game; never touches cash.
+
+        `net_edge` is fair - price - fee per contract, so the whole-order fee can be
+        read back as (fair - price - net_edge) * size.
+        """
+        if sig.position_key is None or sig.event_ticker is None or sig.size <= 0:
+            raise ValueError("lane entries require position_key, event_ticker and a size")
+        if self.has_underdog_lane_entry(sig.event_ticker):
+            return False
+        created_at = self._utc(sig.created_at)
+        self.conn.execute(
+            "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
+            "position_key,would_trade,reason,fair,price,size,commence_time,net_edge,tags,"
+            "mid,model_side,devig_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                created_at.isoformat(),
+                UNDERDOG_LANE_RULES,
+                decision_window(sig.created_at, sig.commence_time),
+                sig.strategy,
+                sig.ticker,
+                sig.side.value,
+                sig.position_key,
+                1,
+                UNDERDOG_LANE_REASON,
+                str(sig.fair_prob),
+                str(sig.limit_price),
+                str(sig.size),
+                self._utc(sig.commence_time).isoformat() if sig.commence_time else None,
+                str(sig.fair_prob - sig.limit_price - fee / sig.size),
+                ",".join(sorted(sig.tags)) if sig.tags else None,
+                *self._model_side_values(sig),
+                sig.devig_json,
+            ),
+        )
+        self.conn.commit()
+        return True
+
+    def _underdog_lane_pnl(self, ticker: str, result: str) -> Decimal:
+        """Settlement PnL of the lane's own fills in `ticker`."""
+        rows = self.conn.execute(
+            f"SELECT side,price,count,fee FROM fills WHERE ticker=? AND {lane_fill_sql()}",
+            (ticker,),
+        ).fetchall()
+        pnl = Decimal(0)
+        for side, price, count, fee in rows:
+            contracts = Decimal(count)
+            pnl -= Decimal(price) * contracts + Decimal(fee)
+            if side == result:
+                pnl += contracts
+        return pnl
 
     def maker_shadow_metrics(self) -> dict[str, Decimal | int | None]:
         filled = int(
@@ -3200,19 +3327,28 @@ class Ledger:
         )
         return sum((Decimal(r[0]) for r in rows), Decimal(0))
 
-    def worst_drawdown_since(self, since: datetime) -> Decimal:
+    def worst_drawdown_since(
+        self, since: datetime, lane: Literal["all", "only", "exclude"] = "all"
+    ) -> Decimal:
         """Lowest running total of settlement PnL since `since`, in settlement order.
 
         The daily-loss limit uses this rather than the net, so a loss that crossed the limit
-        is not masked by a win booked later in the same cycle.
+        is not masked by a win booked later in the same cycle. `lane` narrows it to the
+        underdog lane's own fills (`only`) or to everything else (`exclude`), so each has
+        its own daily stop.
         """
         rows = self.conn.execute(
-            "SELECT pnl FROM settlements WHERE settled_at >= ? ORDER BY settled_at, rowid",
+            "SELECT ticker, result, pnl FROM settlements WHERE settled_at >= ? "
+            "ORDER BY settled_at, rowid",
             (self._timestamp_param(since),),
         )
         total = low = Decimal(0)
-        for (pnl,) in rows:
-            total += Decimal(pnl)
+        for ticker, result, pnl in rows.fetchall():
+            value = Decimal(pnl)
+            if lane != "all":
+                lane_pnl = self._underdog_lane_pnl(str(ticker), str(result))
+                value = lane_pnl if lane == "only" else value - lane_pnl
+            total += value
             low = min(low, total)
         return low
 

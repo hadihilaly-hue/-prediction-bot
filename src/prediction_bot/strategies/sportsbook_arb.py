@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -18,11 +19,31 @@ from prediction_bot.odds import (
     consensus,
 )
 from prediction_bot.strategies.base import Strategy
+from prediction_bot.teams import team_for_code, team_for_odds_name
 
 log = logging.getLogger(__name__)
 
 # Kalshi soccer events list the draw as a third market with this subtitle.
 DRAW_NAMES = {"tie", "draw"}
+DRAW_CODES = {"TIE", "DRAW"}
+
+
+@dataclass(frozen=True)
+class GamePick:
+    """A game-winner signal together with the fixture it was priced from.
+
+    The underdog lane reads these: the signal alone does not say which game, kickoff or
+    outcome it backs, and `teams_exact` tells the lane whether the fuzzy name match that
+    produced it agrees with the exact alias tables v3 uses.
+    """
+
+    signal: Signal
+    event_ticker: str
+    odds_event_id: str
+    sport: str
+    outcome: str  # team name, "Draw", or "not:<name>" for a NO leg of a three-way game
+    commence_time: datetime | None
+    teams_exact: bool
 
 
 def _feed(m: Market) -> str:
@@ -38,6 +59,48 @@ def _anchor(legs: list[Market]) -> datetime | None:
     if t is not None and t.tzinfo is None:
         t = t.replace(tzinfo=timezone.utc)
     return t
+
+
+def _parse_commence(raw: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
+
+
+def _teams_exact(
+    sport: str,
+    series: str,
+    legs: Sequence[Market],
+    game: ConsensusOdds,
+    market: Market,
+    odds_name: str,
+) -> bool:
+    """True when the alias tables agree with the fuzzy match that priced `market`.
+
+    The event's team legs must map (by Kalshi ticker code) to exactly the game's two
+    teams (by Odds API name), and `market` itself must be the leg of `odds_name`. A
+    swapped pair such as LAFC / LA Galaxy passes `best_team` and fails here.
+    """
+    odds_ids = {
+        team_for_odds_name(sport, game.home_team),
+        team_for_odds_name(sport, game.away_team),
+    }
+    if None in odds_ids or len(odds_ids) != 2:
+        return False
+    leg_ids = set()
+    for leg in legs:
+        code = leg.ticker.rsplit("-", 1)[-1]
+        if code.upper() in DRAW_CODES:
+            continue
+        leg_ids.add(team_for_code(series, code))
+    if leg_ids != odds_ids:
+        return False
+    code = market.ticker.rsplit("-", 1)[-1]
+    if odds_name == "Draw":
+        return code.upper() in DRAW_CODES
+    return team_for_code(series, code) == team_for_odds_name(sport, odds_name)
 
 
 class SportsbookArbStrategy(Strategy):
@@ -61,6 +124,16 @@ class SportsbookArbStrategy(Strategy):
         self.odds = odds_client
         self._cache: dict[str, list[ConsensusOdds]] = {}
         self._fetched_feeds: set[str] = set()
+        self._game_picks: list[GamePick] = []
+        self._evaluated_events: set[str] = set()
+
+    def seen_game_picks(self) -> list[GamePick]:
+        """Game-winner signals of the last `evaluate`, each with its fixture."""
+        return list(self._game_picks)
+
+    def seen_evaluated_events(self) -> set[str]:
+        """Kalshi events the last `evaluate` matched to a game with fresh odds."""
+        return set(self._evaluated_events)
 
     def seen_consensus(self) -> dict[str, dict[str, ConsensusOdds]]:
         """Consensuses fetched during the last `evaluate`, keyed by feed then event_id.
@@ -118,6 +191,8 @@ class SportsbookArbStrategy(Strategy):
             return []
         self._cache.clear()
         self._fetched_feeds.clear()
+        self._game_picks = []
+        self._evaluated_events = set()
         by_event: dict[str, list[Market]] = defaultdict(list)
         for m in markets:
             series = m.event_ticker.split("-")[0]
@@ -150,8 +225,14 @@ class SportsbookArbStrategy(Strategy):
                 continue
             sport = KALSHI_SERIES_TO_SPORT[series]
             game = self._match_game(legs, self.games_for(sport))
-            if game is None or not self._early_enough(legs, game.commence_time):
+            if game is None:
                 continue
+            self._evaluated_events.add(legs[0].event_ticker)
+            if not self._early_enough(legs, game.commence_time):
+                continue
+            # (ticker, side) -> (outcome backed, market, odds name) for `seen_game_picks`.
+            backed: dict[tuple[str, OutcomeSide], tuple[str, Market, str]] = {}
+            emitted: list[Signal] = []
             by_team: dict[str, Market] = {}
             for m in legs:
                 if m.subtitle.strip().lower() in DRAW_NAMES:
@@ -161,7 +242,10 @@ class SportsbookArbStrategy(Strategy):
                             f"Draw consensus {fair:.3f} from {game.books_used} books"
                             f" ({game.home_team} vs {game.away_team})"
                         )
-                        out.extend(self._both_sides(m, fair, rationale))
+                        for sig in self._both_sides(m, fair, rationale):
+                            label = "Draw" if sig.side is OutcomeSide.yes else "not:Draw"
+                            backed[(sig.ticker, sig.side)] = (label, m, "Draw")
+                            emitted.append(sig)
                     continue
                 team = best_team(m.subtitle, [game.home_team, game.away_team])
                 if team is not None and team in game.probs:
@@ -181,7 +265,26 @@ class SportsbookArbStrategy(Strategy):
                 for sig in self._both_sides(m, team_fair, rationale, twin):
                     winner = team if sig.side is OutcomeSide.yes else other
                     game_sigs.append((winner, sig))
-            out.extend(self._one_per_outcome(game_sigs) if two_way else [s for _, s in game_sigs])
+                    label = winner if two_way or sig.side is OutcomeSide.yes else f"not:{team}"
+                    backed[(sig.ticker, sig.side)] = (label, m, team)
+            emitted.extend(
+                self._one_per_outcome(game_sigs) if two_way else [s for _, s in game_sigs]
+            )
+            out.extend(emitted)
+            commence = _parse_commence(game.commence_time)
+            for sig in emitted:
+                label, market, odds_name = backed[(sig.ticker, sig.side)]
+                self._game_picks.append(
+                    GamePick(
+                        signal=sig,
+                        event_ticker=market.event_ticker,
+                        odds_event_id=game.event_id,
+                        sport=sport,
+                        outcome=label,
+                        commence_time=commence,
+                        teams_exact=_teams_exact(sport, series, legs, game, market, odds_name),
+                    )
+                )
         return out
 
     def _prioritised(self, by_event: dict[str, list[Market]]) -> list[list[Market]]:

@@ -13,8 +13,9 @@ from prediction_bot.fees import DEFAULT_FEE_SCHEDULE, FEE_MODEL_VERSION, FixedFe
 from prediction_bot.maker_fill import trade_through_fill
 from prediction_bot.models import Block, Market, OutcomeSide, Signal
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT, ConsensusOdds
-from prediction_bot.paper.ledger import Ledger
+from prediction_bot.paper.ledger import UNDERDOG_LANE_STRATEGY, Ledger
 from prediction_bot.strategies.base import Strategy
+from prediction_bot.underdog_lane import LaneResult, run_underdog_lane
 from prediction_bot.venues.kalshi import KalshiClient, KalshiError
 
 log = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ class CycleResult:
     settled: dict[str, Decimal] = field(default_factory=dict)
     live_orders: list[dict[str, object]] = field(default_factory=list)
     halted: str | None = None  # reason no entries were taken this cycle, if any
+    lane: LaneResult | None = None  # what the underdog lane did this cycle, if it ran
 
 
 class Engine:
@@ -75,7 +77,8 @@ class Engine:
             # The paper ledger does not see live fills, so the daily-loss limit cannot be
             # measured in live mode yet; fail closed rather than trade with a dead stop.
             return "daily loss limit is set but live PnL is not tracked; refusing to trade live"
-        today = self.ledger.worst_drawdown_since(day.replace(tzinfo=None))
+        # The underdog lane has its own daily stop, so its fills do not count here.
+        today = self.ledger.worst_drawdown_since(day.replace(tzinfo=None), lane="exclude")
         if today <= -limit:
             reason = f"daily loss limit hit: {today:.2f} <= -{limit:.2f}"
             self.ledger.record_halt(key, reason)
@@ -88,6 +91,7 @@ class Engine:
         line_moves: dict[str, Signal] = {}
         # road_dog / devig_power_only would-trade shadows: one per (reason, position).
         side_shadows: dict[tuple[str, str], Signal] = {}
+        lane_source: Strategy | None = None
 
         def collect_side_shadows(strat: Strategy) -> None:
             for getter, reason in (
@@ -151,6 +155,8 @@ class Engine:
         for strat in self.shadow_strategies:
             try:
                 shadow_signals = strat.evaluate(markets)
+                if strat.name == UNDERDOG_LANE_STRATEGY:
+                    lane_source = strat
                 for sig in shadow_signals:
                     add_gate_candidate(sig)
                     if sig.strategy != "book_scanner":
@@ -329,10 +335,39 @@ class Engine:
                             sig.group,
                         )
                     break
+        if lane_source is not None and self.settings.underdog_lane == "paper" and not self.live:
+            try:
+                self._run_underdog_lane(lane_source, res)
+            except Exception:  # the lane must never take the cycle down with it
+                log.exception("underdog lane failed")
         res.gate_candidates = {
             feed: len(position_keys) for feed, position_keys in gate_candidate_keys.items()
         }
         return res
+
+    def _run_underdog_lane(self, source: Strategy, res: CycleResult) -> None:
+        """Enter this cycle's `underdog_value` shadow picks (see `underdog_lane`)."""
+        get_picks = getattr(source, "seen_game_picks", None)
+        get_events = getattr(source, "seen_evaluated_events", None)
+        if get_picks is None or get_events is None:
+            return
+        links: dict[str, str] = {}
+        for strat in self.strategies:
+            get_links = getattr(strat, "seen_event_links", None)
+            if get_links is not None:
+                links.update(get_links())
+        lane = run_underdog_lane(
+            self.settings,
+            self.ledger,
+            get_picks(),
+            evaluated_events=get_events(),
+            event_links=links,
+            now=self.clock(),
+            fee_amount=self._fee_amount,
+        )
+        res.lane = lane
+        res.acted.extend(lane.filled)
+        res.orders_placed.extend(lane.orders_placed)
 
     def _maker_first_enabled(self) -> bool:
         return (
