@@ -11,7 +11,7 @@ from decimal import ROUND_DOWN, Decimal
 from zoneinfo import ZoneInfo
 
 from prediction_bot.clv import sharp_fairs
-from prediction_bot.clv_report import summarize
+from prediction_bot.clv_report import event_of, fee_cents, fee_schedule, summarize_rows
 from prediction_bot.config import Settings
 from prediction_bot.devig import devig_all, longshot_haircut
 from prediction_bot.fees import FixedFee, SeriesFeeCache, fee_for_ticker
@@ -45,6 +45,11 @@ from prediction_bot.venues.kalshi import KalshiClient
 log = logging.getLogger(__name__)
 ET = ZoneInfo("America/New_York")
 SHARP_BOOKS = frozenset({"pinnacle", "circa", "betonlineag"})
+
+
+def _devig_json(method_fairs: Mapping[str, Decimal]) -> str:
+    """Every devig method's fair for the side, as stored on signals and shadow rows."""
+    return json.dumps({name: str(value) for name, value in method_fairs.items()}, sort_keys=True)
 
 
 def _median(values: list[Decimal]) -> Decimal:
@@ -119,6 +124,8 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._reviews: list[EdgeReview] = []
         self._maker_shadows: list[MakerShadowCandidate] = []
         self._event_fees: dict[str, tuple[str, Decimal]] = {}
+        self._road_dog_decisions: list[Signal] = []
+        self._devig_power_only_decisions: list[Signal] = []
         self._shadow_updates: dict[tuple[str, OutcomeSide], MakerShadowUpdate] = {}
         self._entry_window_decisions: list[Signal] = []
         self._single_sharp_decisions: list[Signal] = []
@@ -141,23 +148,34 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         return list(self._blocks)
 
     def _cohort_clv_cents(self) -> Decimal | None:
-        """Mean `clv_kalshi` of this rules version's fills, only when "supported"."""
+        """Mean NET clv_kalshi (cents, after the per-contract taker fee) of this rules
+        version's fills, only when the scoreboard rule calls it "supported": 30+ games
+        and the game-clustered 95% CI of net clv above 0. Kelly never sizes up on a
+        result that loses after fees."""
         if self.ledger is None:
             return None
         if self._sizing_cohort is None:
-            values = [
-                float(value)
-                for (value,) in self.ledger.conn.execute(
-                    "SELECT clv_kalshi FROM fills WHERE rules_version=? AND clv_status='ok' "
-                    "AND clv_kalshi IS NOT NULL",
+            schedule = fee_schedule(self.ledger.conn)
+            rows = [
+                {
+                    "clv_kalshi": float(clv),
+                    "fee": fee_cents(str(ticker), Decimal(str(price)), "taker", schedule),
+                    "event": event_of(str(ticker)),
+                    "position_key": position_key,
+                }
+                for ticker, price, clv, position_key in self.ledger.conn.execute(
+                    "SELECT ticker,price,clv_kalshi,position_key FROM fills "
+                    "WHERE rules_version=? AND clv_status='ok' AND clv_kalshi IS NOT NULL",
                     (self.rules_version,),
                 )
             ]
-            summary = summarize(values)
+            summary = summarize_rows(rows)
             self._sizing_cohort = (
-                Decimal(str(summary["mean"])) if summary["verdict"] == "supported" else Decimal(-1)
+                Decimal(str(summary["mean_net"]))
+                if summary["verdict"] == "supported" and summary["mean_net"] is not None
+                else Decimal(-1)
             )
-        return self._sizing_cohort if self._sizing_cohort >= 0 else None
+        return self._sizing_cohort if self._sizing_cohort > 0 else None
 
     def _stake(self, model_edge: Decimal, effective_price: Decimal, bankroll: Decimal) -> Decimal:
         """Dollars to risk before the position, event, day and cash caps."""
@@ -230,11 +248,10 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         method_fairs, _per_book, _source, book_spread = reference
         if book_spread > self.settings.max_book_spread:
             return
-        fair_pre = (
-            min(method_fairs.values())
-            if self.settings.v3_devig_method == "worst_case"
-            else method_fairs[self.settings.v3_devig_method]
-        )
+        selected = self._select_fair(method_fairs)
+        if selected is None:
+            return
+        fair_pre = selected
         hours_until_start = Decimal(str((commence - now).total_seconds() / 3600))
         fair = self._fair_after_haircut(fair_pre, hours_until_start)
         net_edge = fair - price - self._taker_rate(market.ticker, price, fee_type, fee_multiplier)
@@ -249,6 +266,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             commence=commence,
             now=now,
             reason="thin_market",
+            devig_json=_devig_json(method_fairs),
             mid=market.quote.mid_for(side),
             ask_depth=market.quote.ask_size_for(side),
             open_interest=market.open_interest,
@@ -444,6 +462,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         ask_depth: Decimal | None = None,
         open_interest: Decimal | None = None,
         mid: Decimal | None = None,
+        devig_json: str | None = None,
     ) -> None:
         """Queue a blocked candidate for near-miss CLV scoring.
 
@@ -475,6 +494,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                     available_size=ask_depth,
                     open_interest=open_interest,
                     mid=mid,
+                    devig_json=devig_json,
                 ),
                 reason,
             )
@@ -594,6 +614,73 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 )
             )
 
+    def _select_fair(self, side_fairs: Mapping[str, Decimal]) -> Decimal | None:
+        """The side's fair under `v3_devig_method` from per-method fairs for that side.
+
+        `conservative` (default): the lower of power and Shin for the side bought;
+        `worst_case`: the lowest of every method; otherwise the named method. v1/v2
+        always take the lowest."""
+        if not side_fairs:
+            return None
+        method = self.settings.v3_devig_method
+        if self.rules_version != "v3" or method == "worst_case":
+            return min(side_fairs.values())
+        if method == "conservative":
+            chosen = [side_fairs[m] for m in ("power", "shin") if m in side_fairs]
+            return min(chosen) if chosen else None
+        return side_fairs.get(method)
+
+    def _road_dog_trades(self, road_dog_candidate: bool) -> bool:
+        """Only `exp_road_dog_mode=trade` lets a road dog bypass the net-edge threshold."""
+        return road_dog_candidate and self.settings.exp_road_dog_mode == "trade"
+
+    def _record_side_shadow(
+        self,
+        bucket: list[Signal],
+        *,
+        reason_tag: str,
+        ticker: str,
+        side: OutcomeSide,
+        fair: Decimal,
+        price: Decimal,
+        net_edge: Decimal,
+        event_ticker: str,
+        position_key: str,
+        commence: datetime,
+        now: datetime,
+        mid: Decimal | None,
+        devig_json: str | None,
+    ) -> None:
+        """Queue a would-trade shadow row (road_dog / devig_power_only): no signal is
+        emitted, but the decision gets a CLV. One per position per scan."""
+        if any(sig.position_key == position_key for sig in bucket):
+            return
+        bucket.append(
+            Signal(
+                strategy=self.name,
+                ticker=ticker,
+                side=side,
+                fair_prob=fair,
+                limit_price=price,
+                edge=net_edge,
+                size=Decimal(0),
+                created_at=now,
+                rules_version=self.rules_version,
+                position_key=position_key,
+                event_ticker=event_ticker,
+                commence_time=commence,
+                tags=(reason_tag,),
+                mid=mid,
+                devig_json=devig_json,
+            )
+        )
+
+    def seen_road_dog_decisions(self) -> list[Signal]:
+        return list(self._road_dog_decisions)
+
+    def seen_devig_power_only_decisions(self) -> list[Signal]:
+        return list(self._devig_power_only_decisions)
+
     def _road_dog_candidate(
         self,
         sport: str,
@@ -606,7 +693,11 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         net_edge: Decimal,
         now: datetime,
     ) -> bool:
-        if not self.settings.exp_road_dog_enabled or net_edge < 0:
+        if (
+            not self.settings.exp_road_dog_enabled
+            or self.settings.exp_road_dog_mode == "off"
+            or net_edge < 0
+        ):
             return False
         if not Decimal("0.15") <= price <= Decimal("0.45"):
             return False
@@ -1482,6 +1573,8 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._blocks.clear()
         self._maker_shadows.clear()
         self._event_fees.clear()
+        self._road_dog_decisions.clear()
+        self._devig_power_only_decisions.clear()
         self._shadow_updates.clear()
         self._entry_window_decisions.clear()
         self._single_sharp_decisions.clear()
@@ -1742,21 +1835,17 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             if not methods:
                                 continue
                             for side in (OutcomeSide.yes, OutcomeSide.no):
-                                if self.settings.v3_devig_method == "worst_case":
-                                    fair_pre = (
-                                        min(methods.values())
+                                selected_fair = self._select_fair(
+                                    {
+                                        name: value
                                         if side is OutcomeSide.yes
-                                        else Decimal(1) - max(methods.values())
-                                    )
-                                else:
-                                    selected_fair = methods.get(self.settings.v3_devig_method)
-                                    if selected_fair is None:
-                                        continue
-                                    fair_pre = (
-                                        selected_fair
-                                        if side is OutcomeSide.yes
-                                        else Decimal(1) - selected_fair
-                                    )
+                                        else Decimal(1) - value
+                                        for name, value in methods.items()
+                                    }
+                                )
+                                if selected_fair is None:
+                                    continue
+                                fair_pre = selected_fair
                                 price = market.quote.ask_for(side)
                                 bid = market.quote.bid_for(side)
                                 ask_depth = market.quote.ask_size_for(side)
@@ -1896,12 +1985,11 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             str(book_spread),
                         )
                         continue
-                    fair_pre = (
-                        min(method_fairs.values())
-                        if self.rules_version != "v3"
-                        or self.settings.v3_devig_method == "worst_case"
-                        else method_fairs[self.settings.v3_devig_method]
-                    )
+                    selected_fair = self._select_fair(method_fairs)
+                    if selected_fair is None:
+                        self._block("few_books", event_ticker, market.ticker, "devig method")
+                        continue
+                    fair_pre = selected_fair
                     hours_until_start = Decimal(str((commence - now).total_seconds() / 3600))
                     fair = self._fair_after_haircut(fair_pre, hours_until_start)
                     self._set_shadow_update(market, side, now, fair)
@@ -1926,6 +2014,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             commence=commence,
                             now=now,
                             reason="price_floor",
+                            devig_json=_devig_json(method_fairs),
                             mid=market.quote.mid_for(side),
                             ask_depth=ask_depth,
                             open_interest=market.open_interest,
@@ -1945,7 +2034,54 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         else None
                     )
                     maker_candidate = maker_price is not None
-                    if net_edge < threshold and not road_dog_candidate and not maker_candidate:
+                    if net_edge < threshold:
+                        side_mid = market.quote.mid_for(side)
+                        if road_dog_candidate and self.settings.exp_road_dog_mode == "shadow":
+                            self._record_side_shadow(
+                                self._road_dog_decisions,
+                                reason_tag="road_dog",
+                                ticker=market.ticker,
+                                side=side,
+                                fair=fair,
+                                price=price,
+                                net_edge=net_edge,
+                                event_ticker=event_ticker,
+                                position_key=position_key,
+                                commence=commence,
+                                now=now,
+                                mid=side_mid,
+                                devig_json=_devig_json(method_fairs),
+                            )
+                        power = method_fairs.get("power")
+                        if (
+                            self.rules_version == "v3"
+                            and self.settings.v3_devig_method == "conservative"
+                            and power is not None
+                        ):
+                            power_fair = self._fair_after_haircut(power, hours_until_start)
+                            # Same price, same taker fee: only the fair differs.
+                            power_edge = net_edge + (power_fair - fair)
+                            if power_edge >= threshold:
+                                self._record_side_shadow(
+                                    self._devig_power_only_decisions,
+                                    reason_tag="devig_power_only",
+                                    ticker=market.ticker,
+                                    side=side,
+                                    fair=power_fair,
+                                    price=price,
+                                    net_edge=power_edge,
+                                    event_ticker=event_ticker,
+                                    position_key=position_key,
+                                    commence=commence,
+                                    now=now,
+                                    mid=side_mid,
+                                    devig_json=_devig_json(method_fairs),
+                                )
+                    if (
+                        net_edge < threshold
+                        and not self._road_dog_trades(road_dog_candidate)
+                        and not maker_candidate
+                    ):
                         self._record_near_miss(
                             ticker=market.ticker,
                             side=side,
@@ -1957,6 +2093,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             commence=commence,
                             now=now,
                             tags=self._threshold_tags(price),
+                            devig_json=_devig_json(method_fairs),
                             mid=market.quote.mid_for(side),
                             ask_depth=ask_depth,
                             open_interest=market.open_interest,
@@ -2032,6 +2169,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                                 commence=commence,
                                 now=now,
                                 reason="price_floor",
+                                devig_json=_devig_json(method_fairs),
                                 mid=active_market.quote.mid_for(side),
                                 ask_depth=active_market.quote.ask_size_for(side),
                                 open_interest=active_market.open_interest,
@@ -2061,7 +2199,31 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             else None
                         )
                         maker_candidate = maker_price is not None
-                        if net_edge < threshold and not road_dog_candidate and not maker_candidate:
+                        if (
+                            net_edge < threshold
+                            and road_dog_candidate
+                            and self.settings.exp_road_dog_mode == "shadow"
+                        ):
+                            self._record_side_shadow(
+                                self._road_dog_decisions,
+                                reason_tag="road_dog",
+                                ticker=active_market.ticker,
+                                side=side,
+                                fair=fair,
+                                price=price,
+                                net_edge=net_edge,
+                                event_ticker=event_ticker,
+                                position_key=position_key,
+                                commence=commence,
+                                now=now,
+                                mid=active_market.quote.mid_for(side),
+                                devig_json=_devig_json(method_fairs),
+                            )
+                        if (
+                            net_edge < threshold
+                            and not self._road_dog_trades(road_dog_candidate)
+                            and not maker_candidate
+                        ):
                             self._record_near_miss(
                                 ticker=active_market.ticker,
                                 side=side,
@@ -2073,6 +2235,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                                 commence=commence,
                                 now=now,
                                 tags=self._threshold_tags(price),
+                                devig_json=_devig_json(method_fairs),
                                 mid=active_market.quote.mid_for(side),
                                 ask_depth=active_market.quote.ask_size_for(side),
                                 open_interest=active_market.open_interest,
@@ -2103,7 +2266,31 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                         else None
                     )
                     maker_candidate = maker_price is not None
-                    if not is_main_candidate and not road_dog_candidate and not maker_candidate:
+                    if (
+                        not is_main_candidate
+                        and road_dog_candidate
+                        and self.settings.exp_road_dog_mode == "shadow"
+                    ):
+                        self._record_side_shadow(
+                            self._road_dog_decisions,
+                            reason_tag="road_dog",
+                            ticker=active_market.ticker,
+                            side=side,
+                            fair=fair,
+                            price=price,
+                            net_edge=net_edge,
+                            event_ticker=event_ticker,
+                            position_key=position_key,
+                            commence=commence,
+                            now=now,
+                            mid=active_market.quote.mid_for(side),
+                            devig_json=_devig_json(method_fairs),
+                        )
+                    if (
+                        not is_main_candidate
+                        and not self._road_dog_trades(road_dog_candidate)
+                        and not maker_candidate
+                    ):
                         self._record_near_miss(
                             ticker=active_market.ticker,
                             side=side,
@@ -2115,6 +2302,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             commence=commence,
                             now=now,
                             tags=self._threshold_tags(price),
+                            devig_json=_devig_json(method_fairs),
                             mid=active_market.quote.mid_for(side),
                             ask_depth=active_market.quote.ask_size_for(side),
                             open_interest=active_market.open_interest,

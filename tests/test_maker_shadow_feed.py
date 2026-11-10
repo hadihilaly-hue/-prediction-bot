@@ -228,6 +228,7 @@ MIA = "KXNFLGAME-26OCT25MIAMIN-MIA"
 
 def test_near_miss_with_maker_edge_and_no_taker_signal_creates_one_shadow(settings) -> None:  # type: ignore[no-untyped-def]
     settings.rules_version = "v3"
+    settings.v3_devig_method = "power"  # fixture fairs are tuned under power
     strategy = _strategy(settings, miami=Decimal("0.562"))
     signals = strategy.evaluate(v3_markets())
     assert MIA not in {sig.ticker for sig in signals}  # no taker signal on Miami

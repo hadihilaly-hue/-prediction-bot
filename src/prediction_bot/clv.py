@@ -607,11 +607,21 @@ def leg_outcome(ticker: str) -> str | None:
     return team_for_code(series, code)
 
 
-def _book_fair(sport: str, odds: dict[str, Any]) -> dict[str, Decimal] | None:
-    """Power-devigged probabilities keyed by outcome id, or None if a name does not map."""
+SHARP_CLOSE_METHODS = {
+    "power": "clv_sharp_close",
+    "shin": "clv_sharp_close_shin",
+    "multiplicative": "clv_sharp_close_mult",
+}
+
+
+def _book_fair(
+    sport: str, odds: dict[str, Any], method: str = "power"
+) -> dict[str, Decimal] | None:
+    """Devigged probabilities (power unless `method` says) keyed by outcome id, or None
+    if a name does not map."""
     try:
         decimal_odds = {str(name): Decimal(str(price)) for name, price in odds.items()}
-        probabilities = devig_all(decimal_odds)["power"]
+        probabilities = devig_all(decimal_odds)[method]
     except (ValueError, ArithmeticError, KeyError):
         return None
     mapped: dict[str, Decimal] = {}
@@ -630,6 +640,7 @@ def sharp_close_fair(
     outcome: str,
     side: str,
     commence: datetime,
+    method: str = "power",
 ) -> tuple[Decimal, str] | None:
     """Side fair at the sharp close from `(created_at, book_odds_json)` snapshots.
 
@@ -660,7 +671,7 @@ def sharp_close_fair(
             if not window_start <= updated <= commence:
                 continue
             odds = entry.get("odds")
-            fair = _book_fair(sport, odds) if isinstance(odds, dict) else None
+            fair = _book_fair(sport, odds, method) if isinstance(odds, dict) else None
             if fair is None or outcome not in fair:
                 continue
             if book not in latest or updated >= latest[book][0]:
@@ -698,14 +709,18 @@ def record_sharp_clv(ledger: Ledger, *, now: datetime | None = None) -> int:
     }
     if not linked:
         return 0
+    # Rows missing any method's close; the first run after the PR 3 columns appear
+    # also back-fills Shin and multiplicative for older rows (no lookback limit).
+    backfill = _sharp_methods_backfill_due(ledger)
+    missing = "(clv_sharp_close IS NULL OR clv_sharp_close_shin IS NULL)"
     queries = {
         "fills": "SELECT id,ticker,side,price,COALESCE(commence_time,commence_time_backfill),"
-        "COALESCE(event_ticker,'') FROM fills WHERE clv_sharp_close IS NULL",
+        f"COALESCE(event_ticker,'') FROM fills WHERE {missing}",
         "shadow_decisions": "SELECT id,ticker,side,price,"
         "COALESCE(commence_time,commence_time_backfill),'' FROM shadow_decisions "
-        "WHERE clv_sharp_close IS NULL",
+        f"WHERE {missing}",
         "maker_shadow": "SELECT id,ticker,side,price,commence_time,COALESCE(event_ticker,'') "
-        "FROM maker_shadow WHERE clv_sharp_close IS NULL",
+        f"FROM maker_shadow WHERE {missing}",
     }
     snapshot_cache: dict[str, list[tuple[str, str]]] = {}
     scored = 0
@@ -720,7 +735,7 @@ def record_sharp_clv(ledger: Ledger, *, now: datetime | None = None) -> int:
                 commence = _utc_datetime(str(raw_commence))
             except ValueError:
                 continue
-            if commence > now or commence < now - SHARP_CLOSE_LOOKBACK:
+            if commence > now or (not backfill and commence < now - SHARP_CLOSE_LOOKBACK):
                 continue
             sport = KALSHI_SERIES_TO_SPORT.get(event_ticker.split("-", 1)[0])
             outcome = leg_outcome(str(ticker))
@@ -735,25 +750,59 @@ def record_sharp_clv(ledger: Ledger, *, now: datetime | None = None) -> int:
                         (event_ticker,),
                     )
                 ]
-            result = sharp_close_fair(
-                snapshot_cache[event_ticker],
-                sport=sport,
-                outcome=outcome,
-                side=str(side),
-                commence=commence,
-            )
-            if result is None:
+            results = {
+                method: sharp_close_fair(
+                    snapshot_cache[event_ticker],
+                    sport=sport,
+                    outcome=outcome,
+                    side=str(side),
+                    commence=commence,
+                    method=method,
+                )
+                for method in SHARP_CLOSE_METHODS
+            }
+            power = results["power"]
+            if power is None:
                 continue
-            fair, source = result
-            clv = (fair - Decimal(str(price))) * 100
+            values = {
+                column: None
+                if results[method] is None
+                else str((results[method][0] - Decimal(str(price))) * 100)  # type: ignore[index]
+                for method, column in SHARP_CLOSE_METHODS.items()
+            }
+            # A power close already stored is kept as it was scored.
             ledger.conn.execute(
-                f"UPDATE {table} SET clv_sharp_close=?,clv_sharp_source=? "
-                "WHERE id=? AND clv_sharp_close IS NULL",
-                (str(clv), source, row_id),
+                f"UPDATE {table} SET clv_sharp_close=COALESCE(clv_sharp_close,?),"
+                "clv_sharp_source=COALESCE(clv_sharp_source,?),"
+                "clv_sharp_close_shin=?,clv_sharp_close_mult=? WHERE id=?",
+                (
+                    values["clv_sharp_close"],
+                    power[1],
+                    values["clv_sharp_close_shin"],
+                    values["clv_sharp_close_mult"],
+                    row_id,
+                ),
             )
             scored += 1
+    if backfill:
+        ledger.conn.execute(
+            "INSERT OR IGNORE INTO ledger_migrations (key,applied_at,detail) VALUES (?,?,?)",
+            ("sharp_close:methods_backfill", now.isoformat(), str(scored)),
+        )
     ledger.conn.commit()
     return scored
+
+
+def _sharp_methods_backfill_due(ledger: Ledger) -> bool:
+    try:
+        return (
+            ledger.conn.execute(
+                "SELECT 1 FROM ledger_migrations WHERE key='sharp_close:methods_backfill'"
+            ).fetchone()
+            is None
+        )
+    except Exception:
+        return False
 
 
 def sharp_fairs(

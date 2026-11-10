@@ -531,6 +531,7 @@ def _fresh_settlement_odds_event(
 
 def test_v3_uses_power_fair_and_defaults_to_no_longshot_haircut(settings) -> None:  # type: ignore[no-untyped-def]
     settings.max_gross_edge = Decimal("0.20")
+    settings.v3_devig_method = "power"
     strategy = SportsbookV3Strategy(
         settings,
         FakeOdds([v3_odds_event()]),

@@ -709,6 +709,8 @@ class Ledger:
                 "injury_source": "TEXT",
                 "clv_sharp_close": "TEXT",
                 "clv_sharp_source": "TEXT",
+                "clv_sharp_close_shin": "TEXT",
+                "clv_sharp_close_mult": "TEXT",
                 "clv_polymarket": "TEXT",
                 "pull_plan_id": "INTEGER",
                 "pull_source": "TEXT",
@@ -755,6 +757,8 @@ class Ledger:
                 # model favoured the side (fair > mid).
                 "mid": "TEXT",
                 "model_side": "INTEGER",
+                # Every devig method's fair for the side (PR 3).
+                "devig_json": "TEXT",
                 "clv_kalshi": "TEXT",
                 "clv_gameday": "TEXT",
                 "clv_exit": "TEXT",
@@ -766,6 +770,8 @@ class Ledger:
                 "tags": "TEXT",
                 "clv_sharp_close": "TEXT",
                 "clv_sharp_source": "TEXT",
+                "clv_sharp_close_shin": "TEXT",
+                "clv_sharp_close_mult": "TEXT",
                 "ask_depth": "TEXT",
                 "open_interest": "TEXT",
                 "clv_polymarket": "TEXT",
@@ -793,6 +799,8 @@ class Ledger:
                 "clv_kalshi_bid": "TEXT",
                 "clv_sharp_close": "TEXT",
                 "clv_sharp_source": "TEXT",
+                "clv_sharp_close_shin": "TEXT",
+                "clv_sharp_close_mult": "TEXT",
                 "queue_ahead": "TEXT",
                 "queue_source": "TEXT",
                 "maker_price_rule": "TEXT",
@@ -2866,7 +2874,8 @@ class Ledger:
         commence = sig.commence_time
         created_at = self._utc(sig.created_at)
         if (
-            reason in {"entry_window", "single_sharp", "sharp_move_follow"}
+            reason
+            in {"entry_window", "single_sharp", "sharp_move_follow", "road_dog", "devig_power_only"}
             and sig.position_key is not None
         ):
             existing = self.conn.execute(
@@ -2886,7 +2895,7 @@ class Ledger:
         self.conn.execute(
             "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
             "position_key,would_trade,reason,fair,price,size,commence_time,net_edge,tags,"
-            "mid,model_side) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "mid,model_side,devig_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 created_at.isoformat(),
                 rules_version,
@@ -2901,9 +2910,12 @@ class Ledger:
                 str(sig.limit_price),
                 str(sig.size),
                 self._utc(commence).isoformat() if commence else None,
-                str(sig.edge) if reason in {"single_sharp", "sharp_move_follow"} else None,
+                str(sig.edge)
+                if reason in {"single_sharp", "sharp_move_follow", "road_dog", "devig_power_only"}
+                else None,
                 ",".join(sig.tags) if sig.tags else None,
                 *self._model_side_values(sig),
+                sig.devig_json,
             ),
         )
         self.conn.commit()
@@ -2964,8 +2976,8 @@ class Ledger:
                 self.conn.execute(
                     "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,"
                     "side,position_key,would_trade,reason,fair,price,size,commence_time,net_edge,"
-                    "tags,ask_depth,open_interest,mid,model_side) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "tags,ask_depth,open_interest,mid,model_side,devig_json) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         created_at.isoformat(),
                         sig.rules_version,
@@ -2989,6 +3001,7 @@ class Ledger:
                         str(sig.available_size) if sig.available_size is not None else None,
                         str(sig.open_interest) if sig.open_interest is not None else None,
                         *self._model_side_values(sig),
+                        sig.devig_json,
                     ),
                 )
                 written += 1

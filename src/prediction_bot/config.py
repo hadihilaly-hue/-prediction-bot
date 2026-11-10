@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     )
     exp_line_move_points: Decimal = Decimal("0.03")
     exp_road_dog_enabled: bool = True
+    # off: no road-dog rule; shadow: a road dog below the threshold is logged as a
+    # would-trade shadow row (reason road_dog) and never traded; trade: it bypasses the
+    # net-edge threshold as before.
+    exp_road_dog_mode: Literal["off", "shadow", "trade"] = "shadow"
     exp_road_dog_position_bankroll_fraction: Decimal = Decimal("0.01")
     exp_road_dog_high_attention_events: Annotated[list[str], NoDecode] = Field(default_factory=list)
     exp_road_dog_rivalries: Annotated[list[str], NoDecode] = Field(default_factory=list)
@@ -115,7 +119,9 @@ class Settings(BaseSettings):
     )
     max_book_spread: Decimal = Decimal("0.03")
     longshot_haircut: Literal["slope", "flat", "none"] = "slope"
-    v3_devig_method: Literal["power", "shin", "worst_case"] = "power"
+    # conservative: for the side bought, the lower of the power and Shin fairs (power
+    # puts a favourite 0.3-0.6c above Shin).
+    v3_devig_method: Literal["power", "shin", "worst_case", "conservative"] = "conservative"
     v3_longshot_haircut: Literal["off", "slope", "flat", "none"] = "off"
     v3_allow_soft_reference: bool = True
     # v5: the v3 net-edge threshold is multiplied by this below `v3_low_price_below`.
