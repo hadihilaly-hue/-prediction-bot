@@ -735,6 +735,9 @@ class Ledger:
                 "gate_candidates": "INTEGER",
                 "note": "TEXT",
             },
+            # Credits 2.1: the day's cadence share already granted (before
+            # rotation_share), so the day's slots sum to its target.
+            "cadence_days": {"granted": "REAL NOT NULL DEFAULT 0"},
             "paper_orders": {"tags": "TEXT"},
             # Change-only writes: a repeat of the ticker's latest row updates last_seen_at
             # (and seen_count for blocks) instead of inserting.
@@ -2218,6 +2221,20 @@ class Ledger:
             " blended_w=excluded.blended_w,budget=excluded.budget,mode=excluded.mode,"
             " updated_at=excluded.updated_at",
             (day.isoformat(), static_w, dyn_count, dyn_json, blended_w, budget, mode, stamp),
+        )
+        self.conn.commit()
+
+    def cadence_granted(self, day: date) -> float:
+        row = self.conn.execute(
+            "SELECT granted FROM cadence_days WHERE day=?", (day.isoformat(),)
+        ).fetchone()
+        return 0.0 if row is None or row[0] is None else float(row[0])
+
+    def add_cadence_granted(self, day: date, amount: float, at: datetime | None = None) -> None:
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        self.conn.execute(
+            "UPDATE cadence_days SET granted=COALESCE(granted,0)+?,updated_at=? WHERE day=?",
+            (float(amount), stamp, day.isoformat()),
         )
         self.conn.commit()
 

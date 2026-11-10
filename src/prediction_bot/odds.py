@@ -551,6 +551,7 @@ class OddsPacer:
         dyn: dict[date, int] | None = None
         if self.cadence_mode == "calendar":
             dyn = self._dyn_counts(today)
+        granted = self.ledger.cadence_granted(today) if self.ledger is not None else 0.0
         plan = build_plan(
             now,
             left,
@@ -558,6 +559,7 @@ class OddsPacer:
             self.calendar,
             dyn=dyn,
             overrides=self.day_overrides,
+            granted_today=granted,
         )
         self.credit = min(self.credit + plan.share * self.rotation_share, float(max(0, left)))
         # Cadence rounds the carried share: <0.5 nothing, then up to 3 feeds.
@@ -575,6 +577,7 @@ class OddsPacer:
                 mode=self.cadence_mode,
                 at=now,
             )
+            self.ledger.add_cadence_granted(plan.day, plan.share, now)
         log.info(
             "odds api: %d requests left; cadence %s budget %.2f share %.2f -> %d feeds",
             left,

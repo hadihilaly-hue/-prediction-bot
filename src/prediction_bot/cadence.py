@@ -282,9 +282,16 @@ def build_plan(
     *,
     dyn: dict[date, int] | None = None,
     overrides: dict[date, float] | None = None,
+    granted_today: float = 0.0,
 ) -> CadencePlan:
     """Today's cadence plan: weights for every remaining day, then today's
-    budget share of what's actually left to spend."""
+    budget share of what's actually left to spend.
+
+    `share` is what this slot adds: the day's target (budget x breadth, capped) less
+    what earlier slots today already granted (`granted_today`), spread over the slots
+    left. The slots of a day therefore sum to the day's target, a missed slot is
+    caught up by later ones, and a repeated slot cannot push the day past it.
+    """
     today = _today(now)
     month_end = date(today.year, today.month, _days_in_month(today.year, today.month))
     remaining_days = [today + timedelta(days=i) for i in range((month_end - today).days + 1)]
@@ -333,7 +340,7 @@ def build_plan(
         dyn_count=None if dyn is None else dyn.get(today),
         blended_w=weights[today],
         budget=budget,
-        share=min(DAY_PULLS_CAP, budget * breadth) / slots,
+        share=max(0.0, min(DAY_PULLS_CAP, budget * breadth) - max(0.0, granted_today)) / slots,
         slots_left=slots,
         breadth=breadth,
         weights=weights,

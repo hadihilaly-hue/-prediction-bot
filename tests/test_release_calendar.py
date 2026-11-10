@@ -713,7 +713,9 @@ def test_simulated_month_default_flags(tmp_path: Path) -> None:
     # Every NFL Sunday and Monday status/inactives clock is pulled.
     assert result["nfl_sun_mon_clock"] == {"pulled": 20}
     assert result["targets"].get("close:pulled", 0) >= 160
-    assert result["rotation_pulls"] > result["plan_pulls"] > 0
+    # Both are funded. Before credits fix 2.1 the rotation was granted ~3x its day
+    # target, which is what made it out-pull the plan here.
+    assert result["rotation_pulls"] > 0 and result["plan_pulls"] > 0
     assert result["move_pulls"] >= 50  # the reserve is spent by move pulls
 
 
