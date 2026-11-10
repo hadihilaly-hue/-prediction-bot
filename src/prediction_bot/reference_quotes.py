@@ -20,7 +20,7 @@ from prediction_bot import kickoffs
 from prediction_bot.clv import leg_outcome
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
 from prediction_bot.teams import team_for_reference_name
-from prediction_bot.venues.polymarket import PolyEvent, PolymarketClient
+from prediction_bot.venues.polymarket import PolyEvent, PolyMarket, PolymarketClient
 
 if TYPE_CHECKING:
     from prediction_bot.config import Settings
@@ -33,6 +33,13 @@ CLOSE_WINDOW = timedelta(minutes=40)
 REFRESH = timedelta(minutes=25)
 LOOKBACK = timedelta(hours=24)
 DRAW_NAMES = {"draw", "tie"}
+MONEYLINE = "moneyline"
+# A Polymarket book wider than this, or a mid this far from Kalshi's mid for the same
+# outcome at the same time, is not a usable reference (spread/puck-line markets read
+# 13-31c off Kalshi's moneyline).
+MAX_BOOK_SPREAD = Decimal("0.05")
+MAX_KALSHI_GAP = Decimal("0.10")
+KALSHI_MID_MAX_AGE = timedelta(minutes=60)
 
 
 @dataclass(frozen=True)
@@ -115,14 +122,28 @@ def _teams_in_title(sport: str, title: str) -> set[str]:
     return set()
 
 
+def _normalized(text: str) -> str:
+    return " ".join("".join(ch for ch in text.casefold() if ch.isalnum() or ch == " ").split())
+
+
+def _is_game_winner(market: PolyMarket, title: str, typed: bool) -> bool:
+    """The game-winner market: Gamma's moneyline type when the event's markets carry a
+    type, else (two team outcomes only) the market whose question is the event title."""
+    if typed:
+        return market.market_type == MONEYLINE
+    return _normalized(market.question) == _normalized(title)
+
+
 def match_tokens(
     event: TrackedEvent, candidates: Sequence[PolyEvent]
 ) -> tuple[dict[str, str], list[str]]:
     """outcome id -> CLOB token whose price is P(outcome), plus unmapped names seen.
 
-    Two-outcome markets whose outcomes are both teams give one token per team.
-    Yes/No markets about one team or the draw give that outcome's YES token. A match
-    needs both teams and a start within `KICKOFF_TOLERANCE` of the Kalshi kickoff.
+    Only game-winner markets count (`_is_game_winner`); spread and total markets also
+    name both teams and must not be read as a win probability. Two-outcome markets whose
+    outcomes are both teams give one token per team. Yes/No markets about one team or
+    the draw give that outcome's YES token. The first market that maps an outcome wins.
+    A match needs both teams and a start within `KICKOFF_TOLERANCE` of the Kalshi kickoff.
     """
     teams = {o for o in event.outcomes if o != "draw"}
     unknown: list[str] = []
@@ -132,16 +153,21 @@ def match_tokens(
             continue
         tokens: dict[str, str] = {}
         title_teams = _teams_in_title(event.sport, poly.title)
+        typed = any(m.market_type for m in poly.markets)
         for market in poly.markets:
             names = [o.strip() for o in market.outcomes]
             if len(names) == 2 and {n.casefold() for n in names} != {"yes", "no"}:
+                if not _is_game_winner(market, poly.title, typed):
+                    continue
                 mapped = [team_for_reference_name(event.sport, n) for n in names]
                 unknown.extend(n for n, t in zip(names, mapped, strict=True) if t is None)
                 if set(mapped) == teams:
-                    tokens.update(
-                        {t: tok for t, tok in zip(mapped, market.token_ids, strict=True) if t}
-                    )
+                    for team, token in zip(mapped, market.token_ids, strict=True):
+                        if team:
+                            tokens.setdefault(team, token)
             elif [n.casefold() for n in names] == ["yes", "no"]:
+                if typed and market.market_type != MONEYLINE:
+                    continue
                 subject = market.subject or market.question
                 outcome = (
                     "draw"
@@ -151,7 +177,7 @@ def match_tokens(
                 if outcome is None:
                     unknown.append(subject)
                 elif outcome in event.outcomes and title_teams == teams:
-                    tokens[outcome] = market.token_ids[0]
+                    tokens.setdefault(outcome, market.token_ids[0])
         if tokens and (teams <= set(tokens) or set(tokens) == set(event.outcomes)):
             return tokens, unknown
     return {}, unknown
@@ -200,6 +226,7 @@ def poll_reference_quotes(
                 event.event_ticker, SOURCE, "no_market", ",".join(sorted(set(unknown))), now
             )
             continue
+        kalshi_mids = _kalshi_mids(ledger, event.event_ticker, now)
         for outcome, token in sorted(tokens.items()):
             if client.requests - start_requests >= cap:
                 break
@@ -210,11 +237,56 @@ def poll_reference_quotes(
                 continue
             if bid is None or ask is None or bid > ask:
                 continue
+            if ask - bid > MAX_BOOK_SPREAD:
+                ledger.record_reference_unmatched(
+                    event.event_ticker, SOURCE, "wide_book", f"{outcome}:{bid}-{ask}", now
+                )
+                continue
+            kalshi_mid = kalshi_mids.get(outcome)
+            if kalshi_mid is not None and abs((bid + ask) / 2 - kalshi_mid) > MAX_KALSHI_GAP:
+                log.warning(
+                    "Polymarket mismatch for %s %s: mid %s vs Kalshi %s",
+                    event.event_ticker,
+                    outcome,
+                    (bid + ask) / 2,
+                    kalshi_mid,
+                )
+                ledger.record_reference_unmatched(
+                    event.event_ticker,
+                    SOURCE,
+                    "mismatch",
+                    f"{outcome}:{(bid + ask) / 2} vs kalshi {kalshi_mid}",
+                    now,
+                )
+                continue
             ledger.record_reference_quote(
                 event.event_ticker, outcome, SOURCE, (bid + ask) / 2, bid, ask, token, now
             )
             written += 1
     return written
+
+
+def _kalshi_mids(ledger: Ledger, event_ticker: str, now: datetime) -> dict[str, Decimal]:
+    """outcome id -> Kalshi YES mid from each leg's latest market snapshot taken within
+    `KALSHI_MID_MAX_AGE` before `now` (none when the snapshot is older)."""
+    mids: dict[str, Decimal] = {}
+    for ticker, raw_bid, raw_ask, fetched_at in ledger.conn.execute(
+        "SELECT m.ticker,m.yes_bid,m.yes_ask,m.fetched_at FROM market_snapshots m "
+        "JOIN (SELECT ticker,MAX(fetched_at) AS f FROM market_snapshots "
+        "WHERE event_ticker=? AND fetched_at<=? GROUP BY ticker) l "
+        "ON l.ticker=m.ticker AND l.f=m.fetched_at",
+        (event_ticker, now.isoformat()),
+    ):
+        outcome = leg_outcome(str(ticker))
+        if outcome is None or raw_bid is None or raw_ask is None:
+            continue
+        try:
+            if now - _utc(str(fetched_at)) > KALSHI_MID_MAX_AGE:
+                continue
+            mids[outcome] = (Decimal(str(raw_bid)) + Decimal(str(raw_ask))) / 2
+        except (ValueError, ArithmeticError):
+            continue
+    return mids
 
 
 def side_reference_mid(rows: Mapping[str, Decimal], outcome: str, side: str) -> Decimal | None:

@@ -633,9 +633,9 @@ def test_clv_report_by_source_breaks_cohorts_down_by_pull_source(tmp_path: Path)
     for i, source in enumerate(["release", "release", None]):
         ledger.conn.execute(
             "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
-            "would_trade,reason,price,net_edge,clv_status,clv_kalshi,pull_source) "
+            "would_trade,reason,price,net_edge,clv_status,clv_kalshi,pull_source,model_side) "
             "VALUES (?,'v3','24-72h','sportsbook_v3',?,'yes',0,'net_edge','0.5','-0.01','ok',"
-            "'1.5',?)",
+            "'1.5',?,1)",
             (f"2026-11-0{i + 1}T00:00:00+00:00", f"KXNFLGAME-{i}-A", source),
         )
     ledger.conn.commit()

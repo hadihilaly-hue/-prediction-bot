@@ -85,6 +85,7 @@ class Engine:
     def run_cycle(self, markets: Sequence[Market]) -> CycleResult:
         res = CycleResult(markets_scanned=len(markets))
         gate_candidate_keys: dict[str, set[str]] = {}
+        line_moves: dict[str, Signal] = {}
 
         def add_gate_candidate(signal: Signal) -> None:
             if signal.position_key is None or signal.event_ticker is None:
@@ -133,7 +134,7 @@ class Engine:
             if get_line_moves is not None:
                 for sig in get_line_moves():
                     if sig.strategy != "book_scanner":
-                        self.ledger.record_shadow_decision(sig, "v2", reason="line_move_follower")
+                        line_moves.setdefault(sig.position_key or sig.ticker, sig)
         for strat in self.shadow_strategies:
             try:
                 shadow_signals = strat.evaluate(markets)
@@ -164,11 +165,13 @@ class Engine:
                 if get_line_moves is not None:
                     for sig in get_line_moves():
                         if sig.strategy != "book_scanner":
-                            self.ledger.record_shadow_decision(
-                                sig, "v2", reason="line_move_follower"
-                            )
+                            line_moves.setdefault(sig.position_key or sig.ticker, sig)
             except Exception:
                 log.exception("shadow strategy %s failed", strat.name)
+        # One line_move_follower row per position per cycle, whichever loop saw it first
+        # (both the primary and the shadow strategy detect the same move).
+        for sig in line_moves.values():
+            self.ledger.record_shadow_decision(sig, "v2", reason="line_move_follower")
         try:
             near_miss_decisions = []
             for strat in (*self.strategies, *self.shadow_strategies):

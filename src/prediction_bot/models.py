@@ -44,6 +44,13 @@ class Quote:
             return None
         return self.yes_ask - self.yes_bid
 
+    def mid_for(self, side: OutcomeSide) -> Decimal | None:
+        """The side's mid: the YES mid for YES, one minus it for NO."""
+        mid = self.mid
+        if mid is None:
+            return None
+        return mid if side is OutcomeSide.yes else Decimal(1) - mid
+
     def ask_for(self, side: OutcomeSide) -> Decimal | None:
         """Price you pay to buy one contract of `side` right now (crossing the spread)."""
         if side is OutcomeSide.yes:
@@ -121,6 +128,8 @@ class Signal:
     book_spread: Decimal | None = None
     book_probs_json: str | None = None
     maker_price: Decimal | None = None
+    # The side's Kalshi mid when the decision was made (scoreboard: favoured side).
+    mid: Decimal | None = None
 
 
 @dataclass(frozen=True)

@@ -751,6 +751,10 @@ class Ledger:
                 "trigger_reason": "TEXT",
             },
             "shadow_decisions": {
+                # Scoreboard: the side's Kalshi mid at decision time and whether the
+                # model favoured the side (fair > mid).
+                "mid": "TEXT",
+                "model_side": "INTEGER",
                 "clv_kalshi": "TEXT",
                 "clv_gameday": "TEXT",
                 "clv_exit": "TEXT",
@@ -816,6 +820,7 @@ class Ledger:
             )
         self.conn.commit()
         self._migrate_kickoffs()
+        self._migrate_scoreboard()
         self.starting_cash = starting_cash
         row = self.conn.execute("SELECT balance FROM cash WHERE id = 1").fetchone()
         if row is None:
@@ -848,6 +853,104 @@ class Ledger:
             (datetime.now(timezone.utc).isoformat(),),
         )
         self.conn.commit()
+
+    SCOREBOARD_MIGRATIONS = (
+        "scoreboard:model_side_backfill",
+        "scoreboard:polymarket_non_mls",
+        "scoreboard:line_move_legacy",
+    )
+    LINE_MOVE_LEGACY_TAG = "legacy_double_mid"
+    MODEL_SIDE_BACKFILL_WINDOW = timedelta(minutes=5)
+
+    def _migrate_scoreboard(self) -> None:
+        """One-time data fixes for the scoreboard (each runs once, logged in
+        `ledger_migrations`):
+
+        - model_side_backfill: fill shadow_decisions.mid/model_side from the nearest
+          market_snapshots row within 5 minutes of the decision; rows without one stay NULL.
+        - polymarket_non_mls: Polymarket matching took spread/puck-line markets for NHL and
+          NBA, so every non-MLS clv_polymarket is cleared and its reference_quotes deleted.
+        - line_move_legacy: line_move_follower rows written before the fix were recorded by
+          both loops and priced at the mid; tag them so reports leave them out.
+        """
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS ledger_migrations "
+            "(key TEXT PRIMARY KEY, applied_at TEXT NOT NULL, detail TEXT)"
+        )
+        done = {str(r[0]) for r in self.conn.execute("SELECT key FROM ledger_migrations")}
+        for key in self.SCOREBOARD_MIGRATIONS:
+            if key in done:
+                continue
+            if key == "scoreboard:model_side_backfill":
+                detail = str(self.backfill_model_side())
+            elif key == "scoreboard:polymarket_non_mls":
+                cleared = 0
+                for table in ("fills", "shadow_decisions", "maker_shadow"):
+                    cleared += self.conn.execute(
+                        f"UPDATE {table} SET clv_polymarket=NULL "
+                        "WHERE clv_polymarket IS NOT NULL AND ticker NOT LIKE 'KXMLSGAME-%'"
+                    ).rowcount
+                deleted = self.conn.execute(
+                    "DELETE FROM reference_quotes WHERE source='polymarket' "
+                    "AND event_ticker NOT LIKE 'KXMLSGAME-%'"
+                ).rowcount
+                detail = f"cleared={cleared} deleted={deleted}"
+            else:
+                tag = self.LINE_MOVE_LEGACY_TAG
+                detail = str(
+                    self.conn.execute(
+                        "UPDATE shadow_decisions SET tags=CASE WHEN tags IS NULL OR tags='' "
+                        "THEN ? ELSE tags || ',' || ? END "
+                        "WHERE reason='line_move_follower' "
+                        "AND (',' || COALESCE(tags,'') || ',') NOT LIKE ?",
+                        (tag, tag, f"%,{tag},%"),
+                    ).rowcount
+                )
+            self.conn.execute(
+                "INSERT INTO ledger_migrations (key,applied_at,detail) VALUES (?,?,?)",
+                (key, datetime.now(timezone.utc).isoformat(), detail),
+            )
+            self.conn.commit()
+
+    def backfill_model_side(self) -> int:
+        """Set mid/model_side on shadow_decisions rows that lack them, from the
+        market_snapshots row nearest the decision within 5 minutes. Returns rows set."""
+        rows = self.conn.execute(
+            "SELECT id,created_at,ticker,side,fair FROM shadow_decisions "
+            "WHERE mid IS NULL AND fair IS NOT NULL"
+        ).fetchall()
+        window = self.MODEL_SIDE_BACKFILL_WINDOW
+        updated = 0
+        for row_id, created_at, ticker, side, raw_fair in rows:
+            try:
+                at = self._utc(datetime.fromisoformat(str(created_at)))
+                fair = Decimal(str(raw_fair))
+            except (ValueError, ArithmeticError):
+                continue
+            nearest: tuple[timedelta, Decimal] | None = None
+            for fetched_at, raw_bid, raw_ask in self.conn.execute(
+                "SELECT fetched_at,yes_bid,yes_ask FROM market_snapshots WHERE ticker=? "
+                "AND fetched_at>=? AND fetched_at<=? AND yes_bid IS NOT NULL "
+                "AND yes_ask IS NOT NULL",
+                (ticker, (at - window).isoformat(), (at + window).isoformat()),
+            ):
+                try:
+                    gap = abs(self._utc(datetime.fromisoformat(str(fetched_at))) - at)
+                    yes_mid = (Decimal(str(raw_bid)) + Decimal(str(raw_ask))) / 2
+                except (ValueError, ArithmeticError):
+                    continue
+                if gap <= window and (nearest is None or gap < nearest[0]):
+                    nearest = (gap, yes_mid)
+            if nearest is None:
+                continue
+            mid = nearest[1] if str(side) == "yes" else Decimal(1) - nearest[1]
+            self.conn.execute(
+                "UPDATE shadow_decisions SET mid=?, model_side=? WHERE id=?",
+                (str(mid), 1 if fair > mid else 0, row_id),
+            )
+            updated += 1
+        self.conn.commit()
+        return updated
 
     @staticmethod
     def _ensure_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
@@ -2767,8 +2870,8 @@ class Ledger:
         window = decision_window(sig.created_at, commence)
         self.conn.execute(
             "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
-            "position_key,would_trade,reason,fair,price,size,commence_time,net_edge,tags) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "position_key,would_trade,reason,fair,price,size,commence_time,net_edge,tags,"
+            "mid,model_side) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 created_at.isoformat(),
                 rules_version,
@@ -2785,9 +2888,17 @@ class Ledger:
                 self._utc(commence).isoformat() if commence else None,
                 str(sig.edge) if reason in {"single_sharp", "sharp_move_follow"} else None,
                 ",".join(sig.tags) if sig.tags else None,
+                *self._model_side_values(sig),
             ),
         )
         self.conn.commit()
+
+    @staticmethod
+    def _model_side_values(sig: Signal) -> tuple[str | None, int | None]:
+        """(mid, model_side) for a shadow row: model_side is 1 when fair > the side's mid."""
+        if sig.mid is None:
+            return None, None
+        return str(sig.mid), 1 if sig.fair_prob > sig.mid else 0
 
     def record_near_miss_decisions(
         self, items: Sequence[tuple[Signal, str]], cap: int = 400
@@ -2838,8 +2949,8 @@ class Ledger:
                 self.conn.execute(
                     "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,"
                     "side,position_key,would_trade,reason,fair,price,size,commence_time,net_edge,"
-                    "tags,ask_depth,open_interest) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "tags,ask_depth,open_interest,mid,model_side) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         created_at.isoformat(),
                         sig.rules_version,
@@ -2862,6 +2973,7 @@ class Ledger:
                         ",".join(sig.tags) if sig.tags else None,
                         str(sig.available_size) if sig.available_size is not None else None,
                         str(sig.open_interest) if sig.open_interest is not None else None,
+                        *self._model_side_values(sig),
                     ),
                 )
                 written += 1

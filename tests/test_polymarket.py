@@ -30,8 +30,18 @@ NFL = "KXNFLGAME-26NOV08ARIDAL"
 MLS = "KXMLSGAME-26NOV08CHIORL"
 
 
-def _market(outcomes: list[str], tokens: list[str], subject: str = "", start=KICK) -> PolyMarket:  # type: ignore[no-untyped-def]
-    return PolyMarket("q", tuple(outcomes), tuple(tokens), subject, start)
+def _market(  # type: ignore[no-untyped-def]
+    outcomes: list[str],
+    tokens: list[str],
+    subject: str = "",
+    start=KICK,
+    question: str = "q",
+    market_type: str = "",
+) -> PolyMarket:
+    return PolyMarket(question, tuple(outcomes), tuple(tokens), subject, start, market_type)
+
+
+CARDS_DAL = "Cardinals vs. Cowboys"
 
 
 # --- parsing -----------------------------------------------------------------------
@@ -106,15 +116,19 @@ MLS_EVENT = TrackedEvent(
 
 def test_two_way_match_needs_both_teams_and_a_close_kickoff() -> None:
     game = PolyEvent(
-        "Cardinals vs. Cowboys", KICK, (_market(["Cardinals", "Cowboys"], ["t1", "t2"]),)
+        CARDS_DAL, KICK, (_market(["Cardinals", "Cowboys"], ["t1", "t2"], question=CARDS_DAL),)
     )
     tokens, unknown = match_tokens(NFL_EVENT, [game])
     assert tokens == {"arizona-cardinals": "t1", "dallas-cowboys": "t2"} and unknown == []
     late = PolyEvent("Cardinals vs. Cowboys", KICK + timedelta(hours=5), game.markets)
     assert match_tokens(NFL_EVENT, [late])[0] == {}
-    other = PolyEvent("Cardinals vs. Rams", KICK, (_market(["Cardinals", "Rams"], ["a", "b"]),))
+    other = PolyEvent(
+        "Cardinals vs. Rams",
+        KICK,
+        (_market(["Cardinals", "Rams"], ["a", "b"], question="Cardinals vs. Rams"),),
+    )
     assert match_tokens(NFL_EVENT, [other])[0] == {}
-    odd = PolyEvent("x", KICK, (_market(["Cardinals", "Big Red"], ["a", "b"]),))
+    odd = PolyEvent("x", KICK, (_market(["Cardinals", "Big Red"], ["a", "b"], question="x"),))
     assert match_tokens(NFL_EVENT, [odd]) == ({}, ["Big Red"])
 
 
@@ -153,7 +167,7 @@ class FakePoly:
 
 def _tracked_ledger(tmp_path, now: datetime) -> Ledger:  # type: ignore[no-untyped-def]
     ledger = Ledger(tmp_path / "ref.sqlite", Decimal("1000"))
-    for code in ("ARI", "DAL"):
+    for code, bid, ask in (("ARI", "0.4", "0.42"), ("DAL", "0.57", "0.59")):
         ledger.conn.execute(
             "INSERT INTO market_snapshots (fetched_at,ticker,event_ticker,series,yes_bid,yes_ask,"
             "yes_bid_size,yes_ask_size,open_interest,volume,expected_expiration) "
@@ -163,8 +177,8 @@ def _tracked_ledger(tmp_path, now: datetime) -> Ledger:  # type: ignore[no-untyp
                 f"{NFL}-{code}",
                 NFL,
                 "KXNFLGAME",
-                "0.4",
-                "0.42",
+                bid,
+                ask,
                 "1",
                 "1",
                 "1",
@@ -197,7 +211,7 @@ def test_poll_stores_mids_respects_the_cap_and_logs_unmatched(tmp_path) -> None:
     ledger = _tracked_ledger(tmp_path, now)
     assert [e.event_ticker for e in tracked_events(ledger, now)] == [NFL]
     game = PolyEvent(
-        "Cardinals vs. Cowboys", KICK, (_market(["Cardinals", "Cowboys"], ["t1", "t2"]),)
+        CARDS_DAL, KICK, (_market(["Cardinals", "Cowboys"], ["t1", "t2"], question=CARDS_DAL),)
     )
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
     assert poll_reference_quotes(ledger, FakePoly([game]), settings, now=now) == 2  # type: ignore[arg-type]
@@ -244,7 +258,8 @@ def test_clv_polymarket_uses_the_close_window_and_the_side(tmp_path) -> None:  #
     assert record_polymarket_clv(ledger, now=KICK + timedelta(hours=1)) == 1
     clv = ledger.conn.execute("SELECT clv_polymarket FROM shadow_decisions").fetchone()[0]
     assert Decimal(clv) == Decimal("3.00")  # NO on Arizona: (1 - 0.40) - 0.57
-    ledger.conn.execute("UPDATE shadow_decisions SET clv_status='ok'")
+    # Near-miss headline is the favoured side; mark this row as one.
+    ledger.conn.execute("UPDATE shadow_decisions SET clv_status='ok', model_side=1")
     ledger.conn.commit()
     report = clv_report(ledger.conn)
     poly = report["cohorts"]["v3_net_edge"]["metrics"]["clv_polymarket"]["all"]
