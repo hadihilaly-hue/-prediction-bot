@@ -155,7 +155,7 @@ def test_report_cohorts_filters_and_breakouts(tmp_path) -> None:  # type: ignore
     assert everything["clv_kalshi"]["all"]["n"] == 3
     text = format_report(report)
     assert "v3 near misses blocked by net_edge" in text
-    assert "clv_sharp_close (devigged sharp-book close minus entry): no scored rows" in text
+    assert "clv_sharp_close (power-devigged sharp-book close minus entry): no scored rows" in text
 
 
 def test_clv_report_command_prints_json(tmp_path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]

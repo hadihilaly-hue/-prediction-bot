@@ -86,6 +86,18 @@ class Engine:
         res = CycleResult(markets_scanned=len(markets))
         gate_candidate_keys: dict[str, set[str]] = {}
         line_moves: dict[str, Signal] = {}
+        # road_dog / devig_power_only would-trade shadows: one per (reason, position).
+        side_shadows: dict[tuple[str, str], Signal] = {}
+
+        def collect_side_shadows(strat: Strategy) -> None:
+            for getter, reason in (
+                ("seen_road_dog_decisions", "road_dog"),
+                ("seen_devig_power_only_decisions", "devig_power_only"),
+            ):
+                get_side = getattr(strat, getter, None)
+                if get_side is not None:
+                    for sig in get_side():
+                        side_shadows.setdefault((reason, sig.position_key or sig.ticker), sig)
 
         def add_gate_candidate(signal: Signal) -> None:
             if signal.position_key is None or signal.event_ticker is None:
@@ -135,6 +147,7 @@ class Engine:
                 for sig in get_line_moves():
                     if sig.strategy != "book_scanner":
                         line_moves.setdefault(sig.position_key or sig.ticker, sig)
+            collect_side_shadows(strat)
         for strat in self.shadow_strategies:
             try:
                 shadow_signals = strat.evaluate(markets)
@@ -166,12 +179,15 @@ class Engine:
                     for sig in get_line_moves():
                         if sig.strategy != "book_scanner":
                             line_moves.setdefault(sig.position_key or sig.ticker, sig)
+                collect_side_shadows(strat)
             except Exception:
                 log.exception("shadow strategy %s failed", strat.name)
         # One line_move_follower row per position per cycle, whichever loop saw it first
         # (both the primary and the shadow strategy detect the same move).
         for sig in line_moves.values():
             self.ledger.record_shadow_decision(sig, "v2", reason="line_move_follower")
+        for (reason, _key), sig in side_shadows.items():
+            self.ledger.record_shadow_decision(sig, sig.rules_version or "v3", reason=reason)
         try:
             near_miss_decisions = []
             for strat in (*self.strategies, *self.shadow_strategies):
