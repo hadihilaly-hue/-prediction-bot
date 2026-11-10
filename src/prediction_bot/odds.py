@@ -284,6 +284,9 @@ class OddsClient:
         # after the cycle (pull-plan marking, measurement pulls, extra credits) reads
         # this instead.
         self.pulled_feeds: set[str] = set()
+        # Credits spent per feed over the client's life (x-requests-last, 1 when
+        # missing); never cleared, so callers diff it around a cycle.
+        self.pulled_credits: dict[str, int] = {}
         self.events_free = True
         self._events_requests_used_baseline: int | None = None
         self._memo: dict[tuple[str, str, str], tuple[float, list[dict[str, Any]]]] = {}
@@ -349,6 +352,9 @@ class OddsClient:
         else:
             self.requests_last_by_sport[sport] = requests_last_value
         self.pulled_feeds.add(sport)
+        self.pulled_credits[sport] = self.pulled_credits.get(sport, 0) + (
+            requests_last_value if requests_last_value is not None else 1
+        )
         log.info("odds api: %s x-requests-last=%s", sport, requests_last)
         if requests_last != "1":
             log.error(
@@ -528,14 +534,15 @@ class OddsPacer:
         """Allow one shadow-only measurement pull for `feed` on top of this run's budget.
 
         Refused in trigger runs, once `daily_cap` measurement pulls are recorded for the
-        UTC day, or when it would dip into the month's reserve. The credit is kept out
-        of the carry so it never borrows from the next run's share.
+        UTC day, or below `plan_floor()` (the pull is paid from the plan's share, so it
+        stops where plan pulls stop). The credit is kept out of the carry so it never
+        borrows from the next run's share.
         """
         if self.ledger is None or self.measure_feed is not None or daily_cap <= 0:
             return False
         if self.ledger.measure_pulls_on(_utc(now).date()) >= daily_cap:
             return False
-        if not self.grant_extra_credit(feed):
+        if not self.grant_extra_credit(feed, floor=self.plan_floor(now)):
             return False
         self.measure_feed = feed
         return True
@@ -551,6 +558,7 @@ class OddsPacer:
         dyn: dict[date, int] | None = None
         if self.cadence_mode == "calendar":
             dyn = self._dyn_counts(today)
+        granted = self.ledger.cadence_granted(today) if self.ledger is not None else 0.0
         plan = build_plan(
             now,
             left,
@@ -558,6 +566,7 @@ class OddsPacer:
             self.calendar,
             dyn=dyn,
             overrides=self.day_overrides,
+            granted_today=granted,
         )
         self.credit = min(self.credit + plan.share * self.rotation_share, float(max(0, left)))
         # Cadence rounds the carried share: <0.5 nothing, then up to 3 feeds.
@@ -575,6 +584,7 @@ class OddsPacer:
                 mode=self.cadence_mode,
                 at=now,
             )
+            self.ledger.add_cadence_granted(plan.day, plan.share, now)
         log.info(
             "odds api: %d requests left; cadence %s budget %.2f share %.2f -> %d feeds",
             left,
@@ -666,6 +676,7 @@ class OddsPacer:
         if left is None:
             self.client.budget = 0
             return 0
+        self._check_credit_gap(now or datetime.now(timezone.utc))
         if self.plan_mode:
             self.client.budget = 1 if left - 1 >= self.plan_floor(now) else 0
             self.client._events_requests_used_baseline = (
@@ -700,6 +711,24 @@ class OddsPacer:
         )
         log.info("odds api: %d requests left this month, run budget %d", left, self.client.budget)
         return self.client.budget
+
+    def _check_credit_gap(self, now: datetime) -> None:
+        """Credits 2.6d: the API counted more than one credit the ledger never saw (runs
+        whose ledger save failed spent them); record the gap."""
+        if self.ledger is None or self.client.requests_used is None:
+            return
+        try:
+            api_used = int(self.client.requests_used)
+        except ValueError:
+            return
+        ledger_used = self.ledger.last_odds_used(now)
+        if ledger_used is not None and api_used - ledger_used > 1:
+            log.warning(
+                "odds api: %d credits used, ledger's last run saw %d; recording the gap",
+                api_used,
+                ledger_used,
+            )
+            self.ledger.record_credit_gap(now, api_used, ledger_used)
 
     def finish_run(self, now: datetime | None = None, feeds: list[str] | None = None) -> None:
         if self.ledger is None:

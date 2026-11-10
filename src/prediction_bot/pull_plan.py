@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 from prediction_bot import kickoffs
 from prediction_bot.config import Settings
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
+from prediction_bot.teams import evaluable_feed, event_teams_mapped
 
 if TYPE_CHECKING:
     from prediction_bot.paper.ledger import Ledger
@@ -110,9 +111,15 @@ def plan_kickoffs(
     'kalshi_expiry' estimate here).
     """
     now = _utc(now)
-    wanted = set(feeds)
+    wanted = {feed for feed in feeds if evaluable_feed(feed)}
     kickoffs.sync_snapshots(conn)
     cutoff = (now - SNAPSHOT_MAX_AGE).isoformat()
+    legs: dict[str, set[str]] = {}
+    for event_ticker, ticker in conn.execute(
+        "SELECT DISTINCT event_ticker,ticker FROM market_snapshots WHERE fetched_at>=?",
+        (cutoff,),
+    ):
+        legs.setdefault(str(event_ticker), set()).add(str(ticker))
     events: dict[str, str] = {}
     expirations: dict[str, tuple[str, str]] = {}
     # Bare columns with MAX(fetched_at) come from the latest snapshot of each event.
@@ -123,6 +130,9 @@ def plan_kickoffs(
     ):
         feed = KALSHI_SERIES_TO_SPORT.get(str(event_ticker).split("-", 1)[0])
         if feed is None or feed not in wanted:
+            continue
+        # A game whose teams cannot all be mapped can never be linked to the books.
+        if not event_teams_mapped(str(event_ticker), legs.get(str(event_ticker), ())):
             continue
         events[str(event_ticker)] = feed
         expirations[str(event_ticker)] = (str(expiration), str(fetched_at))
@@ -142,6 +152,46 @@ def _close_allowed(conn: sqlite3.Connection, event_ticker: str, feed: str) -> bo
     return kickoffs.resolve_odds(conn, event_ticker) is not None
 
 
+def supersede_unevaluable(ledger: Ledger) -> int:
+    """Still-planned rows that can never pay off: feeds v3 cannot evaluate
+    ('unevaluable_feed') and per-event rows whose team legs do not all map
+    ('unmapped_teams'). Returns rows changed."""
+    changed = 0
+    for feed in {
+        str(f)
+        for (f,) in ledger.conn.execute(
+            "SELECT DISTINCT feed FROM pull_plan WHERE status='planned'"
+        )
+    }:
+        if not evaluable_feed(feed):
+            changed += ledger.conn.execute(
+                "UPDATE pull_plan SET status='superseded',note='unevaluable_feed' "
+                "WHERE status='planned' AND feed=?",
+                (feed,),
+            ).rowcount
+    events = [
+        str(e)
+        for (e,) in ledger.conn.execute(
+            "SELECT DISTINCT event_ticker FROM pull_plan WHERE status='planned' "
+            f"AND event_ticker NOT LIKE '{FEED_EVENT_PREFIX}%'"
+        )
+    ]
+    for event in events:
+        tickers = [
+            str(t)
+            for (t,) in ledger.conn.execute(
+                "SELECT DISTINCT ticker FROM market_snapshots WHERE event_ticker=?", (event,)
+            )
+        ]
+        if tickers and not event_teams_mapped(event, tickers):
+            changed += ledger.conn.execute(
+                "UPDATE pull_plan SET status='superseded',note='unmapped_teams' "
+                "WHERE status='planned' AND event_ticker=?",
+                (event,),
+            ).rowcount
+    return changed
+
+
 def retime_planned(ledger: Ledger, now: datetime) -> int:
     """Keep still-planned per-event rows on the resolved kickoff.
 
@@ -151,7 +201,7 @@ def retime_planned(ledger: Ledger, now: datetime) -> int:
     Returns rows changed.
     """
     now = _utc(now)
-    changed = 0
+    changed = supersede_unevaluable(ledger)
     rows = ledger.conn.execute(
         "SELECT id,event_ticker,feed,target,kickoff,target_at,window_start,window_end,"
         "priority,source,entry,max_per_day FROM pull_plan WHERE status='planned' "
@@ -423,7 +473,7 @@ def plan_feed_targets(
     """
 
     now = _utc(now)
-    feeds = sorted(set(feeds))
+    feeds = sorted({feed for feed in feeds if evaluable_feed(feed)})
     games: dict[str, list[datetime]] = {}
     for _event, (feed, kickoff) in plan_kickoffs(ledger.conn, feeds, now, GAME_LOOKAHEAD).items():
         games.setdefault(feed, []).append(kickoff)
@@ -520,25 +570,31 @@ def merge_near_targets(ledger: Ledger, now: datetime) -> int:
     ledger.conn.execute(
         "UPDATE pull_plan SET merged_into=NULL WHERE status='planned' AND merged_into IS NOT NULL"
     )
+    # Only a row a pull really paid for or rode along with can absorb others (credits
+    # 2.6a); a row that was itself absorbed (credits 0, note 'merged:') never chains.
     rows = ledger.conn.execute(
-        "SELECT id,feed,priority,target_at,status FROM pull_plan WHERE source<>'close' "
-        "AND ((status='planned' AND window_end>=?) OR (status='pulled' AND pulled_at>=?)) "
+        "SELECT id,feed,priority,target_at,status,pulled_at FROM pull_plan "
+        "WHERE source<>'close' AND ((status='planned' AND window_end>=?) "
+        f"OR (status='pulled' AND pulled_at>=? AND {_REALLY_PULLED})) "
         "ORDER BY feed,CASE status WHEN 'pulled' THEN 0 ELSE 1 END,priority,target_at,id",
         (now.isoformat(), (now - RELEASE_WINDOW).isoformat()),
     ).fetchall()
-    survivors: dict[str, list[tuple[int, datetime]]] = {}
+    survivors: dict[str, list[tuple[int, datetime, datetime | None]]] = {}
     merges: list[tuple[int, int]] = []
-    for row_id, feed, _priority, target_at, status in rows:
+    for row_id, feed, _priority, target_at, status, pulled_at in rows:
         at = _utc(str(target_at))
         near = [
             (abs((at - other).total_seconds()), sid)
-            for sid, other in survivors.get(str(feed), [])
+            for sid, other, pulled in survivors.get(str(feed), [])
             if abs(at - other) <= MERGE_WINDOW
+            # A pull made before a target's time cannot satisfy it.
+            and (pulled is None or at <= pulled)
         ]
         if near and status == "planned":
             merges.append((min(near)[1], int(row_id)))
         else:
-            survivors.setdefault(str(feed), []).append((int(row_id), at))
+            pulled_time = _utc(str(pulled_at)) if status == "pulled" and pulled_at else None
+            survivors.setdefault(str(feed), []).append((int(row_id), at, pulled_time))
     if merges:
         ledger.conn.executemany("UPDATE pull_plan SET merged_into=? WHERE id=?", merges)
     _absorb_merged_into_pulled(ledger)
@@ -546,14 +602,21 @@ def merge_near_targets(ledger: Ledger, now: datetime) -> int:
     return len(merges)
 
 
+# A pull_plan row a pull really satisfied: it was paid, or rode along a paid pull.
+_REALLY_PULLED = "(credits>0 OR COALESCE(note,'') LIKE 'rode_along%')"
+
+
 def _absorb_merged_into_pulled(ledger: Ledger) -> None:
-    """Rows merged into a survivor that is already pulled count as pulled by it."""
+    """Rows merged into a survivor that is already pulled count as pulled by it, when
+    that survivor was really pulled and the pull came at or after the row's time."""
     ledger.conn.execute(
         "UPDATE pull_plan SET status='pulled',credits=0,"
         "pulled_at=(SELECT s.pulled_at FROM pull_plan s WHERE s.id=pull_plan.merged_into),"
         "note=COALESCE(note,'merged:'||merged_into) "
-        "WHERE status='planned' AND merged_into IN "
-        "(SELECT id FROM pull_plan WHERE status='pulled')"
+        "WHERE status='planned' AND EXISTS (SELECT 1 FROM pull_plan s "
+        "WHERE s.id=pull_plan.merged_into AND s.status='pulled' "
+        "AND (s.credits>0 OR COALESCE(s.note,'') LIKE 'rode_along%') "
+        "AND s.pulled_at>=pull_plan.target_at)"
     )
 
 
@@ -681,7 +744,7 @@ def _allowance_window(
     Normally the UTC month, with usable = month-start balance less the hard and move
     reserves. `plan_allowance_since` (a date inside this month) restarts it from that
     day: usable = the balance on that day less the hard reserve and the move reserve
-    still unused, and only plan credits spent from then on count. Used when the
+    unused on that day, and only plan credits spent from then on count. Used when the
     plan's share changes mid-month, so the new share is not applied retroactively.
     """
     now = _utc(now)
@@ -695,7 +758,14 @@ def _allowance_window(
             (epoch.isoformat(), end.isoformat()),
         ).fetchone()
         balance = int(row[0]) if row is not None and row[0] is not None else None
-        reserve = move_reserve_left(ledger, settings, now)
+        # The move reserve unused on the restart date, not now: otherwise `usable`
+        # (and the allowance) grows as move pulls use the reserve (credits 2.6c).
+        used = ledger.conn.execute(
+            "SELECT COUNT(*) FROM odds_triggers WHERE status='pulled' "
+            "AND created_at>=? AND created_at<?",
+            (start.isoformat(), epoch.isoformat()),
+        ).fetchone()[0]
+        reserve = max(0, settings.odds_move_reserve - int(used))
         if balance is not None:
             return epoch, end, max(0, balance - PLAN_HARD_RESERVE - reserve)
     balance = month_start_balance(ledger, now)
@@ -724,11 +794,17 @@ def plan_allowance(ledger: Ledger, settings: Settings, now: datetime) -> float |
 
 
 def plan_credits_between(ledger: Ledger, start: datetime, end: datetime) -> float:
+    """Credits charged to the plan's allowance: plan pulls, plus one per measurement
+    pull (credits 2.4: measurement pulls are paid from the plan's share)."""
     row = ledger.conn.execute(
         "SELECT COALESCE(SUM(credits),0) FROM pull_plan WHERE pulled_at>=? AND pulled_at<?",
         (start.isoformat(), end.isoformat()),
     ).fetchone()
-    return float(row[0])
+    measured = ledger.conn.execute(
+        "SELECT COUNT(*) FROM measure_pulls WHERE created_at>=? AND created_at<?",
+        (start.isoformat(), end.isoformat()),
+    ).fetchone()
+    return float(row[0]) + float(measured[0])
 
 
 def plan_credits_month(ledger: Ledger, now: datetime) -> float:
@@ -845,7 +921,9 @@ def select_plan_pull(
     """The funded feed to pull now for its due targets, or None.
 
     Due targets that cannot be funded are stamped `budget_blocked_at`, so if they
-    expire unpulled they are recorded as `skipped_budget` rather than `missed`.
+    expire unpulled they are recorded as `skipped_budget` rather than `missed`. Due
+    targets of another feed that were fundable but lost to this tick's pick get the
+    note `deferred_other_feed` and no budget stamp.
     With `calendar`, a row past its entry's `max_per_day` and soccer feeds over the
     weekend cap are held back too, with the reason in `note`. Plan pulls never spend
     the month's last `plan_floor` credits (hard reserve plus move reserve).
@@ -910,14 +988,19 @@ def select_plan_pull(
         key=lambda item: (min(p for _i, p, _e in item[1]), min(e for _i, _p, e in item[1])),
     )
     blocked: list[int] = []
+    deferred: list[int] = []
     pick: PlanPick | None = None
     for feed, rows in ordered:
         priority = min(p for _i, p, _e in rows)
-        if (
-            pick is None
-            and not (low_blocked and priority > top)
+        fundable = (
+            not (low_blocked and priority > top)
             and remaining - _groups_ahead(ledger, now, priority) >= 1
-        ):
+        )
+        if fundable and pick is not None:
+            # Lost only to the feed picked this tick: not a budget block (credits
+            # 2.6b). The workflow asks `pull-due` again once that pull is recorded.
+            deferred.extend(i for i, _p, _e in rows)
+        elif fundable:
             primary = min(rows, key=lambda r: (r[1], r[2], r[0]))[0]
             source_row = ledger.conn.execute(
                 "SELECT source FROM pull_plan WHERE id=?", (primary,)
@@ -932,6 +1015,12 @@ def select_plan_pull(
         else:
             blocked.extend(i for i, _p, _e in rows)
     blocked.extend(held)
+    if deferred:
+        ledger.conn.executemany(
+            "UPDATE pull_plan SET note=COALESCE(note,'deferred_other_feed') WHERE id=?",
+            [(row_id,) for row_id in deferred],
+        )
+        ledger.conn.commit()
     if blocked:
         # Rows merged into a blocked survivor are blocked with it.
         merged = [

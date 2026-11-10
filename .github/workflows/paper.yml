@@ -109,8 +109,8 @@ jobs:
           PBOT_ENTRY_WINDOW_MAX_HOURS: ${{ vars.PBOT_ENTRY_WINDOW_MAX_HOURS || '168' }}
           # Shadow-only T-6h / T-90m pulls for feeds that never reach the window;
           # set the cap Variable to 0 to stop them.
-          PBOT_MEASURE_FEEDS: ${{ vars.PBOT_MEASURE_FEEDS || 'icehockey_nhl,basketball_nba,basketball_ncaab' }}
-          PBOT_MEASURE_DAILY_CREDIT_CAP: ${{ vars.PBOT_MEASURE_DAILY_CREDIT_CAP || '2' }}
+          PBOT_MEASURE_FEEDS: ${{ vars.PBOT_MEASURE_FEEDS || 'icehockey_nhl,basketball_nba' }}
+          PBOT_MEASURE_DAILY_CREDIT_CAP: ${{ vars.PBOT_MEASURE_DAILY_CREDIT_CAP || '1' }}
           # Per-game pull targets (T-24h/T-6h/T-90m/T-10m) may spend the share of each
           # day's credits the rotation does not keep; 'off' disables the plan.
           PBOT_ODDS_PULL_PLAN: ${{ vars.PBOT_ODDS_PULL_PLAN || 'hybrid' }}
@@ -124,6 +124,11 @@ jobs:
           PBOT_RELEASE_ENABLE_FEEDS: ${{ vars.PBOT_RELEASE_ENABLE_FEEDS || '' }}
           PBOT_ODDS_GRID: ${{ vars.PBOT_ODDS_GRID || 'rotation' }}
           PBOT_ODDS_MOVE_RESERVE: ${{ vars.PBOT_ODDS_MOVE_RESERVE || '50' }}
+          # Move triggers: at most this many a UTC day, on an ask move of at least
+          # MIN_MOVE dollars since the feed's last pull, MIN_GAP_MINUTES apart.
+          PBOT_ODDS_TRIGGER_DAILY_CAP: ${{ vars.PBOT_ODDS_TRIGGER_DAILY_CAP || '2' }}
+          PBOT_ODDS_TRIGGER_MIN_MOVE: ${{ vars.PBOT_ODDS_TRIGGER_MIN_MOVE || '0.02' }}
+          PBOT_ODDS_TRIGGER_MIN_GAP_MINUTES: ${{ vars.PBOT_ODDS_TRIGGER_MIN_GAP_MINUTES || '180' }}
           # The plan's allowance restarts on this date (ODDS_ENTRY_SHARE went 0.5 -> 0.7
           # on 2026-11-08); ignored outside that month.
           PBOT_PLAN_ALLOWANCE_SINCE: ${{ vars.PBOT_PLAN_ALLOWANCE_SINCE || '2026-11-09' }}
@@ -179,6 +184,12 @@ jobs:
             if [ -n "$PLAN_FEED" ]; then
               pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \
                 --plan "$PLAN_FEED" | tee -a ledger/last_run.txt || true
+              # A second feed due this tick, if the allowance still covers it.
+              PLAN_FEED="$(pbot pull-due)" || PLAN_FEED=""
+              if [ -n "$PLAN_FEED" ]; then
+                pbot paper -s sportsbook_v3 --cycles 1 $SPORTSBOOK_SERIES_ARGS \
+                  --plan "$PLAN_FEED" | tee -a ledger/last_run.txt || true
+              fi
             elif [ -z "$TARGET" ]; then
               FEED="$(pbot odds-trigger $SPORTSBOOK_SERIES_ARGS)" || FEED=""
               if [ -n "$FEED" ]; then

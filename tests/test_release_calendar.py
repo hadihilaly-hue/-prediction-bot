@@ -24,6 +24,7 @@ from prediction_bot.pull_plan import (
     tag_pull_rows,
 )
 from prediction_bot.release_calendar import ReleaseCalendar, plan_priority
+from scripts.simulate_pull_month import team_code
 
 UTC = timezone.utc
 ROOT = Path(__file__).parents[1]
@@ -52,7 +53,7 @@ def _game(ledger: Ledger, event: str, kickoff: datetime, offset_h: float = 3) ->
         "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (
             (kickoff - timedelta(hours=30)).isoformat(),
-            f"{event}-A",
+            f"{event}-{team_code(event)}",
             event,
             event.split("-", 1)[0],
             "0.48",
@@ -713,7 +714,9 @@ def test_simulated_month_default_flags(tmp_path: Path) -> None:
     # Every NFL Sunday and Monday status/inactives clock is pulled.
     assert result["nfl_sun_mon_clock"] == {"pulled": 20}
     assert result["targets"].get("close:pulled", 0) >= 160
-    assert result["rotation_pulls"] > result["plan_pulls"] > 0
+    # Both are funded. Before credits fix 2.1 the rotation was granted ~3x its day
+    # target, which is what made it out-pull the plan here.
+    assert result["rotation_pulls"] > 0 and result["plan_pulls"] > 0
     assert result["move_pulls"] >= 50  # the reserve is spent by move pulls
 
 

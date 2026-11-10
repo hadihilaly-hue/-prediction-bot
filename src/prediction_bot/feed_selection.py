@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from prediction_bot.config import Settings
 from prediction_bot.odds_planner import PlannedGame, _priority
+from prediction_bot.teams import evaluable_feed
 
 if TYPE_CHECKING:
     import sqlite3
@@ -104,7 +105,7 @@ def select_measure_pull(
             recent[str(feed)] = recent.get(str(feed), 0) + 1
     candidates: list[tuple[int, int, datetime, int, MeasurePull]] = []
     for order, feed in enumerate(settings.measure_feeds):
-        if feed in excluded:
+        if feed in excluded or not evaluable_feed(feed):
             continue
         upcoming = [g for g in games_by_sport.get(feed, ()) if _utc(g.kickoff) > now_utc]
         if not upcoming:
@@ -250,6 +251,8 @@ def compute_feed_stats(ledger: Ledger, feeds: Iterable[str], now: datetime) -> d
 
 
 def eligible(stat: FeedStat, settings: Settings) -> bool:
+    if not evaluable_feed(stat.feed):
+        return False
     return stat.lead_p90_h >= settings.min_lead_hours + 6 and (
         settings.rules_version == "v1" or stat.feed not in settings.v2_disabled_sports
     )
@@ -411,14 +414,23 @@ def rotation_scores(
     return scored
 
 
-def market_ask_moves_since(
+def market_ask_move_sizes(
     ledger: Ledger,
     event_ticker: str,
     last_pull: datetime,
     now: datetime,
     spread_gate: Decimal | None = None,
-) -> list[tuple[str, Decimal]]:
-    moves: dict[str, set[Decimal]] = {}
+    *,
+    min_move: Decimal = Decimal("0.01"),
+    new_is_move: bool = True,
+) -> list[tuple[str, Decimal, Decimal]]:
+    """(ticker, lowest moved ask, largest move) for each market of the event whose yes or
+    no ask moved by at least `min_move` between `last_pull` and `now`.
+
+    A market with no snapshot at `last_pull` counts as moved (move 0) only with
+    `new_is_move`.
+    """
+    moves: dict[str, list[tuple[Decimal, Decimal]]] = {}
     tickers = ledger.conn.execute(
         "SELECT DISTINCT ticker FROM market_snapshots WHERE event_ticker=? ORDER BY ticker",
         (event_ticker,),
@@ -454,9 +466,30 @@ def market_ask_moves_since(
                 Decimal(1) - Decimal(str(before_bid)) if before_bid is not None else None,
             )
         for previous, current in zip(before_asks, after_asks, strict=True):
-            if previous is None or abs(current - previous) >= Decimal("0.01"):
-                moves.setdefault(ticker, set()).add(current.normalize())
-    return [(ticker, min(asks)) for ticker, asks in sorted(moves.items())]
+            if previous is None:
+                if new_is_move:
+                    moves.setdefault(ticker, []).append((current.normalize(), Decimal(0)))
+            elif abs(current - previous) >= min_move:
+                moves.setdefault(ticker, []).append((current.normalize(), abs(current - previous)))
+    return [
+        (ticker, min(a for a, _m in found), max(m for _a, m in found))
+        for ticker, found in sorted(moves.items())
+    ]
+
+
+def market_ask_moves_since(
+    ledger: Ledger,
+    event_ticker: str,
+    last_pull: datetime,
+    now: datetime,
+    spread_gate: Decimal | None = None,
+) -> list[tuple[str, Decimal]]:
+    return [
+        (ticker, ask)
+        for ticker, ask, _move in market_ask_move_sizes(
+            ledger, event_ticker, last_pull, now, spread_gate
+        )
+    ]
 
 
 def _market_moved_since(

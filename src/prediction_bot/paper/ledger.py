@@ -378,6 +378,12 @@ CREATE TABLE IF NOT EXISTS cadence_days (
     mode TEXT,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS credit_gaps (
+    id INTEGER PRIMARY KEY,
+    at TEXT NOT NULL,
+    api_used INTEGER NOT NULL,
+    ledger_used INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS odds_triggers (
     id INTEGER PRIMARY KEY,
     created_at TEXT NOT NULL,
@@ -720,6 +726,8 @@ class Ledger:
                 "event_ticker": "TEXT",
             },
             "feed_pulls": {
+                # Credits 2.2: a pull no primary strategy recorded (a shadow fetched it).
+                "shadow_only": "INTEGER NOT NULL DEFAULT 0",
                 "requests_last": "INTEGER",
                 "gate_candidates": "INTEGER",
                 "pull_plan_id": "INTEGER",
@@ -735,6 +743,11 @@ class Ledger:
                 "gate_candidates": "INTEGER",
                 "note": "TEXT",
             },
+            # Credits 2.1: the day's cadence share already granted (before
+            # rotation_share), so the day's slots sum to its target.
+            "cadence_days": {"granted": "REAL NOT NULL DEFAULT 0"},
+            # Credits 2.3: the ask move (dollars) that fired a move trigger.
+            "odds_triggers": {"move": "TEXT"},
             "paper_orders": {"tags": "TEXT"},
             # Change-only writes: a repeat of the ticker's latest row updates last_seen_at
             # (and seen_count for blocks) instead of inserting.
@@ -2112,6 +2125,36 @@ class Ledger:
             self.conn.commit()
         return len(rows)
 
+    def record_shadow_only_pulls(
+        self,
+        credits: Mapping[str, int],
+        since: datetime,
+        rules_version: str,
+        at: datetime | None = None,
+    ) -> int:
+        """A `feed_pulls` row (candidates 0, shadow_only) for every feed that spent
+        credits this cycle without a row since `since`, so no credit goes unrecorded.
+        Only primary strategies write `feed_pulls`; a shadow strategy's fetch did not."""
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        start = self._utc(since).isoformat()
+        rows = [
+            (stamp, feed, rules_version, int(spent))
+            for feed, spent in sorted(credits.items())
+            if spent > 0
+            and self.conn.execute(
+                "SELECT 1 FROM feed_pulls WHERE feed=? AND created_at>=?", (feed, start)
+            ).fetchone()
+            is None
+        ]
+        self.conn.executemany(
+            "INSERT INTO feed_pulls (created_at,feed,rules_version,candidates,requests_last,"
+            "shadow_only) VALUES (?,?,?,0,?,1)",
+            rows,
+        )
+        if rows:
+            self.conn.commit()
+        return len(rows)
+
     def record_feed_pull_gate_candidates(
         self,
         candidates: Mapping[str, int],
@@ -2221,6 +2264,20 @@ class Ledger:
         )
         self.conn.commit()
 
+    def cadence_granted(self, day: date) -> float:
+        row = self.conn.execute(
+            "SELECT granted FROM cadence_days WHERE day=?", (day.isoformat(),)
+        ).fetchone()
+        return 0.0 if row is None or row[0] is None else float(row[0])
+
+    def add_cadence_granted(self, day: date, amount: float, at: datetime | None = None) -> None:
+        stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
+        self.conn.execute(
+            "UPDATE cadence_days SET granted=COALESCE(granted,0)+?,updated_at=? WHERE day=?",
+            (float(amount), stamp, day.isoformat()),
+        )
+        self.conn.commit()
+
     def record_cadence_pulls(
         self,
         day: date,
@@ -2292,22 +2349,75 @@ class Ledger:
         at: datetime | None = None,
         *,
         since: datetime | None = None,
+        move: Decimal | None = None,
     ) -> int | None:
         ask_text = self._odds_trigger_ask(ask)
         if self.has_odds_trigger(feed, ticker, ask_text, since=since):
             return None
         cursor = self.conn.execute(
-            "INSERT INTO odds_triggers(created_at,feed,ticker,ask,status) VALUES(?,?,?,?,?)",
+            "INSERT INTO odds_triggers(created_at,feed,ticker,ask,status,move) VALUES(?,?,?,?,?,?)",
             (
                 self._utc(at or datetime.now(timezone.utc)).isoformat(),
                 feed,
                 ticker,
                 ask_text,
                 "planned",
+                None if move is None else str(move),
             ),
         )
         self.conn.commit()
         return int(cursor.lastrowid) if cursor.lastrowid is not None else None
+
+    def last_odds_trigger_pulled_at(self) -> datetime | None:
+        row = self.conn.execute(
+            "SELECT MAX(created_at) FROM odds_triggers WHERE status='pulled'"
+        ).fetchone()
+        if row is None or row[0] is None:
+            return None
+        return self._utc(datetime.fromisoformat(str(row[0])))
+
+    def last_odds_used(self, at: datetime) -> int | None:
+        """The Odds API's x-requests-used as of the last run this UTC month that read it."""
+        now = self._utc(at)
+        start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+        row = self.conn.execute(
+            "SELECT odds_used FROM runs WHERE odds_used IS NOT NULL AND ran_at>=? "
+            "ORDER BY ran_at DESC,id DESC LIMIT 1",
+            (start.isoformat(),),
+        ).fetchone()
+        return None if row is None else int(row[0])
+
+    def record_credit_gap(self, at: datetime, api_used: int, ledger_used: int) -> None:
+        """Credits the API counted that no saved run recorded (a run whose ledger save
+        failed). One row per ledger baseline a month; a later sighting of the same
+        baseline keeps the larger gap."""
+        now = self._utc(at)
+        start = datetime(now.year, now.month, 1, tzinfo=timezone.utc).isoformat()
+        row = self.conn.execute(
+            "SELECT id,api_used FROM credit_gaps WHERE ledger_used=? AND at>=?",
+            (ledger_used, start),
+        ).fetchone()
+        if row is None:
+            self.conn.execute(
+                "INSERT INTO credit_gaps (at,api_used,ledger_used) VALUES (?,?,?)",
+                (now.isoformat(), api_used, ledger_used),
+            )
+        elif api_used > int(row[1]):
+            self.conn.execute(
+                "UPDATE credit_gaps SET api_used=?,at=? WHERE id=?",
+                (api_used, now.isoformat(), row[0]),
+            )
+        self.conn.commit()
+
+    def credit_gap_month(self, at: datetime) -> int:
+        now = self._utc(at)
+        start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+        end = datetime(now.year + (now.month == 12), now.month % 12 + 1, 1, tzinfo=timezone.utc)
+        row = self.conn.execute(
+            "SELECT COALESCE(SUM(api_used-ledger_used),0) FROM credit_gaps WHERE at>=? AND at<?",
+            (start.isoformat(), end.isoformat()),
+        ).fetchone()
+        return int(row[0])
 
     def odds_triggers_pulled_today(self, at: datetime | None = None) -> int:
         now = self._utc(at or datetime.now(timezone.utc))

@@ -17,6 +17,7 @@ from prediction_bot.pull_plan import (
     plan_pulls,
     select_plan_pull,
 )
+from scripts.simulate_pull_month import team_code
 
 UTC = timezone.utc
 CALENDAR = Path(__file__).parents[1] / "data" / "cadence_calendar.json"
@@ -43,7 +44,7 @@ def _game(ledger: Ledger, event: str, kickoff: datetime, offset_h: float = 3) ->
         "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (
             (kickoff - timedelta(hours=30)).isoformat(),
-            f"{event}-A",
+            f"{event}-{team_code(event)}",
             event,
             event.split("-", 1)[0],
             "0.48",
@@ -332,7 +333,7 @@ def test_pull_due_prints_the_funded_feed(tmp_path, monkeypatch, capsys) -> None:
         "yes_bid_size,yes_ask_size,open_interest,volume,expected_expiration) "
         "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (
-            (now - timedelta(hours=1)).isoformat(), "KXNFLGAME-X-A", "KXNFLGAME-X", "KXNFLGAME",
+            (now - timedelta(hours=1)).isoformat(), "KXNFLGAME-X-KC", "KXNFLGAME-X", "KXNFLGAME",
             "0.48", "0.50", "100", "100", "10", "10",
             (now + timedelta(minutes=12) + timedelta(hours=3)).isoformat(),
         ),

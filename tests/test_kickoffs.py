@@ -23,6 +23,7 @@ from prediction_bot.pull_plan import (
     plan_pulls,
     select_plan_pull,
 )
+from scripts.simulate_pull_month import team_code
 
 UTC = timezone.utc
 SETTINGS = Settings(_env_file=None)  # type: ignore[call-arg]
@@ -51,7 +52,7 @@ def _game(ledger: Ledger, event: str, expiration: datetime, fetched: datetime) -
         "INSERT INTO market_snapshots (fetched_at,ticker,event_ticker,series,yes_bid,yes_ask,"
         "yes_bid_size,yes_ask_size,open_interest,volume,expected_expiration) "
         "VALUES (?,?,?,?,'0.48','0.50','100','100','10','10',?)",
-        (fetched.isoformat(), f"{event}-A", event, event.split("-", 1)[0],
+        (fetched.isoformat(), f"{event}-{team_code(event)}", event, event.split("-", 1)[0],
          expiration.isoformat()),
     )  # fmt: skip
     ledger.conn.commit()

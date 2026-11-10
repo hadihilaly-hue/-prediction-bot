@@ -900,6 +900,8 @@ def _cadence_data(ledger: Ledger) -> dict[str, object]:
             for r in rows
         ],
         "month_pulled": total[0] if total else 0,
+        # Credits the API counted that no saved run recorded (credits 2.6d).
+        "month_lost": ledger.credit_gap_month(datetime.now(timezone.utc)),
     }
 
 
@@ -1812,7 +1814,7 @@ _TEMPLATE = """<!doctype html>
   table('injuriesproxy', 'College football proxy: consensus line moved 4¢+ against our side before kickoff (not real injury data).', headsInj, injuryRows((D.injuries || {}).proxy || []), 'No settled college-football bets with a CLV value yet.');
   table('injuriesgate', 'Bets the injury gate would have blocked (it ran in log mode, so they still traded) vs the rest.', headsInj, injuryRows((D.injuries || {}).gate || []), 'No settled bets with a CLV value yet.');
   const C = D.cadence || {};
-  table('cadence', 'Newest first. Pulled this month so far: ' + (C.month_pulled || 0) + ' of ~500 credits.', ['Day', 'Mode', 'Weight', 'Dyn', 'Blended', 'Budget', 'Pulled', 'Feeds'], (C.rows || []).map(r => [r.day, r.mode || '', r.static_w != null ? Number(r.static_w).toFixed(2) : '–', r.dyn_count != null ? String(r.dyn_count) : '–', r.blended_w != null ? Number(r.blended_w).toFixed(2) : '–', r.budget != null ? Number(r.budget).toFixed(1) : '–', String(r.pulled || 0), JSON.parse(r.feeds || '[]').join(', ')]), 'No cadence days recorded yet.');
+  table('cadence', 'Newest first. Pulled this month so far: ' + (C.month_pulled || 0) + ' of ~500 credits. Lost this month (spent by runs whose ledger save failed): ' + (C.month_lost || 0) + '.', ['Day', 'Mode', 'Weight', 'Dyn', 'Blended', 'Budget', 'Pulled', 'Feeds'], (C.rows || []).map(r => [r.day, r.mode || '', r.static_w != null ? Number(r.static_w).toFixed(2) : '–', r.dyn_count != null ? String(r.dyn_count) : '–', r.blended_w != null ? Number(r.blended_w).toFixed(2) : '–', r.budget != null ? Number(r.budget).toFixed(1) : '–', String(r.pulled || 0), JSON.parse(r.feeds || '[]').join(', ')]), 'No cadence days recorded yet.');
   const R = D.clv_report || {cohorts: {}};
   const verdictPill = v => v === 'supported' ? pill('won', 'Supported') : v === 'rejected' ? pill('lost', 'Rejected') : pill('', 'Open');
   const ciText = g => g && g.ci95 ? signedCents(g.ci95[0]) + ' to ' + signedCents(g.ci95[1]) : '–';

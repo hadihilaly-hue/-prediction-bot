@@ -40,7 +40,7 @@ from prediction_bot.feed_selection import (
     entry_lookahead,
     feed_scores,
     liquidity_weights,
-    market_ask_moves_since,
+    market_ask_move_sizes,
     rotation_scores,
     select_entry_feeds,
     select_measure_pull,
@@ -66,6 +66,7 @@ from prediction_bot.pull_plan import (
     eligible_feeds,
     mark_pulled_ids,
     merge_near_targets,
+    plan_allowance_left,
     plan_feed_targets,
     plan_hold,
     plan_kickoffs,
@@ -84,6 +85,7 @@ from prediction_bot.strategies import (
     SportsbookV2Strategy,
     Strategy,
 )
+from prediction_bot.teams import evaluable_feed
 from prediction_bot.venues.kalshi import KalshiClient
 from prediction_bot.venues.kalshi_auth import KalshiSigner
 from prediction_bot.venues.polymarket import PolymarketClient
@@ -337,8 +339,13 @@ def odds_trigger(
     )
     if ledger.odds_triggers_pulled_today(now) >= s.odds_trigger_daily_cap:
         return
+    last_trigger = ledger.last_odds_trigger_pulled_at()
+    if last_trigger is not None and now - last_trigger < timedelta(
+        minutes=s.odds_trigger_min_gap_minutes
+    ):
+        return
 
-    candidates: list[tuple[Decimal, datetime, str, str, Decimal, datetime]] = []
+    candidates: list[tuple[Decimal, Decimal, datetime, str, str, Decimal, datetime]] = []
     for feed, games in games_by_sport.items():
         score = scores[feed]
         if score.value <= 0:
@@ -359,16 +366,20 @@ def odds_trigger(
         for game in games:
             if not entry_start <= _utc(game.kickoff) <= entry_end:
                 continue
-            for ticker, ask in market_ask_moves_since(
+            # A market with no earlier snapshot is not a move.
+            for ticker, ask, move in market_ask_move_sizes(
                 ledger,
                 game.event_ticker,
                 last_pull,
                 now,
                 spread_gate=s.v2_max_spread,
+                min_move=s.odds_trigger_min_move,
+                new_is_move=False,
             ):
                 if not ledger.has_odds_trigger(feed, ticker, ask, since=last_pull):
                     candidates.append(
                         (
+                            move,
                             score.score,
                             score.soonest_kickoff or datetime.max.replace(tzinfo=timezone.utc),
                             feed,
@@ -379,11 +390,12 @@ def odds_trigger(
                     )
     if not candidates:
         return
-    _score, _kickoff, feed, ticker, ask, last_pull = min(
+    # The largest move first, then the feed's rotation score.
+    move, _score, _kickoff, feed, ticker, ask, last_pull = min(
         candidates,
-        key=lambda item: (-item[0], item[1], item[2], item[3], item[4]),
+        key=lambda item: (-item[0], -item[1], item[2], item[3], item[4], item[5]),
     )
-    if ledger.record_odds_trigger(feed, ticker, ask, now, since=last_pull) is not None:
+    if ledger.record_odds_trigger(feed, ticker, ask, now, since=last_pull, move=move) is not None:
         typer.echo(feed)
 
 
@@ -703,6 +715,12 @@ def paper(
                     and s.rules_version == "v3"
                 ):
                     measure = select_measure_pull(ledger, games_by_sport, s, now, exclude=planned)
+                    if measure is not None:
+                        # Measurement pulls are paid from the plan's allowance.
+                        allowance = plan_allowance_left(ledger, s, now)
+                        if allowance is not None and allowance < 1:
+                            ledger.record_feed_skips({measure.feed: "measure_no_allowance"}, now)
+                            measure = None
                     if measure is not None and not _measure_game_listed(odds, measure):
                         ledger.record_feed_skips({measure.feed: "measure_no_events"}, now)
                         measure = None
@@ -718,6 +736,7 @@ def paper(
                     pick = select_plan_pull(ledger, s, now, exclude=planned, calendar=release_cal)
                     if (
                         pick is not None
+                        and evaluable_feed(pick.feed)
                         and _plan_games_listed(odds, ledger, pick.feed, now)
                         and pacer.grant_extra_credit(pick.feed, floor=pacer.plan_floor(now))
                     ):
@@ -731,8 +750,22 @@ def paper(
                 log.exception("Lead-aware odds planning failed; no odds feeds selected")
         elif odds is not None:
             odds.allowed_sports = None
+        if odds is not None and odds.allowed_sports is not None:
+            # No credit on a feed v3 cannot evaluate (unmapped teams, MMA), whichever
+            # path selected it.
+            odds.allowed_sports = {f for f in odds.allowed_sports if evaluable_feed(f)}
         cycle_started_at = datetime.now(timezone.utc)
+        credits_before = dict(getattr(odds, "pulled_credits", {}) or {})
         res = engine.run_cycle(markets)
+        if odds is not None:
+            spent = {
+                feed: n - credits_before.get(feed, 0)
+                for feed, n in (getattr(odds, "pulled_credits", {}) or {}).items()
+            }
+            try:
+                ledger.record_shadow_only_pulls(spent, cycle_started_at, s.rules_version)
+            except Exception:
+                log.exception("Shadow-only feed_pulls accounting failed")
         for strat in (*strats, *shadow_strategies):
             if isinstance(strat, SportsbookV2Strategy):
                 strat.measure_only_feeds = set()
@@ -1227,6 +1260,14 @@ def _run_times(ledger: Ledger, since: datetime) -> list[tuple[datetime, str, str
     return out
 
 
+def sportsbook_slot_start(now: datetime) -> datetime:
+    """H:17 of the most recent even UTC hour H with H:17 at or before `now`: the
+    Worker and the GitHub cron both fire the sportsbook slot at :17 of even hours."""
+    now = _utc(now)
+    start = now.replace(hour=now.hour - now.hour % 2, minute=17, second=0, microsecond=0)
+    return start if start <= now else start - timedelta(hours=2)
+
+
 @app.command("slot-guard")
 def slot_guard(
     slot: str = typer.Option(..., help="scanner or sportsbook"),
@@ -1251,6 +1292,10 @@ def slot_guard(
     ledger = Ledger(s.paper_db_path, s.paper_starting_cash)
     now = datetime.now(timezone.utc)
     since = now - timedelta(minutes=within_minutes)
+    if slot == "sportsbook":
+        # The nominal slot, not a window: a late cron run 77 minutes after the
+        # Worker's dispatch repeated the slot (14 times on Nov 6-9).
+        since = sportsbook_slot_start(now)
     for _at, strategies, reason in _run_times(ledger, since):
         if reason is not None:
             continue
