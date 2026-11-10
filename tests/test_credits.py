@@ -573,13 +573,9 @@ def test_restarted_allowance_uses_the_reserve_unused_on_the_restart_date(tmp_pat
 # --- 2.6d credits spent by runs whose ledger save failed are counted ---------------------
 
 
-def test_lost_credits_are_recorded_once_and_shown(tmp_path: Path) -> None:
-    from prediction_bot.dashboard import _cadence_data
-
+def test_lost_credits_are_recorded_once(tmp_path: Path) -> None:
     ledger = _ledger(tmp_path)
-    now = datetime.now(UTC)
-    # Keep all five hours inside this month (the dashboard reads the real month).
-    now = max(now, now.replace(day=1, hour=6, minute=0, second=0, microsecond=0))
+    now = datetime(2026, 11, 20, 12, tzinfo=UTC)
     ledger.record_run(["sportsbook_v3"], 0, 0, 0, 0, at=now - timedelta(hours=5), odds_used=220)
 
     def start(used: int, at: datetime) -> None:
@@ -593,7 +589,6 @@ def test_lost_credits_are_recorded_once_and_shown(tmp_path: Path) -> None:
     start(229, now - timedelta(hours=2))  # the same baseline seen again: 9 in all
     assert ledger.conn.execute("SELECT COUNT(*) FROM credit_gaps").fetchone() == (1,)
     assert ledger.credit_gap_month(now) == 9
-    assert _cadence_data(ledger)["month_lost"] == 9
 
 
 # --- acceptance: the rest of November from the Nov 9 state -------------------------------

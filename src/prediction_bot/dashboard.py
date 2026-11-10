@@ -900,8 +900,6 @@ def _cadence_data(ledger: Ledger) -> dict[str, object]:
             for r in rows
         ],
         "month_pulled": total[0] if total else 0,
-        # Credits the API counted that no saved run recorded (credits 2.6d).
-        "month_lost": ledger.credit_gap_month(datetime.now(timezone.utc)),
     }
 
 
