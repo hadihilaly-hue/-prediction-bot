@@ -38,8 +38,9 @@
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┓
 ┃ bet          ┃ game         ┃ side ┃ count ┃ cost  ┃ avg fair ┃ ticker       ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ YES on       │ KXNCAAFGAME… │ yes  │ 100   │ 12.74 │ 0.140    │ KXNCAAFGAME… │
-│ KXNCAAFGAME… │              │      │       │       │          │              │
+│ Vanderbilt   │ Alabama vs   │ yes  │ 100   │ 12.74 │ 0.140    │ KXNCAAFGAME… │
+│ wins         │ Vanderbilt   │      │       │       │          │              │
+│              │ (Nov 14)     │      │       │       │          │              │
 │ Fresno St.   │ Fresno St.   │ no   │ 33    │ 24.55 │ 0.766    │ KXNCAAFGAME… │
 │ does NOT win │ vs Texas St. │      │       │       │          │              │
 │              │ (Nov 14)     │      │       │       │          │              │

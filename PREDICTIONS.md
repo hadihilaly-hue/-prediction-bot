@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-11 12:18 UTC. Cash **$1477.17** (started $1000.00), realized PnL **$563.82**, fees $68.17, settled 88, wins 28, open positions 4.
+Updated 2026-11-11 12:47 UTC. Cash **$1477.17** (started $1000.00), realized PnL **$563.82**, fees $68.17, settled 88, wins 28, open positions 4.
 
 Brier (lower is better): strategy 0.2394 vs market price 0.2423.
 
@@ -23,7 +23,7 @@ Per league (Kalshi series):
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
-| YES on KXNCAAFGAME-26NOV14ALAVAN-VAN | KXNCAAFGAME-26NOV14ALAVAN | 100 | $12.74 | 14% | `KXNCAAFGAME-26NOV14ALAVAN-VAN` |
+| Vanderbilt wins | Alabama vs Vanderbilt \(Nov 14\) | 100 | $12.74 | 14% | `KXNCAAFGAME-26NOV14ALAVAN-VAN` |
 | Fresno St. does NOT win | Fresno St. vs Texas St. \(Nov 14\) | 33 | $24.55 | 77% | `KXNCAAFGAME-26NOV14FRESTXST-FRES` |
 | LSU wins | Texas vs LSU \(Nov 14\) | 40 | $24.68 | 64% | `KXNCAAFGAME-26NOV14TEXLSU-LSU` |
 | Indiana wins | USC vs Indiana \(Nov 14\) | 35 | $24.68 | 73% | `KXNCAAFGAME-26NOV14USCIND-IND` |
@@ -32,7 +32,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-11 12:18 | underdog\_value | KXNCAAFGAME-26NOV14ALAVAN-VAN — YES: Kalshi says 12%, we say 14%; bought at 12¢ | yes | 0.1200 | 0.1405 | +0.0105 | 100 | yes | open | underdog \(8.3x payout\); Vanderbilt Commodores consensus 0.140 from 4 books \(Vanderbilt Commodores vs Alabama Crimson Tide\) | KXNCAAFGAME-26NOV14ALAVAN-VAN |
+| 2026-11-11 12:18 | underdog\_value | Vanderbilt wins — YES: Kalshi says 12%, we say 14%; bought at 12¢ | yes | 0.1200 | 0.1405 | +0.0105 | 100 | yes | open | underdog \(8.3x payout\); Vanderbilt Commodores consensus 0.140 from 4 books \(Vanderbilt Commodores vs Alabama Crimson Tide\) | KXNCAAFGAME-26NOV14ALAVAN-VAN |
 | 2026-11-09 02:50 | sportsbook\_v3 | LSU wins — YES: Kalshi says 60%, we say 64%; bought at 60¢ | yes | 0.6000 | 0.6370 | +0.0202 | 40 | yes | open | LSU Tigers pinnacle reference, 3 books, fair 0.637 | KXNCAAFGAME-26NOV14TEXLSU-LSU |
 | 2026-11-09 02:21 | sportsbook\_v3 | Indiana wins — YES: Kalshi says 69%, we say 73%; bought at 69¢ | yes | 0.6900 | 0.7317 | +0.0267 | 35 | yes | open | Indiana Hoosiers pinnacle reference, 3 books, fair 0.732 | KXNCAAFGAME-26NOV14USCIND-IND |
 | 2026-11-09 01:21 | sportsbook\_v3 | Fresno St. wins — NO: Kalshi says 73%, we say 77%; bought at 73¢ | no | 0.7300 | 0.7655 | +0.0217 | 33 | yes | open | Fresno State Bulldogs pinnacle reference, 3 books, fair 0.766 | KXNCAAFGAME-26NOV14FRESTXST-FRES |
