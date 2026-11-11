@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-11 11:47 UTC. Cash **$1489.91** (started $1000.00), realized PnL **$563.82**, fees $67.43, settled 88, wins 28, open positions 3.
+Updated 2026-11-11 12:18 UTC. Cash **$1477.17** (started $1000.00), realized PnL **$563.82**, fees $68.17, settled 88, wins 28, open positions 4.
 
 Brier (lower is better): strategy 0.2394 vs market price 0.2423.
 
@@ -14,15 +14,16 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 3, settled 40, wins 13, realized PnL $481.69, Brier 0.2044 vs market 0.2152
+- `KXNCAAFGAME`: open 4, settled 40, wins 13, realized PnL $481.69, Brier 0.2044 vs market 0.2152
 - `KXNFLGAME`: open 0, settled 28, wins 7, realized PnL $-295.65, Brier 0.2407 vs market 0.2211
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (3)
+## Open positions (4)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
+| YES on KXNCAAFGAME-26NOV14ALAVAN-VAN | KXNCAAFGAME-26NOV14ALAVAN | 100 | $12.74 | 14% | `KXNCAAFGAME-26NOV14ALAVAN-VAN` |
 | Fresno St. does NOT win | Fresno St. vs Texas St. \(Nov 14\) | 33 | $24.55 | 77% | `KXNCAAFGAME-26NOV14FRESTXST-FRES` |
 | LSU wins | Texas vs LSU \(Nov 14\) | 40 | $24.68 | 64% | `KXNCAAFGAME-26NOV14TEXLSU-LSU` |
 | Indiana wins | USC vs Indiana \(Nov 14\) | 35 | $24.68 | 73% | `KXNCAAFGAME-26NOV14USCIND-IND` |
@@ -31,6 +32,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-11 12:18 | underdog\_value | KXNCAAFGAME-26NOV14ALAVAN-VAN — YES: Kalshi says 12%, we say 14%; bought at 12¢ | yes | 0.1200 | 0.1405 | +0.0105 | 100 | yes | open | underdog \(8.3x payout\); Vanderbilt Commodores consensus 0.140 from 4 books \(Vanderbilt Commodores vs Alabama Crimson Tide\) | KXNCAAFGAME-26NOV14ALAVAN-VAN |
 | 2026-11-09 02:50 | sportsbook\_v3 | LSU wins — YES: Kalshi says 60%, we say 64%; bought at 60¢ | yes | 0.6000 | 0.6370 | +0.0202 | 40 | yes | open | LSU Tigers pinnacle reference, 3 books, fair 0.637 | KXNCAAFGAME-26NOV14TEXLSU-LSU |
 | 2026-11-09 02:21 | sportsbook\_v3 | Indiana wins — YES: Kalshi says 69%, we say 73%; bought at 69¢ | yes | 0.6900 | 0.7317 | +0.0267 | 35 | yes | open | Indiana Hoosiers pinnacle reference, 3 books, fair 0.732 | KXNCAAFGAME-26NOV14USCIND-IND |
 | 2026-11-09 01:21 | sportsbook\_v3 | Fresno St. wins — NO: Kalshi says 73%, we say 77%; bought at 73¢ | no | 0.7300 | 0.7655 | +0.0217 | 33 | yes | open | Fresno State Bulldogs pinnacle reference, 3 books, fair 0.766 | KXNCAAFGAME-26NOV14FRESTXST-FRES |

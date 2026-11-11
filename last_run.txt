@@ -1,1 +1,14 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1489.91
+ scanned=1386 signals=0 filled=1 orders_placed=0 settled=0 cash=1477.17
+underdog lane: orders_placed=0 bought_at_ask=1 pulled=0 skipped=[]
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNCAAFGA… │ yes  │ 0.1200 │ 0.1405 │ 0.0105 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (8.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Vanderbi… │
+│            │            │      │        │        │        │      │ Commodor… │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.14      │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
