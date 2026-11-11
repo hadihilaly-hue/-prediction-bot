@@ -13,7 +13,7 @@ from prediction_bot.candles import candle_time, candle_value, fetch_candles
 from prediction_bot.config import Settings
 from prediction_bot.devig import devig_all
 from prediction_bot.odds import BOOK_WEIGHTS, KALSHI_SERIES_TO_SPORT
-from prediction_bot.paper.ledger import Ledger
+from prediction_bot.paper.ledger import UNDERDOG_LANE_REASON, Ledger
 from prediction_bot.teams import team_for_code, team_for_odds_name
 from prediction_bot.venues.kalshi import KalshiClient
 
@@ -271,8 +271,19 @@ def record_clv(
         "AND COALESCE(d.commence_time,d.commence_time_backfill) IS NOT NULL "
         "AND d.clv_kalshi IS NULL ORDER BY d.id"
     ).fetchall()
+    # The underdog lane's instant-fill book: every row is a would-trade entry.
+    lane_rows = ledger.conn.execute(
+        "SELECT d.id,d.ticker,d.side,d.price,d.size,"
+        "COALESCE(d.commence_time,d.commence_time_backfill),"
+        "'',s.ticker,d.fair,COALESCE(d.rules_version,'v1') "
+        "FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
+        "WHERE d.reason=? AND d.would_trade=1 "
+        "AND COALESCE(d.commence_time,d.commence_time_backfill) IS NOT NULL "
+        "AND d.clv_kalshi IS NULL ORDER BY d.id",
+        (UNDERDOG_LANE_REASON,),
+    ).fetchall()
     commenced_shadow_decisions = []
-    for row in [*line_move_rows, *entry_window_rows]:
+    for row in [*line_move_rows, *entry_window_rows, *lane_rows]:
         try:
             commence_at = datetime.fromisoformat(str(row[5]).replace("Z", "+00:00"))
         except ValueError:

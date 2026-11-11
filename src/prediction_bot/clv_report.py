@@ -15,7 +15,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from prediction_bot.fees import DEFAULT_FEE_SCHEDULE, FeeStyle, fee_for_ticker
-from prediction_bot.paper.ledger import decision_window
+from prediction_bot.paper.ledger import UNDERDOG_LANE_REASON, decision_window, lane_fill_sql
 
 MIN_EVIDENCE_N = 50  # legacy row-count rule; `summarize` (Kelly sizing) still uses it
 MIN_GAMES = 30
@@ -52,6 +52,7 @@ class Cohort:
 
 
 _LEGACY_LINE_MOVE = "(',' || COALESCE(tags,'') || ',') NOT LIKE '%,legacy_double_mid,%'"
+_HAS_MAKER_TAG = "(',' || COALESCE(tags,'') || ',') LIKE '%,maker,%'"
 
 
 def _near_miss(reason: str, favoured: bool = False) -> Cohort:
@@ -93,6 +94,27 @@ COHORTS: dict[str, Cohort] = {
         "shadow_decisions",
         f"strategy='line_move_follower' AND would_trade=1 AND clv_status='ok' "
         f"AND {_LEGACY_LINE_MOVE}",
+        "taker",
+    ),
+    # The underdog lane. The first two are the same resting-order picks under two fill
+    # rules: the gap between them is what assuming an instant fill was worth.
+    "underdog_lane": Cohort(
+        "Underdog lane: resting orders the market traded through (cash)",
+        "fills",
+        f"{lane_fill_sql()} AND {_HAS_MAKER_TAG} AND clv_status='ok'",
+        "maker",
+    ),
+    "underdog_instant": Cohort(
+        "Underdog lane: the same resting-order picks booked as filled at once (no cash)",
+        "shadow_decisions",
+        f"reason='{UNDERDOG_LANE_REASON}' AND would_trade=1 AND {_HAS_MAKER_TAG} "
+        "AND clv_status='ok'",
+        "maker",
+    ),
+    "underdog_lane_ask": Cohort(
+        "Underdog lane: picks with no room inside the spread, bought at the ask (cash)",
+        "fills",
+        f"{lane_fill_sql()} AND NOT {_HAS_MAKER_TAG} AND clv_status='ok'",
         "taker",
     ),
 }

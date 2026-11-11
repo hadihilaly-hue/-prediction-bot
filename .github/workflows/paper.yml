@@ -98,6 +98,12 @@ jobs:
           PBOT_V3_DEVIG_METHOD: ${{ vars.PBOT_V3_DEVIG_METHOD || 'conservative' }}
           # Road-dog experiment: shadow rows only unless the Variable says trade.
           PBOT_EXP_ROAD_DOG_MODE: ${{ vars.PBOT_EXP_ROAD_DOG_MODE || 'shadow' }}
+          # Underdog lane: underdog_value picks (10c-25c sides) as resting paper orders
+          # that fill only on a trade-through, with an instant-fill comparison book.
+          # Set the Variable to off for shadow rows only. The lane stops for the UTC day
+          # once its own settled PnL reaches -PBOT_UNDERDOG_LANE_MAX_DAILY_LOSS.
+          PBOT_UNDERDOG_LANE: ${{ vars.PBOT_UNDERDOG_LANE || 'paper' }}
+          PBOT_UNDERDOG_LANE_MAX_DAILY_LOSS: ${{ vars.PBOT_UNDERDOG_LANE_MAX_DAILY_LOSS || '50' }}
           PBOT_KALSHI_API_BASE: https://api.elections.kalshi.com/trade-api/v2
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
           # v1 strategies only (book_scanner and the sportsbook_arb/underdog_value

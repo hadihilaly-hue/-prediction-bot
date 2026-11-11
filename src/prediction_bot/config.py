@@ -230,6 +230,24 @@ class Settings(BaseSettings):
     # old band is where "edge vs consensus" was noise rather than value.
     underdog_min_price: Decimal = Decimal("0.10")
     underdog_max_price: Decimal = Decimal("0.25")
+    # Underdog lane: `underdog_value` picks as real paper entries beside v3 (it only acts
+    # on the strategy's shadow run, so v1 mode is untouched).
+    #   off: shadow rows only, as before.
+    #   paper: a pick inside the spread rests as a paper order and fills only when the
+    #   market trades through it; a pick at the ask fills at the ask. The first pick of
+    #   each game is also logged as if it had filled at once (the instant-fill book),
+    #   which never touches cash. See docs/CHANGES_underdog_lane.md.
+    underdog_lane: Literal["off", "paper"] = "off"
+    # A resting lane order is pulled after this long (and always before kickoff).
+    underdog_lane_ttl_minutes: int = 480
+    # Lane entries stop for the rest of the UTC day once the lane's own settled PnL
+    # reaches -limit. The global `max_daily_loss` ignores lane fills. Unset = no stop.
+    underdog_lane_max_daily_loss: Decimal | None = Decimal("50")
+    # Lane fills plus resting lane orders may tie up at most this share of the bankroll.
+    underdog_lane_max_open_fraction: Decimal = Decimal("0.30")
+    # A pick whose fair sits further than this above its price is treated as bad data
+    # (stale odds, a swapped team) and skipped.
+    underdog_lane_max_gross_edge: Decimal = Decimal("0.10")
     # Sportsbook strategies only enter at least this many hours before the event
     # resolves: paper results show same-day entries in efficient markets lose while
     # early entries keep their edge. 0 disables the check.

@@ -19,9 +19,10 @@ from prediction_bot.clv_report import clv_report
 from prediction_bot.config import Settings
 from prediction_bot.maker_gate import evaluate_maker_gate
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT
-from prediction_bot.paper.ledger import Ledger
+from prediction_bot.paper.ledger import UNDERDOG_LANE_REASON, Ledger, lane_fill_sql
 from prediction_bot.position_clv import weighted_position_clv
 from prediction_bot.teams import team_name_for_code
+from prediction_bot.underdog_lane import lane_halt_reason
 
 
 def _num(d: Decimal | None) -> float | None:
@@ -288,8 +289,9 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
     ).fetchone()
     shadow = ledger.conn.execute(
         "SELECT COALESCE(rules_version,'v1'),window,COUNT(*),SUM(would_trade) "
-        "FROM shadow_decisions WHERE would_trade=1 AND reason!='single_sharp' "
-        "GROUP BY 1,2 ORDER BY 1,2"
+        "FROM shadow_decisions WHERE would_trade=1 AND reason NOT IN ('single_sharp',?) "
+        "GROUP BY 1,2 ORDER BY 1,2",
+        (UNDERDOG_LANE_REASON,),  # the lane's instant-fill book has its own table
     ).fetchall()
     maker = ledger.conn.execute(
         "SELECT status,COUNT(*) FROM maker_shadow GROUP BY status ORDER BY status"
@@ -421,6 +423,7 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
         "clv_mean": statistics.mean(road_dog_clv) if road_dog_clv else None,
         "evaluation_note": "Evaluate at 50 and 100 positions; rankings and neutral-site data are absent.",
     }
+    quality["underdog_lane"] = _underdog_lane_data(ledger, settings)
     line_move = ledger.conn.execute(
         "SELECT COUNT(*),SUM(would_trade),"
         "SUM(CASE WHEN clv_status='ok' AND clv_kalshi IS NOT NULL THEN 1 ELSE 0 END),"
@@ -602,6 +605,84 @@ def _measurement_data(ledger: Ledger, settings: Settings | None = None) -> dict[
         "monte_carlo": monte_carlo_result,
         "quality": quality,
         "by_version": by_version,
+    }
+
+
+def _underdog_lane_data(ledger: Ledger, settings: Settings | None = None) -> dict[str, object]:
+    """The underdog lane's two books, built from the same picks.
+
+    `lane` is the cash book: fills of resting orders the market traded through, plus picks
+    bought at the ask. `instant` is the first pick of each game booked as if it had filled
+    at its price at once (v1's paper fill rule); it never moved cash.
+    """
+
+    def book(
+        rows: list[tuple[str, Decimal, Decimal, Decimal, str | None, float | None, str | None]],
+    ) -> dict[str, object]:
+        settled = [row for row in rows if row[4] in ("yes", "no")]
+        pnl = sum(
+            (
+                (size if side == result else Decimal(0)) - price * size - fee
+                for side, price, size, fee, result, _clv, _status in settled
+            ),
+            Decimal(0),
+        )
+        clvs = [clv for *_rest, clv, status in rows if status == "ok" and clv is not None]
+        return {
+            "bets": len(rows),
+            "open": len(rows) - len(settled),
+            "settled": len(settled),
+            "wins": sum(1 for row in settled if row[0] == row[4]),
+            "pnl": float(pnl),
+            "staked": float(sum((row[1] * row[2] + row[3] for row in settled), Decimal(0))),
+            "clv_n": len(clvs),
+            "clv_mean": statistics.mean(clvs) if clvs else None,
+        }
+
+    fills = [
+        (str(side), Decimal(price), Decimal(count), Decimal(fee), result, clv, status)
+        for side, price, count, fee, result, clv, status in ledger.conn.execute(
+            "SELECT f.side,f.price,f.count,f.fee,s.result,CAST(f.clv_kalshi AS REAL),"
+            "f.clv_status FROM fills f LEFT JOIN settlements s ON s.ticker=f.ticker "
+            f"WHERE {lane_fill_sql('f')} ORDER BY f.id"
+        )
+    ]
+    instant = []
+    for side, price, size, fair, net_edge, result, clv, status in ledger.conn.execute(
+        "SELECT d.side,d.price,d.size,d.fair,d.net_edge,s.result,CAST(d.clv_kalshi AS REAL),"
+        "d.clv_status FROM shadow_decisions d LEFT JOIN settlements s ON s.ticker=d.ticker "
+        "WHERE d.reason=? ORDER BY d.id",
+        (UNDERDOG_LANE_REASON,),
+    ):
+        contracts = Decimal(size)
+        fee = Decimal(0)
+        if net_edge is not None:
+            # net_edge was stored as fair - price - fee per contract.
+            fee = ((Decimal(fair) - Decimal(price) - Decimal(net_edge)) * contracts).quantize(
+                Decimal("0.0001")
+            )
+        instant.append((str(side), Decimal(price), contracts, fee, result, clv, status))
+    orders = {
+        str(status): int(count)
+        for status, count in ledger.conn.execute(
+            f"SELECT status,COUNT(*) FROM paper_orders WHERE {lane_fill_sql()} GROUP BY status"
+        )
+    }
+    at_ask = sum(
+        1
+        for (tags,) in ledger.conn.execute(f"SELECT f.tags FROM fills f WHERE {lane_fill_sql('f')}")
+        if "taker" in str(tags).split(",")
+    )
+    halted = None
+    if settings is not None and settings.underdog_lane == "paper":
+        halted = lane_halt_reason(settings, ledger, datetime.now(timezone.utc))
+    return {
+        "mode": None if settings is None else settings.underdog_lane,
+        "halted": halted,
+        "lane": book(fills),
+        "instant": book(instant),
+        "orders": orders,
+        "bought_at_ask": at_ask,
     }
 
 
@@ -1353,6 +1434,11 @@ _TEMPLATE = """<!doctype html>
       <div class="tablewrap"><table id="quality"></table></div>
     </details>
     <details>
+      <summary>Underdog bets (sides priced 10¢ to 25¢)</summary>
+      <div class="tablewrap"><table id="underdog"></table></div>
+      <p class="hint" id="underdognote"></p>
+    </details>
+    <details>
       <summary>Shadow tests (tracked, never traded)</summary>
       <div class="tablewrap"><table id="maker"></table></div>
       <div class="tablewrap"><table id="shadow"></table></div>
@@ -1792,7 +1878,7 @@ _TEMPLATE = """<!doctype html>
     });
   }
 
-  const blockNames = {net_edge: 'Edge too small after fees', price_floor: 'Price under 10¢', price_ceiling: 'Price over 90¢', longshot_edge: 'Longshot without enough edge', big_edge: 'Edge suspiciously large', duplicate_position: 'Already have this bet', mapping_failed: 'Team name not recognised', mapping_mismatch: 'Odds matched to the wrong team', entry_window: 'Too close to the game', wide_spread: 'Bid/ask spread too wide', min_books: 'Too few sportsbooks quoting', book_spread: 'Sportsbooks disagree'};
+  const blockNames = {lane_league_disabled: 'Underdog: league switched off', lane_no_kickoff: 'Underdog: no kickoff time', lane_entry_window: 'Underdog: game under 3 days away', lane_mapping: 'Underdog: team match not exact', lane_big_edge: 'Underdog: edge suspiciously large', lane_held: 'Underdog: already bet this game', lane_resting: 'Underdog: order already waiting', lane_fee: 'Underdog: fee unknown', lane_budget: 'Underdog: budget for these bets is full', lane_cash: 'Underdog: not enough cash', net_edge: 'Edge too small after fees', price_floor: 'Price under 10¢', price_ceiling: 'Price over 90¢', longshot_edge: 'Longshot without enough edge', big_edge: 'Edge suspiciously large', duplicate_position: 'Already have this bet', mapping_failed: 'Team name not recognised', mapping_mismatch: 'Odds matched to the wrong team', entry_window: 'Too close to the game', wide_spread: 'Bid/ask spread too wide', min_books: 'Too few sportsbooks quoting', book_spread: 'Sportsbooks disagree'};
   const blockLabel = r => { const base = String(r).split(':')[0]; return (blockNames[r] || blockNames[base] || (base === 'in_play' ? 'Game already started' : r)); };
   table('blocks', 'Block reasons show the last seven days and all time.', ['Reason', 'Code', '#Last 7 days', '#All time'], (Q.blocks || []).map(b => [blockLabel(b.reason), {v: b.reason, cls: 'why'}, String(b['7d'] || 0), String(b.all || 0)]), 'No bets blocked yet.');
   table('quality', 'Data quality and Odds API usage.', ['Check', '#Value'], [
@@ -1808,6 +1894,14 @@ _TEMPLATE = """<!doctype html>
   makerRows.push(['Shadow price move to kickoff (' + (mcv.n || 0) + ' bets)', signedCents(mcv.mean)]);
   table('maker', 'Maker-shadow counts by status: pretend limit orders resting one cent better than the ask.', ['Status', '#Count'], makerRows);
   table('shadow', 'Shadow decisions by entry window: what each rule set would have bought, without trading.', ['Window', 'Rules', '#Decisions', '#Would trade'], (Q.shadow_decisions || []).map(s => [s.window, s.version, String(s.n), String(s.would_trade || 0)]));
+  const ud = Q.underdog_lane || {}; const udLane = ud.lane || {}; const udInstant = ud.instant || {}; const udOrders = ud.orders || {};
+  const udRow = (label, b) => [label, String(b.bets || 0), String(b.open || 0), (b.settled || 0) ? String(b.wins || 0) + ' of ' + String(b.settled) : '–', {v: (b.settled || 0) ? money(b.pnl, true) : '–', cls: (b.settled || 0) ? tone(b.pnl) : 'muted'}, signedCents(b.clv_mean) + ((b.clv_n || 0) ? ' (' + b.clv_n + ')' : '')];
+  table('underdog', 'Underdog value picks: sides priced 10¢ to 25¢ that the sportsbook average rates above the Kalshi price. Both rows are the same picks. The first is the real paper book; the second assumes every resting order filled at once, which is how October was booked, and never moves cash.', ['Book', '#Bets', '#Open', '#Won', '#Profit', '#Avg price move'], [
+    udRow('Real paper bets (fill only when the market reaches the order)', udLane),
+    udRow('Same picks if every order had filled at once', udInstant)
+  ]);
+  const udPlaced = Object.values(udOrders).reduce((a, b) => a + b, 0);
+  $('underdognote').textContent = (ud.mode === 'paper' ? 'Underdog bets are on.' : 'Underdog bets are off (shadow only).') + ' Resting orders so far: ' + udPlaced + ' placed, ' + (udOrders.filled || 0) + ' filled, ' + (udOrders.open || 0) + ' waiting, ' + (udOrders.expired || 0) + ' expired, ' + (udOrders.cancelled || 0) + ' pulled. Bought straight at the ask: ' + (ud.bought_at_ask || 0) + '.' + (ud.halted ? ' Paused for today: ' + ud.halted + '.' : '');
   const rd = Q.exp_road_dog || {}; const lm = Q.line_move_follower || {};
   table('experiments', 'Line-move follower is shadow-only; no trading until at least 50 observations. Road-dog experiment evaluation at 50 and 100 positions; rankings and neutral-site data are absent.', ['Experiment', '#Count', '#Profit', '#Avg price move'], [
     ['Line-move follower (shadow)', String(lm.observations || 0) + ' seen, ' + String(lm.would_trade || 0) + ' would trade', '–', signedCents(lm.settled_clv_mean)],
