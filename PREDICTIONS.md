@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-11 20:59 UTC. Cash **$1477.17** (started $1000.00), realized PnL **$563.82**, fees $68.17, settled 88, wins 28, open positions 4.
+Updated 2026-11-11 21:27 UTC. Cash **$1477.17** (started $1000.00), realized PnL **$563.82**, fees $68.17, settled 88, wins 28, open positions 4.
 
 Brier (lower is better): strategy 0.2394 vs market price 0.2423.
 
@@ -32,6 +32,8 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-11 21:27 | underdog\_value | KXNFLGAME-26NOV22TENDAL-TEN — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
+| 2026-11-11 21:27 | underdog\_value | KXNFLGAME-26NOV19INDHOU-IND — YES: Kalshi says 18%, we say 20%; placed order at 18¢ | yes | 0.1800 | 0.2006 | +0.0106 | 100 | yes | open | underdog \(5.6x payout\); Indianapolis Colts consensus 0.201 from 2 books \(Houston Texans vs Indianapolis Colts\) | KXNFLGAME-26NOV19INDHOU-IND |
 | 2026-11-11 12:18 | underdog\_value | Vanderbilt wins — YES: Kalshi says 12%, we say 14%; bought at 12¢ | yes | 0.1200 | 0.1405 | +0.0105 | 100 | yes | open | underdog \(8.3x payout\); Vanderbilt Commodores consensus 0.140 from 4 books \(Vanderbilt Commodores vs Alabama Crimson Tide\) | KXNCAAFGAME-26NOV14ALAVAN-VAN |
 | 2026-11-09 02:50 | sportsbook\_v3 | LSU wins — YES: Kalshi says 60%, we say 64%; bought at 60¢ | yes | 0.6000 | 0.6370 | +0.0202 | 40 | yes | open | LSU Tigers pinnacle reference, 3 books, fair 0.637 | KXNCAAFGAME-26NOV14TEXLSU-LSU |
 | 2026-11-09 02:21 | sportsbook\_v3 | Indiana wins — YES: Kalshi says 69%, we say 73%; bought at 69¢ | yes | 0.6900 | 0.7317 | +0.0267 | 35 | yes | open | Indiana Hoosiers pinnacle reference, 3 books, fair 0.732 | KXNCAAFGAME-26NOV14USCIND-IND |
