@@ -1,3 +1,1 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1489.91
- scanned=1386 signals=0 filled=0 orders_placed=0 settled=0 cash=1489.91
-underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
