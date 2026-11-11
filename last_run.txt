@@ -1,1 +1,15 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1477.17
+ scanned=1430 signals=0 filled=0 orders_placed=1 settled=0 cash=1477.17
+underdog lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=[]
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNCAAFGA… │ no   │ 0.1200 │ 0.1481 │ 0.0181 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (8.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Notre     │
+│            │            │      │        │        │        │      │ Dame      │
+│            │            │      │        │        │        │      │ Fighting  │
+│            │            │      │        │        │        │      │ Irish     │
+│            │            │      │        │        │        │      │ consensus │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
