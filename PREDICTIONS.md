@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-12 00:48 UTC. Cash **$1477.17** (started $1000.00), realized PnL **$563.82**, fees $68.17, settled 88, wins 28, open positions 4.
+Updated 2026-11-12 01:18 UTC. Cash **$1458.91** (started $1000.00), realized PnL **$563.82**, fees $68.43, settled 88, wins 28, open positions 5.
 
 Brier (lower is better): strategy 0.2394 vs market price 0.2423.
 
@@ -15,11 +15,11 @@ Per league (Kalshi series):
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
 - `KXNCAAFGAME`: open 4, settled 40, wins 13, realized PnL $481.69, Brier 0.2044 vs market 0.2152
-- `KXNFLGAME`: open 0, settled 28, wins 7, realized PnL $-295.65, Brier 0.2407 vs market 0.2211
+- `KXNFLGAME`: open 1, settled 28, wins 7, realized PnL $-295.65, Brier 0.2407 vs market 0.2211
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (4)
+## Open positions (5)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
@@ -27,6 +27,7 @@ Per league (Kalshi series):
 | Fresno St. does NOT win | Fresno St. vs Texas St. \(Nov 14\) | 33 | $24.55 | 77% | `KXNCAAFGAME-26NOV14FRESTXST-FRES` |
 | LSU wins | Texas vs LSU \(Nov 14\) | 40 | $24.68 | 64% | `KXNCAAFGAME-26NOV14TEXLSU-LSU` |
 | Indiana wins | USC vs Indiana \(Nov 14\) | 35 | $24.68 | 73% | `KXNCAAFGAME-26NOV14USCIND-IND` |
+| Indianapolis wins | Indianapolis vs Houston \(Nov 19\) | 100 | $18.26 | 20% | `KXNFLGAME-26NOV19INDHOU-IND` |
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
@@ -34,7 +35,7 @@ Per league (Kalshi series):
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 2026-11-11 23:08 | underdog\_value | Notre Dame wins — NO: Kalshi says 12%, we say 15%; placed order at 12¢ | no | 0.1200 | 0.1481 | +0.0181 | 100 | yes | open | underdog \(8.3x payout\); Notre Dame Fighting Irish consensus 0.852 from 1 books \(Notre Dame Fighting Irish vs SMU Mustangs\) | KXNCAAFGAME-26NOV21SMUND-ND |
 | 2026-11-11 21:27 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
-| 2026-11-11 21:27 | underdog\_value | Indianapolis wins — YES: Kalshi says 18%, we say 20%; placed order at 18¢ | yes | 0.1800 | 0.2006 | +0.0106 | 100 | yes | open | underdog \(5.6x payout\); Indianapolis Colts consensus 0.201 from 2 books \(Houston Texans vs Indianapolis Colts\) | KXNFLGAME-26NOV19INDHOU-IND |
+| 2026-11-11 21:27 | underdog\_value | Indianapolis wins — YES: Kalshi says 18%, we say 20%; bought at 18¢ | yes | 0.1800 | 0.2006 | +0.0106 | 100 | yes | open | underdog \(5.6x payout\); Indianapolis Colts consensus 0.201 from 2 books \(Houston Texans vs Indianapolis Colts\) | KXNFLGAME-26NOV19INDHOU-IND |
 | 2026-11-11 12:18 | underdog\_value | Vanderbilt wins — YES: Kalshi says 12%, we say 14%; bought at 12¢ | yes | 0.1200 | 0.1405 | +0.0105 | 100 | yes | open | underdog \(8.3x payout\); Vanderbilt Commodores consensus 0.140 from 4 books \(Vanderbilt Commodores vs Alabama Crimson Tide\) | KXNCAAFGAME-26NOV14ALAVAN-VAN |
 | 2026-11-09 02:50 | sportsbook\_v3 | LSU wins — YES: Kalshi says 60%, we say 64%; bought at 60¢ | yes | 0.6000 | 0.6370 | +0.0202 | 40 | yes | open | LSU Tigers pinnacle reference, 3 books, fair 0.637 | KXNCAAFGAME-26NOV14TEXLSU-LSU |
 | 2026-11-09 02:21 | sportsbook\_v3 | Indiana wins — YES: Kalshi says 69%, we say 73%; bought at 69¢ | yes | 0.6900 | 0.7317 | +0.0267 | 35 | yes | open | Indiana Hoosiers pinnacle reference, 3 books, fair 0.732 | KXNCAAFGAME-26NOV14USCIND-IND |
