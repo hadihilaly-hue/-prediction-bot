@@ -1,1 +1,14 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1399.03
+ scanned=1458 signals=0 filled=0 orders_placed=1 settled=0 cash=1399.03
+underdog lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNFLGAME… │ yes  │ 0.1900 │ 0.2140 │ 0.0140 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Tennessee │
+│            │            │      │        │        │        │      │ Titans    │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.214 fro │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
