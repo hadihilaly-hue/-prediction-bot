@@ -8,7 +8,8 @@ name: Team aliases
 # for a person to review before anything is copied into teams.json.
 #
 # Runs on manual dispatch, and on a push that changes this file, so it can be run
-# from a branch before it reaches the default branch.
+# from a branch before it reaches the default branch. Without access to dispatch,
+# a one-line change to this file (a comment is enough) starts a run.
 on:
   workflow_dispatch:
   push:
