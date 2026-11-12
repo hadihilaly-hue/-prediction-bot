@@ -118,7 +118,7 @@ def test_evaluable_feed_and_event_mapping() -> None:
 
     assert evaluable_feed("americanfootball_nfl") and evaluable_feed("soccer_epl")
     assert not evaluable_feed("mma_mixed_martial_arts")
-    assert not evaluable_feed("basketball_ncaab")  # teams.json has no NCAAB teams
+    assert evaluable_feed("basketball_ncaab")
     assert not evaluable_feed("golf_masters_tournament_winner")
     event = "KXEPLGAME-26NOV22ARSTOT"
     assert event_teams_mapped(event, [f"{event}-ARS", f"{event}-TOT", f"{event}-TIE"])
@@ -163,14 +163,18 @@ def test_no_unmapped_feed_or_game_reaches_the_plan_or_measure_pulls(tmp_path: Pa
     assert ledger.conn.execute(
         "SELECT status,note FROM pull_plan WHERE feed='mma_mixed_martial_arts'"
     ).fetchall() == [("superseded", "unevaluable_feed")]
+    # An unevaluable feed listed in measure_feeds is still never picked.
+    measure = settings.model_copy(
+        update={"measure_feeds": ["mma_mixed_martial_arts", "basketball_nba"]}
+    )
     games = {
-        "basketball_ncaab": [PlannedGame(now + timedelta(hours=6), False, "KXNCAAMBGAME-X")],
+        "mma_mixed_martial_arts": [PlannedGame(now + timedelta(hours=6), False, "KXUFCFIGHT-X")],
         "basketball_nba": [PlannedGame(now + timedelta(minutes=90), False, "KXNBAGAME-Y")],
     }
-    pick = select_measure_pull(ledger, games, settings, now)
+    pick = select_measure_pull(ledger, games, measure, now)
     assert pick is not None and pick.feed == "basketball_nba"
     del games["basketball_nba"]
-    assert select_measure_pull(ledger, games, settings, now) is None
+    assert select_measure_pull(ledger, games, measure, now) is None
 
 
 def test_every_credit_spent_in_a_cycle_has_a_feed_pulls_row(

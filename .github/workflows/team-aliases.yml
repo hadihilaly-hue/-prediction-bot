@@ -1,0 +1,80 @@
+name: Team aliases
+
+# Proposes Kalshi-code <-> Odds API-name team aliases (scripts/build_team_aliases.py).
+# Read-only: it reads Kalshi's public events and The Odds API's free /events endpoint
+# (the script stops if any call charges a credit). It never edits teams.json; the
+# proposal and coverage report go to the `reports` branch under
+# reports/team_aliases/<UTC date>/ (plain push, never force) and to a run artifact,
+# for a person to review before anything is copied into teams.json.
+#
+# Runs on manual dispatch, and on a push that changes this file, so it can be run
+# from a branch before it reaches the default branch.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/team-aliases.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: team-aliases
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .
+
+      - name: Build alias proposal
+        id: run
+        env:
+          PBOT_ODDS_API_KEY: ${{ secrets.PBOT_ODDS_API_KEY }}
+        run: |
+          echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+          python scripts/build_team_aliases.py \
+            --proposal "$RUNNER_TEMP/out/alias_proposals.json" \
+            --report "$RUNNER_TEMP/out/alias_report.md"
+
+      - name: Job summary
+        run: cat "$RUNNER_TEMP/out/alias_report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: team-aliases
+          path: ${{ runner.temp }}/out/
+
+      - name: Push proposal to the reports branch
+        env:
+          DAY: ${{ steps.run.outputs.day }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          wt="$RUNNER_TEMP/reports-branch"
+          if git ls-remote --exit-code --heads origin reports >/dev/null; then
+            git fetch --depth=1 origin reports
+            git worktree add -B reports "$wt" FETCH_HEAD
+          else
+            git worktree add --detach "$wt" HEAD
+            git -C "$wt" checkout --orphan reports
+            git -C "$wt" rm -rf -q .
+            git -C "$wt" clean -fdxq
+          fi
+          dest="$wt/reports/team_aliases/$DAY"
+          mkdir -p "$dest"
+          cp "$RUNNER_TEMP/out/alias_proposals.json" "$RUNNER_TEMP/out/alias_report.md" "$dest/"
+          git -C "$wt" add reports
+          if git -C "$wt" diff --cached --quiet; then
+            echo "proposal unchanged; nothing to push"
+            exit 0
+          fi
+          git -C "$wt" commit -q -m "Team alias proposal $DAY (run ${{ github.run_id }})"
+          git -C "$wt" push origin HEAD:refs/heads/reports
