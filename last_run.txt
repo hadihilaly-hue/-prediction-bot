@@ -1,15 +1,1 @@
- scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1429.47
- scanned=1454 signals=0 filled=0 orders_placed=1 settled=0 cash=1429.47
-underdog lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
-┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
-│ underdog_… │ KXNFLGAME… │ no   │ 0.2000 │ 0.2268 │ 0.0168 │ 100  │ underdog  │
-│            │            │      │        │        │        │      │ (5.0x     │
-│            │            │      │        │        │        │      │ payout);  │
-│            │            │      │        │        │        │      │ Denver    │
-│            │            │      │        │        │        │      │ Broncos   │
-│            │            │      │        │        │        │      │ consensus │
-│            │            │      │        │        │        │      │ 0.773     │
-│            │            │      │        │        │        │      │ from      │
-└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
+ scanned=3000 signals=0 filled=2 orders_placed=0 settled=0 cash=1399.03
