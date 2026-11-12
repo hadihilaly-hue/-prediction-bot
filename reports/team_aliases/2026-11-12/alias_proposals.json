@@ -1743,6 +1743,17 @@
         "Charlotte Hornets"
       ]
     },
+    "cleveland-cavaliers": {
+      "kalshi_codes": [
+        "CLE"
+      ],
+      "kalshi_names": [
+        "Cleveland"
+      ],
+      "odds_names": [
+        "Cleveland Cavaliers"
+      ]
+    },
     "dallas-mavericks": {
       "kalshi_codes": [
         "DAL"
@@ -1765,6 +1776,72 @@
         "Detroit Pistons"
       ]
     },
+    "golden-state-warriors": {
+      "kalshi_codes": [
+        "GSW"
+      ],
+      "kalshi_names": [
+        "Golden State"
+      ],
+      "odds_names": [
+        "Golden State Warriors"
+      ]
+    },
+    "houston-rockets": {
+      "kalshi_codes": [
+        "HOU"
+      ],
+      "kalshi_names": [
+        "Houston"
+      ],
+      "odds_names": [
+        "Houston Rockets"
+      ]
+    },
+    "indiana-pacers": {
+      "kalshi_codes": [
+        "IND"
+      ],
+      "kalshi_names": [
+        "Indiana"
+      ],
+      "odds_names": [
+        "Indiana Pacers"
+      ]
+    },
+    "memphis-grizzlies": {
+      "kalshi_codes": [
+        "MEM"
+      ],
+      "kalshi_names": [
+        "Memphis"
+      ],
+      "odds_names": [
+        "Memphis Grizzlies"
+      ]
+    },
+    "miami-heat": {
+      "kalshi_codes": [
+        "MIA"
+      ],
+      "kalshi_names": [
+        "Miami"
+      ],
+      "odds_names": [
+        "Miami Heat"
+      ]
+    },
+    "milwaukee-bucks": {
+      "kalshi_codes": [
+        "MIL"
+      ],
+      "kalshi_names": [
+        "Milwaukee"
+      ],
+      "odds_names": [
+        "Milwaukee Bucks"
+      ]
+    },
     "minnesota-timberwolves": {
       "kalshi_codes": [
         "MIN"
@@ -1774,6 +1851,39 @@
       ],
       "odds_names": [
         "Minnesota Timberwolves"
+      ]
+    },
+    "new-orleans-pelicans": {
+      "kalshi_codes": [
+        "NOP"
+      ],
+      "kalshi_names": [
+        "New Orleans"
+      ],
+      "odds_names": [
+        "New Orleans Pelicans"
+      ]
+    },
+    "new-york-knicks": {
+      "kalshi_codes": [
+        "NYK"
+      ],
+      "kalshi_names": [
+        "New York"
+      ],
+      "odds_names": [
+        "New York Knicks"
+      ]
+    },
+    "orlando-magic": {
+      "kalshi_codes": [
+        "ORL"
+      ],
+      "kalshi_names": [
+        "Orlando"
+      ],
+      "odds_names": [
+        "Orlando Magic"
       ]
     },
     "philadelphia-76ers": {
@@ -1798,6 +1908,39 @@
         "Phoenix Suns"
       ]
     },
+    "portland-trail-blazers": {
+      "kalshi_codes": [
+        "POR"
+      ],
+      "kalshi_names": [
+        "Portland"
+      ],
+      "odds_names": [
+        "Portland Trail Blazers"
+      ]
+    },
+    "sacramento-kings": {
+      "kalshi_codes": [
+        "SAC"
+      ],
+      "kalshi_names": [
+        "Sacramento"
+      ],
+      "odds_names": [
+        "Sacramento Kings"
+      ]
+    },
+    "san-antonio-spurs": {
+      "kalshi_codes": [
+        "SAS"
+      ],
+      "kalshi_names": [
+        "San Antonio"
+      ],
+      "odds_names": [
+        "San Antonio Spurs"
+      ]
+    },
     "toronto-raptors": {
       "kalshi_codes": [
         "TOR"
@@ -1807,6 +1950,17 @@
       ],
       "odds_names": [
         "Toronto Raptors"
+      ]
+    },
+    "utah-jazz": {
+      "kalshi_codes": [
+        "UTA"
+      ],
+      "kalshi_names": [
+        "Utah"
+      ],
+      "odds_names": [
+        "Utah Jazz"
       ]
     },
     "washington-wizards": {
@@ -1866,6 +2020,17 @@
         "Arizona Wildcats"
       ]
     },
+    "arkansas-razorbacks": {
+      "kalshi_codes": [
+        "ARK"
+      ],
+      "kalshi_names": [
+        "Arkansas"
+      ],
+      "odds_names": [
+        "Arkansas Razorbacks"
+      ]
+    },
     "auburn-tigers": {
       "kalshi_codes": [
         "AUB"
@@ -1875,6 +2040,17 @@
       ],
       "odds_names": [
         "Auburn Tigers"
+      ]
+    },
+    "ball-state-cardinals": {
+      "kalshi_codes": [
+        "BALL"
+      ],
+      "kalshi_names": [
+        "Ball St."
+      ],
+      "odds_names": [
+        "Ball State Cardinals"
       ]
     },
     "bowling-green-falcons": {
@@ -1932,6 +2108,17 @@
         "BYU Cougars"
       ]
     },
+    "cal-poly-mustangs": {
+      "kalshi_codes": [
+        "CP"
+      ],
+      "kalshi_names": [
+        "Cal Poly"
+      ],
+      "odds_names": [
+        "Cal Poly Mustangs"
+      ]
+    },
     "canisius-golden-griffins": {
       "kalshi_codes": [
         "CAN"
@@ -1941,6 +2128,17 @@
       ],
       "odds_names": [
         "Canisius Golden Griffins"
+      ]
+    },
+    "central-arkansas-bears": {
+      "kalshi_codes": [
+        "CARK"
+      ],
+      "kalshi_names": [
+        "Central Arkansas"
+      ],
+      "odds_names": [
+        "Central Arkansas Bears"
       ]
     },
     "central-connecticut-st-blue-devils": {
@@ -2031,6 +2229,17 @@
         "Drake Bulldogs"
       ]
     },
+    "duke-blue-devils": {
+      "kalshi_codes": [
+        "DUKE"
+      ],
+      "kalshi_names": [
+        "Duke"
+      ],
+      "odds_names": [
+        "Duke Blue Devils"
+      ]
+    },
     "elon-phoenix": {
       "kalshi_codes": [
         "ELON"
@@ -2086,6 +2295,17 @@
         "Georgia Bulldogs"
       ]
     },
+    "georgia-southern-eagles": {
+      "kalshi_codes": [
+        "GASO"
+      ],
+      "kalshi_names": [
+        "Georgia Southern"
+      ],
+      "odds_names": [
+        "Georgia Southern Eagles"
+      ]
+    },
     "high-point-panthers": {
       "kalshi_codes": [
         "HP"
@@ -2119,6 +2339,17 @@
         "Howard Bison"
       ]
     },
+    "idaho-vandals": {
+      "kalshi_codes": [
+        "IDHO"
+      ],
+      "kalshi_names": [
+        "Idaho"
+      ],
+      "odds_names": [
+        "Idaho Vandals"
+      ]
+    },
     "illinois-fighting-illini": {
       "kalshi_codes": [
         "ILL"
@@ -2128,6 +2359,17 @@
       ],
       "odds_names": [
         "Illinois Fighting Illini"
+      ]
+    },
+    "illinois-st-redbirds": {
+      "kalshi_codes": [
+        "ILST"
+      ],
+      "kalshi_names": [
+        "Illinois St."
+      ],
+      "odds_names": [
+        "Illinois St Redbirds"
       ]
     },
     "indiana-hoosiers": {
@@ -2161,6 +2403,17 @@
       ],
       "odds_names": [
         "Kentucky Wildcats"
+      ]
+    },
+    "lindenwood-lions": {
+      "kalshi_codes": [
+        "LINW"
+      ],
+      "kalshi_names": [
+        "Lindenwood"
+      ],
+      "odds_names": [
+        "Lindenwood Lions"
       ]
     },
     "loyola-marymount-lions": {
@@ -2372,6 +2625,17 @@
         "North Carolina Tar Heels"
       ]
     },
+    "north-dakota-st-bison": {
+      "kalshi_codes": [
+        "NDSU"
+      ],
+      "kalshi_names": [
+        "North Dakota St."
+      ],
+      "odds_names": [
+        "North Dakota St Bison"
+      ]
+    },
     "northeastern-huskies": {
       "kalshi_codes": [
         "NE"
@@ -2447,6 +2711,17 @@
       ],
       "odds_names": [
         "Oklahoma St Cowboys"
+      ]
+    },
+    "omaha-mavericks": {
+      "kalshi_codes": [
+        "NEOM"
+      ],
+      "kalshi_names": [
+        "Omaha"
+      ],
+      "odds_names": [
+        "Omaha Mavericks"
       ]
     },
     "penn-state-nittany-lions": {
@@ -2526,6 +2801,17 @@
         "Sacred Heart Pioneers"
       ]
     },
+    "saint-mary-s-gaels": {
+      "kalshi_codes": [
+        "SMC"
+      ],
+      "kalshi_names": [
+        "Saint Mary's"
+      ],
+      "odds_names": [
+        "Saint Mary's Gaels"
+      ]
+    },
     "sam-houston-st-bearkats": {
       "kalshi_codes": [
         "SHSU"
@@ -2535,6 +2821,17 @@
       ],
       "odds_names": [
         "Sam Houston St Bearkats"
+      ]
+    },
+    "samford-bulldogs": {
+      "kalshi_codes": [
+        "SAM"
+      ],
+      "kalshi_names": [
+        "Samford"
+      ],
+      "odds_names": [
+        "Samford Bulldogs"
       ]
     },
     "san-jos-st-spartans": {
@@ -2568,6 +2865,28 @@
       ],
       "odds_names": [
         "Seton Hall Pirates"
+      ]
+    },
+    "siu-edwardsville-cougars": {
+      "kalshi_codes": [
+        "SIUE"
+      ],
+      "kalshi_names": [
+        "SIU Edwardsville"
+      ],
+      "odds_names": [
+        "SIU-Edwardsville Cougars"
+      ]
+    },
+    "smu-mustangs": {
+      "kalshi_codes": [
+        "SMU"
+      ],
+      "kalshi_names": [
+        "SMU"
+      ],
+      "odds_names": [
+        "SMU Mustangs"
       ]
     },
     "south-alabama-jaguars": {
@@ -2634,6 +2953,17 @@
       ],
       "odds_names": [
         "Southern Utah Thunderbirds"
+      ]
+    },
+    "stanford-cardinal": {
+      "kalshi_codes": [
+        "STAN"
+      ],
+      "kalshi_names": [
+        "Stanford"
+      ],
+      "odds_names": [
+        "Stanford Cardinal"
       ]
     },
     "stetson-hatters": {
@@ -2713,6 +3043,28 @@
         "UC Riverside Highlanders"
       ]
     },
+    "uc-san-diego-tritons": {
+      "kalshi_codes": [
+        "UCSD"
+      ],
+      "kalshi_names": [
+        "UC San Diego"
+      ],
+      "odds_names": [
+        "UC San Diego Tritons"
+      ]
+    },
+    "ucf-knights": {
+      "kalshi_codes": [
+        "UCF"
+      ],
+      "kalshi_names": [
+        "UCF"
+      ],
+      "odds_names": [
+        "UCF Knights"
+      ]
+    },
     "uconn-huskies": {
       "kalshi_codes": [
         "CONN"
@@ -2724,6 +3076,17 @@
         "UConn Huskies"
       ]
     },
+    "uic-flames": {
+      "kalshi_codes": [
+        "UIC"
+      ],
+      "kalshi_names": [
+        "UIC"
+      ],
+      "odds_names": [
+        "UIC Flames"
+      ]
+    },
     "umbc-retrievers": {
       "kalshi_codes": [
         "UMBC"
@@ -2733,6 +3096,28 @@
       ],
       "odds_names": [
         "UMBC Retrievers"
+      ]
+    },
+    "unlv-rebels": {
+      "kalshi_codes": [
+        "UNLV"
+      ],
+      "kalshi_names": [
+        "UNLV"
+      ],
+      "odds_names": [
+        "UNLV Rebels"
+      ]
+    },
+    "utah-state-aggies": {
+      "kalshi_codes": [
+        "USU"
+      ],
+      "kalshi_names": [
+        "Utah St."
+      ],
+      "odds_names": [
+        "Utah State Aggies"
       ]
     },
     "utep-miners": {
@@ -2810,6 +3195,17 @@
       ],
       "odds_names": [
         "Western Michigan Broncos"
+      ]
+    },
+    "wright-st-raiders": {
+      "kalshi_codes": [
+        "WRST"
+      ],
+      "kalshi_names": [
+        "Wright St."
+      ],
+      "odds_names": [
+        "Wright St Raiders"
       ]
     },
     "xavier-musketeers": {
