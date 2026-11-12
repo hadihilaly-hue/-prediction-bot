@@ -1,3 +1,29 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1446.72
- scanned=1454 signals=0 filled=0 orders_placed=0 settled=0 cash=1446.72
-underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
+ scanned=1454 signals=0 filled=0 orders_placed=3 settled=0 cash=1446.72
+underdog lane: orders_placed=3 bought_at_ask=0 pulled=0 skipped=
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNFLGAME… │ yes  │ 0.1000 │ 0.1203 │ 0.0103 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (10.0x    │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Arizona   │
+│            │            │      │        │        │        │      │ Cardinals │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.120 f   │
+│ underdog_… │ KXNFLGAME… │ no   │ 0.1700 │ 0.1945 │ 0.0145 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.9x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Chicago   │
+│            │            │      │        │        │        │      │ Bears     │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.805     │
+│            │            │      │        │        │        │      │ from 2    │
+│ underdog_… │ KXNFLGAME… │ yes  │ 0.1900 │ 0.2140 │ 0.0140 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Tennessee │
+│            │            │      │        │        │        │      │ Titans    │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.214 fro │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘

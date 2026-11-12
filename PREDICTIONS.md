@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-12 06:47 UTC. Cash **$1446.72** (started $1000.00), realized PnL **$563.82**, fees $68.62, settled 88, wins 28, open positions 6.
+Updated 2026-11-12 07:17 UTC. Cash **$1446.72** (started $1000.00), realized PnL **$563.82**, fees $68.62, settled 88, wins 28, open positions 6.
 
 Brier (lower is better): strategy 0.2394 vs market price 0.2423.
 
@@ -34,6 +34,9 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-12 07:17 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
+| 2026-11-12 07:17 | underdog\_value | KXNFLGAME-26NOV22NOCHI-CHI — NO: Kalshi says 17%, we say 19%; placed order at 17¢ | no | 0.1700 | 0.1945 | +0.0145 | 100 | yes | open | underdog \(5.9x payout\); Chicago Bears consensus 0.805 from 2 books \(Chicago Bears vs New Orleans Saints\) | KXNFLGAME-26NOV22NOCHI-CHI |
+| 2026-11-12 07:17 | underdog\_value | KXNFLGAME-26NOV22ARIKC-ARI — YES: Kalshi says 10%, we say 12%; placed order at 10¢ | yes | 0.1000 | 0.1203 | +0.0103 | 100 | yes | open | underdog \(10.0x payout\); Arizona Cardinals consensus 0.120 from 2 books \(Kansas City Chiefs vs Arizona Cardinals\) | KXNFLGAME-26NOV22ARIKC-ARI |
 | 2026-11-11 23:08 | underdog\_value | Notre Dame wins — NO: Kalshi says 12%, we say 15%; bought at 12¢ | no | 0.1200 | 0.1481 | +0.0181 | 100 | yes | open | underdog \(8.3x payout\); Notre Dame Fighting Irish consensus 0.852 from 1 books \(Notre Dame Fighting Irish vs SMU Mustangs\) | KXNCAAFGAME-26NOV21SMUND-ND |
 | 2026-11-11 21:27 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
 | 2026-11-11 21:27 | underdog\_value | Indianapolis wins — YES: Kalshi says 18%, we say 20%; bought at 18¢ | yes | 0.1800 | 0.2006 | +0.0106 | 100 | yes | open | underdog \(5.6x payout\); Indianapolis Colts consensus 0.201 from 2 books \(Houston Texans vs Indianapolis Colts\) | KXNFLGAME-26NOV19INDHOU-IND |
