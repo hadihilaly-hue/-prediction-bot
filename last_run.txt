@@ -1,3 +1,15 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1399.03
- scanned=1466 signals=0 filled=0 orders_placed=0 settled=0 cash=1399.03
-underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
+ scanned=1485 signals=0 filled=0 orders_placed=1 settled=0 cash=1399.03
+underdog lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=[]
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNCAAFGA… │ no   │ 0.2400 │ 0.2626 │ 0.0126 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.2x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Ohio      │
+│            │            │      │        │        │        │      │ Bobcats   │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.737     │
+│            │            │      │        │        │        │      │ from 1    │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
