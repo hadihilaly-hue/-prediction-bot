@@ -7230,6 +7230,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV14USUSDSU` | no_market | 1 | 2026-11-11T00:17 |
 | `KXNCAAFGAME-26NOV14WASHMSU` | no_market | 2 | 2026-11-10T00:17 |
 | `KXNCAAFGAME-26NOV14WASHMSU` | no_market | 3 | 2026-11-13T00:17 |
+| `KXNCAAFGAME-26NOV17BALLOHIO` | no_market | 1 | 2026-11-13T03:17 |
 | `KXNFLGAME-26NOV05JACBAL` | no_market | 2 | 2026-11-06T00:18 |
 | `KXNFLGAME-26NOV08ARISEA` | no_market | 4 | 2026-11-08T00:19 |
 | `KXNFLGAME-26NOV08CINATL` | no_market | 4 | 2026-11-08T00:19 |
