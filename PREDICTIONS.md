@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-13 02:17 UTC. Cash **$1399.03** (started $1000.00), realized PnL **$563.82**, fees $69.31, settled 88, wins 28, open positions 9.
+Updated 2026-11-13 02:48 UTC. Cash **$1374.71** (started $1000.00), realized PnL **$563.82**, fees $69.63, settled 88, wins 28, open positions 10.
 
 Brier (lower is better): strategy 0.2394 vs market price 0.2423.
 
@@ -14,12 +14,12 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 5, settled 40, wins 13, realized PnL $481.69, Brier 0.2044 vs market 0.2152
+- `KXNCAAFGAME`: open 6, settled 40, wins 13, realized PnL $481.69, Brier 0.2044 vs market 0.2152
 - `KXNFLGAME`: open 4, settled 28, wins 7, realized PnL $-295.65, Brier 0.2407 vs market 0.2211
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (9)
+## Open positions (10)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
@@ -27,6 +27,7 @@ Per league (Kalshi series):
 | Fresno St. does NOT win | Fresno St. vs Texas St. \(Nov 14\) | 33 | $24.55 | 77% | `KXNCAAFGAME-26NOV14FRESTXST-FRES` |
 | LSU wins | Texas vs LSU \(Nov 14\) | 40 | $24.68 | 64% | `KXNCAAFGAME-26NOV14TEXLSU-LSU` |
 | Indiana wins | USC vs Indiana \(Nov 14\) | 35 | $24.68 | 73% | `KXNCAAFGAME-26NOV14USCIND-IND` |
+| Ohio does NOT win | Ball St. vs Ohio \(Nov 17\) | 100 | $24.32 | 26% | `KXNCAAFGAME-26NOV17BALLOHIO-OHIO` |
 | Notre Dame does NOT win | SMU vs Notre Dame \(Nov 21\) | 100 | $12.19 | 15% | `KXNCAAFGAME-26NOV21SMUND-ND` |
 | Indianapolis wins | Indianapolis vs Houston \(Nov 19\) | 100 | $18.26 | 20% | `KXNFLGAME-26NOV19INDHOU-IND` |
 | Arizona wins | Arizona vs Kansas City \(Nov 22\) | 100 | $10.16 | 12% | `KXNFLGAME-26NOV22ARIKC-ARI` |
@@ -37,7 +38,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-13 00:48 | underdog\_value | Ohio wins — NO: Kalshi says 24%, we say 26%; placed order at 24¢ | no | 0.2400 | 0.2626 | +0.0126 | 100 | yes | open | underdog \(4.2x payout\); Ohio Bobcats consensus 0.737 from 1 books \(Ohio Bobcats vs Ball State Cardinals\) | KXNCAAFGAME-26NOV17BALLOHIO-OHIO |
+| 2026-11-13 00:48 | underdog\_value | Ohio wins — NO: Kalshi says 24%, we say 26%; bought at 24¢ | no | 0.2400 | 0.2626 | +0.0126 | 100 | yes | open | underdog \(4.2x payout\); Ohio Bobcats consensus 0.737 from 1 books \(Ohio Bobcats vs Ball State Cardinals\) | KXNCAAFGAME-26NOV17BALLOHIO-OHIO |
 | 2026-11-12 21:27 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
 | 2026-11-12 12:18 | underdog\_value | Denver wins — NO: Kalshi says 20%, we say 23%; bought at 20¢ | no | 0.2000 | 0.2268 | +0.0168 | 100 | yes | open | underdog \(5.0x payout\); Denver Broncos consensus 0.773 from 2 books \(Denver Broncos vs Las Vegas Raiders\) | KXNFLGAME-26NOV22LVDEN-DEN |
 | 2026-11-12 07:17 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
