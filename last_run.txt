@@ -1,1 +1,38 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1374.71
+ scanned=1471 signals=0 filled=0 orders_placed=4 settled=0 cash=1374.71
+underdog lane: orders_placed=4 bought_at_ask=0 pulled=0 skipped=[]
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXMLSGAME… │ yes  │ 0.2200 │ 0.2399 │ 0.0199 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.5x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.240     │
+│            │            │      │        │        │        │      │ from 4    │
+│            │            │      │        │        │        │      │ books (O  │
+│ underdog_… │ KXMLSGAME… │ yes  │ 0.2300 │ 0.2463 │ 0.0163 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.246     │
+│            │            │      │        │        │        │      │ from 4    │
+│            │            │      │        │        │        │      │ books (S  │
+│ underdog_… │ KXMLSGAME… │ yes  │ 0.2100 │ 0.2230 │ 0.0130 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.8x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Columbus  │
+│            │            │      │        │        │        │      │ Crew SC   │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.223 fro │
+│ underdog_… │ KXMLSGAME… │ yes  │ 0.2300 │ 0.2547 │ 0.0247 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.255     │
+│            │            │      │        │        │        │      │ from 4    │
+│            │            │      │        │        │        │      │ books (N  │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘

@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-13 05:47 UTC. Cash **$1374.71** (started $1000.00), realized PnL **$563.82**, fees $69.63, settled 88, wins 28, open positions 10.
+Updated 2026-11-13 06:18 UTC. Cash **$1374.71** (started $1000.00), realized PnL **$563.82**, fees $69.63, settled 88, wins 28, open positions 10.
 
 Brier (lower is better): strategy 0.2394 vs market price 0.2423.
 
@@ -38,6 +38,10 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-13 06:18 | underdog\_value | KXMLSGAME-26NOV21NEPHI-TIE — YES: Kalshi says 23%, we say 25%; placed order at 23¢ | yes | 0.2300 | 0.2547 | +0.0247 | 100 | yes | open | underdog \(4.3x payout\); Draw consensus 0.255 from 4 books \(New England Revolution vs Philadelphia Union\) | KXMLSGAME-26NOV21NEPHI-TIE |
+| 2026-11-13 06:18 | underdog\_value | KXMLSGAME-26NOV21MIACLB-CLB — YES: Kalshi says 21%, we say 22%; placed order at 21¢ | yes | 0.2100 | 0.2230 | +0.0130 | 100 | yes | open | underdog \(4.8x payout\); Columbus Crew SC consensus 0.223 from 4 books \(Inter Miami CF vs Columbus Crew SC\) | KXMLSGAME-26NOV21MIACLB-CLB |
+| 2026-11-13 06:18 | underdog\_value | KXMLSGAME-26NOV19SEARSL-TIE — YES: Kalshi says 23%, we say 25%; placed order at 23¢ | yes | 0.2300 | 0.2463 | +0.0163 | 100 | yes | open | underdog \(4.3x payout\); Draw consensus 0.246 from 4 books \(Seattle Sounders FC vs Real Salt Lake\) | KXMLSGAME-26NOV19SEARSL-TIE |
+| 2026-11-13 06:18 | underdog\_value | KXMLSGAME-26NOV19ORLCIN-TIE — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2399 | +0.0199 | 100 | yes | open | underdog \(4.5x payout\); Draw consensus 0.240 from 4 books \(Orlando City SC vs FC Cincinnati\) | KXMLSGAME-26NOV19ORLCIN-TIE |
 | 2026-11-13 00:48 | underdog\_value | Ohio wins — NO: Kalshi says 24%, we say 26%; bought at 24¢ | no | 0.2400 | 0.2626 | +0.0126 | 100 | yes | open | underdog \(4.2x payout\); Ohio Bobcats consensus 0.737 from 1 books \(Ohio Bobcats vs Ball State Cardinals\) | KXNCAAFGAME-26NOV17BALLOHIO-OHIO |
 | 2026-11-12 21:27 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
 | 2026-11-12 12:18 | underdog\_value | Denver wins — NO: Kalshi says 20%, we say 23%; bought at 20¢ | no | 0.2000 | 0.2268 | +0.0168 | 100 | yes | open | underdog \(5.0x payout\); Denver Broncos consensus 0.773 from 2 books \(Denver Broncos vs Las Vegas Raiders\) | KXNFLGAME-26NOV22LVDEN-DEN |
