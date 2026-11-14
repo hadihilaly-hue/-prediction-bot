@@ -43,7 +43,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `1. FC Köln 5 - 4 Bayer 04 Leverkusen` (8 events)
 - `1. FC Köln 5 - 5 Bayer 04 Leverkusen` (8 events)
 - `1. FC Union Berlin` (15 events)
-- `1. FSV Mainz 05` (12 events)
+- `1. FSV Mainz 05` (13 events)
 - `1. FSV Mainz 05 0 - 0 FC Bayern München` (12 events)
 - `1. FSV Mainz 05 0 - 1 FC Bayern München` (12 events)
 - `1. FSV Mainz 05 0 - 2 FC Bayern München` (12 events)
@@ -2247,7 +2247,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Exequiel Palacios: 4+ shots` (5 events)
 - `Exequiel Palacios: 4+ shots on target` (5 events)
 - `Exequiel Palacios: 5+ shots` (5 events)
-- `FC Augsburg` (12 events)
+- `FC Augsburg` (13 events)
 - `FC Barcelona` (6 events)
 - `FC Bayern München` (12 events)
 - `FC Cincinnati 0 - 0 Nashville SC` (7 events)
@@ -2769,6 +2769,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Granit Xhaka: 4+ shots` (5 events)
 - `Granit Xhaka: 4+ shots on target` (5 events)
 - `Granit Xhaka: 5+ shots` (5 events)
+- `Hamburger SV` (1 events)
 - `Hampton` (85 events)
 - `Hannes Wolf: 1+ assists` (2 events)
 - `Hannes Wolf: 1+ goals + assists` (2 events)
@@ -5972,7 +5973,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `SC Paderborn 07 5 - 4 Eintracht Frankfurt` (12 events)
 - `SC Paderborn 07 5 - 5 Eintracht Frankfurt` (12 events)
 - `SV 07 Elversberg` (15 events)
-- `SV Werder Bremen` (12 events)
+- `SV Werder Bremen` (13 events)
 - `Sacred Heart` (45 events)
 - `Sam Surridge: 1+ assists` (2 events)
 - `Sam Surridge: 1+ goals + assists` (2 events)
@@ -7116,6 +7117,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXBUNDESLIGAGAME-26NOV21SGETSG` | no_market | 1 | 2026-11-14T16:47 |
 | `KXBUNDESLIGAGAME-26NOV21SVESCF` | no_market | 1 | 2026-11-14T16:47 |
 | `KXBUNDESLIGAGAME-26NOV21UNIRBL` | no_market | 1 | 2026-11-14T16:47 |
+| `KXBUNDESLIGAGAME-26NOV22FCAM05` | no_market | 1 | 2026-11-14T18:17 |
 | `KXEPLGAME-26NOV06EVECOV` | no_market | 2 | 2026-11-06T00:18 |
 | `KXEPLGAME-26NOV07ARSHUL` | no_market | 3 | 2026-11-07T00:08 |
 | `KXEPLGAME-26NOV07FULNEW` | no_market | 3 | 2026-11-07T00:08 |
