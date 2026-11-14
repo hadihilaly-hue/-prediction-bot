@@ -1368,7 +1368,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Colorado Rapids SC` (7 events)
 - `Colorado State` (37 events)
 - `Columbia` (51 events)
-- `Columbus Crew` (7 events)
+- `Columbus Crew` (8 events)
 - `Cornell` (80 events)
 - `Costinha: 1+ assists` (5 events)
 - `Costinha: 1+ goals + assists` (5 events)
@@ -7158,6 +7158,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXMLSGAME-26NOV07RSLLAG` | no_market | 1 | 2026-11-07T21:39 |
 | `KXMLSGAME-26NOV07RSLLAG` | no_market | 1 | 2026-11-05T06:54 |
 | `KXMLSGAME-26NOV19SEARSL` | wide_book | 2 | 2026-11-14T00:17 |
+| `KXMLSGAME-26NOV21MIACLB` | no_market | 1 | 2026-11-14T02:47 |
 | `KXMLSGAME-26NOV21NEPHI` | wide_book | 2 | 2026-11-14T00:47 |
 | `KXNCAAFGAME-26NOV07BSUCSU` | no_market | 3 | 2026-11-07T00:08 |
 | `KXNCAAFGAME-26NOV07DUKENCST` | no_market | 3 | 2026-11-07T00:08 |
