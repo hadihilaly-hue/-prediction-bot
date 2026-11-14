@@ -1,3 +1,31 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1374.71
- scanned=1515 signals=0 filled=0 orders_placed=0 settled=0 cash=1374.71
-underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
+ scanned=1573 signals=0 filled=0 orders_placed=3 settled=0 cash=1374.71
+underdog lane: orders_placed=3 bought_at_ask=0 pulled=0 skipped=[]
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXMLSGAME… │ yes  │ 0.2300 │ 0.2463 │ 0.0163 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.246     │
+│            │            │      │        │        │        │      │ from 4    │
+│            │            │      │        │        │        │      │ books (S  │
+│ underdog_… │ KXMLSGAME… │ yes  │ 0.1900 │ 0.2054 │ 0.0154 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.205     │
+│            │            │      │        │        │        │      │ from 4    │
+│            │            │      │        │        │        │      │ books (I  │
+│ underdog_… │ KXMLSGAME… │ yes  │ 0.2400 │ 0.2568 │ 0.0168 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.2x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.257     │
+│            │            │      │        │        │        │      │ from 4    │
+│            │            │      │        │        │        │      │ books (N  │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
