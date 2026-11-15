@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-15 05:47 UTC. Cash **$1442.71** (started $1000.00), realized PnL **$545.17**, fees $69.63, settled 92, wins 30, open positions 6.
+Updated 2026-11-15 06:17 UTC. Cash **$1442.71** (started $1000.00), realized PnL **$545.17**, fees $69.63, settled 92, wins 30, open positions 6.
 
 Brier (lower is better): strategy 0.2351 vs market price 0.2377.
 
@@ -34,6 +34,11 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-15 06:17 | underdog\_value | KXEPLGAME-26NOV29FULBOU-TIE — YES: Kalshi says 24%, we say 27%; placed order at 24¢ | yes | 0.2400 | 0.2677 | +0.0177 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.268 from 2 books \(Fulham vs Bournemouth\) | KXEPLGAME-26NOV29FULBOU-TIE |
+| 2026-11-15 06:17 | underdog\_value | KXEPLGAME-26NOV29EVELFC-TIE — YES: Kalshi says 24%, we say 27%; placed order at 24¢ | yes | 0.2400 | 0.2655 | +0.0155 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.266 from 2 books \(Everton vs Liverpool\) | KXEPLGAME-26NOV29EVELFC-TIE |
+| 2026-11-15 06:17 | underdog\_value | KXEPLGAME-26NOV29CRYHUL-HUL — YES: Kalshi says 20%, we say 24%; placed order at 20¢ | yes | 0.2000 | 0.2370 | +0.0270 | 100 | yes | open | underdog \(5.0x payout\); Hull City consensus 0.237 from 2 books \(Crystal Palace vs Hull City\) | KXEPLGAME-26NOV29CRYHUL-HUL |
+| 2026-11-15 06:17 | underdog\_value | KXEPLGAME-26NOV29BRINEW-NEW — YES: Kalshi says 15%, we say 18%; placed order at 15¢ | yes | 0.1500 | 0.1768 | +0.0168 | 100 | yes | open | underdog \(6.7x payout\); Newcastle United consensus 0.177 from 2 books \(Brighton and Hove Albion vs Newcastle United\) | KXEPLGAME-26NOV29BRINEW-NEW |
+| 2026-11-15 06:17 | underdog\_value | KXEPLGAME-26NOV29ARSMCI-MCI — YES: Kalshi says 25%, we say 28%; placed order at 25¢ | yes | 0.2500 | 0.2819 | +0.0219 | 100 | yes | open | underdog \(4.0x payout\); Manchester City consensus 0.282 from 2 books \(Arsenal vs Manchester City\) | KXEPLGAME-26NOV29ARSMCI-MCI |
 | 2026-11-15 00:07 | underdog\_value | Clemson wins — YES: Kalshi says 25%, we say 28%; placed order at 25¢ | yes | 0.2500 | 0.2827 | +0.0227 | 100 | yes | open | underdog \(4.0x payout\); Clemson Tigers consensus 0.283 from 1 books \(Duke Blue Devils vs Clemson Tigers\) | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM |
 | 2026-11-14 16:48 | underdog\_value | Kent St. wins — YES: Kalshi says 24%, we say 28%; placed order at 24¢ | yes | 0.2400 | 0.2827 | +0.0327 | 100 | yes | open | underdog \(4.2x payout\); Kent State Golden Flashes consensus 0.283 from 1 books \(Kent State Golden Flashes vs Miami \(OH\) RedHawks\) | KXNCAAFGAME-26NOV17MOHKENT-KENT |
 | 2026-11-14 16:18 | underdog\_value | Union Berlin wins — YES: Kalshi says 13%, we say 16%; placed order at 13¢ | yes | 0.1300 | 0.1636 | +0.0236 | 100 | yes | open | underdog \(7.7x payout\); Union Berlin consensus 0.164 from 3 books \(FSV Mainz 05 vs Union Berlin\) | KXBUNDESLIGAGAME-26NOV28M05UNI-UNI |

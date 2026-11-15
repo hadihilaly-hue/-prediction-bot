@@ -1,1 +1,46 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1442.71
+ scanned=1462 signals=0 filled=0 orders_placed=5 settled=0 cash=1442.71
+underdog lane: orders_placed=5 bought_at_ask=0 pulled=0 skipped=[]
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXEPLGAME… │ yes  │ 0.2500 │ 0.2819 │ 0.0219 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.0x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Manchest… │
+│            │            │      │        │        │        │      │ City      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.282     │
+│            │            │      │        │        │        │      │ from      │
+│ underdog_… │ KXEPLGAME… │ yes  │ 0.1500 │ 0.1768 │ 0.0168 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (6.7x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Newcastle │
+│            │            │      │        │        │        │      │ United    │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.177 fro │
+│ underdog_… │ KXEPLGAME… │ yes  │ 0.2000 │ 0.2370 │ 0.0270 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.0x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Hull City │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.237     │
+│            │            │      │        │        │        │      │ from 2    │
+│            │            │      │        │        │        │      │ boo       │
+│ underdog_… │ KXEPLGAME… │ yes  │ 0.2400 │ 0.2655 │ 0.0155 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.2x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.266     │
+│            │            │      │        │        │        │      │ from 2    │
+│            │            │      │        │        │        │      │ books (E  │
+│ underdog_… │ KXEPLGAME… │ yes  │ 0.2400 │ 0.2677 │ 0.0177 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.2x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.268     │
+│            │            │      │        │        │        │      │ from 2    │
+│            │            │      │        │        │        │      │ books (F  │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
