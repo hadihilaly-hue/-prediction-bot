@@ -1,11 +1,11 @@
 # Paper-trading predictions
 
-Updated 2026-11-15 04:17 UTC. Cash **$1442.71** (started $1000.00), realized PnL **$569.85**, fees $69.63, settled 91, wins 30, open positions 7.
+Updated 2026-11-15 04:47 UTC. Cash **$1442.71** (started $1000.00), realized PnL **$545.17**, fees $69.63, settled 92, wins 30, open positions 6.
 
-Brier (lower is better): strategy 0.2340 vs market price 0.2369.
+Brier (lower is better): strategy 0.2351 vs market price 0.2377.
 
 - `sportsbook_arb`: settled 62, wins 18, realized PnL $176.90, Brier 0.1945 vs market 0.1951
-- `sportsbook_v3`: settled 4, wins 3, realized PnL $-10.11, Brier 0.2619 vs market 0.2482
+- `sportsbook_v3`: settled 5, wins 3, realized PnL $-34.79, Brier 0.2977 vs market 0.2760
 - `underdog_value`: settled 25, wins 9, realized PnL $403.06, Brier 0.3092 vs market 0.3177
 
 Per league (Kalshi series):
@@ -14,16 +14,15 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 3, settled 43, wins 15, realized PnL $487.72, Brier 0.1956 vs market 0.2061
+- `KXNCAAFGAME`: open 2, settled 44, wins 15, realized PnL $463.04, Brier 0.1982 vs market 0.2080
 - `KXNFLGAME`: open 4, settled 28, wins 7, realized PnL $-295.65, Brier 0.2407 vs market 0.2211
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (7)
+## Open positions (6)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
-| LSU wins | Texas vs LSU \(Nov 14\) | 40 | $24.68 | 64% | `KXNCAAFGAME-26NOV14TEXLSU-LSU` |
 | Ohio does NOT win | Ball St. vs Ohio \(Nov 17\) | 100 | $24.32 | 26% | `KXNCAAFGAME-26NOV17BALLOHIO-OHIO` |
 | Notre Dame does NOT win | SMU vs Notre Dame \(Nov 21\) | 100 | $12.19 | 15% | `KXNCAAFGAME-26NOV21SMUND-ND` |
 | Indianapolis wins | Indianapolis vs Houston \(Nov 19\) | 100 | $18.26 | 20% | `KXNFLGAME-26NOV19INDHOU-IND` |
@@ -57,7 +56,7 @@ Per league (Kalshi series):
 | 2026-11-11 21:27 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
 | 2026-11-11 21:27 | underdog\_value | Indianapolis wins — YES: Kalshi says 18%, we say 20%; bought at 18¢ | yes | 0.1800 | 0.2006 | +0.0106 | 100 | yes | open | underdog \(5.6x payout\); Indianapolis Colts consensus 0.201 from 2 books \(Houston Texans vs Indianapolis Colts\) | KXNFLGAME-26NOV19INDHOU-IND |
 | 2026-11-11 12:18 | underdog\_value | Vanderbilt wins — YES: Kalshi says 12%, we say 14%; bought at 12¢ | yes | 0.1200 | 0.1405 | +0.0105 | 100 | yes | lost (no) | underdog \(8.3x payout\); Vanderbilt Commodores consensus 0.140 from 4 books \(Vanderbilt Commodores vs Alabama Crimson Tide\) | KXNCAAFGAME-26NOV14ALAVAN-VAN |
-| 2026-11-09 02:50 | sportsbook\_v3 | LSU wins — YES: Kalshi says 60%, we say 64%; bought at 60¢ | yes | 0.6000 | 0.6370 | +0.0202 | 40 | yes | open | LSU Tigers pinnacle reference, 3 books, fair 0.637 | KXNCAAFGAME-26NOV14TEXLSU-LSU |
+| 2026-11-09 02:50 | sportsbook\_v3 | LSU wins — YES: Kalshi says 60%, we say 64%; bought at 60¢ | yes | 0.6000 | 0.6370 | +0.0202 | 40 | yes | lost (no) | LSU Tigers pinnacle reference, 3 books, fair 0.637 | KXNCAAFGAME-26NOV14TEXLSU-LSU |
 | 2026-11-09 02:21 | sportsbook\_v3 | Indiana wins — YES: Kalshi says 69%, we say 73%; bought at 69¢ | yes | 0.6900 | 0.7317 | +0.0267 | 35 | yes | WON (yes) | Indiana Hoosiers pinnacle reference, 3 books, fair 0.732 | KXNCAAFGAME-26NOV14USCIND-IND |
 | 2026-11-09 01:21 | sportsbook\_v3 | Fresno St. wins — NO: Kalshi says 73%, we say 77%; bought at 73¢ | no | 0.7300 | 0.7655 | +0.0217 | 33 | yes | WON (no) | Fresno State Bulldogs pinnacle reference, 3 books, fair 0.766 | KXNCAAFGAME-26NOV14FRESTXST-FRES |
 | 2026-11-04 23:43 | sportsbook\_v3 | Saint Louis wins — YES: Kalshi says 35%, we say 37%; bought at 35¢ | yes | 0.3500 | 0.3696 | +0.0037 | 6 | yes | WON (yes) | St. Louis City SC pinnacle reference, 4 books, fair 0.370 | KXMLSGAME-26NOV07HOUSTL-STL |
