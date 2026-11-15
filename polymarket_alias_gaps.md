@@ -3058,7 +3058,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Inter Miami CF 5 - 3 Charlotte FC` (7 events)
 - `Inter Miami CF 5 - 4 Charlotte FC` (7 events)
 - `Inter Miami CF 5 - 5 Charlotte FC` (7 events)
-- `Iowa State` (45 events)
+- `Iowa State` (46 events)
 - `Ipswich Town FC` (27 events)
 - `Ipswich Town FC 0 - 0 AFC Bournemouth` (20 events)
 - `Ipswich Town FC 0 - 1 AFC Bournemouth` (20 events)
@@ -4464,7 +4464,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Michael Kayode: 4+ shots` (5 events)
 - `Michael Kayode: 4+ shots on target` (5 events)
 - `Michael Kayode: 5+ shots` (5 events)
-- `Michigan State` (79 events)
+- `Michigan State` (80 events)
 - `Middle Tennessee` (73 events)
 - `Miguel Almirón: 1+ assists` (2 events)
 - `Miguel Almirón: 1+ goals + assists` (2 events)
@@ -6681,7 +6681,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `UC Davis` (84 events)
 - `UNLV` (38 events)
 - `UT Rio Grande Valley` (75 events)
-- `UTEP` (42 events)
+- `UTEP` (43 events)
 - `Under` (187 events)
 - `Utah State` (42 events)
 - `Utah Tech` (84 events)
@@ -7259,6 +7259,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV14WASHMSU` | no_market | 4 | 2026-11-14T00:17 |
 | `KXNCAAFGAME-26NOV17BALLOHIO` | no_market | 2 | 2026-11-14T00:17 |
 | `KXNCAAFGAME-26NOV17BALLOHIO` | no_market | 1 | 2026-11-15T00:07 |
+| `KXNCAAFGAME-26NOV20OREMSU` | no_market | 1 | 2026-11-15T17:47 |
 | `KXNCAAFGAME-26NOV21SMUND` | no_market | 2 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV05JACBAL` | no_market | 2 | 2026-11-06T00:18 |
 | `KXNFLGAME-26NOV08ARISEA` | no_market | 4 | 2026-11-08T00:19 |
