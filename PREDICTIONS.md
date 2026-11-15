@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-15 00:07 UTC. Cash **$1409.71** (started $1000.00), realized PnL **$561.40**, fees $69.63, settled 90, wins 29, open positions 8.
+Updated 2026-11-15 00:18 UTC. Cash **$1409.71** (started $1000.00), realized PnL **$561.40**, fees $69.63, settled 90, wins 29, open positions 8.
 
 Brier (lower is better): strategy 0.2349 vs market price 0.2378.
 
@@ -36,7 +36,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-15 00:07 | underdog\_value | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM — YES: Kalshi says 25%, we say 28%; placed order at 25¢ | yes | 0.2500 | 0.2827 | +0.0227 | 100 | yes | open | underdog \(4.0x payout\); Clemson Tigers consensus 0.283 from 1 books \(Duke Blue Devils vs Clemson Tigers\) | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM |
+| 2026-11-15 00:07 | underdog\_value | Clemson wins — YES: Kalshi says 25%, we say 28%; placed order at 25¢ | yes | 0.2500 | 0.2827 | +0.0227 | 100 | yes | open | underdog \(4.0x payout\); Clemson Tigers consensus 0.283 from 1 books \(Duke Blue Devils vs Clemson Tigers\) | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM |
 | 2026-11-14 16:48 | underdog\_value | Kent St. wins — YES: Kalshi says 24%, we say 28%; placed order at 24¢ | yes | 0.2400 | 0.2827 | +0.0327 | 100 | yes | open | underdog \(4.2x payout\); Kent State Golden Flashes consensus 0.283 from 1 books \(Kent State Golden Flashes vs Miami \(OH\) RedHawks\) | KXNCAAFGAME-26NOV17MOHKENT-KENT |
 | 2026-11-14 16:18 | underdog\_value | Union Berlin wins — YES: Kalshi says 13%, we say 16%; placed order at 13¢ | yes | 0.1300 | 0.1636 | +0.0236 | 100 | yes | open | underdog \(7.7x payout\); Union Berlin consensus 0.164 from 3 books \(FSV Mainz 05 vs Union Berlin\) | KXBUNDESLIGAGAME-26NOV28M05UNI-UNI |
 | 2026-11-14 03:58 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 22%; placed order at 19¢ | yes | 0.1900 | 0.2167 | +0.0167 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.217 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
