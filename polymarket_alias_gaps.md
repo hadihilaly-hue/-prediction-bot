@@ -848,7 +848,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Breel Embolo: 4+ shots` (2 events)
 - `Breel Embolo: 4+ shots on target` (2 events)
 - `Breel Embolo: 5+ shots` (2 events)
-- `Brentford FC` (20 events)
+- `Brentford FC` (21 events)
 - `Brian Brobbey: 1+ assists` (5 events)
 - `Brian Brobbey: 1+ goals + assists` (5 events)
 - `Brian Brobbey: 1+ shots` (5 events)
@@ -2044,7 +2044,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Evanilson: 4+ shots on target` (5 events)
 - `Evanilson: 5+ shots` (5 events)
 - `Even` (107 events)
-- `Everton FC` (2 events)
+- `Everton FC` (3 events)
 - `Everton FC 0 - 0 Coventry City FC` (2 events)
 - `Everton FC 0 - 1 Coventry City FC` (2 events)
 - `Everton FC 0 - 2 Coventry City FC` (2 events)
@@ -7144,6 +7144,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXEPLGAME-26NOV21TOTIPS` | no_market | 1 | 2026-11-15T06:47 |
 | `KXEPLGAME-26NOV22HULBRI` | no_market | 1 | 2026-11-15T06:47 |
 | `KXEPLGAME-26NOV22LFCMUN` | no_market | 1 | 2026-11-15T06:47 |
+| `KXEPLGAME-26NOV23BREEVE` | no_market | 1 | 2026-11-15T23:47 |
 | `KXLALIGAGAME-26NOV06SEVALA` | no_market | 2 | 2026-11-06T00:18 |
 | `KXLALIGAGAME-26NOV07ESPDEP` | no_market | 2 | 2026-11-06T00:18 |
 | `KXLALIGAGAME-26NOV07MCFSAN` | no_market | 2 | 2026-11-06T00:18 |
