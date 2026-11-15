@@ -1,11 +1,11 @@
 # Paper-trading predictions
 
-Updated 2026-11-14 23:47 UTC. Cash **$1374.71** (started $1000.00), realized PnL **$551.08**, fees $69.63, settled 89, wins 28, open positions 9.
+Updated 2026-11-15 00:07 UTC. Cash **$1409.71** (started $1000.00), realized PnL **$561.40**, fees $69.63, settled 90, wins 29, open positions 8.
 
-Brier (lower is better): strategy 0.2358 vs market price 0.2386.
+Brier (lower is better): strategy 0.2349 vs market price 0.2378.
 
 - `sportsbook_arb`: settled 62, wins 18, realized PnL $176.90, Brier 0.1945 vs market 0.1951
-- `sportsbook_v3`: settled 2, wins 1, realized PnL $-28.88, Brier 0.5163 vs market 0.4579
+- `sportsbook_v3`: settled 3, wins 2, realized PnL $-18.56, Brier 0.3396 vs market 0.3140
 - `underdog_value`: settled 25, wins 9, realized PnL $403.06, Brier 0.3092 vs market 0.3177
 
 Per league (Kalshi series):
@@ -14,18 +14,17 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 5, settled 41, wins 13, realized PnL $468.95, Brier 0.1985 vs market 0.2087
+- `KXNCAAFGAME`: open 4, settled 42, wins 14, realized PnL $479.27, Brier 0.1970 vs market 0.2075
 - `KXNFLGAME`: open 4, settled 28, wins 7, realized PnL $-295.65, Brier 0.2407 vs market 0.2211
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (9)
+## Open positions (8)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
 | Fresno St. does NOT win | Fresno St. vs Texas St. \(Nov 14\) | 33 | $24.55 | 77% | `KXNCAAFGAME-26NOV14FRESTXST-FRES` |
 | LSU wins | Texas vs LSU \(Nov 14\) | 40 | $24.68 | 64% | `KXNCAAFGAME-26NOV14TEXLSU-LSU` |
-| Indiana wins | USC vs Indiana \(Nov 14\) | 35 | $24.68 | 73% | `KXNCAAFGAME-26NOV14USCIND-IND` |
 | Ohio does NOT win | Ball St. vs Ohio \(Nov 17\) | 100 | $24.32 | 26% | `KXNCAAFGAME-26NOV17BALLOHIO-OHIO` |
 | Notre Dame does NOT win | SMU vs Notre Dame \(Nov 21\) | 100 | $12.19 | 15% | `KXNCAAFGAME-26NOV21SMUND-ND` |
 | Indianapolis wins | Indianapolis vs Houston \(Nov 19\) | 100 | $18.26 | 20% | `KXNFLGAME-26NOV19INDHOU-IND` |
@@ -37,6 +36,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-15 00:07 | underdog\_value | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM — YES: Kalshi says 25%, we say 28%; placed order at 25¢ | yes | 0.2500 | 0.2827 | +0.0227 | 100 | yes | open | underdog \(4.0x payout\); Clemson Tigers consensus 0.283 from 1 books \(Duke Blue Devils vs Clemson Tigers\) | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM |
 | 2026-11-14 16:48 | underdog\_value | Kent St. wins — YES: Kalshi says 24%, we say 28%; placed order at 24¢ | yes | 0.2400 | 0.2827 | +0.0327 | 100 | yes | open | underdog \(4.2x payout\); Kent State Golden Flashes consensus 0.283 from 1 books \(Kent State Golden Flashes vs Miami \(OH\) RedHawks\) | KXNCAAFGAME-26NOV17MOHKENT-KENT |
 | 2026-11-14 16:18 | underdog\_value | Union Berlin wins — YES: Kalshi says 13%, we say 16%; placed order at 13¢ | yes | 0.1300 | 0.1636 | +0.0236 | 100 | yes | open | underdog \(7.7x payout\); Union Berlin consensus 0.164 from 3 books \(FSV Mainz 05 vs Union Berlin\) | KXBUNDESLIGAGAME-26NOV28M05UNI-UNI |
 | 2026-11-14 03:58 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 22%; placed order at 19¢ | yes | 0.1900 | 0.2167 | +0.0167 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.217 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
@@ -59,7 +59,7 @@ Per league (Kalshi series):
 | 2026-11-11 21:27 | underdog\_value | Indianapolis wins — YES: Kalshi says 18%, we say 20%; bought at 18¢ | yes | 0.1800 | 0.2006 | +0.0106 | 100 | yes | open | underdog \(5.6x payout\); Indianapolis Colts consensus 0.201 from 2 books \(Houston Texans vs Indianapolis Colts\) | KXNFLGAME-26NOV19INDHOU-IND |
 | 2026-11-11 12:18 | underdog\_value | Vanderbilt wins — YES: Kalshi says 12%, we say 14%; bought at 12¢ | yes | 0.1200 | 0.1405 | +0.0105 | 100 | yes | lost (no) | underdog \(8.3x payout\); Vanderbilt Commodores consensus 0.140 from 4 books \(Vanderbilt Commodores vs Alabama Crimson Tide\) | KXNCAAFGAME-26NOV14ALAVAN-VAN |
 | 2026-11-09 02:50 | sportsbook\_v3 | LSU wins — YES: Kalshi says 60%, we say 64%; bought at 60¢ | yes | 0.6000 | 0.6370 | +0.0202 | 40 | yes | open | LSU Tigers pinnacle reference, 3 books, fair 0.637 | KXNCAAFGAME-26NOV14TEXLSU-LSU |
-| 2026-11-09 02:21 | sportsbook\_v3 | Indiana wins — YES: Kalshi says 69%, we say 73%; bought at 69¢ | yes | 0.6900 | 0.7317 | +0.0267 | 35 | yes | open | Indiana Hoosiers pinnacle reference, 3 books, fair 0.732 | KXNCAAFGAME-26NOV14USCIND-IND |
+| 2026-11-09 02:21 | sportsbook\_v3 | Indiana wins — YES: Kalshi says 69%, we say 73%; bought at 69¢ | yes | 0.6900 | 0.7317 | +0.0267 | 35 | yes | WON (yes) | Indiana Hoosiers pinnacle reference, 3 books, fair 0.732 | KXNCAAFGAME-26NOV14USCIND-IND |
 | 2026-11-09 01:21 | sportsbook\_v3 | Fresno St. wins — NO: Kalshi says 73%, we say 77%; bought at 73¢ | no | 0.7300 | 0.7655 | +0.0217 | 33 | yes | open | Fresno State Bulldogs pinnacle reference, 3 books, fair 0.766 | KXNCAAFGAME-26NOV14FRESTXST-FRES |
 | 2026-11-04 23:43 | sportsbook\_v3 | Saint Louis wins — YES: Kalshi says 35%, we say 37%; bought at 35¢ | yes | 0.3500 | 0.3696 | +0.0037 | 6 | yes | WON (yes) | St. Louis City SC pinnacle reference, 4 books, fair 0.370 | KXMLSGAME-26NOV07HOUSTL-STL |
 | 2026-10-26 15:14 | sportsbook\_v3 | Arizona wins — NO: Kalshi says 68%, we say 73%; bought at 68¢ | no | 0.6800 | 0.7290 | +0.0338 | 47 | yes | lost (yes) | Arizona Cardinals soft\_reference reference, 2 books, fair 0.729 | KXNFLGAME-26NOV01ARIDAL-ARI |
