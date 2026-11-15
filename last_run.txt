@@ -1,1 +1,38 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1442.71
+ scanned=1450 signals=0 filled=0 orders_placed=4 settled=0 cash=1442.71
+underdog lane: orders_placed=4 bought_at_ask=0 pulled=0 skipped=
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNCAAFGA… │ yes  │ 0.1400 │ 0.1614 │ 0.0114 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (7.1x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Bowling   │
+│            │            │      │        │        │        │      │ Green     │
+│            │            │      │        │        │        │      │ Falcons   │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.16      │
+│ underdog_… │ KXNCAAFGA… │ yes  │ 0.2300 │ 0.2502 │ 0.0102 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Clemson   │
+│            │            │      │        │        │        │      │ Tigers    │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.250     │
+│            │            │      │        │        │        │      │ from      │
+│ underdog_… │ KXNCAAFGA… │ no   │ 0.1700 │ 0.1992 │ 0.0192 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.9x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Oregon    │
+│            │            │      │        │        │        │      │ Ducks     │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.801     │
+│            │            │      │        │        │        │      │ from 2    │
+│ underdog_… │ KXNCAAFGA… │ no   │ 0.2200 │ 0.2426 │ 0.0126 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.5x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Arizona   │
+│            │            │      │        │        │        │      │ Wildcats  │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.757 fro │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
