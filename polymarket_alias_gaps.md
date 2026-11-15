@@ -7061,6 +7061,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Zane Monlouis: 4+ shots` (2 events)
 - `Zane Monlouis: 4+ shots on target` (2 events)
 - `Zane Monlouis: 5+ shots` (2 events)
+- `clemson-tigers:0.19-0.25` (1 events)
 - `draw:0.2-0.26` (2 events)
 - `new-england-revolution:0.26-0.32` (2 events)
 - `Édier Ocampo: 1+ assists` (2 events)
@@ -7259,6 +7260,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV14WASHMSU` | no_market | 4 | 2026-11-14T00:17 |
 | `KXNCAAFGAME-26NOV17BALLOHIO` | no_market | 2 | 2026-11-14T00:17 |
 | `KXNCAAFGAME-26NOV17BALLOHIO` | no_market | 1 | 2026-11-15T00:07 |
+| `KXNCAAFGAME-26NOV20CLEMDUKE` | wide_book | 1 | 2026-11-15T19:47 |
 | `KXNCAAFGAME-26NOV20OREMSU` | no_market | 1 | 2026-11-15T17:47 |
 | `KXNCAAFGAME-26NOV21SMUND` | no_market | 2 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV05JACBAL` | no_market | 2 | 2026-11-06T00:18 |
