@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-15 16:17 UTC. Cash **$1442.71** (started $1000.00), realized PnL **$545.17**, fees $69.63, settled 92, wins 30, open positions 6.
+Updated 2026-11-15 16:47 UTC. Cash **$1442.71** (started $1000.00), realized PnL **$545.17**, fees $69.63, settled 92, wins 30, open positions 6.
 
 Brier (lower is better): strategy 0.2351 vs market price 0.2377.
 
@@ -34,10 +34,10 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-15 16:17 | underdog\_value | KXNCAAFGAME-26NOV21ARIZKSU-ARIZ — NO: Kalshi says 22%, we say 24%; placed order at 22¢ | no | 0.2200 | 0.2426 | +0.0126 | 100 | yes | open | underdog \(4.5x payout\); Arizona Wildcats consensus 0.757 from 2 books \(Kansas State Wildcats vs Arizona Wildcats\) | KXNCAAFGAME-26NOV21ARIZKSU-ARIZ |
-| 2026-11-15 16:17 | underdog\_value | KXNCAAFGAME-26NOV20OREMSU-ORE — NO: Kalshi says 17%, we say 20%; placed order at 17¢ | no | 0.1700 | 0.1992 | +0.0192 | 100 | yes | open | underdog \(5.9x payout\); Oregon Ducks consensus 0.801 from 2 books \(Michigan State Spartans vs Oregon Ducks\) | KXNCAAFGAME-26NOV20OREMSU-ORE |
+| 2026-11-15 16:17 | underdog\_value | Arizona wins — NO: Kalshi says 22%, we say 24%; placed order at 22¢ | no | 0.2200 | 0.2426 | +0.0126 | 100 | yes | open | underdog \(4.5x payout\); Arizona Wildcats consensus 0.757 from 2 books \(Kansas State Wildcats vs Arizona Wildcats\) | KXNCAAFGAME-26NOV21ARIZKSU-ARIZ |
+| 2026-11-15 16:17 | underdog\_value | Oregon wins — NO: Kalshi says 17%, we say 20%; placed order at 17¢ | no | 0.1700 | 0.1992 | +0.0192 | 100 | yes | open | underdog \(5.9x payout\); Oregon Ducks consensus 0.801 from 2 books \(Michigan State Spartans vs Oregon Ducks\) | KXNCAAFGAME-26NOV20OREMSU-ORE |
 | 2026-11-15 16:17 | underdog\_value | Clemson wins — YES: Kalshi says 23%, we say 25%; placed order at 23¢ | yes | 0.2300 | 0.2502 | +0.0102 | 100 | yes | open | underdog \(4.3x payout\); Clemson Tigers consensus 0.250 from 2 books \(Duke Blue Devils vs Clemson Tigers\) | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM |
-| 2026-11-15 16:17 | underdog\_value | KXNCAAFGAME-26NOV20BGSUTOL-BGSU — YES: Kalshi says 14%, we say 16%; placed order at 14¢ | yes | 0.1400 | 0.1614 | +0.0114 | 100 | yes | open | underdog \(7.1x payout\); Bowling Green Falcons consensus 0.161 from 2 books \(Toledo Rockets vs Bowling Green Falcons\) | KXNCAAFGAME-26NOV20BGSUTOL-BGSU |
+| 2026-11-15 16:17 | underdog\_value | Bowling Green wins — YES: Kalshi says 14%, we say 16%; placed order at 14¢ | yes | 0.1400 | 0.1614 | +0.0114 | 100 | yes | open | underdog \(7.1x payout\); Bowling Green Falcons consensus 0.161 from 2 books \(Toledo Rockets vs Bowling Green Falcons\) | KXNCAAFGAME-26NOV20BGSUTOL-BGSU |
 | 2026-11-15 06:17 | underdog\_value | Tie is the result — YES: Kalshi says 24%, we say 27%; placed order at 24¢ | yes | 0.2400 | 0.2677 | +0.0177 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.268 from 2 books \(Fulham vs Bournemouth\) | KXEPLGAME-26NOV29FULBOU-TIE |
 | 2026-11-15 06:17 | underdog\_value | Tie is the result — YES: Kalshi says 24%, we say 27%; placed order at 24¢ | yes | 0.2400 | 0.2655 | +0.0155 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.266 from 2 books \(Everton vs Liverpool\) | KXEPLGAME-26NOV29EVELFC-TIE |
 | 2026-11-15 06:17 | underdog\_value | Hull City wins — YES: Kalshi says 20%, we say 24%; placed order at 20¢ | yes | 0.2000 | 0.2370 | +0.0270 | 100 | yes | open | underdog \(5.0x payout\); Hull City consensus 0.237 from 2 books \(Crystal Palace vs Hull City\) | KXEPLGAME-26NOV29CRYHUL-HUL |
