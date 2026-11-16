@@ -1,15 +1,1 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1390.46
- scanned=1407 signals=0 filled=0 orders_placed=1 settled=0 cash=1390.46
-underdog lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
-┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
-│ underdog_… │ KXNCAAFGA… │ no   │ 0.1300 │ 0.1572 │ 0.0172 │ 100  │ underdog  │
-│            │            │      │        │        │        │      │ (7.7x     │
-│            │            │      │        │        │        │      │ payout);  │
-│            │            │      │        │        │        │      │ Toledo    │
-│            │            │      │        │        │        │      │ Rockets   │
-│            │            │      │        │        │        │      │ consensus │
-│            │            │      │        │        │        │      │ 0.843     │
-│            │            │      │        │        │        │      │ from      │
-└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘

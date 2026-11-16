@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-16 08:18 UTC. Cash **$1390.46** (started $1000.00), realized PnL **$545.17**, fees $70.88, settled 92, wins 30, open positions 9.
+Updated 2026-11-16 08:48 UTC. Cash **$1390.46** (started $1000.00), realized PnL **$545.17**, fees $70.88, settled 92, wins 30, open positions 9.
 
 Brier (lower is better): strategy 0.2351 vs market price 0.2377.
 
@@ -37,7 +37,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-16 08:18 | underdog\_value | KXNCAAFGAME-26NOV20BGSUTOL-TOL — NO: Kalshi says 13%, we say 16%; placed order at 13¢ | no | 0.1300 | 0.1572 | +0.0172 | 100 | yes | open | underdog \(7.7x payout\); Toledo Rockets consensus 0.843 from 3 books \(Toledo Rockets vs Bowling Green Falcons\) | KXNCAAFGAME-26NOV20BGSUTOL-TOL |
+| 2026-11-16 08:18 | underdog\_value | Toledo wins — NO: Kalshi says 13%, we say 16%; placed order at 13¢ | no | 0.1300 | 0.1572 | +0.0172 | 100 | yes | open | underdog \(7.7x payout\); Toledo Rockets consensus 0.843 from 3 books \(Toledo Rockets vs Bowling Green Falcons\) | KXNCAAFGAME-26NOV20BGSUTOL-TOL |
 | 2026-11-16 04:18 | underdog\_value | Bayern Munich wins — NO: Kalshi says 10%, we say 12%; placed order at 10¢ | no | 0.1000 | 0.1205 | +0.0105 | 100 | yes | open | underdog \(10.0x payout\); Bayern Munich consensus 0.880 from 4 books \(Bayern Munich vs 1. FC Köln\) | KXBUNDESLIGAGAME-26NOV20BMUKOE-BMU |
 | 2026-11-16 00:48 | underdog\_value | Old Dominion wins — YES: Kalshi says 16%, we say 18%; placed order at 16¢ | yes | 0.1600 | 0.1806 | +0.0106 | 100 | yes | open | underdog \(6.2x payout\); Old Dominion Monarchs consensus 0.181 from 3 books \(UConn Huskies vs Old Dominion Monarchs\) | KXNCAAFGAME-26NOV21ODUCONN-ODU |
 | 2026-11-16 00:48 | underdog\_value | Kansas St. wins — YES: Kalshi says 23%, we say 25%; placed order at 23¢ | yes | 0.2300 | 0.2549 | +0.0149 | 100 | yes | open | underdog \(4.3x payout\); Kansas State Wildcats consensus 0.255 from 3 books \(Kansas State Wildcats vs Arizona Wildcats\) | KXNCAAFGAME-26NOV21ARIZKSU-KSU |
