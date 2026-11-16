@@ -80,7 +80,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `1. FSV Mainz 05 5 - 3 FC Bayern München` (12 events)
 - `1. FSV Mainz 05 5 - 4 FC Bayern München` (12 events)
 - `1. FSV Mainz 05 5 - 5 FC Bayern München` (12 events)
-- `AFC Bournemouth` (27 events)
+- `AFC Bournemouth` (34 events)
 - `AJ Auxerre` (4 events)
 - `AJ Auxerre 0 - 0 Paris FC` (4 events)
 - `AJ Auxerre 0 - 1 Paris FC` (4 events)
@@ -534,7 +534,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Arizona State` (73 events)
 - `Arkansas State` (88 events)
 - `Arkansas-Pine Bluff` (101 events)
-- `Arsenal FC` (18 events)
+- `Arsenal FC` (24 events)
 - `Arsenal FC 0 - 0 Hull City AFC` (12 events)
 - `Arsenal FC 0 - 1 Hull City AFC` (12 events)
 - `Arsenal FC 0 - 2 Hull City AFC` (12 events)
@@ -588,7 +588,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Ashley Westwood: 4+ shots` (2 events)
 - `Ashley Westwood: 4+ shots on target` (2 events)
 - `Ashley Westwood: 5+ shots` (2 events)
-- `Aston Villa FC` (27 events)
+- `Aston Villa FC` (34 events)
 - `Athletic Club` (6 events)
 - `Austin FC 0 - 0 Portland Timbers` (7 events)
 - `Austin FC 0 - 1 Portland Timbers` (7 events)
@@ -681,7 +681,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `BV Borussia 09 Dortmund 5 - 3 SV 07 Elversberg` (12 events)
 - `BV Borussia 09 Dortmund 5 - 4 SV 07 Elversberg` (12 events)
 - `BV Borussia 09 Dortmund 5 - 5 SV 07 Elversberg` (12 events)
-- `Ball State` (1 events)
+- `Ball State` (2 events)
 - `Bart Verbruggen: 1+ saves` (5 events)
 - `Bart Verbruggen: 2+ saves` (5 events)
 - `Bart Verbruggen: 3+ saves` (5 events)
@@ -848,7 +848,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Breel Embolo: 4+ shots` (2 events)
 - `Breel Embolo: 4+ shots on target` (2 events)
 - `Breel Embolo: 5+ shots` (2 events)
-- `Brentford FC` (21 events)
+- `Brentford FC` (22 events)
 - `Brian Brobbey: 1+ assists` (5 events)
 - `Brian Brobbey: 1+ goals + assists` (5 events)
 - `Brian Brobbey: 1+ shots` (5 events)
@@ -878,7 +878,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Brice Samba: 4+ saves` (5 events)
 - `Brice Samba: 5+ saves` (5 events)
 - `Brice Samba: 6+ saves` (5 events)
-- `Brighton & Hove Albion FC` (22 events)
+- `Brighton & Hove Albion FC` (24 events)
 - `Brighton & Hove Albion FC 0 - 0 Brentford FC` (20 events)
 - `Brighton & Hove Albion FC 0 - 1 Brentford FC` (20 events)
 - `Brighton & Hove Albion FC 0 - 2 Brentford FC` (20 events)
@@ -1192,7 +1192,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Cheikh Tidiane Sabaly: 4+ shots` (2 events)
 - `Cheikh Tidiane Sabaly: 4+ shots on target` (2 events)
 - `Cheikh Tidiane Sabaly: 5+ shots` (2 events)
-- `Chelsea FC` (27 events)
+- `Chelsea FC` (34 events)
 - `Chema: 1+ assists` (5 events)
 - `Chema: 1+ goals + assists` (5 events)
 - `Chema: 1+ shots` (5 events)
@@ -1389,7 +1389,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Costinha: 4+ shots` (5 events)
 - `Costinha: 4+ shots on target` (5 events)
 - `Costinha: 5+ shots` (5 events)
-- `Coventry City FC` (9 events)
+- `Coventry City FC` (16 events)
 - `Cristian Espinoza: 1+ assists` (2 events)
 - `Cristian Espinoza: 1+ goals + assists` (2 events)
 - `Cristian Espinoza: 1+ shots` (2 events)
@@ -1407,7 +1407,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Cristian Espinoza: 4+ shots` (2 events)
 - `Cristian Espinoza: 4+ shots on target` (2 events)
 - `Cristian Espinoza: 5+ shots` (2 events)
-- `Crystal Palace FC` (27 events)
+- `Crystal Palace FC` (34 events)
 - `Crystal Palace FC 0 - 0 Liverpool FC` (20 events)
 - `Crystal Palace FC 0 - 1 Liverpool FC` (20 events)
 - `Crystal Palace FC 0 - 2 Liverpool FC` (20 events)
@@ -2044,7 +2044,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Evanilson: 4+ shots on target` (5 events)
 - `Evanilson: 5+ shots` (5 events)
 - `Even` (107 events)
-- `Everton FC` (3 events)
+- `Everton FC` (4 events)
 - `Everton FC 0 - 0 Coventry City FC` (2 events)
 - `Everton FC 0 - 1 Coventry City FC` (2 events)
 - `Everton FC 0 - 2 Coventry City FC` (2 events)
@@ -2380,7 +2380,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Frankie Westfield: 4+ shots on target` (2 events)
 - `Frankie Westfield: 5+ shots` (2 events)
 - `Fresno State` (76 events)
-- `Fulham FC` (18 events)
+- `Fulham FC` (24 events)
 - `Fulham FC 0 - 0 Newcastle United FC` (12 events)
 - `Fulham FC 0 - 1 Newcastle United FC` (12 events)
 - `Fulham FC 0 - 2 Newcastle United FC` (12 events)
@@ -2897,7 +2897,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Houston Dynamo 5 - 4 St. Louis City SC` (7 events)
 - `Houston Dynamo 5 - 5 St. Louis City SC` (7 events)
 - `Howard` (67 events)
-- `Hull City AFC` (14 events)
+- `Hull City AFC` (16 events)
 - `Hákon Arnar Haraldsson: 1+ assists` (5 events)
 - `Hákon Arnar Haraldsson: 1+ goals + assists` (5 events)
 - `Hákon Arnar Haraldsson: 1+ shots` (5 events)
@@ -3058,8 +3058,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Inter Miami CF 5 - 3 Charlotte FC` (7 events)
 - `Inter Miami CF 5 - 4 Charlotte FC` (7 events)
 - `Inter Miami CF 5 - 5 Charlotte FC` (7 events)
-- `Iowa State` (46 events)
-- `Ipswich Town FC` (27 events)
+- `Iowa State` (47 events)
+- `Ipswich Town FC` (34 events)
 - `Ipswich Town FC 0 - 0 AFC Bournemouth` (20 events)
 - `Ipswich Town FC 0 - 1 AFC Bournemouth` (20 events)
 - `Ipswich Town FC 0 - 2 AFC Bournemouth` (20 events)
@@ -3589,7 +3589,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Keisuke Kurokawa: 4+ shots on target` (2 events)
 - `Keisuke Kurokawa: 5+ shots` (2 events)
 - `Kennesaw State` (95 events)
-- `Kent State` (4 events)
+- `Kent State` (5 events)
 - `Kevin Denkey: 1+ assists` (2 events)
 - `Kevin Denkey: 1+ goals + assists` (2 events)
 - `Kevin Denkey: 1+ shots` (2 events)
@@ -3775,7 +3775,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Le Mans FC 5 - 3 AS Monaco FC` (15 events)
 - `Le Mans FC 5 - 4 AS Monaco FC` (15 events)
 - `Le Mans FC 5 - 5 AS Monaco FC` (15 events)
-- `Leeds United FC` (16 events)
+- `Leeds United FC` (23 events)
 - `Leeds United FC 0 - 0 Tottenham Hotspur FC` (9 events)
 - `Leeds United FC 0 - 1 Tottenham Hotspur FC` (9 events)
 - `Leeds United FC 0 - 2 Tottenham Hotspur FC` (9 events)
@@ -3919,7 +3919,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Lionel Messi: 4+ shots` (2 events)
 - `Lionel Messi: 4+ shots on target` (2 events)
 - `Lionel Messi: 5+ shots` (2 events)
-- `Liverpool FC` (22 events)
+- `Liverpool FC` (24 events)
 - `Los Angeles Galaxy` (7 events)
 - `Louisiana` (19 events)
 - `Louisiana-Monroe` (21 events)
@@ -4129,8 +4129,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Mamadou Sangaré: 4+ shots` (5 events)
 - `Mamadou Sangaré: 4+ shots on target` (5 events)
 - `Mamadou Sangaré: 5+ shots` (5 events)
-- `Manchester City FC` (15 events)
-- `Manchester United FC` (22 events)
+- `Manchester City FC` (21 events)
+- `Manchester United FC` (24 events)
 - `Manchester United FC 0 - 0 Aston Villa FC` (20 events)
 - `Manchester United FC 0 - 1 Aston Villa FC` (20 events)
 - `Manchester United FC 0 - 2 Aston Villa FC` (20 events)
@@ -4464,7 +4464,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Michael Kayode: 4+ shots` (5 events)
 - `Michael Kayode: 4+ shots on target` (5 events)
 - `Michael Kayode: 5+ shots` (5 events)
-- `Michigan State` (80 events)
+- `Michigan State` (81 events)
 - `Middle Tennessee` (73 events)
 - `Miguel Almirón: 1+ assists` (2 events)
 - `Miguel Almirón: 1+ goals + assists` (2 events)
@@ -4816,7 +4816,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `New York Red Bulls 5 - 3 Atlanta United FC` (7 events)
 - `New York Red Bulls 5 - 4 Atlanta United FC` (7 events)
 - `New York Red Bulls 5 - 5 Atlanta United FC` (7 events)
-- `Newcastle United FC` (18 events)
+- `Newcastle United FC` (24 events)
 - `Ngal'Ayel Mukau: 1+ assists` (5 events)
 - `Ngal'Ayel Mukau: 1+ goals + assists` (5 events)
 - `Ngal'Ayel Mukau: 1+ shots` (5 events)
@@ -4930,7 +4930,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Northern Colorado` (96 events)
 - `Northern Iowa` (92 events)
 - `Northwestern State` (92 events)
-- `Nottingham Forest FC` (16 events)
+- `Nottingham Forest FC` (23 events)
 - `Nottingham Forest FC 0 - 0 Manchester City FC` (9 events)
 - `Nottingham Forest FC 0 - 1 Manchester City FC` (9 events)
 - `Nottingham Forest FC 0 - 2 Manchester City FC` (9 events)
@@ -6354,7 +6354,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Steven Moreira: 5+ shots` (2 events)
 - `Stonehill` (51 events)
 - `Stony Brook` (82 events)
-- `Sunderland AFC` (27 events)
+- `Sunderland AFC` (34 events)
 - `Sunderland AFC 0 - 0 Chelsea FC` (20 events)
 - `Sunderland AFC 0 - 1 Chelsea FC` (20 events)
 - `Sunderland AFC 0 - 2 Chelsea FC` (20 events)
@@ -6606,7 +6606,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Tomás Jacob: 4+ shots` (2 events)
 - `Tomás Jacob: 4+ shots on target` (2 events)
 - `Tomás Jacob: 5+ shots` (2 events)
-- `Tottenham Hotspur FC` (16 events)
+- `Tottenham Hotspur FC` (23 events)
 - `Towson` (45 events)
 - `Trai Hume: 1+ assists` (5 events)
 - `Trai Hume: 1+ goals + assists` (5 events)
@@ -6681,7 +6681,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `UC Davis` (84 events)
 - `UNLV` (38 events)
 - `UT Rio Grande Valley` (75 events)
-- `UTEP` (43 events)
+- `UTEP` (44 events)
 - `Under` (187 events)
 - `Utah State` (42 events)
 - `Utah Tech` (84 events)
@@ -7135,16 +7135,16 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXEPLGAME-26NOV08MUNAVL` | no_market | 3 | 2026-11-07T00:08 |
 | `KXEPLGAME-26NOV08SUNCFC` | no_market | 1 | 2026-11-08T13:19 |
 | `KXEPLGAME-26NOV08SUNCFC` | no_market | 3 | 2026-11-07T00:08 |
-| `KXEPLGAME-26NOV21AVLSUN` | no_market | 1 | 2026-11-15T06:47 |
-| `KXEPLGAME-26NOV21BOUNFO` | no_market | 1 | 2026-11-15T06:47 |
-| `KXEPLGAME-26NOV21CFCLEE` | no_market | 1 | 2026-11-15T06:47 |
-| `KXEPLGAME-26NOV21COVCRY` | no_market | 1 | 2026-11-15T06:47 |
-| `KXEPLGAME-26NOV21MCIFUL` | no_market | 1 | 2026-11-15T06:47 |
-| `KXEPLGAME-26NOV21NEWARS` | no_market | 1 | 2026-11-15T06:47 |
-| `KXEPLGAME-26NOV21TOTIPS` | no_market | 1 | 2026-11-15T06:47 |
-| `KXEPLGAME-26NOV22HULBRI` | no_market | 1 | 2026-11-15T06:47 |
-| `KXEPLGAME-26NOV22LFCMUN` | no_market | 1 | 2026-11-15T06:47 |
-| `KXEPLGAME-26NOV23BREEVE` | no_market | 1 | 2026-11-15T23:47 |
+| `KXEPLGAME-26NOV21AVLSUN` | no_market | 2 | 2026-11-16T00:07 |
+| `KXEPLGAME-26NOV21BOUNFO` | no_market | 2 | 2026-11-16T00:07 |
+| `KXEPLGAME-26NOV21CFCLEE` | no_market | 2 | 2026-11-16T00:07 |
+| `KXEPLGAME-26NOV21COVCRY` | no_market | 2 | 2026-11-16T00:07 |
+| `KXEPLGAME-26NOV21MCIFUL` | no_market | 2 | 2026-11-16T00:07 |
+| `KXEPLGAME-26NOV21NEWARS` | no_market | 2 | 2026-11-16T00:07 |
+| `KXEPLGAME-26NOV21TOTIPS` | no_market | 2 | 2026-11-16T00:07 |
+| `KXEPLGAME-26NOV22HULBRI` | no_market | 2 | 2026-11-16T00:07 |
+| `KXEPLGAME-26NOV22LFCMUN` | no_market | 2 | 2026-11-16T00:07 |
+| `KXEPLGAME-26NOV23BREEVE` | no_market | 2 | 2026-11-16T00:07 |
 | `KXLALIGAGAME-26NOV06SEVALA` | no_market | 2 | 2026-11-06T00:18 |
 | `KXLALIGAGAME-26NOV07ESPDEP` | no_market | 2 | 2026-11-06T00:18 |
 | `KXLALIGAGAME-26NOV07MCFSAN` | no_market | 2 | 2026-11-06T00:18 |
@@ -7260,9 +7260,9 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV14WASHMSU` | no_market | 2 | 2026-11-10T00:17 |
 | `KXNCAAFGAME-26NOV14WASHMSU` | no_market | 4 | 2026-11-14T00:17 |
 | `KXNCAAFGAME-26NOV17BALLOHIO` | no_market | 2 | 2026-11-14T00:17 |
-| `KXNCAAFGAME-26NOV17BALLOHIO` | no_market | 1 | 2026-11-15T00:07 |
+| `KXNCAAFGAME-26NOV17BALLOHIO` | no_market | 2 | 2026-11-16T00:07 |
 | `KXNCAAFGAME-26NOV20CLEMDUKE` | wide_book | 1 | 2026-11-15T19:47 |
-| `KXNCAAFGAME-26NOV20OREMSU` | no_market | 1 | 2026-11-15T17:47 |
+| `KXNCAAFGAME-26NOV20OREMSU` | no_market | 2 | 2026-11-16T00:07 |
 | `KXNCAAFGAME-26NOV21SMUND` | no_market | 2 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV05JACBAL` | no_market | 2 | 2026-11-06T00:18 |
 | `KXNFLGAME-26NOV08ARISEA` | no_market | 4 | 2026-11-08T00:19 |
@@ -7293,13 +7293,13 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNFLGAME-26NOV15SEALV` | no_market | 7 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV15SFDAL` | no_market | 8 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV16LACBAL` | no_market | 7 | 2026-11-15T00:07 |
-| `KXNFLGAME-26NOV19INDHOU` | no_market | 4 | 2026-11-15T00:07 |
-| `KXNFLGAME-26NOV22ARIKC` | no_market | 2 | 2026-11-15T00:07 |
+| `KXNFLGAME-26NOV19INDHOU` | no_market | 5 | 2026-11-16T00:07 |
+| `KXNFLGAME-26NOV22ARIKC` | no_market | 3 | 2026-11-16T00:07 |
 | `KXNFLGAME-26NOV22BALCAR` | no_market | 2 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV22JACNYG` | no_market | 1 | 2026-11-15T00:57 |
-| `KXNFLGAME-26NOV22LVDEN` | no_market | 1 | 2026-11-15T00:57 |
+| `KXNFLGAME-26NOV22LVDEN` | no_market | 2 | 2026-11-16T00:07 |
 | `KXNFLGAME-26NOV22MIABUF` | no_market | 2 | 2026-11-15T00:07 |
-| `KXNFLGAME-26NOV22NOCHI` | no_market | 2 | 2026-11-15T00:07 |
+| `KXNFLGAME-26NOV22NOCHI` | no_market | 3 | 2026-11-16T00:07 |
 | `KXNFLGAME-26NOV22NYJLAC` | no_market | 1 | 2026-11-15T00:17 |
 | `KXNFLGAME-26NOV22PITPHI` | no_market | 2 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV22TBDET` | no_market | 2 | 2026-11-15T00:07 |
