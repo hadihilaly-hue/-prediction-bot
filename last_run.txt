@@ -1,3 +1,15 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1402.15
- scanned=1374 signals=0 filled=0 orders_placed=0 settled=0 cash=1402.15
-underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
+ scanned=1374 signals=0 filled=1 orders_placed=0 settled=0 cash=1390.46
+underdog lane: orders_placed=0 bought_at_ask=1 pulled=1 skipped=
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNCAAFGA… │ yes  │ 0.1100 │ 0.1316 │ 0.0116 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (9.1x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ San Diego │
+│            │            │      │        │        │        │      │ State     │
+│            │            │      │        │        │        │      │ Aztecs    │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.1       │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
