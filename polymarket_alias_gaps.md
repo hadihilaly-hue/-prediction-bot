@@ -7322,4 +7322,4 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNFLGAME-26NOV22NYJLAC` | no_market | 2 | 2026-11-16T00:17 |
 | `KXNFLGAME-26NOV22PITPHI` | no_market | 3 | 2026-11-16T00:17 |
 | `KXNFLGAME-26NOV22TBDET` | no_market | 3 | 2026-11-16T00:17 |
-| `KXNFLGAME-26NOV22TENDAL` | no_market | 2 | 2026-11-15T00:07 |
+| `KXNFLGAME-26NOV22TENDAL` | no_market | 3 | 2026-11-16T01:37 |
