@@ -2250,7 +2250,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Exequiel Palacios: 5+ shots` (5 events)
 - `FC Augsburg` (15 events)
 - `FC Barcelona` (6 events)
-- `FC Bayern München` (12 events)
+- `FC Bayern München` (13 events)
 - `FC Cincinnati 0 - 0 Nashville SC` (7 events)
 - `FC Cincinnati 0 - 1 Nashville SC` (7 events)
 - `FC Cincinnati 0 - 2 Nashville SC` (7 events)
@@ -7120,6 +7120,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXBUNDESLIGAGAME-26NOV08KOELEV` | no_market | 4 | 2026-11-08T00:19 |
 | `KXBUNDESLIGAGAME-26NOV08SCFUNI` | no_market | 4 | 2026-11-08T00:19 |
 | `KXBUNDESLIGAGAME-26NOV08TSGSCH` | no_market | 4 | 2026-11-08T00:19 |
+| `KXBUNDESLIGAGAME-26NOV20BMUKOE` | no_market | 1 | 2026-11-16T12:17 |
 | `KXBUNDESLIGAGAME-26NOV21SGETSG` | no_market | 3 | 2026-11-16T04:47 |
 | `KXBUNDESLIGAGAME-26NOV21SVESCF` | no_market | 3 | 2026-11-16T04:47 |
 | `KXBUNDESLIGAGAME-26NOV21UNIRBL` | no_market | 3 | 2026-11-16T04:47 |

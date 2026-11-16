@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-16 11:47 UTC. Cash **$1367.10** (started $1000.00), realized PnL **$545.17**, fees $71.24, settled 92, wins 30, open positions 11.
+Updated 2026-11-16 12:18 UTC. Cash **$1367.10** (started $1000.00), realized PnL **$545.17**, fees $71.24, settled 92, wins 30, open positions 11.
 
 Brier (lower is better): strategy 0.2351 vs market price 0.2377.
 
@@ -40,6 +40,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-16 12:18 | underdog\_value | Old Dominion wins — YES: Kalshi says 16%, we say 18%; placed order at 16¢ | yes | 0.1600 | 0.1831 | +0.0131 | 100 | yes | open | underdog \(6.2x payout\); Old Dominion Monarchs consensus 0.183 from 3 books \(UConn Huskies vs Old Dominion Monarchs\) | KXNCAAFGAME-26NOV21ODUCONN-ODU |
 | 2026-11-16 08:18 | underdog\_value | Toledo wins — NO: Kalshi says 13%, we say 16%; bought at 13¢ | no | 0.1300 | 0.1572 | +0.0172 | 100 | yes | open | underdog \(7.7x payout\); Toledo Rockets consensus 0.843 from 3 books \(Toledo Rockets vs Bowling Green Falcons\) | KXNCAAFGAME-26NOV20BGSUTOL-TOL |
 | 2026-11-16 04:18 | underdog\_value | Bayern Munich wins — NO: Kalshi says 10%, we say 12%; bought at 10¢ | no | 0.1000 | 0.1205 | +0.0105 | 100 | yes | open | underdog \(10.0x payout\); Bayern Munich consensus 0.880 from 4 books \(Bayern Munich vs 1. FC Köln\) | KXBUNDESLIGAGAME-26NOV20BMUKOE-BMU |
 | 2026-11-16 00:48 | underdog\_value | Old Dominion wins — YES: Kalshi says 16%, we say 18%; placed order at 16¢ | yes | 0.1600 | 0.1806 | +0.0106 | 100 | yes | open | underdog \(6.2x payout\); Old Dominion Monarchs consensus 0.181 from 3 books \(UConn Huskies vs Old Dominion Monarchs\) | KXNCAAFGAME-26NOV21ODUCONN-ODU |
