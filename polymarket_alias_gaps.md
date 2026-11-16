@@ -42,8 +42,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `1. FC Köln 5 - 3 Bayer 04 Leverkusen` (8 events)
 - `1. FC Köln 5 - 4 Bayer 04 Leverkusen` (8 events)
 - `1. FC Köln 5 - 5 Bayer 04 Leverkusen` (8 events)
-- `1. FC Union Berlin` (18 events)
-- `1. FSV Mainz 05` (14 events)
+- `1. FC Union Berlin` (21 events)
+- `1. FSV Mainz 05` (15 events)
 - `1. FSV Mainz 05 0 - 0 FC Bayern München` (12 events)
 - `1. FSV Mainz 05 0 - 1 FC Bayern München` (12 events)
 - `1. FSV Mainz 05 0 - 2 FC Bayern München` (12 events)
@@ -644,7 +644,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Axel Disasi: 4+ shots` (5 events)
 - `Axel Disasi: 4+ shots on target` (5 events)
 - `Axel Disasi: 5+ shots` (5 events)
-- `BV Borussia 09 Dortmund` (18 events)
+- `BV Borussia 09 Dortmund` (21 events)
 - `BV Borussia 09 Dortmund 0 - 0 SV 07 Elversberg` (12 events)
 - `BV Borussia 09 Dortmund 0 - 1 SV 07 Elversberg` (12 events)
 - `BV Borussia 09 Dortmund 0 - 2 SV 07 Elversberg` (12 events)
@@ -688,7 +688,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Bart Verbruggen: 4+ saves` (5 events)
 - `Bart Verbruggen: 5+ saves` (5 events)
 - `Bart Verbruggen: 6+ saves` (5 events)
-- `Bayer 04 Leverkusen` (14 events)
+- `Bayer 04 Leverkusen` (17 events)
 - `Benjamin André: 1+ assists` (5 events)
 - `Benjamin André: 1+ goals + assists` (5 events)
 - `Benjamin André: 1+ shots` (5 events)
@@ -714,7 +714,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Berke Özer: 6+ saves` (5 events)
 - `Bethune-Cookman` (95 events)
 - `Boise State` (79 events)
-- `Borussia Mönchengladbach` (6 events)
+- `Borussia Mönchengladbach` (9 events)
 - `Both Teams to Score` (107 events)
 - `Both Teams to Score Points - Q1` (80 events)
 - `Both Teams to Score Points - Q2` (80 events)
@@ -2248,7 +2248,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Exequiel Palacios: 4+ shots` (5 events)
 - `Exequiel Palacios: 4+ shots on target` (5 events)
 - `Exequiel Palacios: 5+ shots` (5 events)
-- `FC Augsburg` (14 events)
+- `FC Augsburg` (15 events)
 - `FC Barcelona` (6 events)
 - `FC Bayern München` (12 events)
 - `FC Cincinnati 0 - 0 Nashville SC` (7 events)
@@ -2770,7 +2770,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Granit Xhaka: 4+ shots` (5 events)
 - `Granit Xhaka: 4+ shots on target` (5 events)
 - `Granit Xhaka: 5+ shots` (5 events)
-- `Hamburger SV` (2 events)
+- `Hamburger SV` (3 events)
 - `Hampton` (87 events)
 - `Hannes Wolf: 1+ assists` (2 events)
 - `Hannes Wolf: 1+ goals + assists` (2 events)
@@ -5937,7 +5937,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `SC Freiburg 5 - 3 1. FC Union Berlin` (12 events)
 - `SC Freiburg 5 - 4 1. FC Union Berlin` (12 events)
 - `SC Freiburg 5 - 5 1. FC Union Berlin` (12 events)
-- `SC Paderborn 07` (18 events)
+- `SC Paderborn 07` (21 events)
 - `SC Paderborn 07 0 - 0 Eintracht Frankfurt` (12 events)
 - `SC Paderborn 07 0 - 1 Eintracht Frankfurt` (12 events)
 - `SC Paderborn 07 0 - 2 Eintracht Frankfurt` (12 events)
@@ -5974,8 +5974,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `SC Paderborn 07 5 - 3 Eintracht Frankfurt` (12 events)
 - `SC Paderborn 07 5 - 4 Eintracht Frankfurt` (12 events)
 - `SC Paderborn 07 5 - 5 Eintracht Frankfurt` (12 events)
-- `SV 07 Elversberg` (18 events)
-- `SV Werder Bremen` (14 events)
+- `SV 07 Elversberg` (21 events)
+- `SV Werder Bremen` (15 events)
 - `Sacred Heart` (47 events)
 - `Sam Surridge: 1+ assists` (2 events)
 - `Sam Surridge: 1+ goals + assists` (2 events)
@@ -6410,7 +6410,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Sékou Tidiany Bangoura: 4+ shots` (2 events)
 - `Sékou Tidiany Bangoura: 4+ shots on target` (2 events)
 - `Sékou Tidiany Bangoura: 5+ shots` (2 events)
-- `TSG 1899 Hoffenheim` (14 events)
+- `TSG 1899 Hoffenheim` (17 events)
 - `TSG 1899 Hoffenheim 0 - 0 FC Schalke 04` (8 events)
 - `TSG 1899 Hoffenheim 0 - 1 FC Schalke 04` (8 events)
 - `TSG 1899 Hoffenheim 0 - 2 FC Schalke 04` (8 events)
@@ -7120,10 +7120,10 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXBUNDESLIGAGAME-26NOV08KOELEV` | no_market | 4 | 2026-11-08T00:19 |
 | `KXBUNDESLIGAGAME-26NOV08SCFUNI` | no_market | 4 | 2026-11-08T00:19 |
 | `KXBUNDESLIGAGAME-26NOV08TSGSCH` | no_market | 4 | 2026-11-08T00:19 |
-| `KXBUNDESLIGAGAME-26NOV21SGETSG` | no_market | 2 | 2026-11-15T00:07 |
-| `KXBUNDESLIGAGAME-26NOV21SVESCF` | no_market | 2 | 2026-11-15T00:07 |
-| `KXBUNDESLIGAGAME-26NOV21UNIRBL` | no_market | 2 | 2026-11-15T00:07 |
-| `KXBUNDESLIGAGAME-26NOV22FCAM05` | no_market | 2 | 2026-11-15T00:07 |
+| `KXBUNDESLIGAGAME-26NOV21SGETSG` | no_market | 3 | 2026-11-16T04:47 |
+| `KXBUNDESLIGAGAME-26NOV21SVESCF` | no_market | 3 | 2026-11-16T04:47 |
+| `KXBUNDESLIGAGAME-26NOV21UNIRBL` | no_market | 3 | 2026-11-16T04:47 |
+| `KXBUNDESLIGAGAME-26NOV22FCAM05` | no_market | 3 | 2026-11-16T04:47 |
 | `KXEPLGAME-26NOV06EVECOV` | no_market | 2 | 2026-11-06T00:18 |
 | `KXEPLGAME-26NOV07ARSHUL` | no_market | 3 | 2026-11-07T00:08 |
 | `KXEPLGAME-26NOV07FULNEW` | no_market | 3 | 2026-11-07T00:08 |
@@ -7323,3 +7323,4 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNFLGAME-26NOV22PITPHI` | no_market | 3 | 2026-11-16T00:17 |
 | `KXNFLGAME-26NOV22TBDET` | no_market | 3 | 2026-11-16T00:17 |
 | `KXNFLGAME-26NOV22TENDAL` | no_market | 3 | 2026-11-16T01:37 |
+| `KXNFLGAME-26NOV23CINWAS` | no_market | 1 | 2026-11-16T04:47 |
