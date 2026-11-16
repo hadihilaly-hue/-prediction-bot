@@ -47,8 +47,9 @@
 │ Oregon does  │ Oregon vs    │ no   │ 100   │ 17.25 │ 0.199    │ KXNCAAFGAME… │
 │ NOT win      │ Michigan St. │      │       │       │          │              │
 │              │ (Nov 20)     │      │       │       │          │              │
-│ YES on       │ KXNCAAFGAME… │ yes  │ 100   │ 11.69 │ 0.132    │ KXNCAAFGAME… │
-│ KXNCAAFGAME… │              │      │       │       │          │              │
+│ San Diego    │ San Diego    │ yes  │ 100   │ 11.69 │ 0.132    │ KXNCAAFGAME… │
+│ St. wins     │ St. vs Boise │      │       │       │          │              │
+│              │ St. (Nov 21) │      │       │       │          │              │
 │ Notre Dame   │ SMU vs Notre │ no   │ 100   │ 12.19 │ 0.148    │ KXNCAAFGAME… │
 │ does NOT win │ Dame (Nov    │      │       │       │          │              │
 │              │ 21)          │      │       │       │          │              │

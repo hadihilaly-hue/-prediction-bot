@@ -1,15 +1,23 @@
- scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1402.15
- scanned=1374 signals=0 filled=1 orders_placed=0 settled=0 cash=1390.46
-underdog lane: orders_placed=0 bought_at_ask=1 pulled=1 skipped=
+ scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1390.46
+ scanned=1379 signals=0 filled=0 orders_placed=2 settled=0 cash=1390.46
+underdog lane: orders_placed=2 bought_at_ask=0 pulled=0 skipped=
 ┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
 ┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
 ┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
-│ underdog_… │ KXNCAAFGA… │ yes  │ 0.1100 │ 0.1316 │ 0.0116 │ 100  │ underdog  │
-│            │            │      │        │        │        │      │ (9.1x     │
+│ underdog_… │ KXNCAAFGA… │ yes  │ 0.2300 │ 0.2549 │ 0.0149 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.3x     │
 │            │            │      │        │        │        │      │ payout);  │
-│            │            │      │        │        │        │      │ San Diego │
+│            │            │      │        │        │        │      │ Kansas    │
 │            │            │      │        │        │        │      │ State     │
-│            │            │      │        │        │        │      │ Aztecs    │
+│            │            │      │        │        │        │      │ Wildcats  │
 │            │            │      │        │        │        │      │ consensus │
-│            │            │      │        │        │        │      │ 0.1       │
+│            │            │      │        │        │        │      │ 0.25      │
+│ underdog_… │ KXNCAAFGA… │ yes  │ 0.1600 │ 0.1806 │ 0.0106 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (6.2x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Old       │
+│            │            │      │        │        │        │      │ Dominion  │
+│            │            │      │        │        │        │      │ Monarchs  │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.18      │
 └────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
