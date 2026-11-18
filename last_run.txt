@@ -1,15 +1,3 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1343.79
- scanned=1511 signals=0 filled=0 orders_placed=1 settled=0 cash=1343.79
-underdog lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
-┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
-│ underdog_… │ KXNCAAFGA… │ yes  │ 0.2000 │ 0.2226 │ 0.0126 │ 100  │ underdog  │
-│            │            │      │        │        │        │      │ (5.0x     │
-│            │            │      │        │        │        │      │ payout);  │
-│            │            │      │        │        │        │      │ Missouri  │
-│            │            │      │        │        │        │      │ State     │
-│            │            │      │        │        │        │      │ Bears     │
-│            │            │      │        │        │        │      │ consensus │
-│            │            │      │        │        │        │      │ 0.223     │
-└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
+ scanned=1511 signals=0 filled=0 orders_placed=0 settled=0 cash=1343.79
+underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
