@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-18 09:47 UTC. Cash **$1343.79** (started $1000.00), realized PnL **$520.85**, fees $71.55, settled 93, wins 30, open positions 11.
+Updated 2026-11-18 10:18 UTC. Cash **$1343.79** (started $1000.00), realized PnL **$520.85**, fees $71.55, settled 93, wins 30, open positions 11.
 
 Brier (lower is better): strategy 0.2325 vs market price 0.2349.
 
@@ -40,6 +40,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-18 10:18 | underdog\_value | Missouri St. wins — YES: Kalshi says 20%, we say 22%; placed order at 20¢ | yes | 0.2000 | 0.2226 | +0.0126 | 100 | yes | open | underdog \(5.0x payout\); Missouri State Bears consensus 0.223 from 4 books \(Jacksonville State Gamecocks vs Missouri State Bears\) | KXNCAAFGAME-26NOV21MOSUJVST-MOSU |
 | 2026-11-18 00:48 | underdog\_value | Missouri St. wins — YES: Kalshi says 20%, we say 22%; placed order at 20¢ | yes | 0.2000 | 0.2226 | +0.0126 | 100 | yes | open | underdog \(5.0x payout\); Missouri State Bears consensus 0.223 from 4 books \(Jacksonville State Gamecocks vs Missouri State Bears\) | KXNCAAFGAME-26NOV21MOSUJVST-MOSU |
 | 2026-11-18 00:18 | underdog\_value | Minnesota wins — NO: Kalshi says 23%, we say 25%; bought at 23¢ | no | 0.2300 | 0.2509 | +0.0109 | 100 | yes | open | underdog \(4.3x payout\); Minnesota Vikings consensus 0.749 from 2 books \(Minnesota Vikings vs Atlanta Falcons\) | KXNFLGAME-26NOV29ATLMIN-MIN |
 | 2026-11-16 12:18 | underdog\_value | Old Dominion wins — YES: Kalshi says 16%, we say 18%; placed order at 16¢ | yes | 0.1600 | 0.1831 | +0.0131 | 100 | yes | open | underdog \(6.2x payout\); Old Dominion Monarchs consensus 0.183 from 3 books \(UConn Huskies vs Old Dominion Monarchs\) | KXNCAAFGAME-26NOV21ODUCONN-ODU |
