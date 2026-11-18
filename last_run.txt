@@ -1,14 +1,1 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1343.79
- scanned=1525 signals=0 filled=0 orders_placed=1 settled=0 cash=1343.79
-underdog lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
-┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
-│ underdog_… │ KXNFLGAME… │ no   │ 0.1600 │ 0.1852 │ 0.0152 │ 100  │ underdog  │
-│            │            │      │        │        │        │      │ (6.2x     │
-│            │            │      │        │        │        │      │ payout);  │
-│            │            │      │        │        │        │      │ Cincinna… │
-│            │            │      │        │        │        │      │ Bengals   │
-│            │            │      │        │        │        │      │ consensus │
-│            │            │      │        │        │        │      │ 0.815 f   │
-└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
