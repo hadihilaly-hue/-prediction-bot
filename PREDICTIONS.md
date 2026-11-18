@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-18 20:18 UTC. Cash **$1298.93** (started $1000.00), realized PnL **$520.85**, fees $73.41, settled 93, wins 30, open positions 14.
+Updated 2026-11-18 20:48 UTC. Cash **$1298.93** (started $1000.00), realized PnL **$520.85**, fees $73.41, settled 93, wins 30, open positions 14.
 
 Brier (lower is better): strategy 0.2325 vs market price 0.2349.
 
@@ -37,16 +37,16 @@ Per league (Kalshi series):
 | Chicago does NOT win | New Orleans vs Chicago \(Nov 22\) | 100 | $17.25 | 19% | `KXNFLGAME-26NOV22NOCHI-CHI` |
 | Minnesota does NOT win | Atlanta vs Minnesota \(Nov 29\) | 100 | $23.31 | 25% | `KXNFLGAME-26NOV29ATLMIN-MIN` |
 | Cincinnati does NOT win | New Orleans vs Cincinnati \(Nov 29\) | 100 | $16.24 | 19% | `KXNFLGAME-26NOV29NOCIN-CIN` |
-| YES on KXUCLGAME-26NOV24COMAEK-TIE | KXUCLGAME-26NOV24COMAEK | 100 | $17.99 | 19% | `KXUCLGAME-26NOV24COMAEK-TIE` |
-| NO on KXUCLGAME-26NOV25SBHBAR-BAR | KXUCLGAME-26NOV25SBHBAR | 100 | $10.63 | 13% | `KXUCLGAME-26NOV25SBHBAR-BAR` |
+| Tie is the result | Como vs AEK Athens \(Nov 24\) | 100 | $17.99 | 19% | `KXUCLGAME-26NOV24COMAEK-TIE` |
+| Barcelona does NOT win | Sabah Masazir vs Barcelona \(Nov 25\) | 100 | $10.63 | 13% | `KXUCLGAME-26NOV25SBHBAR-BAR` |
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-18 20:18 | underdog\_value | KXUCLGAME-26NOV25SBHBAR-BAR — NO: Kalshi says 10%, we say 13%; bought at 10¢ | no | 0.1000 | 0.1262 | +0.0162 | 100 | yes | open | underdog \(10.0x payout\); Barcelona consensus 0.874 from 3 books \(Sabah FK vs Barcelona\) | KXUCLGAME-26NOV25SBHBAR-BAR |
-| 2026-11-18 20:18 | underdog\_value | KXUCLGAME-26NOV25LILBMU-LIL — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1307 | +0.0107 | 100 | yes | open | underdog \(9.1x payout\); Lille consensus 0.131 from 3 books \(Lille vs Bayern Munich\) | KXUCLGAME-26NOV25LILBMU-LIL |
-| 2026-11-18 20:18 | underdog\_value | KXUCLGAME-26NOV24COMAEK-TIE — YES: Kalshi says 17%, we say 19%; bought at 17¢ | yes | 0.1700 | 0.1944 | +0.0144 | 100 | yes | open | underdog \(5.9x payout\); Draw consensus 0.194 from 3 books \(Como vs AEK Athens\) | KXUCLGAME-26NOV24COMAEK-TIE |
+| 2026-11-18 20:18 | underdog\_value | Barcelona wins — NO: Kalshi says 10%, we say 13%; bought at 10¢ | no | 0.1000 | 0.1262 | +0.0162 | 100 | yes | open | underdog \(10.0x payout\); Barcelona consensus 0.874 from 3 books \(Sabah FK vs Barcelona\) | KXUCLGAME-26NOV25SBHBAR-BAR |
+| 2026-11-18 20:18 | underdog\_value | Lille wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1307 | +0.0107 | 100 | yes | open | underdog \(9.1x payout\); Lille consensus 0.131 from 3 books \(Lille vs Bayern Munich\) | KXUCLGAME-26NOV25LILBMU-LIL |
+| 2026-11-18 20:18 | underdog\_value | Tie is the result — YES: Kalshi says 17%, we say 19%; bought at 17¢ | yes | 0.1700 | 0.1944 | +0.0144 | 100 | yes | open | underdog \(5.9x payout\); Draw consensus 0.194 from 3 books \(Como vs AEK Athens\) | KXUCLGAME-26NOV24COMAEK-TIE |
 | 2026-11-18 18:18 | underdog\_value | Cincinnati wins — NO: Kalshi says 16%, we say 19%; bought at 16¢ | no | 0.1600 | 0.1852 | +0.0152 | 100 | yes | open | underdog \(6.2x payout\); Cincinnati Bengals consensus 0.815 from 2 books \(Cincinnati Bengals vs New Orleans Saints\) | KXNFLGAME-26NOV29NOCIN-CIN |
 | 2026-11-18 16:18 | underdog\_value | Old Dominion wins — YES: Kalshi says 16%, we say 18%; placed order at 16¢ | yes | 0.1600 | 0.1842 | +0.0142 | 100 | yes | open | underdog \(6.2x payout\); Old Dominion Monarchs consensus 0.184 from 4 books \(UConn Huskies vs Old Dominion Monarchs\) | KXNCAAFGAME-26NOV21ODUCONN-ODU |
 | 2026-11-18 10:18 | underdog\_value | Missouri St. wins — YES: Kalshi says 20%, we say 22%; placed order at 20¢ | yes | 0.2000 | 0.2226 | +0.0126 | 100 | yes | open | underdog \(5.0x payout\); Missouri State Bears consensus 0.223 from 4 books \(Jacksonville State Gamecocks vs Missouri State Bears\) | KXNCAAFGAME-26NOV21MOSUJVST-MOSU |

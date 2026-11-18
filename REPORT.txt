@@ -79,8 +79,11 @@
 │ does NOT win │ vs           │      │       │       │          │              │
 │              │ Cincinnati   │      │       │       │          │              │
 │              │ (Nov 29)     │      │       │       │          │              │
-│ YES on       │ KXUCLGAME-2… │ yes  │ 100   │ 17.99 │ 0.194    │ KXUCLGAME-2… │
-│ KXUCLGAME-2… │              │      │       │       │          │              │
-│ NO on        │ KXUCLGAME-2… │ no   │ 100   │ 10.63 │ 0.126    │ KXUCLGAME-2… │
-│ KXUCLGAME-2… │              │      │       │       │          │              │
+│ Tie is the   │ Como vs AEK  │ yes  │ 100   │ 17.99 │ 0.194    │ KXUCLGAME-2… │
+│ result       │ Athens (Nov  │      │       │       │          │              │
+│              │ 24)          │      │       │       │          │              │
+│ Barcelona    │ Sabah        │ no   │ 100   │ 10.63 │ 0.126    │ KXUCLGAME-2… │
+│ does NOT win │ Masazir vs   │      │       │       │          │              │
+│              │ Barcelona    │      │       │       │          │              │
+│              │ (Nov 25)     │      │       │       │          │              │
 └──────────────┴──────────────┴──────┴───────┴───────┴──────────┴──────────────┘
