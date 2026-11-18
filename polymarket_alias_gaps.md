@@ -7065,6 +7065,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Zane Monlouis: 5+ shots` (2 events)
 - `clemson-tigers:0.19-0.25` (1 events)
 - `draw:0.2-0.26` (2 events)
+- `houston-cougars:0.71-0.77` (1 events)
 - `new-england-revolution:0.26-0.32` (2 events)
 - `north-texas-mean-green:0.67-0.74` (1 events)
 - `old-dominion-monarchs:0.13-0.21` (1 events)
@@ -7275,6 +7276,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV21ARIZKSU` | no_market | 1 | 2026-11-17T00:07 |
 | `KXNCAAFGAME-26NOV21CSUFRES` | no_market | 3 | 2026-11-18T00:17 |
 | `KXNCAAFGAME-26NOV21DELNMSU` | no_market | 3 | 2026-11-18T00:17 |
+| `KXNCAAFGAME-26NOV21HOUWVU` | wide_book | 1 | 2026-11-18T16:47 |
 | `KXNCAAFGAME-26NOV21MOSUJVST` | no_market | 3 | 2026-11-18T00:17 |
 | `KXNCAAFGAME-26NOV21NIUNDSU` | no_market | 3 | 2026-11-18T00:17 |
 | `KXNCAAFGAME-26NOV21ODUCONN` | wide_book | 1 | 2026-11-16T01:07 |
