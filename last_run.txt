@@ -1,1 +1,14 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1367.10
+ scanned=1594 signals=0 filled=0 orders_placed=1 settled=0 cash=1367.10
+underdog lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=[]
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNFLGAME… │ no   │ 0.2300 │ 0.2509 │ 0.0109 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Minnesota │
+│            │            │      │        │        │        │      │ Vikings   │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.749 fr  │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
