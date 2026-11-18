@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-18 01:47 UTC. Cash **$1367.10** (started $1000.00), realized PnL **$545.17**, fees $71.24, settled 92, wins 30, open positions 11.
+Updated 2026-11-18 02:18 UTC. Cash **$1343.79** (started $1000.00), realized PnL **$545.17**, fees $71.55, settled 92, wins 30, open positions 12.
 
 Brier (lower is better): strategy 0.2351 vs market price 0.2377.
 
@@ -16,11 +16,11 @@ Per league (Kalshi series):
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
 - `KXNCAAFGAME`: open 6, settled 44, wins 15, realized PnL $463.04, Brier 0.1982 vs market 0.2080
-- `KXNFLGAME`: open 4, settled 28, wins 7, realized PnL $-295.65, Brier 0.2407 vs market 0.2211
+- `KXNFLGAME`: open 5, settled 28, wins 7, realized PnL $-295.65, Brier 0.2407 vs market 0.2211
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (11)
+## Open positions (12)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
@@ -35,13 +35,14 @@ Per league (Kalshi series):
 | Arizona wins | Arizona vs Kansas City \(Nov 22\) | 100 | $10.16 | 12% | `KXNFLGAME-26NOV22ARIKC-ARI` |
 | Denver does NOT win | Las Vegas vs Denver \(Nov 22\) | 100 | $20.28 | 23% | `KXNFLGAME-26NOV22LVDEN-DEN` |
 | Chicago does NOT win | New Orleans vs Chicago \(Nov 22\) | 100 | $17.25 | 19% | `KXNFLGAME-26NOV22NOCHI-CHI` |
+| Minnesota does NOT win | Atlanta vs Minnesota \(Nov 29\) | 100 | $23.31 | 25% | `KXNFLGAME-26NOV29ATLMIN-MIN` |
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 2026-11-18 00:48 | underdog\_value | Missouri St. wins — YES: Kalshi says 20%, we say 22%; placed order at 20¢ | yes | 0.2000 | 0.2226 | +0.0126 | 100 | yes | open | underdog \(5.0x payout\); Missouri State Bears consensus 0.223 from 4 books \(Jacksonville State Gamecocks vs Missouri State Bears\) | KXNCAAFGAME-26NOV21MOSUJVST-MOSU |
-| 2026-11-18 00:18 | underdog\_value | Minnesota wins — NO: Kalshi says 23%, we say 25%; placed order at 23¢ | no | 0.2300 | 0.2509 | +0.0109 | 100 | yes | open | underdog \(4.3x payout\); Minnesota Vikings consensus 0.749 from 2 books \(Minnesota Vikings vs Atlanta Falcons\) | KXNFLGAME-26NOV29ATLMIN-MIN |
+| 2026-11-18 00:18 | underdog\_value | Minnesota wins — NO: Kalshi says 23%, we say 25%; bought at 23¢ | no | 0.2300 | 0.2509 | +0.0109 | 100 | yes | open | underdog \(4.3x payout\); Minnesota Vikings consensus 0.749 from 2 books \(Minnesota Vikings vs Atlanta Falcons\) | KXNFLGAME-26NOV29ATLMIN-MIN |
 | 2026-11-16 12:18 | underdog\_value | Old Dominion wins — YES: Kalshi says 16%, we say 18%; placed order at 16¢ | yes | 0.1600 | 0.1831 | +0.0131 | 100 | yes | open | underdog \(6.2x payout\); Old Dominion Monarchs consensus 0.183 from 3 books \(UConn Huskies vs Old Dominion Monarchs\) | KXNCAAFGAME-26NOV21ODUCONN-ODU |
 | 2026-11-16 08:18 | underdog\_value | Toledo wins — NO: Kalshi says 13%, we say 16%; bought at 13¢ | no | 0.1300 | 0.1572 | +0.0172 | 100 | yes | open | underdog \(7.7x payout\); Toledo Rockets consensus 0.843 from 3 books \(Toledo Rockets vs Bowling Green Falcons\) | KXNCAAFGAME-26NOV20BGSUTOL-TOL |
 | 2026-11-16 04:18 | underdog\_value | Bayern Munich wins — NO: Kalshi says 10%, we say 12%; bought at 10¢ | no | 0.1000 | 0.1205 | +0.0105 | 100 | yes | open | underdog \(10.0x payout\); Bayern Munich consensus 0.880 from 4 books \(Bayern Munich vs 1. FC Köln\) | KXBUNDESLIGAGAME-26NOV20BMUKOE-BMU |
