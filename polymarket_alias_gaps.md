@@ -7083,6 +7083,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `new-england-revolution:0.26-0.32` (2 events)
 - `north-texas-mean-green:0.67-0.74` (1 events)
 - `old-dominion-monarchs:0.13-0.21` (1 events)
+- `tcu-horned-frogs:0.18-0.34` (1 events)
 - `Édier Ocampo: 1+ assists` (2 events)
 - `Édier Ocampo: 1+ goals + assists` (2 events)
 - `Édier Ocampo: 1+ shots` (2 events)
@@ -7304,6 +7305,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV21UTAHTCU` | no_market | 1 | 2026-11-16T01:07 |
 | `KXNCAAFGAME-26NOV21WSUTXST` | no_market | 1 | 2026-11-16T01:07 |
 | `KXNCAAFGAME-26NOV21WSUTXST` | no_market | 3 | 2026-11-19T00:17 |
+| `KXNCAAFGAME-26NOV26TCUTTU` | wide_book | 1 | 2026-11-19T04:17 |
 | `KXNFLGAME-26NOV05JACBAL` | no_market | 2 | 2026-11-06T00:18 |
 | `KXNFLGAME-26NOV08ARISEA` | no_market | 4 | 2026-11-08T00:19 |
 | `KXNFLGAME-26NOV08CINATL` | no_market | 4 | 2026-11-08T00:19 |
