@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-19 22:47 UTC. Cash **$1252.30** (started $1000.00), realized PnL **$520.85**, fees $74.04, settled 93, wins 30, open positions 16.
+Updated 2026-11-19 23:17 UTC. Cash **$1234.30** (started $1000.00), realized PnL **$520.85**, fees $74.04, settled 93, wins 30, open positions 17.
 
 Brier (lower is better): strategy 0.2325 vs market price 0.2349.
 
@@ -19,9 +19,10 @@ Per league (Kalshi series):
 - `KXNFLGAME`: open 6, settled 28, wins 7, realized PnL $-295.65, Brier 0.2407 vs market 0.2211
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUCLGAME`: open 2, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
+- `KXUELGAME`: open 1, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (16)
+## Open positions (17)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
@@ -41,6 +42,7 @@ Per league (Kalshi series):
 | Cincinnati does NOT win | New Orleans vs Cincinnati \(Nov 29\) | 100 | $16.24 | 19% | `KXNFLGAME-26NOV29NOCIN-CIN` |
 | Tie is the result | Como vs AEK Athens \(Nov 24\) | 100 | $17.99 | 19% | `KXUCLGAME-26NOV24COMAEK-TIE` |
 | Barcelona does NOT win | Sabah Masazir vs Barcelona \(Nov 25\) | 100 | $10.63 | 13% | `KXUCLGAME-26NOV25SBHBAR-BAR` |
+| Juventus does NOT win | Juventus vs Omonia Nicosia \(Nov 26\) | 100 | $18.00 | 20% | `KXUELGAME-26NOV26JUVOMO-JUV` |
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
@@ -52,7 +54,7 @@ Per league (Kalshi series):
 | 2026-11-19 20:17 | underdog\_value | Lyon wins — NO: Kalshi says 18%, we say 20%; placed order at 18¢ | no | 0.1800 | 0.2008 | +0.0208 | 100 | yes | open | underdog \(5.6x payout\); Lyon consensus 0.799 from 3 books \(Lyon vs Lillestrom\) | KXUELGAME-26NOV26OLLSK-OL |
 | 2026-11-19 20:17 | underdog\_value | OFI Crete wins — YES: Kalshi says 19%, we say 22%; placed order at 19¢ | yes | 0.1900 | 0.2227 | +0.0327 | 100 | yes | open | underdog \(5.3x payout\); OFI Crete consensus 0.223 from 3 books \(OFI Crete vs Anderlecht\) | KXUELGAME-26NOV26OFIRSC-OFI |
 | 2026-11-19 20:17 | underdog\_value | Tie is the result — YES: Kalshi says 22%, we say 25%; placed order at 22¢ | yes | 0.2200 | 0.2454 | +0.0254 | 100 | yes | open | underdog \(4.5x payout\); Draw consensus 0.245 from 3 books \(NEC Nijmegen vs Rennes\) | KXUELGAME-26NOV26NIJREN-TIE |
-| 2026-11-19 20:17 | underdog\_value | Juventus wins — NO: Kalshi says 18%, we say 20%; placed order at 18¢ | no | 0.1800 | 0.2022 | +0.0222 | 100 | yes | open | underdog \(5.6x payout\); Juventus consensus 0.798 from 3 books \(Juventus vs Omonoia FC\) | KXUELGAME-26NOV26JUVOMO-JUV |
+| 2026-11-19 20:17 | underdog\_value | Juventus wins — NO: Kalshi says 18%, we say 20%; bought at 18¢ | no | 0.1800 | 0.2022 | +0.0222 | 100 | yes | open | underdog \(5.6x payout\); Juventus consensus 0.798 from 3 books \(Juventus vs Omonoia FC\) | KXUELGAME-26NOV26JUVOMO-JUV |
 | 2026-11-19 20:17 | underdog\_value | Tie is the result — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2406 | +0.0206 | 100 | yes | open | underdog \(4.5x payout\); Draw consensus 0.241 from 3 books \(Crystal Palace vs Real Sociedad\) | KXUELGAME-26NOV26CRYRSO-TIE |
 | 2026-11-19 20:17 | underdog\_value | Besiktas wins — NO: Kalshi says 19%, we say 22%; placed order at 19¢ | no | 0.1900 | 0.2160 | +0.0260 | 100 | yes | open | underdog \(5.3x payout\); Besiktas JK consensus 0.784 from 3 books \(Besiktas JK vs Hapoel Be'er Sheva\) | KXUELGAME-26NOV26BESHBS-BES |
 | 2026-11-19 00:18 | underdog\_value | Texas wins — NO: Kalshi says 25%, we say 28%; bought at 25¢ | no | 0.2500 | 0.2821 | +0.0221 | 100 | yes | open | underdog \(4.0x payout\); Texas Longhorns consensus 0.718 from 2 books \(Texas A&M Aggies vs Texas Longhorns\) | KXNCAAFGAME-26NOV27TEXTXAM-TEX |
