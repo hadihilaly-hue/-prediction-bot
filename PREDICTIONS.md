@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-19 01:47 UTC. Cash **$1273.60** (started $1000.00), realized PnL **$520.85**, fees $73.74, settled 93, wins 30, open positions 15.
+Updated 2026-11-19 02:18 UTC. Cash **$1252.30** (started $1000.00), realized PnL **$520.85**, fees $74.04, settled 93, wins 30, open positions 16.
 
 Brier (lower is better): strategy 0.2325 vs market price 0.2349.
 
@@ -15,13 +15,13 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 6, settled 45, wins 15, realized PnL $438.72, Brier 0.1943 vs market 0.2034
+- `KXNCAAFGAME`: open 7, settled 45, wins 15, realized PnL $438.72, Brier 0.1943 vs market 0.2034
 - `KXNFLGAME`: open 6, settled 28, wins 7, realized PnL $-295.65, Brier 0.2407 vs market 0.2211
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUCLGAME`: open 2, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (15)
+## Open positions (16)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
@@ -31,6 +31,7 @@ Per league (Kalshi series):
 | Oregon does NOT win | Oregon vs Michigan St. \(Nov 20\) | 100 | $17.25 | 20% | `KXNCAAFGAME-26NOV20OREMSU-ORE` |
 | San Diego St. wins | San Diego St. vs Boise St. \(Nov 21\) | 100 | $11.69 | 13% | `KXNCAAFGAME-26NOV21SDSUBSU-SDSU` |
 | Notre Dame does NOT win | SMU vs Notre Dame \(Nov 21\) | 100 | $12.19 | 15% | `KXNCAAFGAME-26NOV21SMUND-ND` |
+| Texas Tech does NOT win | TCU vs Texas Tech \(Nov 26\) | 100 | $21.30 | 25% | `KXNCAAFGAME-26NOV26TCUTTU-TTU` |
 | Texas does NOT win | Texas vs Texas A&M \(Nov 27\) | 100 | $25.33 | 28% | `KXNCAAFGAME-26NOV27TEXTXAM-TEX` |
 | Indianapolis wins | Indianapolis vs Houston \(Nov 19\) | 100 | $18.26 | 20% | `KXNFLGAME-26NOV19INDHOU-IND` |
 | Arizona wins | Arizona vs Kansas City \(Nov 22\) | 100 | $10.16 | 12% | `KXNFLGAME-26NOV22ARIKC-ARI` |
@@ -46,7 +47,7 @@ Per league (Kalshi series):
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 2026-11-19 00:18 | underdog\_value | Texas wins — NO: Kalshi says 25%, we say 28%; bought at 25¢ | no | 0.2500 | 0.2821 | +0.0221 | 100 | yes | open | underdog \(4.0x payout\); Texas Longhorns consensus 0.718 from 2 books \(Texas A&M Aggies vs Texas Longhorns\) | KXNCAAFGAME-26NOV27TEXTXAM-TEX |
-| 2026-11-18 23:48 | underdog\_value | Texas Tech wins — NO: Kalshi says 21%, we say 25%; placed order at 21¢ | no | 0.2100 | 0.2495 | +0.0295 | 100 | yes | open | underdog \(4.8x payout\); Texas Tech Red Raiders consensus 0.750 from 1 books \(Texas Tech Red Raiders vs TCU Horned Frogs\) | KXNCAAFGAME-26NOV26TCUTTU-TTU |
+| 2026-11-18 23:48 | underdog\_value | Texas Tech wins — NO: Kalshi says 21%, we say 25%; bought at 21¢ | no | 0.2100 | 0.2495 | +0.0295 | 100 | yes | open | underdog \(4.8x payout\); Texas Tech Red Raiders consensus 0.750 from 1 books \(Texas Tech Red Raiders vs TCU Horned Frogs\) | KXNCAAFGAME-26NOV26TCUTTU-TTU |
 | 2026-11-18 22:17 | underdog\_value | Michigan wins — YES: Kalshi says 20%, we say 24%; placed order at 20¢ | yes | 0.2000 | 0.2351 | +0.0251 | 100 | yes | open | underdog \(5.0x payout\); Michigan Wolverines consensus 0.235 from 1 books \(Ohio State Buckeyes vs Michigan Wolverines\) | KXNCAAFGAME-26NOV28MICHOSU-MICH |
 | 2026-11-18 20:18 | underdog\_value | Barcelona wins — NO: Kalshi says 10%, we say 13%; bought at 10¢ | no | 0.1000 | 0.1262 | +0.0162 | 100 | yes | open | underdog \(10.0x payout\); Barcelona consensus 0.874 from 3 books \(Sabah FK vs Barcelona\) | KXUCLGAME-26NOV25SBHBAR-BAR |
 | 2026-11-18 20:18 | underdog\_value | Lille wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1307 | +0.0107 | 100 | yes | open | underdog \(9.1x payout\); Lille consensus 0.131 from 3 books \(Lille vs Bayern Munich\) | KXUCLGAME-26NOV25LILBMU-LIL |
