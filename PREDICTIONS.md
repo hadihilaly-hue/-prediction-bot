@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-18 23:48 UTC. Cash **$1298.93** (started $1000.00), realized PnL **$520.85**, fees $73.41, settled 93, wins 30, open positions 14.
+Updated 2026-11-19 00:18 UTC. Cash **$1298.93** (started $1000.00), realized PnL **$520.85**, fees $73.41, settled 93, wins 30, open positions 14.
 
 Brier (lower is better): strategy 0.2325 vs market price 0.2349.
 
@@ -44,7 +44,8 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-18 23:48 | underdog\_value | KXNCAAFGAME-26NOV26TCUTTU-TTU — NO: Kalshi says 21%, we say 25%; placed order at 21¢ | no | 0.2100 | 0.2495 | +0.0295 | 100 | yes | open | underdog \(4.8x payout\); Texas Tech Red Raiders consensus 0.750 from 1 books \(Texas Tech Red Raiders vs TCU Horned Frogs\) | KXNCAAFGAME-26NOV26TCUTTU-TTU |
+| 2026-11-19 00:18 | underdog\_value | KXNCAAFGAME-26NOV27TEXTXAM-TEX — NO: Kalshi says 25%, we say 28%; placed order at 25¢ | no | 0.2500 | 0.2821 | +0.0221 | 100 | yes | open | underdog \(4.0x payout\); Texas Longhorns consensus 0.718 from 2 books \(Texas A&M Aggies vs Texas Longhorns\) | KXNCAAFGAME-26NOV27TEXTXAM-TEX |
+| 2026-11-18 23:48 | underdog\_value | Texas Tech wins — NO: Kalshi says 21%, we say 25%; placed order at 21¢ | no | 0.2100 | 0.2495 | +0.0295 | 100 | yes | open | underdog \(4.8x payout\); Texas Tech Red Raiders consensus 0.750 from 1 books \(Texas Tech Red Raiders vs TCU Horned Frogs\) | KXNCAAFGAME-26NOV26TCUTTU-TTU |
 | 2026-11-18 22:17 | underdog\_value | Michigan wins — YES: Kalshi says 20%, we say 24%; placed order at 20¢ | yes | 0.2000 | 0.2351 | +0.0251 | 100 | yes | open | underdog \(5.0x payout\); Michigan Wolverines consensus 0.235 from 1 books \(Ohio State Buckeyes vs Michigan Wolverines\) | KXNCAAFGAME-26NOV28MICHOSU-MICH |
 | 2026-11-18 20:18 | underdog\_value | Barcelona wins — NO: Kalshi says 10%, we say 13%; bought at 10¢ | no | 0.1000 | 0.1262 | +0.0162 | 100 | yes | open | underdog \(10.0x payout\); Barcelona consensus 0.874 from 3 books \(Sabah FK vs Barcelona\) | KXUCLGAME-26NOV25SBHBAR-BAR |
 | 2026-11-18 20:18 | underdog\_value | Lille wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1307 | +0.0107 | 100 | yes | open | underdog \(9.1x payout\); Lille consensus 0.131 from 3 books \(Lille vs Bayern Munich\) | KXUCLGAME-26NOV25LILBMU-LIL |
