@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-19 19:47 UTC. Cash **$1252.30** (started $1000.00), realized PnL **$520.85**, fees $74.04, settled 93, wins 30, open positions 16.
+Updated 2026-11-19 20:17 UTC. Cash **$1252.30** (started $1000.00), realized PnL **$520.85**, fees $74.04, settled 93, wins 30, open positions 16.
 
 Brier (lower is better): strategy 0.2325 vs market price 0.2349.
 
@@ -46,6 +46,15 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-19 20:17 | underdog\_value | KXUELGAME-26NOV26SPAAZA-TIE — YES: Kalshi says 24%, we say 27%; placed order at 24¢ | yes | 0.2400 | 0.2652 | +0.0252 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.265 from 3 books \(Sparta Prague vs AZ Alkmaar\) | KXUELGAME-26NOV26SPAAZA-TIE |
+| 2026-11-19 20:17 | underdog\_value | KXUELGAME-26NOV26RCCBOU-RCC — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2436 | +0.0236 | 100 | yes | open | underdog \(4.5x payout\); Celta Vigo consensus 0.244 from 3 books \(Celta Vigo vs Bournemouth\) | KXUELGAME-26NOV26RCCBOU-RCC |
+| 2026-11-19 20:17 | underdog\_value | KXUELGAME-26NOV26RBSARA-RBS — NO: Kalshi says 16%, we say 18%; placed order at 16¢ | no | 0.1600 | 0.1845 | +0.0245 | 100 | yes | open | underdog \(6.2x payout\); Salzburg consensus 0.816 from 3 books \(Salzburg vs FC Ararat-Armenia\) | KXUELGAME-26NOV26RBSARA-RBS |
+| 2026-11-19 20:17 | underdog\_value | KXUELGAME-26NOV26OLLSK-OL — NO: Kalshi says 18%, we say 20%; placed order at 18¢ | no | 0.1800 | 0.2008 | +0.0208 | 100 | yes | open | underdog \(5.6x payout\); Lyon consensus 0.799 from 3 books \(Lyon vs Lillestrom\) | KXUELGAME-26NOV26OLLSK-OL |
+| 2026-11-19 20:17 | underdog\_value | KXUELGAME-26NOV26OFIRSC-OFI — YES: Kalshi says 19%, we say 22%; placed order at 19¢ | yes | 0.1900 | 0.2227 | +0.0327 | 100 | yes | open | underdog \(5.3x payout\); OFI Crete consensus 0.223 from 3 books \(OFI Crete vs Anderlecht\) | KXUELGAME-26NOV26OFIRSC-OFI |
+| 2026-11-19 20:17 | underdog\_value | KXUELGAME-26NOV26NIJREN-TIE — YES: Kalshi says 22%, we say 25%; placed order at 22¢ | yes | 0.2200 | 0.2454 | +0.0254 | 100 | yes | open | underdog \(4.5x payout\); Draw consensus 0.245 from 3 books \(NEC Nijmegen vs Rennes\) | KXUELGAME-26NOV26NIJREN-TIE |
+| 2026-11-19 20:17 | underdog\_value | KXUELGAME-26NOV26JUVOMO-JUV — NO: Kalshi says 18%, we say 20%; placed order at 18¢ | no | 0.1800 | 0.2022 | +0.0222 | 100 | yes | open | underdog \(5.6x payout\); Juventus consensus 0.798 from 3 books \(Juventus vs Omonoia FC\) | KXUELGAME-26NOV26JUVOMO-JUV |
+| 2026-11-19 20:17 | underdog\_value | KXUELGAME-26NOV26CRYRSO-TIE — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2406 | +0.0206 | 100 | yes | open | underdog \(4.5x payout\); Draw consensus 0.241 from 3 books \(Crystal Palace vs Real Sociedad\) | KXUELGAME-26NOV26CRYRSO-TIE |
+| 2026-11-19 20:17 | underdog\_value | KXUELGAME-26NOV26BESHBS-BES — NO: Kalshi says 19%, we say 22%; placed order at 19¢ | no | 0.1900 | 0.2160 | +0.0260 | 100 | yes | open | underdog \(5.3x payout\); Besiktas JK consensus 0.784 from 3 books \(Besiktas JK vs Hapoel Be'er Sheva\) | KXUELGAME-26NOV26BESHBS-BES |
 | 2026-11-19 00:18 | underdog\_value | Texas wins — NO: Kalshi says 25%, we say 28%; bought at 25¢ | no | 0.2500 | 0.2821 | +0.0221 | 100 | yes | open | underdog \(4.0x payout\); Texas Longhorns consensus 0.718 from 2 books \(Texas A&M Aggies vs Texas Longhorns\) | KXNCAAFGAME-26NOV27TEXTXAM-TEX |
 | 2026-11-18 23:48 | underdog\_value | Texas Tech wins — NO: Kalshi says 21%, we say 25%; bought at 21¢ | no | 0.2100 | 0.2495 | +0.0295 | 100 | yes | open | underdog \(4.8x payout\); Texas Tech Red Raiders consensus 0.750 from 1 books \(Texas Tech Red Raiders vs TCU Horned Frogs\) | KXNCAAFGAME-26NOV26TCUTTU-TTU |
 | 2026-11-18 22:17 | underdog\_value | Michigan wins — YES: Kalshi says 20%, we say 24%; placed order at 20¢ | yes | 0.2000 | 0.2351 | +0.0251 | 100 | yes | open | underdog \(5.0x payout\); Michigan Wolverines consensus 0.235 from 1 books \(Ohio State Buckeyes vs Michigan Wolverines\) | KXNCAAFGAME-26NOV28MICHOSU-MICH |
