@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-20 12:18 UTC. Cash **$1234.30** (started $1000.00), realized PnL **$502.59**, fees $74.04, settled 94, wins 30, open positions 16.
+Updated 2026-11-20 12:48 UTC. Cash **$1234.30** (started $1000.00), realized PnL **$502.59**, fees $74.04, settled 94, wins 30, open positions 16.
 
 Brier (lower is better): strategy 0.2295 vs market price 0.2318.
 
@@ -47,6 +47,15 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-20 12:48 | underdog\_value | KXUELGAME-26NOV26SUNJAG-SUN — NO: Kalshi says 22%, we say 25%; placed order at 22¢ | no | 0.2200 | 0.2521 | +0.0321 | 100 | yes | open | underdog \(4.5x payout\); Sunderland consensus 0.748 from 3 books \(Sunderland vs Jagiellonia Białystok\) | KXUELGAME-26NOV26SUNJAG-SUN |
+| 2026-11-20 12:48 | underdog\_value | Tie is the result — YES: Kalshi says 25%, we say 27%; placed order at 25¢ | yes | 0.2500 | 0.2652 | +0.0152 | 100 | yes | open | underdog \(4.0x payout\); Draw consensus 0.265 from 3 books \(Sparta Prague vs AZ Alkmaar\) | KXUELGAME-26NOV26SPAAZA-TIE |
+| 2026-11-20 12:48 | underdog\_value | Celta Vigo wins — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2436 | +0.0236 | 100 | yes | open | underdog \(4.5x payout\); Celta Vigo consensus 0.244 from 3 books \(Celta Vigo vs Bournemouth\) | KXUELGAME-26NOV26RCCBOU-RCC |
+| 2026-11-20 12:48 | underdog\_value | Salzburg wins — NO: Kalshi says 16%, we say 19%; placed order at 16¢ | no | 0.1600 | 0.1852 | +0.0252 | 100 | yes | open | underdog \(6.2x payout\); Salzburg consensus 0.815 from 3 books \(Salzburg vs FC Ararat-Armenia\) | KXUELGAME-26NOV26RBSARA-RBS |
+| 2026-11-20 12:48 | underdog\_value | Lyon wins — NO: Kalshi says 18%, we say 20%; placed order at 18¢ | no | 0.1800 | 0.2008 | +0.0208 | 100 | yes | open | underdog \(5.6x payout\); Lyon consensus 0.799 from 3 books \(Lyon vs Lillestrom\) | KXUELGAME-26NOV26OLLSK-OL |
+| 2026-11-20 12:48 | underdog\_value | OFI Crete wins — YES: Kalshi says 18%, we say 22%; placed order at 18¢ | yes | 0.1800 | 0.2227 | +0.0427 | 100 | yes | open | underdog \(5.6x payout\); OFI Crete consensus 0.223 from 3 books \(OFI Crete vs Anderlecht\) | KXUELGAME-26NOV26OFIRSC-OFI |
+| 2026-11-20 12:48 | underdog\_value | Tie is the result — YES: Kalshi says 20%, we say 25%; placed order at 20¢ | yes | 0.2000 | 0.2454 | +0.0454 | 100 | yes | open | underdog \(5.0x payout\); Draw consensus 0.245 from 3 books \(NEC Nijmegen vs Rennes\) | KXUELGAME-26NOV26NIJREN-TIE |
+| 2026-11-20 12:48 | underdog\_value | Tie is the result — YES: Kalshi says 19%, we say 24%; placed order at 19¢ | yes | 0.1900 | 0.2406 | +0.0506 | 100 | yes | open | underdog \(5.3x payout\); Draw consensus 0.241 from 3 books \(Crystal Palace vs Real Sociedad\) | KXUELGAME-26NOV26CRYRSO-TIE |
+| 2026-11-20 12:48 | underdog\_value | Besiktas wins — NO: Kalshi says 19%, we say 22%; placed order at 19¢ | no | 0.1900 | 0.2160 | +0.0260 | 100 | yes | open | underdog \(5.3x payout\); Besiktas JK consensus 0.784 from 3 books \(Besiktas JK vs Hapoel Be'er Sheva\) | KXUELGAME-26NOV26BESHBS-BES |
 | 2026-11-19 20:17 | underdog\_value | Tie is the result — YES: Kalshi says 24%, we say 27%; placed order at 24¢ | yes | 0.2400 | 0.2652 | +0.0252 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.265 from 3 books \(Sparta Prague vs AZ Alkmaar\) | KXUELGAME-26NOV26SPAAZA-TIE |
 | 2026-11-19 20:17 | underdog\_value | Celta Vigo wins — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2436 | +0.0236 | 100 | yes | open | underdog \(4.5x payout\); Celta Vigo consensus 0.244 from 3 books \(Celta Vigo vs Bournemouth\) | KXUELGAME-26NOV26RCCBOU-RCC |
 | 2026-11-19 20:17 | underdog\_value | Salzburg wins — NO: Kalshi says 16%, we say 18%; placed order at 16¢ | no | 0.1600 | 0.1845 | +0.0245 | 100 | yes | open | underdog \(6.2x payout\); Salzburg consensus 0.816 from 3 books \(Salzburg vs FC Ararat-Armenia\) | KXUELGAME-26NOV26RBSARA-RBS |
