@@ -1191,7 +1191,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Chemsdine Talbi: 4+ shots` (5 events)
 - `Chemsdine Talbi: 4+ shots on target` (5 events)
 - `Chemsdine Talbi: 5+ shots` (5 events)
-- `Chicago Fire FC` (4 events)
+- `Chicago Fire FC` (5 events)
 - `Chicago Fire FC 0 - 0 Columbus Crew` (2 events)
 - `Chicago Fire FC 0 - 1 Columbus Crew` (2 events)
 - `Chicago Fire FC 0 - 2 Columbus Crew` (2 events)
@@ -1299,7 +1299,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Colorado Rapids SC` (2 events)
 - `Colorado State` (49 events)
 - `Columbia` (55 events)
-- `Columbus Crew` (6 events)
+- `Columbus Crew` (7 events)
 - `Como 1907` (27 events)
 - `Cornell` (86 events)
 - `Costinha: 1+ assists` (5 events)
@@ -6774,9 +6774,9 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXMLSGAME-26NOV07DALCOL` | no_market | 1 | 2026-11-07T21:39 |
 | `KXMLSGAME-26NOV07RSLLAG` | no_market | 1 | 2026-11-07T21:39 |
 | `KXMLSGAME-26NOV19SEARSL` | wide_book | 2 | 2026-11-14T00:17 |
-| `KXMLSGAME-26NOV21MIACLB` | no_market | 4 | 2026-11-19T00:17 |
+| `KXMLSGAME-26NOV21MIACLB` | no_market | 5 | 2026-11-20T00:47 |
 | `KXMLSGAME-26NOV21NEPHI` | wide_book | 2 | 2026-11-14T00:47 |
-| `KXMLSGAME-26NOV22CHICLT` | no_market | 2 | 2026-11-19T00:17 |
+| `KXMLSGAME-26NOV22CHICLT` | no_market | 3 | 2026-11-20T00:47 |
 | `KXMLSGAME-26NOV24SJHOU` | mismatch | 1 | 2026-11-19T09:17 |
 | `KXNCAAFGAME-26NOV07BSUCSU` | no_market | 1 | 2026-11-07T00:08 |
 | `KXNCAAFGAME-26NOV07DUKENCST` | no_market | 1 | 2026-11-07T00:08 |
