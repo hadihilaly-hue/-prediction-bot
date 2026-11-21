@@ -1,12 +1,12 @@
 # Paper-trading predictions
 
-Updated 2026-11-21 03:48 UTC. Cash **$1330.88** (started $1000.00), realized PnL **$592.43**, fees $74.23, settled 95, wins 31, open positions 16.
+Updated 2026-11-21 04:17 UTC. Cash **$1430.88** (started $1000.00), realized PnL **$655.92**, fees $74.23, settled 97, wins 32, open positions 14.
 
-Brier (lower is better): strategy 0.2378 vs market price 0.2406.
+Brier (lower is better): strategy 0.2394 vs market price 0.2425.
 
 - `sportsbook_arb`: settled 62, wins 18, realized PnL $176.90, Brier 0.1945 vs market 0.1951
 - `sportsbook_v3`: settled 5, wins 3, realized PnL $-34.79, Brier 0.2977 vs market 0.2760
-- `underdog_value`: settled 28, wins 10, realized PnL $450.32, Brier 0.3073 vs market 0.3155
+- `underdog_value`: settled 30, wins 11, realized PnL $513.81, Brier 0.3062 vs market 0.3147
 
 Per league (Kalshi series):
 
@@ -15,19 +15,17 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 7, settled 45, wins 15, realized PnL $438.72, Brier 0.1943 vs market 0.2034
+- `KXNCAAFGAME`: open 5, settled 47, wins 16, realized PnL $502.21, Brier 0.1999 vs market 0.2092
 - `KXNFLGAME`: open 5, settled 29, wins 7, realized PnL $-313.91, Brier 0.2293 vs market 0.2104
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUCLGAME`: open 3, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUELGAME`: open 1, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (16)
+## Open positions (14)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
-| Toledo does NOT win | Bowling Green vs Toledo \(Nov 20\) | 100 | $13.20 | 16% | `KXNCAAFGAME-26NOV20BGSUTOL-TOL` |
-| Clemson wins | Clemson vs Duke \(Nov 20\) | 100 | $23.31 | 25% | `KXNCAAFGAME-26NOV20CLEMDUKE-CLEM` |
 | Oregon does NOT win | Oregon vs Michigan St. \(Nov 20\) | 100 | $17.25 | 20% | `KXNCAAFGAME-26NOV20OREMSU-ORE` |
 | San Diego St. wins | San Diego St. vs Boise St. \(Nov 21\) | 100 | $11.69 | 13% | `KXNCAAFGAME-26NOV21SDSUBSU-SDSU` |
 | Notre Dame does NOT win | SMU vs Notre Dame \(Nov 21\) | 100 | $12.19 | 15% | `KXNCAAFGAME-26NOV21SMUND-ND` |
@@ -79,21 +77,21 @@ Per league (Kalshi series):
 | 2026-11-18 00:48 | underdog\_value | Missouri St. wins — YES: Kalshi says 20%, we say 22%; placed order at 20¢ | yes | 0.2000 | 0.2226 | +0.0126 | 100 | yes | open | underdog \(5.0x payout\); Missouri State Bears consensus 0.223 from 4 books \(Jacksonville State Gamecocks vs Missouri State Bears\) | KXNCAAFGAME-26NOV21MOSUJVST-MOSU |
 | 2026-11-18 00:18 | underdog\_value | Minnesota wins — NO: Kalshi says 23%, we say 25%; bought at 23¢ | no | 0.2300 | 0.2509 | +0.0109 | 100 | yes | open | underdog \(4.3x payout\); Minnesota Vikings consensus 0.749 from 2 books \(Minnesota Vikings vs Atlanta Falcons\) | KXNFLGAME-26NOV29ATLMIN-MIN |
 | 2026-11-16 12:18 | underdog\_value | Old Dominion wins — YES: Kalshi says 16%, we say 18%; placed order at 16¢ | yes | 0.1600 | 0.1831 | +0.0131 | 100 | yes | open | underdog \(6.2x payout\); Old Dominion Monarchs consensus 0.183 from 3 books \(UConn Huskies vs Old Dominion Monarchs\) | KXNCAAFGAME-26NOV21ODUCONN-ODU |
-| 2026-11-16 08:18 | underdog\_value | Toledo wins — NO: Kalshi says 13%, we say 16%; bought at 13¢ | no | 0.1300 | 0.1572 | +0.0172 | 100 | yes | open | underdog \(7.7x payout\); Toledo Rockets consensus 0.843 from 3 books \(Toledo Rockets vs Bowling Green Falcons\) | KXNCAAFGAME-26NOV20BGSUTOL-TOL |
+| 2026-11-16 08:18 | underdog\_value | Toledo wins — NO: Kalshi says 13%, we say 16%; bought at 13¢ | no | 0.1300 | 0.1572 | +0.0172 | 100 | yes | lost (yes) | underdog \(7.7x payout\); Toledo Rockets consensus 0.843 from 3 books \(Toledo Rockets vs Bowling Green Falcons\) | KXNCAAFGAME-26NOV20BGSUTOL-TOL |
 | 2026-11-16 04:18 | underdog\_value | Bayern Munich wins — NO: Kalshi says 10%, we say 12%; bought at 10¢ | no | 0.1000 | 0.1205 | +0.0105 | 100 | yes | WON (no) | underdog \(10.0x payout\); Bayern Munich consensus 0.880 from 4 books \(Bayern Munich vs 1. FC Köln\) | KXBUNDESLIGAGAME-26NOV20BMUKOE-BMU |
 | 2026-11-16 00:48 | underdog\_value | Old Dominion wins — YES: Kalshi says 16%, we say 18%; placed order at 16¢ | yes | 0.1600 | 0.1806 | +0.0106 | 100 | yes | open | underdog \(6.2x payout\); Old Dominion Monarchs consensus 0.181 from 3 books \(UConn Huskies vs Old Dominion Monarchs\) | KXNCAAFGAME-26NOV21ODUCONN-ODU |
 | 2026-11-16 00:48 | underdog\_value | Kansas St. wins — YES: Kalshi says 23%, we say 25%; placed order at 23¢ | yes | 0.2300 | 0.2549 | +0.0149 | 100 | yes | open | underdog \(4.3x payout\); Kansas State Wildcats consensus 0.255 from 3 books \(Kansas State Wildcats vs Arizona Wildcats\) | KXNCAAFGAME-26NOV21ARIZKSU-KSU |
 | 2026-11-16 00:17 | underdog\_value | San Diego St. wins — YES: Kalshi says 11%, we say 13%; bought at 11¢ | yes | 0.1100 | 0.1316 | +0.0116 | 100 | yes | open | underdog \(9.1x payout\); San Diego State Aztecs consensus 0.132 from 2 books \(Boise State Broncos vs San Diego State Aztecs\) | KXNCAAFGAME-26NOV21SDSUBSU-SDSU |
 | 2026-11-15 16:17 | underdog\_value | Arizona wins — NO: Kalshi says 22%, we say 24%; placed order at 22¢ | no | 0.2200 | 0.2426 | +0.0126 | 100 | yes | open | underdog \(4.5x payout\); Arizona Wildcats consensus 0.757 from 2 books \(Kansas State Wildcats vs Arizona Wildcats\) | KXNCAAFGAME-26NOV21ARIZKSU-ARIZ |
 | 2026-11-15 16:17 | underdog\_value | Oregon wins — NO: Kalshi says 17%, we say 20%; bought at 17¢ | no | 0.1700 | 0.1992 | +0.0192 | 100 | yes | open | underdog \(5.9x payout\); Oregon Ducks consensus 0.801 from 2 books \(Michigan State Spartans vs Oregon Ducks\) | KXNCAAFGAME-26NOV20OREMSU-ORE |
-| 2026-11-15 16:17 | underdog\_value | Clemson wins — YES: Kalshi says 23%, we say 25%; bought at 23¢ | yes | 0.2300 | 0.2502 | +0.0102 | 100 | yes | open | underdog \(4.3x payout\); Clemson Tigers consensus 0.250 from 2 books \(Duke Blue Devils vs Clemson Tigers\) | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM |
-| 2026-11-15 16:17 | underdog\_value | Bowling Green wins — YES: Kalshi says 14%, we say 16%; placed order at 14¢ | yes | 0.1400 | 0.1614 | +0.0114 | 100 | yes | open | underdog \(7.1x payout\); Bowling Green Falcons consensus 0.161 from 2 books \(Toledo Rockets vs Bowling Green Falcons\) | KXNCAAFGAME-26NOV20BGSUTOL-BGSU |
+| 2026-11-15 16:17 | underdog\_value | Clemson wins — YES: Kalshi says 23%, we say 25%; bought at 23¢ | yes | 0.2300 | 0.2502 | +0.0102 | 100 | yes | WON (yes) | underdog \(4.3x payout\); Clemson Tigers consensus 0.250 from 2 books \(Duke Blue Devils vs Clemson Tigers\) | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM |
+| 2026-11-15 16:17 | underdog\_value | Bowling Green wins — YES: Kalshi says 14%, we say 16%; placed order at 14¢ | yes | 0.1400 | 0.1614 | +0.0114 | 100 | yes | lost (no) | underdog \(7.1x payout\); Bowling Green Falcons consensus 0.161 from 2 books \(Toledo Rockets vs Bowling Green Falcons\) | KXNCAAFGAME-26NOV20BGSUTOL-BGSU |
 | 2026-11-15 06:17 | underdog\_value | Tie is the result — YES: Kalshi says 24%, we say 27%; placed order at 24¢ | yes | 0.2400 | 0.2677 | +0.0177 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.268 from 2 books \(Fulham vs Bournemouth\) | KXEPLGAME-26NOV29FULBOU-TIE |
 | 2026-11-15 06:17 | underdog\_value | Tie is the result — YES: Kalshi says 24%, we say 27%; placed order at 24¢ | yes | 0.2400 | 0.2655 | +0.0155 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.266 from 2 books \(Everton vs Liverpool\) | KXEPLGAME-26NOV29EVELFC-TIE |
 | 2026-11-15 06:17 | underdog\_value | Hull City wins — YES: Kalshi says 20%, we say 24%; placed order at 20¢ | yes | 0.2000 | 0.2370 | +0.0270 | 100 | yes | open | underdog \(5.0x payout\); Hull City consensus 0.237 from 2 books \(Crystal Palace vs Hull City\) | KXEPLGAME-26NOV29CRYHUL-HUL |
 | 2026-11-15 06:17 | underdog\_value | Newcastle wins — YES: Kalshi says 15%, we say 18%; placed order at 15¢ | yes | 0.1500 | 0.1768 | +0.0168 | 100 | yes | open | underdog \(6.7x payout\); Newcastle United consensus 0.177 from 2 books \(Brighton and Hove Albion vs Newcastle United\) | KXEPLGAME-26NOV29BRINEW-NEW |
 | 2026-11-15 06:17 | underdog\_value | Manchester City wins — YES: Kalshi says 25%, we say 28%; placed order at 25¢ | yes | 0.2500 | 0.2819 | +0.0219 | 100 | yes | open | underdog \(4.0x payout\); Manchester City consensus 0.282 from 2 books \(Arsenal vs Manchester City\) | KXEPLGAME-26NOV29ARSMCI-MCI |
-| 2026-11-15 00:07 | underdog\_value | Clemson wins — YES: Kalshi says 25%, we say 28%; bought at 25¢ | yes | 0.2500 | 0.2827 | +0.0227 | 100 | yes | open | underdog \(4.0x payout\); Clemson Tigers consensus 0.283 from 1 books \(Duke Blue Devils vs Clemson Tigers\) | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM |
+| 2026-11-15 00:07 | underdog\_value | Clemson wins — YES: Kalshi says 25%, we say 28%; bought at 25¢ | yes | 0.2500 | 0.2827 | +0.0227 | 100 | yes | WON (yes) | underdog \(4.0x payout\); Clemson Tigers consensus 0.283 from 1 books \(Duke Blue Devils vs Clemson Tigers\) | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM |
 | 2026-11-14 16:48 | underdog\_value | Kent St. wins — YES: Kalshi says 24%, we say 28%; placed order at 24¢ | yes | 0.2400 | 0.2827 | +0.0327 | 100 | yes | lost (no) | underdog \(4.2x payout\); Kent State Golden Flashes consensus 0.283 from 1 books \(Kent State Golden Flashes vs Miami \(OH\) RedHawks\) | KXNCAAFGAME-26NOV17MOHKENT-KENT |
 | 2026-11-14 16:18 | underdog\_value | Union Berlin wins — YES: Kalshi says 13%, we say 16%; placed order at 13¢ | yes | 0.1300 | 0.1636 | +0.0236 | 100 | yes | open | underdog \(7.7x payout\); Union Berlin consensus 0.164 from 3 books \(FSV Mainz 05 vs Union Berlin\) | KXBUNDESLIGAGAME-26NOV28M05UNI-UNI |
 | 2026-11-14 03:58 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 22%; placed order at 19¢ | yes | 0.1900 | 0.2167 | +0.0167 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.217 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
