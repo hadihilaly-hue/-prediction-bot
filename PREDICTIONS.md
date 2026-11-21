@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-20 23:48 UTC. Cash **$1334.30** (started $1000.00), realized PnL **$592.43**, fees $74.04, settled 95, wins 31, open positions 15.
+Updated 2026-11-21 00:18 UTC. Cash **$1334.30** (started $1000.00), realized PnL **$592.43**, fees $74.04, settled 95, wins 31, open positions 15.
 
 Brier (lower is better): strategy 0.2378 vs market price 0.2406.
 
@@ -46,6 +46,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-21 00:18 | underdog\_value | KXNCAAFGAME-26NOV27BUFFAKR-AKR — YES: Kalshi says 20%, we say 22%; placed order at 20¢ | yes | 0.2000 | 0.2224 | +0.0124 | 100 | yes | open | underdog \(5.0x payout\); Akron Zips consensus 0.222 from 1 books \(Akron Zips vs Buffalo Bulls\) | KXNCAAFGAME-26NOV27BUFFAKR-AKR |
 | 2026-11-20 12:48 | underdog\_value | Sunderland wins — NO: Kalshi says 22%, we say 25%; placed order at 22¢ | no | 0.2200 | 0.2521 | +0.0321 | 100 | yes | open | underdog \(4.5x payout\); Sunderland consensus 0.748 from 3 books \(Sunderland vs Jagiellonia Białystok\) | KXUELGAME-26NOV26SUNJAG-SUN |
 | 2026-11-20 12:48 | underdog\_value | Tie is the result — YES: Kalshi says 25%, we say 27%; placed order at 25¢ | yes | 0.2500 | 0.2652 | +0.0152 | 100 | yes | open | underdog \(4.0x payout\); Draw consensus 0.265 from 3 books \(Sparta Prague vs AZ Alkmaar\) | KXUELGAME-26NOV26SPAAZA-TIE |
 | 2026-11-20 12:48 | underdog\_value | Celta Vigo wins — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2436 | +0.0236 | 100 | yes | open | underdog \(4.5x payout\); Celta Vigo consensus 0.244 from 3 books \(Celta Vigo vs Bournemouth\) | KXUELGAME-26NOV26RCCBOU-RCC |
