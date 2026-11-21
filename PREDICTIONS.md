@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-21 12:18 UTC. Cash **$1430.88** (started $1000.00), realized PnL **$638.67**, fees $74.23, settled 98, wins 32, open positions 13.
+Updated 2026-11-21 12:47 UTC. Cash **$1430.88** (started $1000.00), realized PnL **$638.67**, fees $74.23, settled 98, wins 32, open positions 13.
 
 Brier (lower is better): strategy 0.2365 vs market price 0.2394.
 
@@ -44,9 +44,9 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-21 12:18 | underdog\_value | KXUECLGAME-26NOV26PAFFCM-TIE — YES: Kalshi says 22%, we say 26%; placed order at 22¢ | yes | 0.2200 | 0.2558 | +0.0358 | 100 | yes | open | underdog \(4.5x payout\); Draw consensus 0.256 from 4 books \(Pafos FC vs FC Midtjylland\) | KXUECLGAME-26NOV26PAFFCM-TIE |
-| 2026-11-21 12:18 | underdog\_value | KXUECLGAME-26NOV26NJAPAN-TIE — YES: Kalshi says 23%, we say 27%; placed order at 23¢ | yes | 0.2300 | 0.2708 | +0.0408 | 100 | yes | open | underdog \(4.3x payout\); Draw consensus 0.271 from 4 books \(FC Nordsjaelland vs Panathinaikos FC\) | KXUECLGAME-26NOV26NJAPAN-TIE |
-| 2026-11-21 12:18 | underdog\_value | KXUECLGAME-26NOV26AJATHU-AJA — NO: Kalshi says 17%, we say 20%; placed order at 17¢ | no | 0.1700 | 0.2045 | +0.0345 | 100 | yes | open | underdog \(5.9x payout\); Ajax consensus 0.796 from 4 books \(Ajax vs FC Thun\) | KXUECLGAME-26NOV26AJATHU-AJA |
+| 2026-11-21 12:18 | underdog\_value | Tie is the result — YES: Kalshi says 22%, we say 26%; placed order at 22¢ | yes | 0.2200 | 0.2558 | +0.0358 | 100 | yes | open | underdog \(4.5x payout\); Draw consensus 0.256 from 4 books \(Pafos FC vs FC Midtjylland\) | KXUECLGAME-26NOV26PAFFCM-TIE |
+| 2026-11-21 12:18 | underdog\_value | Tie is the result — YES: Kalshi says 23%, we say 27%; placed order at 23¢ | yes | 0.2300 | 0.2708 | +0.0408 | 100 | yes | open | underdog \(4.3x payout\); Draw consensus 0.271 from 4 books \(FC Nordsjaelland vs Panathinaikos FC\) | KXUECLGAME-26NOV26NJAPAN-TIE |
+| 2026-11-21 12:18 | underdog\_value | Ajax wins — NO: Kalshi says 17%, we say 20%; placed order at 17¢ | no | 0.1700 | 0.2045 | +0.0345 | 100 | yes | open | underdog \(5.9x payout\); Ajax consensus 0.796 from 4 books \(Ajax vs FC Thun\) | KXUECLGAME-26NOV26AJATHU-AJA |
 | 2026-11-21 04:48 | underdog\_value | Plzen wins — YES: Kalshi says 13%, we say 17%; placed order at 13¢ | yes | 0.1300 | 0.1725 | +0.0425 | 100 | yes | open | underdog \(7.7x payout\); Viktoria Plzeň consensus 0.172 from 4 books \(Viktoria Plzeň vs Benfica\) | KXUELGAME-26NOV26VIKBEN-VIK |
 | 2026-11-21 04:48 | underdog\_value | Tie is the result — YES: Kalshi says 15%, we say 17%; placed order at 15¢ | yes | 0.1500 | 0.1717 | +0.0217 | 100 | yes | open | underdog \(6.7x payout\); Draw consensus 0.172 from 4 books \(Union Saint-Gilloise vs Lech Poznań\) | KXUELGAME-26NOV26USGLPO-TIE |
 | 2026-11-21 04:48 | underdog\_value | Sunderland wins — NO: Kalshi says 23%, we say 25%; placed order at 23¢ | no | 0.2300 | 0.2510 | +0.0210 | 100 | yes | open | underdog \(4.3x payout\); Sunderland consensus 0.749 from 4 books \(Sunderland vs Jagiellonia Białystok\) | KXUELGAME-26NOV26SUNJAG-SUN |
