@@ -1,1 +1,15 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1430.88
+ scanned=1426 signals=0 filled=1 orders_placed=0 settled=0 cash=1410.80
+underdog lane: orders_placed=0 bought_at_ask=1 pulled=0 skipped=[]
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNCAAFGA… │ yes  │ 0.1900 │ 0.2224 │ 0.0124 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Akron     │
+│            │            │      │        │        │        │      │ Zips      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.222     │
+│            │            │      │        │        │        │      │ from 1 bo │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
