@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-21 22:18 UTC. Cash **$1410.80** (started $1000.00), realized PnL **$638.67**, fees $75.31, settled 98, wins 32, open positions 14.
+Updated 2026-11-21 22:47 UTC. Cash **$1410.80** (started $1000.00), realized PnL **$638.67**, fees $75.31, settled 98, wins 32, open positions 14.
 
 Brier (lower is better): strategy 0.2365 vs market price 0.2394.
 
@@ -89,8 +89,8 @@ Per league (Kalshi series):
 | 2026-11-18 20:18 | underdog\_value | Tie is the result — YES: Kalshi says 17%, we say 19%; bought at 17¢ | yes | 0.1700 | 0.1944 | +0.0144 | 100 | yes | open | underdog \(5.9x payout\); Draw consensus 0.194 from 3 books \(Como vs AEK Athens\) | KXUCLGAME-26NOV24COMAEK-TIE |
 | 2026-11-18 18:18 | underdog\_value | Cincinnati wins — NO: Kalshi says 16%, we say 19%; bought at 16¢ | no | 0.1600 | 0.1852 | +0.0152 | 100 | yes | open | underdog \(6.2x payout\); Cincinnati Bengals consensus 0.815 from 2 books \(Cincinnati Bengals vs New Orleans Saints\) | KXNFLGAME-26NOV29NOCIN-CIN |
 | 2026-11-18 16:18 | underdog\_value | Old Dominion wins — YES: Kalshi says 16%, we say 18%; placed order at 16¢ | yes | 0.1600 | 0.1842 | +0.0142 | 100 | yes | open | underdog \(6.2x payout\); Old Dominion Monarchs consensus 0.184 from 4 books \(UConn Huskies vs Old Dominion Monarchs\) | KXNCAAFGAME-26NOV21ODUCONN-ODU |
-| 2026-11-18 10:18 | underdog\_value | Missouri St. wins — YES: Kalshi says 20%, we say 22%; placed order at 20¢ | yes | 0.2000 | 0.2226 | +0.0126 | 100 | yes | open | underdog \(5.0x payout\); Missouri State Bears consensus 0.223 from 4 books \(Jacksonville State Gamecocks vs Missouri State Bears\) | KXNCAAFGAME-26NOV21MOSUJVST-MOSU |
-| 2026-11-18 00:48 | underdog\_value | Missouri St. wins — YES: Kalshi says 20%, we say 22%; placed order at 20¢ | yes | 0.2000 | 0.2226 | +0.0126 | 100 | yes | open | underdog \(5.0x payout\); Missouri State Bears consensus 0.223 from 4 books \(Jacksonville State Gamecocks vs Missouri State Bears\) | KXNCAAFGAME-26NOV21MOSUJVST-MOSU |
+| 2026-11-18 10:18 | underdog\_value | Missouri St. wins — YES: Kalshi says 20%, we say 22%; placed order at 20¢ | yes | 0.2000 | 0.2226 | +0.0126 | 100 | yes | lost (no) | underdog \(5.0x payout\); Missouri State Bears consensus 0.223 from 4 books \(Jacksonville State Gamecocks vs Missouri State Bears\) | KXNCAAFGAME-26NOV21MOSUJVST-MOSU |
+| 2026-11-18 00:48 | underdog\_value | Missouri St. wins — YES: Kalshi says 20%, we say 22%; placed order at 20¢ | yes | 0.2000 | 0.2226 | +0.0126 | 100 | yes | lost (no) | underdog \(5.0x payout\); Missouri State Bears consensus 0.223 from 4 books \(Jacksonville State Gamecocks vs Missouri State Bears\) | KXNCAAFGAME-26NOV21MOSUJVST-MOSU |
 | 2026-11-18 00:18 | underdog\_value | Minnesota wins — NO: Kalshi says 23%, we say 25%; bought at 23¢ | no | 0.2300 | 0.2509 | +0.0109 | 100 | yes | open | underdog \(4.3x payout\); Minnesota Vikings consensus 0.749 from 2 books \(Minnesota Vikings vs Atlanta Falcons\) | KXNFLGAME-26NOV29ATLMIN-MIN |
 | 2026-11-16 12:18 | underdog\_value | Old Dominion wins — YES: Kalshi says 16%, we say 18%; placed order at 16¢ | yes | 0.1600 | 0.1831 | +0.0131 | 100 | yes | open | underdog \(6.2x payout\); Old Dominion Monarchs consensus 0.183 from 3 books \(UConn Huskies vs Old Dominion Monarchs\) | KXNCAAFGAME-26NOV21ODUCONN-ODU |
 | 2026-11-16 08:18 | underdog\_value | Toledo wins — NO: Kalshi says 13%, we say 16%; bought at 13¢ | no | 0.1300 | 0.1572 | +0.0172 | 100 | yes | lost (yes) | underdog \(7.7x payout\); Toledo Rockets consensus 0.843 from 3 books \(Toledo Rockets vs Bowling Green Falcons\) | KXNCAAFGAME-26NOV20BGSUTOL-TOL |
