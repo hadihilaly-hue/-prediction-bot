@@ -1,15 +1,1 @@
- scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1334.30
- scanned=1681 signals=0 filled=1 orders_placed=0 settled=0 cash=1330.88
-underdog lane: orders_placed=0 bought_at_ask=1 pulled=0 skipped=
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
-┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
-│ underdog_… │ KXUCLGAME… │ no   │ 0.1700 │ 0.1990 │ 0.0190 │ 19   │ underdog  │
-│            │            │      │        │        │        │      │ (5.9x     │
-│            │            │      │        │        │        │      │ payout);  │
-│            │            │      │        │        │        │      │ Real      │
-│            │            │      │        │        │        │      │ Madrid    │
-│            │            │      │        │        │        │      │ consensus │
-│            │            │      │        │        │        │      │ 0.801     │
-│            │            │      │        │        │        │      │ from 4 b  │
-└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
+ scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1330.88

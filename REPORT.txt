@@ -82,8 +82,9 @@
 │ Tie is the   │ Como vs AEK  │ yes  │ 100   │ 17.99 │ 0.194    │ KXUCLGAME-2… │
 │ result       │ Athens (Nov  │      │       │       │          │              │
 │              │ 24)          │      │       │       │          │              │
-│ NO on        │ KXUCLGAME-2… │ no   │ 19    │ 3.42  │ 0.199    │ KXUCLGAME-2… │
-│ KXUCLGAME-2… │              │      │       │       │          │              │
+│ Real Madrid  │ Real Madrid  │ no   │ 19    │ 3.42  │ 0.199    │ KXUCLGAME-2… │
+│ does NOT win │ vs Eindhoven │      │       │       │          │              │
+│              │ (Nov 24)     │      │       │       │          │              │
 │ Barcelona    │ Sabah        │ no   │ 100   │ 10.63 │ 0.126    │ KXUCLGAME-2… │
 │ does NOT win │ Masazir vs   │      │       │       │          │              │
 │              │ Barcelona    │      │       │       │          │              │

@@ -44,7 +44,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `1. FC Köln 5 - 5 Bayer 04 Leverkusen` (2 events)
 - `1. FC Union Berlin` (15 events)
 - `1. FSV Mainz 05` (4 events)
-- `AEK` (28 events)
+- `AEK` (36 events)
 - `AFC Bournemouth` (19 events)
 - `AS Monaco FC` (5 events)
 - `Aaron Hickey: 1+ assists` (5 events)
@@ -462,7 +462,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Arizona State` (76 events)
 - `Arkansas State` (92 events)
 - `Arkansas-Pine Bluff` (111 events)
-- `Arsenal FC` (40 events)
+- `Arsenal FC` (48 events)
 - `Ashley Westwood: 1+ assists` (2 events)
 - `Ashley Westwood: 1+ goals + assists` (2 events)
 - `Ashley Westwood: 1+ shots` (2 events)
@@ -480,7 +480,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Ashley Westwood: 4+ shots` (2 events)
 - `Ashley Westwood: 4+ shots on target` (2 events)
 - `Ashley Westwood: 5+ shots` (2 events)
-- `Aston Villa FC` (47 events)
+- `Aston Villa FC` (55 events)
 - `Austin FC 0 - 0 Portland Timbers` (2 events)
 - `Austin FC 0 - 1 Portland Timbers` (2 events)
 - `Austin FC 0 - 2 Portland Timbers` (2 events)
@@ -535,7 +535,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Axel Disasi: 4+ shots` (5 events)
 - `Axel Disasi: 4+ shots on target` (5 events)
 - `Axel Disasi: 5+ shots` (5 events)
-- `BV Borussia 09 Dortmund` (40 events)
+- `BV Borussia 09 Dortmund` (48 events)
 - `Ball State` (5 events)
 - `Bart Verbruggen: 1+ saves` (5 events)
 - `Bart Verbruggen: 2+ saves` (5 events)
@@ -1113,8 +1113,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Christian Walton: 4+ saves` (5 events)
 - `Christian Walton: 5+ saves` (5 events)
 - `Christian Walton: 6+ saves` (5 events)
-- `Club Atlético de Madrid` (28 events)
-- `Club Brugge KV` (28 events)
+- `Club Atlético de Madrid` (36 events)
+- `Club Brugge KV` (36 events)
 - `Coastal Carolina` (99 events)
 - `Cody Gakpo: 1+ assists` (5 events)
 - `Cody Gakpo: 1+ goals + assists` (5 events)
@@ -1155,7 +1155,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Colorado State` (47 events)
 - `Columbia` (53 events)
 - `Columbus Crew` (8 events)
-- `Como 1907` (28 events)
+- `Como 1907` (36 events)
 - `Cornell` (84 events)
 - `Costinha: 1+ assists` (5 events)
 - `Costinha: 1+ goals + assists` (5 events)
@@ -1960,8 +1960,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Exequiel Palacios: 4+ shots on target` (5 events)
 - `Exequiel Palacios: 5+ shots` (5 events)
 - `FC Augsburg` (4 events)
-- `FC Barcelona` (28 events)
-- `FC Bayern München` (33 events)
+- `FC Barcelona` (36 events)
+- `FC Bayern München` (41 events)
 - `FC Cincinnati 0 - 0 Nashville SC` (2 events)
 - `FC Cincinnati 0 - 1 Nashville SC` (2 events)
 - `FC Cincinnati 0 - 2 Nashville SC` (2 events)
@@ -2034,13 +2034,13 @@ them as `polymarket_names` in `teams.json` once checked.
 - `FC Dallas 5 - 3 Colorado Rapids SC` (2 events)
 - `FC Dallas 5 - 4 Colorado Rapids SC` (2 events)
 - `FC Dallas 5 - 5 Colorado Rapids SC` (2 events)
-- `FC Internazionale Milano` (28 events)
+- `FC Internazionale Milano` (36 events)
 - `FC Lorient` (5 events)
-- `FC Porto` (28 events)
-- `FK Bodø/Glimt` (28 events)
-- `FK Shakhtar Donetsk` (28 events)
-- `Fenerbahçe SK` (28 events)
-- `Feyenoord Rotterdam` (28 events)
+- `FC Porto` (36 events)
+- `FK Bodø/Glimt` (36 events)
+- `FK Shakhtar Donetsk` (36 events)
+- `Fenerbahçe SK` (36 events)
+- `Feyenoord Rotterdam` (36 events)
 - `Florentino: 1+ assists` (5 events)
 - `Florentino: 1+ goals + assists` (5 events)
 - `Florentino: 1+ shots` (5 events)
@@ -2099,7 +2099,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Fresno State` (89 events)
 - `Fulham FC` (12 events)
 - `Furman` (84 events)
-- `Galatasaray SK` (28 events)
+- `Galatasaray SK` (36 events)
 - `Game Goes to Overtime` (47 events)
 - `Gardner-Webb` (100 events)
 - `Georgetown` (62 events)
@@ -3380,7 +3380,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Kyle Smith: 4+ shots` (2 events)
 - `Kyle Smith: 4+ shots on target` (2 events)
 - `Kyle Smith: 5+ shots` (2 events)
-- `LASK Linz` (28 events)
+- `LASK Linz` (36 events)
 - `LIU` (53 events)
 - `Lafayette` (87 events)
 - `Lamar` (86 events)
@@ -3545,7 +3545,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Liel Abada: 4+ shots` (2 events)
 - `Liel Abada: 4+ shots on target` (2 events)
 - `Liel Abada: 5+ shots` (2 events)
-- `Lille OSC` (33 events)
+- `Lille OSC` (41 events)
 - `Lindenwood` (112 events)
 - `Lionel Messi: 1+ assists` (2 events)
 - `Lionel Messi: 1+ goals + assists` (2 events)
@@ -3564,7 +3564,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Lionel Messi: 4+ shots` (2 events)
 - `Lionel Messi: 4+ shots on target` (2 events)
 - `Lionel Messi: 5+ shots` (2 events)
-- `Liverpool FC` (37 events)
+- `Liverpool FC` (45 events)
 - `Los Angeles Galaxy` (2 events)
 - `Louisiana` (33 events)
 - `Louisiana-Monroe` (26 events)
@@ -3774,8 +3774,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Mamadou Sangaré: 4+ shots` (5 events)
 - `Mamadou Sangaré: 4+ shots on target` (5 events)
 - `Mamadou Sangaré: 5+ shots` (5 events)
-- `Manchester City FC` (40 events)
-- `Manchester United FC` (37 events)
+- `Manchester City FC` (48 events)
+- `Manchester United FC` (45 events)
 - `Manchester United FC 0 - 0 Aston Villa FC` (5 events)
 - `Manchester United FC 0 - 1 Aston Villa FC` (5 events)
 - `Manchester United FC 0 - 2 Aston Villa FC` (5 events)
@@ -4670,8 +4670,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Oscar Avilez: 5+ shots` (2 events)
 - `Other` (3 events)
 - `Over` (63 events)
-- `PSV` (28 events)
-- `Paris Saint-Germain FC` (28 events)
+- `PSV` (36 events)
+- `Paris Saint-Germain FC` (36 events)
 - `Pascal Groß: 1+ assists` (5 events)
 - `Pascal Groß: 1+ goals + assists` (5 events)
 - `Pascal Groß: 1+ shots` (5 events)
@@ -4909,7 +4909,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Quinten Timber: 4+ shots` (5 events)
 - `Quinten Timber: 4+ shots on target` (5 events)
 - `Quinten Timber: 5+ shots` (5 events)
-- `Racing Club de Lens` (29 events)
+- `Racing Club de Lens` (37 events)
 - `Racing Club de Lens 0 - 0 Olympique de Marseille` (1 events)
 - `Racing Club de Lens 0 - 1 Olympique de Marseille` (1 events)
 - `Racing Club de Lens 0 - 2 Olympique de Marseille` (1 events)
@@ -5031,8 +5031,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Rayan: 4+ shots` (5 events)
 - `Rayan: 4+ shots on target` (5 events)
 - `Rayan: 5+ shots` (5 events)
-- `Real Betis Balompié` (28 events)
-- `Real Madrid CF` (28 events)
+- `Real Betis Balompié` (36 events)
+- `Real Madrid CF` (36 events)
 - `Real Salt Lake 0 - 0 Los Angeles Galaxy` (2 events)
 - `Real Salt Lake 0 - 1 Los Angeles Galaxy` (2 events)
 - `Real Salt Lake 0 - 2 Los Angeles Galaxy` (2 events)
@@ -5325,8 +5325,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `SC Freiburg 5 - 4 1. FC Union Berlin` (3 events)
 - `SC Freiburg 5 - 5 1. FC Union Berlin` (3 events)
 - `SC Paderborn 07` (12 events)
-- `SK Slavia Praha` (28 events)
-- `SSC Napoli` (28 events)
+- `SK Slavia Praha` (36 events)
+- `SSC Napoli` (36 events)
 - `SV 07 Elversberg` (12 events)
 - `SV Werder Bremen` (4 events)
 - `Sacred Heart` (53 events)
@@ -6040,7 +6040,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Victor Loturi: 4+ shots on target` (2 events)
 - `Victor Loturi: 5+ shots` (2 events)
 - `Villanova` (62 events)
-- `Villarreal CF` (28 events)
+- `Villarreal CF` (36 events)
 - `Vinícius Nogueira: 1+ assists` (2 events)
 - `Vinícius Nogueira: 1+ goals + assists` (2 events)
 - `Vinícius Nogueira: 1+ shots` (2 events)
@@ -6504,21 +6504,21 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNFLGAME-26NOV26KCBUF` | no_market | 3 | 2026-11-21T00:17 |
 | `KXNFLGAME-26NOV26PHIDAL` | no_market | 3 | 2026-11-21T00:17 |
 | `KXNFLGAME-26NOV27DENPIT` | no_market | 3 | 2026-11-21T00:17 |
-| `KXUCLGAME-26NOV24ARSBVB` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV24BOGASK` | no_market | 3 | 2026-11-20T00:17 |
+| `KXUCLGAME-26NOV24ARSBVB` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV24BOGASK` | no_market | 4 | 2026-11-21T01:47 |
 | `KXUCLGAME-26NOV24COMAEK` | no_market | 4 | 2026-11-21T00:17 |
-| `KXUCLGAME-26NOV24FEYFCP` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV24GALAVL` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV24MCINAP` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV24RBLRCL` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV24RMAPSV` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV24SLORBB` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV25ATMVIK` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV25BRULFC` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV25INTVFB` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV25LILBMU` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV25PSGROM` | no_market | 3 | 2026-11-20T00:17 |
+| `KXUCLGAME-26NOV24FEYFCP` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV24GALAVL` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV24MCINAP` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV24RBLRCL` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV24RMAPSV` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV24SLORBB` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV25ATMVIK` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV25BRULFC` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV25INTVFB` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV25LILBMU` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV25PSGROM` | no_market | 4 | 2026-11-21T01:47 |
 | `KXUCLGAME-26NOV25SBHBAR` | no_market | 4 | 2026-11-21T00:17 |
-| `KXUCLGAME-26NOV25SHAFEN` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV25SLAVIL` | no_market | 3 | 2026-11-20T00:17 |
-| `KXUCLGAME-26NOV25SPOMUN` | no_market | 3 | 2026-11-20T00:17 |
+| `KXUCLGAME-26NOV25SHAFEN` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV25SLAVIL` | no_market | 4 | 2026-11-21T01:47 |
+| `KXUCLGAME-26NOV25SPOMUN` | no_market | 4 | 2026-11-21T01:47 |
