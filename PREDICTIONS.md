@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-21 16:18 UTC. Cash **$1430.88** (started $1000.00), realized PnL **$638.67**, fees $74.23, settled 98, wins 32, open positions 13.
+Updated 2026-11-21 16:47 UTC. Cash **$1430.88** (started $1000.00), realized PnL **$638.67**, fees $74.23, settled 98, wins 32, open positions 13.
 
 Brier (lower is better): strategy 0.2365 vs market price 0.2394.
 
@@ -44,7 +44,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-21 16:18 | underdog\_value | KXUCLGAME-26NOV24SLORBB-RBB — NO: Kalshi says 21%, we say 23%; placed order at 21¢ | no | 0.2100 | 0.2338 | +0.0138 | 100 | yes | open | underdog \(4.8x payout\); Real Betis consensus 0.766 from 4 books \(ŠK Slovan Bratislava vs Real Betis\) | KXUCLGAME-26NOV24SLORBB-RBB |
+| 2026-11-21 16:18 | underdog\_value | Real Betis wins — NO: Kalshi says 21%, we say 23%; placed order at 21¢ | no | 0.2100 | 0.2338 | +0.0138 | 100 | yes | open | underdog \(4.8x payout\); Real Betis consensus 0.766 from 4 books \(ŠK Slovan Bratislava vs Real Betis\) | KXUCLGAME-26NOV24SLORBB-RBB |
 | 2026-11-21 12:18 | underdog\_value | Tie is the result — YES: Kalshi says 22%, we say 26%; placed order at 22¢ | yes | 0.2200 | 0.2558 | +0.0358 | 100 | yes | open | underdog \(4.5x payout\); Draw consensus 0.256 from 4 books \(Pafos FC vs FC Midtjylland\) | KXUECLGAME-26NOV26PAFFCM-TIE |
 | 2026-11-21 12:18 | underdog\_value | Tie is the result — YES: Kalshi says 23%, we say 27%; placed order at 23¢ | yes | 0.2300 | 0.2708 | +0.0408 | 100 | yes | open | underdog \(4.3x payout\); Draw consensus 0.271 from 4 books \(FC Nordsjaelland vs Panathinaikos FC\) | KXUECLGAME-26NOV26NJAPAN-TIE |
 | 2026-11-21 12:18 | underdog\_value | Ajax wins — NO: Kalshi says 17%, we say 20%; placed order at 17¢ | no | 0.1700 | 0.2045 | +0.0345 | 100 | yes | open | underdog \(5.9x payout\); Ajax consensus 0.796 from 4 books \(Ajax vs FC Thun\) | KXUECLGAME-26NOV26AJATHU-AJA |
