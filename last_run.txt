@@ -1,1 +1,31 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1430.88
+ scanned=1600 signals=0 filled=0 orders_placed=3 settled=0 cash=1430.88
+underdog lane: orders_placed=3 bought_at_ask=0 pulled=0 skipped=
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXUECLGAM… │ no   │ 0.1700 │ 0.2045 │ 0.0345 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.9x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Ajax      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.796     │
+│            │            │      │        │        │        │      │ from 4    │
+│            │            │      │        │        │        │      │ books (A  │
+│ underdog_… │ KXUECLGAM… │ yes  │ 0.2300 │ 0.2708 │ 0.0408 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.271     │
+│            │            │      │        │        │        │      │ from 4    │
+│            │            │      │        │        │        │      │ books (F  │
+│ underdog_… │ KXUECLGAM… │ yes  │ 0.2200 │ 0.2558 │ 0.0358 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.5x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.256     │
+│            │            │      │        │        │        │      │ from 4    │
+│            │            │      │        │        │        │      │ books (P  │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
