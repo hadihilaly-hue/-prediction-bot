@@ -6,8 +6,8 @@ them as `polymarket_names` in `teams.json` once checked.
 
 ## Unresolved Polymarket names
 
-- `1. FC Union Berlin` (12 events)
-- `1. FSV Mainz 05` (4 events)
+- `1. FC Union Berlin` (14 events)
+- `1. FSV Mainz 05` (7 events)
 - `AEK` (45 events)
 - `AFC Bournemouth` (19 events)
 - `AS Monaco FC` (5 events)
@@ -270,7 +270,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Axel Disasi: 4+ shots` (5 events)
 - `Axel Disasi: 4+ shots on target` (5 events)
 - `Axel Disasi: 5+ shots` (5 events)
-- `BV Borussia 09 Dortmund` (57 events)
+- `BV Borussia 09 Dortmund` (59 events)
 - `Ball State` (5 events)
 - `Bart Verbruggen: 1+ saves` (5 events)
 - `Bart Verbruggen: 2+ saves` (5 events)
@@ -278,7 +278,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Bart Verbruggen: 4+ saves` (5 events)
 - `Bart Verbruggen: 5+ saves` (5 events)
 - `Bart Verbruggen: 6+ saves` (5 events)
-- `Bayer 04 Leverkusen` (12 events)
+- `Bayer 04 Leverkusen` (14 events)
 - `Benjamin André: 1+ assists` (5 events)
 - `Benjamin André: 1+ goals + assists` (5 events)
 - `Benjamin André: 1+ shots` (5 events)
@@ -882,9 +882,9 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Exequiel Palacios: 4+ shots` (5 events)
 - `Exequiel Palacios: 4+ shots on target` (5 events)
 - `Exequiel Palacios: 5+ shots` (5 events)
-- `FC Augsburg` (4 events)
+- `FC Augsburg` (7 events)
 - `FC Barcelona` (45 events)
-- `FC Bayern München` (50 events)
+- `FC Bayern München` (52 events)
 - `FC Internazionale Milano` (45 events)
 - `FC Lorient` (5 events)
 - `FC Porto` (45 events)
@@ -1074,7 +1074,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Granit Xhaka: 4+ shots` (5 events)
 - `Granit Xhaka: 4+ shots on target` (5 events)
 - `Granit Xhaka: 5+ shots` (5 events)
-- `Hamburger SV` (4 events)
+- `Hamburger SV` (7 events)
 - `Hampton` (84 events)
 - `Harvard` (94 events)
 - `Holy Cross` (53 events)
@@ -2130,11 +2130,11 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Ryan Christie: 4+ shots` (5 events)
 - `Ryan Christie: 4+ shots on target` (5 events)
 - `Ryan Christie: 5+ shots` (5 events)
-- `SC Paderborn 07` (12 events)
+- `SC Paderborn 07` (14 events)
 - `SK Slavia Praha` (45 events)
 - `SSC Napoli` (45 events)
-- `SV 07 Elversberg` (12 events)
-- `SV Werder Bremen` (4 events)
+- `SV 07 Elversberg` (14 events)
+- `SV Werder Bremen` (5 events)
 - `Sacred Heart` (53 events)
 - `Samford` (82 events)
 - `San Diego` (28 events)
@@ -2301,7 +2301,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Sunderland AFC 5 - 3 Chelsea FC` (5 events)
 - `Sunderland AFC 5 - 4 Chelsea FC` (5 events)
 - `Sunderland AFC 5 - 5 Chelsea FC` (5 events)
-- `TSG 1899 Hoffenheim` (12 events)
+- `TSG 1899 Hoffenheim` (14 events)
 - `Tarleton State` (108 events)
 - `Temple` (67 events)
 - `Tennessee State` (81 events)
@@ -2554,7 +2554,11 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXBUNDESLIGAGAME-26NOV21SGETSG` | no_market | 4 | 2026-11-17T00:07 |
 | `KXBUNDESLIGAGAME-26NOV21SVESCF` | no_market | 4 | 2026-11-17T00:07 |
 | `KXBUNDESLIGAGAME-26NOV21UNIRBL` | no_market | 4 | 2026-11-17T00:07 |
-| `KXBUNDESLIGAGAME-26NOV22FCAM05` | no_market | 4 | 2026-11-17T00:07 |
+| `KXBUNDESLIGAGAME-26NOV22FCAM05` | no_market | 5 | 2026-11-22T08:47 |
+| `KXBUNDESLIGAGAME-26NOV28KOESVE` | no_market | 1 | 2026-11-22T08:47 |
+| `KXBUNDESLIGAGAME-26NOV28M05UNI` | no_market | 1 | 2026-11-22T08:47 |
+| `KXBUNDESLIGAGAME-26NOV29BVBLEV` | no_market | 1 | 2026-11-22T08:47 |
+| `KXBUNDESLIGAGAME-26NOV29TSGFCA` | no_market | 1 | 2026-11-22T08:47 |
 | `KXEPLGAME-26NOV08BRIBRE` | no_market | 1 | 2026-11-08T13:19 |
 | `KXEPLGAME-26NOV08CRYLFC` | no_market | 1 | 2026-11-08T13:19 |
 | `KXEPLGAME-26NOV08IPSBOU` | no_market | 1 | 2026-11-08T13:19 |
