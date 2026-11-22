@@ -2508,6 +2508,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Yeremi Pino: 4+ shots on target` (5 events)
 - `Yeremi Pino: 5+ shots` (5 events)
 - `Youngstown State` (36 events)
+- `akron-zips:0.19-0.25` (1 events)
 - `clemson-tigers:0.19-0.25` (1 events)
 - `draw:0.2-0.26` (2 events)
 - `draw:0.26 vs kalshi 0.4000` (1 events)
@@ -2672,6 +2673,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV26TCUTTU` | wide_book | 1 | 2026-11-19T04:17 |
 | `KXNCAAFGAME-26NOV26TCUTTU` | wide_book | 1 | 2026-11-22T00:17 |
 | `KXNCAAFGAME-26NOV26TCUTTU` | wide_book | 1 | 2026-11-21T00:17 |
+| `KXNCAAFGAME-26NOV27BUFFAKR` | wide_book | 1 | 2026-11-22T05:17 |
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-21T00:17 |
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-20T04:17 |
 | `KXNFLGAME-26NOV08TBCHI` | no_market | 1 | 2026-11-09T00:20 |
