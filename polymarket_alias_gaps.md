@@ -260,6 +260,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Yale` (63 events)
 - `Youngstown State` (36 events)
 - `akron-zips:0.19-0.25` (1 events)
+- `arkansas-razorbacks:0.14-0.2` (1 events)
 - `clemson-tigers:0.19-0.25` (1 events)
 - `draw:0.2-0.26` (2 events)
 - `draw:0.26 vs kalshi 0.4000` (1 events)
@@ -399,6 +400,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-21T00:17 |
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-20T04:17 |
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-22T14:47 |
+| `KXNCAAFGAME-26NOV28LSUARK` | wide_book | 1 | 2026-11-22T15:17 |
 | `KXNCAAFGAME-26NOV28TENNVAN` | no_market | 1 | 2026-11-22T13:47 |
 | `KXNFLGAME-26NOV08TBCHI` | no_market | 1 | 2026-11-09T00:20 |
 | `KXNFLGAME-26NOV09BUFMIN` | no_market | 2 | 2026-11-10T00:17 |

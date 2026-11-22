@@ -3,9 +3,9 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │ 1477.31 │
-│ open positions       │      14 │
-│ open cost            │  237.48 │
+│ cash                 │ 1458.31 │
+│ open positions       │      15 │
+│ open cost            │  256.48 │
 │ settled fills        │     100 │
 │ wins                 │      33 │
 │ realized pnl         │  714.79 │
@@ -34,7 +34,7 @@
 │ KXNFLGAME     │    5 │      29 │    7 │      -313.91 │ 0.2293 │       0.2104 │
 │ KXNHLGAME     │    0 │       4 │    0 │       -79.22 │ 0.1013 │       0.0752 │
 │ KXUCLGAME     │    3 │       0 │    0 │         0.00 │      - │            - │
-│ KXUELGAME     │    1 │       0 │    0 │         0.00 │      - │            - │
+│ KXUELGAME     │    2 │       0 │    0 │         0.00 │      - │            - │
 │ KXUFCFIGHT    │    0 │       2 │    2 │       164.02 │ 0.6503 │       0.6889 │
 └───────────────┴──────┴─────────┴──────┴──────────────┴────────┴──────────────┘
                                  Open positions                                 
@@ -82,6 +82,9 @@
 │ does NOT win │ Masazir vs   │      │       │       │          │              │
 │              │ Barcelona    │      │       │       │          │              │
 │              │ (Nov 25)     │      │       │       │          │              │
+│ Besiktas     │ Besiktas vs  │ no   │ 100   │ 19.00 │ 0.216    │ KXUELGAME-2… │
+│ does NOT win │ Be'er Sheva  │      │       │       │          │              │
+│              │ (Nov 26)     │      │       │       │          │              │
 │ Juventus     │ Juventus vs  │ no   │ 100   │ 18.00 │ 0.202    │ KXUELGAME-2… │
 │ does NOT win │ Omonia       │      │       │       │          │              │
 │              │ Nicosia (Nov │      │       │       │          │              │
