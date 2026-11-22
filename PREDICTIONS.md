@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-22 22:18 UTC. Cash **$1425.06** (started $1000.00), realized PnL **$687.38**, fees $76.05, settled 102, wins 33, open positions 15.
+Updated 2026-11-22 22:48 UTC. Cash **$1412.87** (started $1000.00), realized PnL **$687.38**, fees $76.24, settled 102, wins 33, open positions 16.
 
 Brier (lower is better): strategy 0.2349 vs market price 0.2378.
 
@@ -15,17 +15,18 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 6, settled 50, wins 17, realized PnL $561.08, Brier 0.2056 vs market 0.2147
+- `KXNCAAFGAME`: open 7, settled 50, wins 17, realized PnL $561.08, Brier 0.2056 vs market 0.2147
 - `KXNFLGAME`: open 3, settled 31, wins 7, realized PnL $-341.32, Brier 0.2085 vs market 0.1909
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUCLGAME`: open 3, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUELGAME`: open 3, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (15)
+## Open positions (16)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
+| Boise St. does NOT win | San Diego St. vs Boise St. \(Dec 4\) | 100 | $12.19 | 15% | `KXNCAAFGAME-26DEC04SDSUBSU-BSU` |
 | Texas Tech does NOT win | TCU vs Texas Tech \(Nov 26\) | 100 | $21.30 | 25% | `KXNCAAFGAME-26NOV26TCUTTU-TTU` |
 | Akron wins | Buffalo vs Akron \(Nov 27\) | 100 | $20.08 | 22% | `KXNCAAFGAME-26NOV27BUFFAKR-AKR` |
 | Texas does NOT win | Texas vs Texas A&M \(Nov 27\) | 100 | $25.33 | 28% | `KXNCAAFGAME-26NOV27TEXTXAM-TEX` |
@@ -46,8 +47,8 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-22 22:18 | underdog\_value | KXNCAAFGAME-26NOV27NDSUSJSU-SJSU — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2108 | +0.0108 | 100 | yes | open | underdog \(5.3x payout\); San Jose State Spartans consensus 0.211 from 2 books \(San Jose State Spartans vs North Dakota State Bison\) | KXNCAAFGAME-26NOV27NDSUSJSU-SJSU |
-| 2026-11-22 22:18 | underdog\_value | KXNCAAFGAME-26DEC04SDSUBSU-BSU — NO: Kalshi says 12%, we say 15%; placed order at 12¢ | no | 0.1200 | 0.1487 | +0.0187 | 100 | yes | open | underdog \(8.3x payout\); Boise State Broncos consensus 0.851 from 2 books \(Boise State Broncos vs San Diego State Aztecs\) | KXNCAAFGAME-26DEC04SDSUBSU-BSU |
+| 2026-11-22 22:18 | underdog\_value | San Jose St. wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2108 | +0.0108 | 100 | yes | open | underdog \(5.3x payout\); San Jose State Spartans consensus 0.211 from 2 books \(San Jose State Spartans vs North Dakota State Bison\) | KXNCAAFGAME-26NOV27NDSUSJSU-SJSU |
+| 2026-11-22 22:18 | underdog\_value | Boise St. wins — NO: Kalshi says 12%, we say 15%; bought at 12¢ | no | 0.1200 | 0.1487 | +0.0187 | 100 | yes | open | underdog \(8.3x payout\); Boise State Broncos consensus 0.851 from 2 books \(Boise State Broncos vs San Diego State Aztecs\) | KXNCAAFGAME-26DEC04SDSUBSU-BSU |
 | 2026-11-22 18:18 | underdog\_value | Tie is the result — YES: Kalshi says 17%, we say 19%; placed order at 17¢ | yes | 0.1700 | 0.1917 | +0.0117 | 100 | yes | open | underdog \(5.9x payout\); Draw consensus 0.192 from 1 books \(Liverpool vs Sunderland\) | KXEPLGAME-26DEC02LFCSUN-TIE |
 | 2026-11-22 18:18 | underdog\_value | Hull City wins — YES: Kalshi says 24%, we say 26%; placed order at 24¢ | yes | 0.2400 | 0.2612 | +0.0112 | 100 | yes | open | underdog \(4.2x payout\); Hull City consensus 0.261 from 1 books \(Hull City vs Nottingham Forest\) | KXEPLGAME-26DEC02HULNFO-HUL |
 | 2026-11-22 18:18 | underdog\_value | Tie is the result — YES: Kalshi says 18%, we say 20%; placed order at 18¢ | yes | 0.1800 | 0.2038 | +0.0138 | 100 | yes | open | underdog \(5.6x payout\); Draw consensus 0.204 from 1 books \(Chelsea vs Crystal Palace\) | KXEPLGAME-26DEC02CFCCRY-TIE |
