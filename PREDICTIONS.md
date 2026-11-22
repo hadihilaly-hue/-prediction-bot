@@ -1,12 +1,12 @@
 # Paper-trading predictions
 
-Updated 2026-11-22 03:47 UTC. Cash **$1410.80** (started $1000.00), realized PnL **$638.67**, fees $75.31, settled 98, wins 32, open positions 14.
+Updated 2026-11-22 04:17 UTC. Cash **$1410.80** (started $1000.00), realized PnL **$626.48**, fees $75.31, settled 99, wins 32, open positions 13.
 
-Brier (lower is better): strategy 0.2365 vs market price 0.2394.
+Brier (lower is better): strategy 0.2334 vs market price 0.2361.
 
 - `sportsbook_arb`: settled 62, wins 18, realized PnL $176.90, Brier 0.1945 vs market 0.1951
 - `sportsbook_v3`: settled 5, wins 3, realized PnL $-34.79, Brier 0.2977 vs market 0.2760
-- `underdog_value`: settled 31, wins 11, realized PnL $496.56, Brier 0.2963 vs market 0.3040
+- `underdog_value`: settled 32, wins 11, realized PnL $484.37, Brier 0.2864 vs market 0.2936
 
 Per league (Kalshi series):
 
@@ -15,19 +15,18 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 5, settled 48, wins 16, realized PnL $484.96, Brier 0.1955 vs market 0.2042
+- `KXNCAAFGAME`: open 4, settled 49, wins 16, realized PnL $472.77, Brier 0.1908 vs market 0.1991
 - `KXNFLGAME`: open 5, settled 29, wins 7, realized PnL $-313.91, Brier 0.2293 vs market 0.2104
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUCLGAME`: open 3, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUELGAME`: open 1, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (14)
+## Open positions (13)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
 | San Diego St. wins | San Diego St. vs Boise St. \(Nov 21\) | 100 | $11.69 | 13% | `KXNCAAFGAME-26NOV21SDSUBSU-SDSU` |
-| Notre Dame does NOT win | SMU vs Notre Dame \(Nov 21\) | 100 | $12.19 | 15% | `KXNCAAFGAME-26NOV21SMUND-ND` |
 | Texas Tech does NOT win | TCU vs Texas Tech \(Nov 26\) | 100 | $21.30 | 25% | `KXNCAAFGAME-26NOV26TCUTTU-TTU` |
 | Akron wins | Buffalo vs Akron \(Nov 27\) | 100 | $20.08 | 22% | `KXNCAAFGAME-26NOV27BUFFAKR-AKR` |
 | Texas does NOT win | Texas vs Texas A&M \(Nov 27\) | 100 | $25.33 | 28% | `KXNCAAFGAME-26NOV27TEXTXAM-TEX` |
@@ -137,7 +136,7 @@ Per league (Kalshi series):
 | 2026-11-12 07:17 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
 | 2026-11-12 07:17 | underdog\_value | Chicago wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1945 | +0.0145 | 100 | yes | open | underdog \(5.9x payout\); Chicago Bears consensus 0.805 from 2 books \(Chicago Bears vs New Orleans Saints\) | KXNFLGAME-26NOV22NOCHI-CHI |
 | 2026-11-12 07:17 | underdog\_value | Arizona wins — YES: Kalshi says 10%, we say 12%; bought at 10¢ | yes | 0.1000 | 0.1203 | +0.0103 | 100 | yes | open | underdog \(10.0x payout\); Arizona Cardinals consensus 0.120 from 2 books \(Kansas City Chiefs vs Arizona Cardinals\) | KXNFLGAME-26NOV22ARIKC-ARI |
-| 2026-11-11 23:08 | underdog\_value | Notre Dame wins — NO: Kalshi says 12%, we say 15%; bought at 12¢ | no | 0.1200 | 0.1481 | +0.0181 | 100 | yes | open | underdog \(8.3x payout\); Notre Dame Fighting Irish consensus 0.852 from 1 books \(Notre Dame Fighting Irish vs SMU Mustangs\) | KXNCAAFGAME-26NOV21SMUND-ND |
+| 2026-11-11 23:08 | underdog\_value | Notre Dame wins — NO: Kalshi says 12%, we say 15%; bought at 12¢ | no | 0.1200 | 0.1481 | +0.0181 | 100 | yes | lost (yes) | underdog \(8.3x payout\); Notre Dame Fighting Irish consensus 0.852 from 1 books \(Notre Dame Fighting Irish vs SMU Mustangs\) | KXNCAAFGAME-26NOV21SMUND-ND |
 | 2026-11-11 21:27 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
 | 2026-11-11 21:27 | underdog\_value | Indianapolis wins — YES: Kalshi says 18%, we say 20%; bought at 18¢ | yes | 0.1800 | 0.2006 | +0.0106 | 100 | yes | lost (no) | underdog \(5.6x payout\); Indianapolis Colts consensus 0.201 from 2 books \(Houston Texans vs Indianapolis Colts\) | KXNFLGAME-26NOV19INDHOU-IND |
 | 2026-11-11 12:18 | underdog\_value | Vanderbilt wins — YES: Kalshi says 12%, we say 14%; bought at 12¢ | yes | 0.1200 | 0.1405 | +0.0105 | 100 | yes | lost (no) | underdog \(8.3x payout\); Vanderbilt Commodores consensus 0.140 from 4 books \(Vanderbilt Commodores vs Alabama Crimson Tide\) | KXNCAAFGAME-26NOV14ALAVAN-VAN |
