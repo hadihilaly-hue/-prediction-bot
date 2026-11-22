@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-22 12:18 UTC. Cash **$1510.80** (started $1000.00), realized PnL **$714.79**, fees $75.31, settled 100, wins 33, open positions 12.
+Updated 2026-11-22 12:48 UTC. Cash **$1510.80** (started $1000.00), realized PnL **$714.79**, fees $75.31, settled 100, wins 33, open positions 12.
 
 Brier (lower is better): strategy 0.2408 vs market price 0.2440.
 
@@ -43,6 +43,10 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-22 12:48 | underdog\_value | KXNCAAFGAME-26NOV28WASHORE-ORE — NO: Kalshi says 17%, we say 20%; placed order at 17¢ | no | 0.1700 | 0.1977 | +0.0177 | 100 | yes | open | underdog \(5.9x payout\); Oregon Ducks consensus 0.802 from 2 books \(Oregon Ducks vs Washington Huskies\) | KXNCAAFGAME-26NOV28WASHORE-ORE |
+| 2026-11-22 12:48 | underdog\_value | KXNCAAFGAME-26NOV28TENNVAN-TENN — NO: Kalshi says 17%, we say 20%; placed order at 17¢ | no | 0.1700 | 0.1954 | +0.0154 | 100 | yes | open | underdog \(5.9x payout\); Tennessee Volunteers consensus 0.805 from 2 books \(Vanderbilt Commodores vs Tennessee Volunteers\) | KXNCAAFGAME-26NOV28TENNVAN-TENN |
+| 2026-11-22 12:48 | underdog\_value | KXNCAAFGAME-26NOV28SMUSTAN-SMU — NO: Kalshi says 22%, we say 25%; placed order at 22¢ | no | 0.2200 | 0.2456 | +0.0156 | 100 | yes | open | underdog \(4.5x payout\); SMU Mustangs consensus 0.754 from 1 books \(Stanford Cardinal vs SMU Mustangs\) | KXNCAAFGAME-26NOV28SMUSTAN-SMU |
+| 2026-11-22 12:48 | underdog\_value | KXNCAAFGAME-26NOV28LSUARK-LSU — NO: Kalshi says 16%, we say 18%; placed order at 16¢ | no | 0.1600 | 0.1850 | +0.0150 | 100 | yes | open | underdog \(6.2x payout\); LSU Tigers consensus 0.815 from 1 books \(Arkansas Razorbacks vs LSU Tigers\) | KXNCAAFGAME-26NOV28LSUARK-LSU |
 | 2026-11-22 10:18 | underdog\_value | Sturm Graz wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1281 | +0.0181 | 100 | yes | open | underdog \(9.1x payout\); SK Sturm Graz consensus 0.128 from 4 books \(TSG Hoffenheim vs SK Sturm Graz\) | KXUELGAME-26NOV26TSGSTU-STU |
 | 2026-11-22 10:18 | underdog\_value | Sunderland wins — NO: Kalshi says 22%, we say 25%; placed order at 22¢ | no | 0.2200 | 0.2510 | +0.0310 | 100 | yes | open | underdog \(4.5x payout\); Sunderland consensus 0.749 from 4 books \(Sunderland vs Jagiellonia Białystok\) | KXUELGAME-26NOV26SUNJAG-SUN |
 | 2026-11-22 10:18 | underdog\_value | Salzburg wins — NO: Kalshi says 16%, we say 18%; placed order at 16¢ | no | 0.1600 | 0.1850 | +0.0250 | 100 | yes | open | underdog \(6.2x payout\); Salzburg consensus 0.815 from 4 books \(Salzburg vs FC Ararat-Armenia\) | KXUELGAME-26NOV26RBSARA-RBS |

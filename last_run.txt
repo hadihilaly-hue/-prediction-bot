@@ -1,3 +1,38 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1510.80
- scanned=1348 signals=0 filled=0 orders_placed=0 settled=0 cash=1510.80
-underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
+ scanned=1348 signals=0 filled=0 orders_placed=4 settled=0 cash=1510.80
+underdog lane: orders_placed=4 bought_at_ask=0 pulled=0 skipped=
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNCAAFGA… │ no   │ 0.1600 │ 0.1850 │ 0.0150 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (6.2x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ LSU       │
+│            │            │      │        │        │        │      │ Tigers    │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.815     │
+│            │            │      │        │        │        │      │ from 1 bo │
+│ underdog_… │ KXNCAAFGA… │ no   │ 0.2200 │ 0.2456 │ 0.0156 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.5x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ SMU       │
+│            │            │      │        │        │        │      │ Mustangs  │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.754     │
+│            │            │      │        │        │        │      │ from 1    │
+│ underdog_… │ KXNCAAFGA… │ no   │ 0.1700 │ 0.1954 │ 0.0154 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.9x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Tennessee │
+│            │            │      │        │        │        │      │ Voluntee… │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.805     │
+│ underdog_… │ KXNCAAFGA… │ no   │ 0.1700 │ 0.1977 │ 0.0177 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.9x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Oregon    │
+│            │            │      │        │        │        │      │ Ducks     │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.802     │
+│            │            │      │        │        │        │      │ from 2    │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
