@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-22 00:18 UTC. Cash **$1410.80** (started $1000.00), realized PnL **$638.67**, fees $75.31, settled 98, wins 32, open positions 14.
+Updated 2026-11-22 00:47 UTC. Cash **$1410.80** (started $1000.00), realized PnL **$638.67**, fees $75.31, settled 98, wins 32, open positions 14.
 
 Brier (lower is better): strategy 0.2365 vs market price 0.2394.
 
@@ -45,8 +45,8 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-22 00:18 | underdog\_value | KXUELGAME-26NOV26VIKBEN-TIE — YES: Kalshi says 17%, we say 19%; placed order at 17¢ | yes | 0.1700 | 0.1917 | +0.0217 | 100 | yes | open | underdog \(5.9x payout\); Draw consensus 0.192 from 4 books \(Viktoria Plzeň vs Benfica\) | KXUELGAME-26NOV26VIKBEN-TIE |
-| 2026-11-22 00:18 | underdog\_value | KXUELGAME-26NOV26USGLPO-LPO — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1261 | +0.0161 | 100 | yes | open | underdog \(9.1x payout\); Lech Poznań consensus 0.126 from 4 books \(Union Saint-Gilloise vs Lech Poznań\) | KXUELGAME-26NOV26USGLPO-LPO |
+| 2026-11-22 00:18 | underdog\_value | Tie is the result — YES: Kalshi says 17%, we say 19%; placed order at 17¢ | yes | 0.1700 | 0.1917 | +0.0217 | 100 | yes | open | underdog \(5.9x payout\); Draw consensus 0.192 from 4 books \(Viktoria Plzeň vs Benfica\) | KXUELGAME-26NOV26VIKBEN-TIE |
+| 2026-11-22 00:18 | underdog\_value | Lech Poznan wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1261 | +0.0161 | 100 | yes | open | underdog \(9.1x payout\); Lech Poznań consensus 0.126 from 4 books \(Union Saint-Gilloise vs Lech Poznań\) | KXUELGAME-26NOV26USGLPO-LPO |
 | 2026-11-22 00:18 | underdog\_value | Sunderland wins — NO: Kalshi says 22%, we say 25%; placed order at 22¢ | no | 0.2200 | 0.2510 | +0.0310 | 100 | yes | open | underdog \(4.5x payout\); Sunderland consensus 0.749 from 4 books \(Sunderland vs Jagiellonia Białystok\) | KXUELGAME-26NOV26SUNJAG-SUN |
 | 2026-11-22 00:18 | underdog\_value | Celta Vigo wins — YES: Kalshi says 23%, we say 24%; placed order at 23¢ | yes | 0.2300 | 0.2421 | +0.0121 | 100 | yes | open | underdog \(4.3x payout\); Celta Vigo consensus 0.242 from 4 books \(Celta Vigo vs Bournemouth\) | KXUELGAME-26NOV26RCCBOU-RCC |
 | 2026-11-22 00:18 | underdog\_value | Salzburg wins — NO: Kalshi says 16%, we say 18%; placed order at 16¢ | no | 0.1600 | 0.1850 | +0.0250 | 100 | yes | open | underdog \(6.2x payout\); Salzburg consensus 0.815 from 4 books \(Salzburg vs FC Ararat-Armenia\) | KXUELGAME-26NOV26RBSARA-RBS |
