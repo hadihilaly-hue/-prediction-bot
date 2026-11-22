@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-22 01:48 UTC. Cash **$1410.80** (started $1000.00), realized PnL **$638.67**, fees $75.31, settled 98, wins 32, open positions 14.
+Updated 2026-11-22 02:18 UTC. Cash **$1410.80** (started $1000.00), realized PnL **$638.67**, fees $75.31, settled 98, wins 32, open positions 14.
 
 Brier (lower is better): strategy 0.2365 vs market price 0.2394.
 
@@ -45,6 +45,9 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-22 02:18 | underdog\_value | Tie is the result — YES: Kalshi says 24%, we say 26%; placed order at 24¢ | yes | 0.2400 | 0.2560 | +0.0160 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.256 from 4 books \(Pafos FC vs FC Midtjylland\) | KXUECLGAME-26NOV26PAFFCM-TIE |
+| 2026-11-22 02:18 | underdog\_value | Tie is the result — YES: Kalshi says 24%, we say 27%; placed order at 24¢ | yes | 0.2400 | 0.2704 | +0.0304 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.270 from 4 books \(FC Nordsjaelland vs Panathinaikos FC\) | KXUECLGAME-26NOV26NJAPAN-TIE |
+| 2026-11-22 02:18 | underdog\_value | Ajax wins — NO: Kalshi says 18%, we say 20%; placed order at 18¢ | no | 0.1800 | 0.2045 | +0.0245 | 100 | yes | open | underdog \(5.6x payout\); Ajax consensus 0.796 from 4 books \(Ajax vs FC Thun\) | KXUECLGAME-26NOV26AJATHU-AJA |
 | 2026-11-22 00:18 | underdog\_value | Tie is the result — YES: Kalshi says 17%, we say 19%; placed order at 17¢ | yes | 0.1700 | 0.1917 | +0.0217 | 100 | yes | open | underdog \(5.9x payout\); Draw consensus 0.192 from 4 books \(Viktoria Plzeň vs Benfica\) | KXUELGAME-26NOV26VIKBEN-TIE |
 | 2026-11-22 00:18 | underdog\_value | Lech Poznan wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1261 | +0.0161 | 100 | yes | open | underdog \(9.1x payout\); Lech Poznań consensus 0.126 from 4 books \(Union Saint-Gilloise vs Lech Poznań\) | KXUELGAME-26NOV26USGLPO-LPO |
 | 2026-11-22 00:18 | underdog\_value | Sunderland wins — NO: Kalshi says 22%, we say 25%; placed order at 22¢ | no | 0.2200 | 0.2510 | +0.0310 | 100 | yes | open | underdog \(4.5x payout\); Sunderland consensus 0.749 from 4 books \(Sunderland vs Jagiellonia Białystok\) | KXUELGAME-26NOV26SUNJAG-SUN |
