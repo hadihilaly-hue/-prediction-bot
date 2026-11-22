@@ -273,6 +273,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `tcu-horned-frogs:0.2-0.35` (1 events)
 - `texas-a-m-aggies:0.24-0.32` (1 events)
 - `texas-a-m-aggies:0.24-0.35` (1 events)
+- `texas-a-m-aggies:0.25-0.37` (1 events)
 
 ## Unmatched events
 
@@ -397,6 +398,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV27BUFFAKR` | wide_book | 1 | 2026-11-22T05:17 |
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-21T00:17 |
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-20T04:17 |
+| `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-22T14:47 |
 | `KXNCAAFGAME-26NOV28TENNVAN` | no_market | 1 | 2026-11-22T13:47 |
 | `KXNFLGAME-26NOV08TBCHI` | no_market | 1 | 2026-11-09T00:20 |
 | `KXNFLGAME-26NOV09BUFMIN` | no_market | 2 | 2026-11-10T00:17 |
