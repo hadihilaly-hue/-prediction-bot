@@ -1,1 +1,23 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1425.06
+ scanned=1286 signals=0 filled=0 orders_placed=2 settled=0 cash=1425.06
+underdog lane: orders_placed=2 bought_at_ask=0 pulled=0 skipped=
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNCAAFGA… │ no   │ 0.1200 │ 0.1487 │ 0.0187 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (8.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Boise     │
+│            │            │      │        │        │        │      │ State     │
+│            │            │      │        │        │        │      │ Broncos   │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.851     │
+│ underdog_… │ KXNCAAFGA… │ yes  │ 0.1900 │ 0.2108 │ 0.0108 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ San Jose  │
+│            │            │      │        │        │        │      │ State     │
+│            │            │      │        │        │        │      │ Spartans  │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.        │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
