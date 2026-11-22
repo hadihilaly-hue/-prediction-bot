@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-22 18:18 UTC. Cash **$1425.06** (started $1000.00), realized PnL **$714.79**, fees $76.05, settled 100, wins 33, open positions 17.
+Updated 2026-11-22 18:48 UTC. Cash **$1425.06** (started $1000.00), realized PnL **$714.79**, fees $76.05, settled 100, wins 33, open positions 17.
 
 Brier (lower is better): strategy 0.2408 vs market price 0.2440.
 
@@ -48,9 +48,9 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-22 18:18 | underdog\_value | KXEPLGAME-26DEC02LFCSUN-TIE — YES: Kalshi says 17%, we say 19%; placed order at 17¢ | yes | 0.1700 | 0.1917 | +0.0117 | 100 | yes | open | underdog \(5.9x payout\); Draw consensus 0.192 from 1 books \(Liverpool vs Sunderland\) | KXEPLGAME-26DEC02LFCSUN-TIE |
-| 2026-11-22 18:18 | underdog\_value | KXEPLGAME-26DEC02HULNFO-HUL — YES: Kalshi says 24%, we say 26%; placed order at 24¢ | yes | 0.2400 | 0.2612 | +0.0112 | 100 | yes | open | underdog \(4.2x payout\); Hull City consensus 0.261 from 1 books \(Hull City vs Nottingham Forest\) | KXEPLGAME-26DEC02HULNFO-HUL |
-| 2026-11-22 18:18 | underdog\_value | KXEPLGAME-26DEC02CFCCRY-TIE — YES: Kalshi says 18%, we say 20%; placed order at 18¢ | yes | 0.1800 | 0.2038 | +0.0138 | 100 | yes | open | underdog \(5.6x payout\); Draw consensus 0.204 from 1 books \(Chelsea vs Crystal Palace\) | KXEPLGAME-26DEC02CFCCRY-TIE |
+| 2026-11-22 18:18 | underdog\_value | Tie is the result — YES: Kalshi says 17%, we say 19%; placed order at 17¢ | yes | 0.1700 | 0.1917 | +0.0117 | 100 | yes | open | underdog \(5.9x payout\); Draw consensus 0.192 from 1 books \(Liverpool vs Sunderland\) | KXEPLGAME-26DEC02LFCSUN-TIE |
+| 2026-11-22 18:18 | underdog\_value | Hull City wins — YES: Kalshi says 24%, we say 26%; placed order at 24¢ | yes | 0.2400 | 0.2612 | +0.0112 | 100 | yes | open | underdog \(4.2x payout\); Hull City consensus 0.261 from 1 books \(Hull City vs Nottingham Forest\) | KXEPLGAME-26DEC02HULNFO-HUL |
+| 2026-11-22 18:18 | underdog\_value | Tie is the result — YES: Kalshi says 18%, we say 20%; placed order at 18¢ | yes | 0.1800 | 0.2038 | +0.0138 | 100 | yes | open | underdog \(5.6x payout\); Draw consensus 0.204 from 1 books \(Chelsea vs Crystal Palace\) | KXEPLGAME-26DEC02CFCCRY-TIE |
 | 2026-11-22 12:48 | underdog\_value | Oregon wins — NO: Kalshi says 17%, we say 20%; bought at 17¢ | no | 0.1700 | 0.1977 | +0.0177 | 100 | yes | open | underdog \(5.9x payout\); Oregon Ducks consensus 0.802 from 2 books \(Oregon Ducks vs Washington Huskies\) | KXNCAAFGAME-26NOV28WASHORE-ORE |
 | 2026-11-22 12:48 | underdog\_value | Tennessee wins — NO: Kalshi says 17%, we say 20%; bought at 17¢ | no | 0.1700 | 0.1954 | +0.0154 | 100 | yes | open | underdog \(5.9x payout\); Tennessee Volunteers consensus 0.805 from 2 books \(Vanderbilt Commodores vs Tennessee Volunteers\) | KXNCAAFGAME-26NOV28TENNVAN-TENN |
 | 2026-11-22 12:48 | underdog\_value | SMU wins — NO: Kalshi says 22%, we say 25%; placed order at 22¢ | no | 0.2200 | 0.2456 | +0.0156 | 100 | yes | open | underdog \(4.5x payout\); SMU Mustangs consensus 0.754 from 1 books \(Stanford Cardinal vs SMU Mustangs\) | KXNCAAFGAME-26NOV28SMUSTAN-SMU |
