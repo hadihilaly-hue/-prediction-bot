@@ -1,12 +1,12 @@
 # Paper-trading predictions
 
-Updated 2026-11-22 20:47 UTC. Cash **$1425.06** (started $1000.00), realized PnL **$704.63**, fees $76.05, settled 101, wins 33, open positions 16.
+Updated 2026-11-22 21:17 UTC. Cash **$1425.06** (started $1000.00), realized PnL **$687.38**, fees $76.05, settled 102, wins 33, open positions 15.
 
-Brier (lower is better): strategy 0.2376 vs market price 0.2407.
+Brier (lower is better): strategy 0.2349 vs market price 0.2378.
 
 - `sportsbook_arb`: settled 62, wins 18, realized PnL $176.90, Brier 0.1945 vs market 0.1951
 - `sportsbook_v3`: settled 5, wins 3, realized PnL $-34.79, Brier 0.2977 vs market 0.2760
-- `underdog_value`: settled 34, wins 12, realized PnL $562.52, Brier 0.2930 vs market 0.3008
+- `underdog_value`: settled 35, wins 12, realized PnL $545.27, Brier 0.2847 vs market 0.2919
 
 Per league (Kalshi series):
 
@@ -16,13 +16,13 @@ Per league (Kalshi series):
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
 - `KXNCAAFGAME`: open 6, settled 50, wins 17, realized PnL $561.08, Brier 0.2056 vs market 0.2147
-- `KXNFLGAME`: open 4, settled 30, wins 7, realized PnL $-324.07, Brier 0.2177 vs market 0.1996
+- `KXNFLGAME`: open 3, settled 31, wins 7, realized PnL $-341.32, Brier 0.2085 vs market 0.1909
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUCLGAME`: open 3, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUELGAME`: open 3, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (16)
+## Open positions (15)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
@@ -33,7 +33,6 @@ Per league (Kalshi series):
 | Tennessee does NOT win | Tennessee vs Vanderbilt \(Nov 28\) | 100 | $17.25 | 20% | `KXNCAAFGAME-26NOV28TENNVAN-TENN` |
 | Oregon does NOT win | Washington vs Oregon \(Nov 28\) | 100 | $17.25 | 20% | `KXNCAAFGAME-26NOV28WASHORE-ORE` |
 | Denver does NOT win | Las Vegas vs Denver \(Nov 22\) | 100 | $20.28 | 23% | `KXNFLGAME-26NOV22LVDEN-DEN` |
-| Chicago does NOT win | New Orleans vs Chicago \(Nov 22\) | 100 | $17.25 | 19% | `KXNFLGAME-26NOV22NOCHI-CHI` |
 | Minnesota does NOT win | Atlanta vs Minnesota \(Nov 29\) | 100 | $23.31 | 25% | `KXNFLGAME-26NOV29ATLMIN-MIN` |
 | Cincinnati does NOT win | New Orleans vs Cincinnati \(Nov 29\) | 100 | $16.24 | 19% | `KXNFLGAME-26NOV29NOCIN-CIN` |
 | Tie is the result | Como vs AEK Athens \(Nov 24\) | 100 | $17.99 | 19% | `KXUCLGAME-26NOV24COMAEK-TIE` |
@@ -138,7 +137,7 @@ Per league (Kalshi series):
 | 2026-11-15 00:07 | underdog\_value | Clemson wins — YES: Kalshi says 25%, we say 28%; bought at 25¢ | yes | 0.2500 | 0.2827 | +0.0227 | 100 | yes | WON (yes) | underdog \(4.0x payout\); Clemson Tigers consensus 0.283 from 1 books \(Duke Blue Devils vs Clemson Tigers\) | KXNCAAFGAME-26NOV20CLEMDUKE-CLEM |
 | 2026-11-14 16:48 | underdog\_value | Kent St. wins — YES: Kalshi says 24%, we say 28%; placed order at 24¢ | yes | 0.2400 | 0.2827 | +0.0327 | 100 | yes | lost (no) | underdog \(4.2x payout\); Kent State Golden Flashes consensus 0.283 from 1 books \(Kent State Golden Flashes vs Miami \(OH\) RedHawks\) | KXNCAAFGAME-26NOV17MOHKENT-KENT |
 | 2026-11-14 16:18 | underdog\_value | Union Berlin wins — YES: Kalshi says 13%, we say 16%; placed order at 13¢ | yes | 0.1300 | 0.1636 | +0.0236 | 100 | yes | open | underdog \(7.7x payout\); Union Berlin consensus 0.164 from 3 books \(FSV Mainz 05 vs Union Berlin\) | KXBUNDESLIGAGAME-26NOV28M05UNI-UNI |
-| 2026-11-14 03:58 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 22%; placed order at 19¢ | yes | 0.1900 | 0.2167 | +0.0167 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.217 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
+| 2026-11-14 03:58 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 22%; placed order at 19¢ | yes | 0.1900 | 0.2167 | +0.0167 | 100 | yes | lost (no) | underdog \(5.3x payout\); Tennessee Titans consensus 0.217 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
 | 2026-11-14 01:48 | underdog\_value | Kent St. wins — YES: Kalshi says 24%, we say 28%; placed order at 24¢ | yes | 0.2400 | 0.2827 | +0.0327 | 100 | yes | lost (no) | underdog \(4.2x payout\); Kent State Golden Flashes consensus 0.283 from 1 books \(Kent State Golden Flashes vs Miami \(OH\) RedHawks\) | KXNCAAFGAME-26NOV17MOHKENT-KENT |
 | 2026-11-14 00:47 | underdog\_value | Tie is the result — YES: Kalshi says 24%, we say 26%; placed order at 24¢ | yes | 0.2400 | 0.2568 | +0.0168 | 100 | yes | lost (no) | underdog \(4.2x payout\); Draw consensus 0.257 from 4 books \(New England Revolution vs Philadelphia Union\) | KXMLSGAME-26NOV21NEPHI-TIE |
 | 2026-11-14 00:47 | underdog\_value | Tie is the result — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2054 | +0.0154 | 100 | yes | lost (no) | underdog \(5.3x payout\); Draw consensus 0.205 from 4 books \(Inter Miami CF vs Columbus Crew SC\) | KXMLSGAME-26NOV21MIACLB-TIE |
@@ -148,13 +147,13 @@ Per league (Kalshi series):
 | 2026-11-13 06:18 | underdog\_value | Tie is the result — YES: Kalshi says 23%, we say 25%; placed order at 23¢ | yes | 0.2300 | 0.2463 | +0.0163 | 100 | yes | WON (yes) | underdog \(4.3x payout\); Draw consensus 0.246 from 4 books \(Seattle Sounders FC vs Real Salt Lake\) | KXMLSGAME-26NOV19SEARSL-TIE |
 | 2026-11-13 06:18 | underdog\_value | Tie is the result — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2399 | +0.0199 | 100 | yes | lost (no) | underdog \(4.5x payout\); Draw consensus 0.240 from 4 books \(Orlando City SC vs FC Cincinnati\) | KXMLSGAME-26NOV19ORLCIN-TIE |
 | 2026-11-13 00:48 | underdog\_value | Ohio wins — NO: Kalshi says 24%, we say 26%; bought at 24¢ | no | 0.2400 | 0.2626 | +0.0126 | 100 | yes | lost (yes) | underdog \(4.2x payout\); Ohio Bobcats consensus 0.737 from 1 books \(Ohio Bobcats vs Ball State Cardinals\) | KXNCAAFGAME-26NOV17BALLOHIO-OHIO |
-| 2026-11-12 21:27 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
+| 2026-11-12 21:27 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | lost (no) | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
 | 2026-11-12 12:18 | underdog\_value | Denver wins — NO: Kalshi says 20%, we say 23%; bought at 20¢ | no | 0.2000 | 0.2268 | +0.0168 | 100 | yes | open | underdog \(5.0x payout\); Denver Broncos consensus 0.773 from 2 books \(Denver Broncos vs Las Vegas Raiders\) | KXNFLGAME-26NOV22LVDEN-DEN |
-| 2026-11-12 07:17 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
-| 2026-11-12 07:17 | underdog\_value | Chicago wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1945 | +0.0145 | 100 | yes | open | underdog \(5.9x payout\); Chicago Bears consensus 0.805 from 2 books \(Chicago Bears vs New Orleans Saints\) | KXNFLGAME-26NOV22NOCHI-CHI |
+| 2026-11-12 07:17 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | lost (no) | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
+| 2026-11-12 07:17 | underdog\_value | Chicago wins — NO: Kalshi says 17%, we say 19%; bought at 17¢ | no | 0.1700 | 0.1945 | +0.0145 | 100 | yes | lost (yes) | underdog \(5.9x payout\); Chicago Bears consensus 0.805 from 2 books \(Chicago Bears vs New Orleans Saints\) | KXNFLGAME-26NOV22NOCHI-CHI |
 | 2026-11-12 07:17 | underdog\_value | Arizona wins — YES: Kalshi says 10%, we say 12%; bought at 10¢ | yes | 0.1000 | 0.1203 | +0.0103 | 100 | yes | lost (no) | underdog \(10.0x payout\); Arizona Cardinals consensus 0.120 from 2 books \(Kansas City Chiefs vs Arizona Cardinals\) | KXNFLGAME-26NOV22ARIKC-ARI |
 | 2026-11-11 23:08 | underdog\_value | Notre Dame wins — NO: Kalshi says 12%, we say 15%; bought at 12¢ | no | 0.1200 | 0.1481 | +0.0181 | 100 | yes | lost (yes) | underdog \(8.3x payout\); Notre Dame Fighting Irish consensus 0.852 from 1 books \(Notre Dame Fighting Irish vs SMU Mustangs\) | KXNCAAFGAME-26NOV21SMUND-ND |
-| 2026-11-11 21:27 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | open | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
+| 2026-11-11 21:27 | underdog\_value | Tennessee wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2140 | +0.0140 | 100 | yes | lost (no) | underdog \(5.3x payout\); Tennessee Titans consensus 0.214 from 2 books \(Dallas Cowboys vs Tennessee Titans\) | KXNFLGAME-26NOV22TENDAL-TEN |
 | 2026-11-11 21:27 | underdog\_value | Indianapolis wins — YES: Kalshi says 18%, we say 20%; bought at 18¢ | yes | 0.1800 | 0.2006 | +0.0106 | 100 | yes | lost (no) | underdog \(5.6x payout\); Indianapolis Colts consensus 0.201 from 2 books \(Houston Texans vs Indianapolis Colts\) | KXNFLGAME-26NOV19INDHOU-IND |
 | 2026-11-11 12:18 | underdog\_value | Vanderbilt wins — YES: Kalshi says 12%, we say 14%; bought at 12¢ | yes | 0.1200 | 0.1405 | +0.0105 | 100 | yes | lost (no) | underdog \(8.3x payout\); Vanderbilt Commodores consensus 0.140 from 4 books \(Vanderbilt Commodores vs Alabama Crimson Tide\) | KXNCAAFGAME-26NOV14ALAVAN-VAN |
 | 2026-11-09 02:50 | sportsbook\_v3 | LSU wins — YES: Kalshi says 60%, we say 64%; bought at 60¢ | yes | 0.6000 | 0.6370 | +0.0202 | 40 | yes | lost (no) | LSU Tigers pinnacle reference, 3 books, fair 0.637 | KXNCAAFGAME-26NOV14TEXLSU-LSU |
