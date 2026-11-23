@@ -67,7 +67,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Columbus Crew` (6 events)
 - `Como 1907` (47 events)
 - `Cornell` (64 events)
-- `Coventry City FC` (20 events)
+- `Coventry City FC` (21 events)
 - `Crystal Palace FC` (26 events)
 - `Dartmouth` (73 events)
 - `Davidson` (54 events)
@@ -123,7 +123,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Incarnate Word` (86 events)
 - `Indiana State` (79 events)
 - `Iowa State` (48 events)
-- `Ipswich Town FC` (20 events)
+- `Ipswich Town FC` (21 events)
 - `Jackson State` (90 events)
 - `Jacksonville State` (71 events)
 - `James Madison` (36 events)
@@ -316,6 +316,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXBUNDESLIGAGAME-26NOV28M05UNI` | no_market | 2 | 2026-11-23T00:07 |
 | `KXBUNDESLIGAGAME-26NOV29BVBLEV` | no_market | 2 | 2026-11-23T00:07 |
 | `KXBUNDESLIGAGAME-26NOV29TSGFCA` | no_market | 2 | 2026-11-23T00:07 |
+| `KXEPLGAME-26DEC01COVIPS` | no_market | 1 | 2026-11-23T23:48 |
 | `KXEPLGAME-26NOV21AVLSUN` | no_market | 2 | 2026-11-16T00:07 |
 | `KXEPLGAME-26NOV21BOUNFO` | no_market | 2 | 2026-11-16T00:07 |
 | `KXEPLGAME-26NOV21CFCLEE` | no_market | 2 | 2026-11-16T00:07 |
