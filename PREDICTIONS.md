@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-23 12:18 UTC. Cash **$1355.74** (started $1000.00), realized PnL **$667.10**, fees $77.37, settled 103, wins 33, open positions 18.
+Updated 2026-11-23 12:48 UTC. Cash **$1355.74** (started $1000.00), realized PnL **$667.10**, fees $77.37, settled 103, wins 33, open positions 18.
 
 Brier (lower is better): strategy 0.2324 vs market price 0.2351.
 
@@ -53,7 +53,7 @@ Per league (Kalshi series):
 | 2026-11-23 12:18 | underdog\_value | Sturm Graz wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1282 | +0.0182 | 100 | yes | open | underdog \(9.1x payout\); SK Sturm Graz consensus 0.128 from 4 books \(TSG Hoffenheim vs SK Sturm Graz\) | KXUELGAME-26NOV26TSGSTU-STU |
 | 2026-11-23 12:18 | underdog\_value | Sunderland wins — NO: Kalshi says 22%, we say 24%; placed order at 22¢ | no | 0.2200 | 0.2446 | +0.0246 | 100 | yes | open | underdog \(4.5x payout\); Sunderland consensus 0.755 from 4 books \(Sunderland vs Jagiellonia Białystok\) | KXUELGAME-26NOV26SUNJAG-SUN |
 | 2026-11-23 12:18 | underdog\_value | Tie is the result — YES: Kalshi says 23%, we say 24%; placed order at 23¢ | yes | 0.2300 | 0.2450 | +0.0150 | 100 | yes | open | underdog \(4.3x payout\); Draw consensus 0.245 from 4 books \(NEC Nijmegen vs Rennes\) | KXUELGAME-26NOV26NIJREN-TIE |
-| 2026-11-23 12:18 | underdog\_value | KXBUNDESLIGAGAME-26DEC06SVEVFB-TIE — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2149 | +0.0149 | 100 | yes | open | underdog \(5.3x payout\); Draw consensus 0.215 from 2 books \(Elversberg vs VfB Stuttgart\) | KXBUNDESLIGAGAME-26DEC06SVEVFB-TIE |
+| 2026-11-23 12:18 | underdog\_value | Tie is the result — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2149 | +0.0149 | 100 | yes | open | underdog \(5.3x payout\); Draw consensus 0.215 from 2 books \(Elversberg vs VfB Stuttgart\) | KXBUNDESLIGAGAME-26DEC06SVEVFB-TIE |
 | 2026-11-23 08:17 | underdog\_value | Barcelona wins — NO: Kalshi says 13%, we say 15%; bought at 13¢ | no | 0.1300 | 0.1502 | +0.0102 | 100 | yes | open | underdog \(7.7x payout\); Barcelona consensus 0.850 from 2 books \(Barcelona vs Celta Vigo\) | KXLALIGAGAME-26DEC05BARRCC-BAR |
 | 2026-11-23 06:48 | underdog\_value | Indianapolis wins — YES: Kalshi says 25%, we say 27%; bought at 25¢ | yes | 0.2500 | 0.2738 | +0.0138 | 100 | yes | open | underdog \(4.0x payout\); Indianapolis Colts consensus 0.274 from 4 books \(Indianapolis Colts vs New York Giants\) | KXNFLGAME-26NOV29NYGIND-IND |
 | 2026-11-23 06:18 | underdog\_value | San Jose St. wins — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2400 | +0.0100 | 100 | yes | open | underdog \(4.5x payout\); San Jose State Spartans consensus 0.240 from 3 books \(San Jose State Spartans vs North Dakota State Bison\) | KXNCAAFGAME-26NOV27NDSUSJSU-SJSU |
