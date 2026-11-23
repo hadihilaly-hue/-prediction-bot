@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-23 03:47 UTC. Cash **$1394.87** (started $1000.00), realized PnL **$667.10**, fees $76.24, settled 103, wins 33, open positions 16.
+Updated 2026-11-23 04:18 UTC. Cash **$1394.87** (started $1000.00), realized PnL **$667.10**, fees $76.24, settled 103, wins 33, open positions 16.
 
 Brier (lower is better): strategy 0.2324 vs market price 0.2351.
 
@@ -47,6 +47,8 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-23 04:18 | underdog\_value | Tie is the result — YES: Kalshi says 24%, we say 26%; placed order at 24¢ | yes | 0.2400 | 0.2639 | +0.0239 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.264 from 4 books \(Pafos FC vs FC Midtjylland\) | KXUECLGAME-26NOV26PAFFCM-TIE |
+| 2026-11-23 04:18 | underdog\_value | KXUECLGAME-26NOV26AJATHU-TIE — YES: Kalshi says 11%, we say 12%; placed order at 11¢ | yes | 0.1100 | 0.1210 | +0.0110 | 100 | yes | open | underdog \(9.1x payout\); Draw consensus 0.121 from 4 books \(Ajax vs FC Thun\) | KXUECLGAME-26NOV26AJATHU-TIE |
 | 2026-11-23 00:18 | underdog\_value | Sturm Graz wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1282 | +0.0182 | 100 | yes | open | underdog \(9.1x payout\); SK Sturm Graz consensus 0.128 from 4 books \(TSG Hoffenheim vs SK Sturm Graz\) | KXUELGAME-26NOV26TSGSTU-STU |
 | 2026-11-23 00:18 | underdog\_value | Lyon wins — NO: Kalshi says 18%, we say 20%; bought at 18¢ | no | 0.1800 | 0.1981 | +0.0181 | 100 | yes | open | underdog \(5.6x payout\); Lyon consensus 0.802 from 4 books \(Lyon vs Lillestrom\) | KXUELGAME-26NOV26OLLSK-OL |
 | 2026-11-23 00:18 | underdog\_value | OFI Crete wins — YES: Kalshi says 21%, we say 22%; placed order at 21¢ | yes | 0.2100 | 0.2217 | +0.0117 | 100 | yes | open | underdog \(4.8x payout\); OFI Crete consensus 0.222 from 4 books \(OFI Crete vs Anderlecht\) | KXUELGAME-26NOV26OFIRSC-OFI |
