@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-23 00:07 UTC. Cash **$1412.87** (started $1000.00), realized PnL **$687.38**, fees $76.24, settled 102, wins 33, open positions 16.
+Updated 2026-11-23 00:18 UTC. Cash **$1412.87** (started $1000.00), realized PnL **$687.38**, fees $76.24, settled 102, wins 33, open positions 16.
 
 Brier (lower is better): strategy 0.2349 vs market price 0.2378.
 
@@ -47,6 +47,14 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-23 00:18 | underdog\_value | Sturm Graz wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1282 | +0.0182 | 100 | yes | open | underdog \(9.1x payout\); SK Sturm Graz consensus 0.128 from 4 books \(TSG Hoffenheim vs SK Sturm Graz\) | KXUELGAME-26NOV26TSGSTU-STU |
+| 2026-11-23 00:18 | underdog\_value | Lyon wins — NO: Kalshi says 18%, we say 20%; placed order at 18¢ | no | 0.1800 | 0.1981 | +0.0181 | 100 | yes | open | underdog \(5.6x payout\); Lyon consensus 0.802 from 4 books \(Lyon vs Lillestrom\) | KXUELGAME-26NOV26OLLSK-OL |
+| 2026-11-23 00:18 | underdog\_value | OFI Crete wins — YES: Kalshi says 21%, we say 22%; placed order at 21¢ | yes | 0.2100 | 0.2217 | +0.0117 | 100 | yes | open | underdog \(4.8x payout\); OFI Crete consensus 0.222 from 4 books \(OFI Crete vs Anderlecht\) | KXUELGAME-26NOV26OFIRSC-OFI |
+| 2026-11-23 00:18 | underdog\_value | Tie is the result — YES: Kalshi says 22%, we say 25%; placed order at 22¢ | yes | 0.2200 | 0.2451 | +0.0251 | 100 | yes | open | underdog \(4.5x payout\); Draw consensus 0.245 from 4 books \(NEC Nijmegen vs Rennes\) | KXUELGAME-26NOV26NIJREN-TIE |
+| 2026-11-23 00:18 | underdog\_value | KXLIGUE1GAME-26DEC05RCLHAC-HAC — YES: Kalshi says 12%, we say 15%; placed order at 12¢ | yes | 0.1200 | 0.1495 | +0.0195 | 100 | yes | open | underdog \(8.3x payout\); Le Havre consensus 0.150 from 2 books \(RC Lens vs Le Havre\) | KXLIGUE1GAME-26DEC05RCLHAC-HAC |
+| 2026-11-23 00:18 | underdog\_value | KXLIGUE1GAME-26DEC05LILAUX-TIE — YES: Kalshi says 19%, we say 22%; placed order at 19¢ | yes | 0.1900 | 0.2192 | +0.0192 | 100 | yes | open | underdog \(5.3x payout\); Draw consensus 0.219 from 2 books \(Lille vs Auxerre\) | KXLIGUE1GAME-26DEC05LILAUX-TIE |
+| 2026-11-23 00:18 | underdog\_value | KXLIGUE1GAME-26DEC05ASMANG-ASM — NO: Kalshi says 25%, we say 27%; placed order at 25¢ | no | 0.2500 | 0.2702 | +0.0102 | 100 | yes | open | underdog \(4.0x payout\); AS Monaco consensus 0.730 from 2 books \(AS Monaco vs Angers\) | KXLIGUE1GAME-26DEC05ASMANG-ASM |
+| 2026-11-23 00:18 | underdog\_value | KXLIGUE1GAME-26DEC04TFCPSG-TIE — YES: Kalshi says 17%, we say 19%; placed order at 17¢ | yes | 0.1700 | 0.1943 | +0.0143 | 100 | yes | open | underdog \(5.9x payout\); Draw consensus 0.194 from 2 books \(Toulouse vs Paris Saint Germain\) | KXLIGUE1GAME-26DEC04TFCPSG-TIE |
 | 2026-11-22 22:18 | underdog\_value | San Jose St. wins — YES: Kalshi says 19%, we say 21%; placed order at 19¢ | yes | 0.1900 | 0.2108 | +0.0108 | 100 | yes | open | underdog \(5.3x payout\); San Jose State Spartans consensus 0.211 from 2 books \(San Jose State Spartans vs North Dakota State Bison\) | KXNCAAFGAME-26NOV27NDSUSJSU-SJSU |
 | 2026-11-22 22:18 | underdog\_value | Boise St. wins — NO: Kalshi says 12%, we say 15%; bought at 12¢ | no | 0.1200 | 0.1487 | +0.0187 | 100 | yes | open | underdog \(8.3x payout\); Boise State Broncos consensus 0.851 from 2 books \(Boise State Broncos vs San Diego State Aztecs\) | KXNCAAFGAME-26DEC04SDSUBSU-BSU |
 | 2026-11-22 18:18 | underdog\_value | Tie is the result — YES: Kalshi says 17%, we say 19%; placed order at 17¢ | yes | 0.1700 | 0.1917 | +0.0117 | 100 | yes | open | underdog \(5.9x payout\); Draw consensus 0.192 from 1 books \(Liverpool vs Sunderland\) | KXEPLGAME-26DEC02LFCSUN-TIE |

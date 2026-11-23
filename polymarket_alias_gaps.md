@@ -260,7 +260,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Yale` (59 events)
 - `Youngstown State` (32 events)
 - `akron-zips:0.19-0.25` (1 events)
-- `arkansas-razorbacks:0.14-0.2` (1 events)
+- `arkansas-razorbacks:0.14-0.2` (2 events)
 - `clemson-tigers:0.19-0.25` (1 events)
 - `draw:0.2-0.26` (2 events)
 - `draw:0.26 vs kalshi 0.4000` (1 events)
@@ -410,7 +410,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-21T00:17 |
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-20T04:17 |
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-22T14:47 |
-| `KXNCAAFGAME-26NOV28LSUARK` | wide_book | 1 | 2026-11-22T15:17 |
+| `KXNCAAFGAME-26NOV28LSUARK` | wide_book | 2 | 2026-11-23T00:17 |
 | `KXNCAAFGAME-26NOV28TENNVAN` | no_market | 1 | 2026-11-22T13:47 |
 | `KXNCAAFGAME-26NOV28WASHORE` | no_market | 1 | 2026-11-22T16:17 |
 | `KXNFLGAME-26NOV08TBCHI` | no_market | 1 | 2026-11-09T00:20 |
@@ -435,20 +435,25 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNFLGAME-26NOV22JACNYG` | no_market | 7 | 2026-11-21T00:17 |
 | `KXNFLGAME-26NOV22LVDEN` | no_market | 8 | 2026-11-22T00:17 |
 | `KXNFLGAME-26NOV22MIABUF` | no_market | 8 | 2026-11-21T00:17 |
-| `KXNFLGAME-26NOV22MINSF` | no_market | 6 | 2026-11-21T00:17 |
+| `KXNFLGAME-26NOV22MINSF` | no_market | 7 | 2026-11-23T00:17 |
 | `KXNFLGAME-26NOV22NOCHI` | no_market | 9 | 2026-11-22T00:17 |
 | `KXNFLGAME-26NOV22NYJLAC` | no_market | 7 | 2026-11-21T00:17 |
 | `KXNFLGAME-26NOV22PITPHI` | no_market | 8 | 2026-11-21T00:17 |
 | `KXNFLGAME-26NOV22TBDET` | no_market | 8 | 2026-11-21T00:17 |
 | `KXNFLGAME-26NOV22TENDAL` | no_market | 8 | 2026-11-21T00:17 |
-| `KXNFLGAME-26NOV23CINWAS` | no_market | 6 | 2026-11-21T00:17 |
-| `KXNFLGAME-26NOV25GBLAR` | no_market | 4 | 2026-11-21T00:17 |
-| `KXNFLGAME-26NOV26CHIDET` | no_market | 4 | 2026-11-21T00:17 |
-| `KXNFLGAME-26NOV26KCBUF` | no_market | 3 | 2026-11-21T00:17 |
-| `KXNFLGAME-26NOV26PHIDAL` | no_market | 3 | 2026-11-21T00:17 |
-| `KXNFLGAME-26NOV27DENPIT` | no_market | 3 | 2026-11-21T00:17 |
+| `KXNFLGAME-26NOV23CINWAS` | no_market | 7 | 2026-11-23T00:17 |
+| `KXNFLGAME-26NOV25GBLAR` | no_market | 5 | 2026-11-23T00:17 |
+| `KXNFLGAME-26NOV26CHIDET` | no_market | 5 | 2026-11-23T00:17 |
+| `KXNFLGAME-26NOV26KCBUF` | no_market | 4 | 2026-11-23T00:17 |
+| `KXNFLGAME-26NOV26PHIDAL` | no_market | 4 | 2026-11-23T00:17 |
+| `KXNFLGAME-26NOV27DENPIT` | no_market | 4 | 2026-11-23T00:17 |
 | `KXNFLGAME-26NOV29ATLMIN` | no_market | 3 | 2026-11-23T00:07 |
+| `KXNFLGAME-26NOV29BALHOU` | no_market | 1 | 2026-11-23T00:17 |
 | `KXNFLGAME-26NOV29NOCIN` | no_market | 3 | 2026-11-23T00:07 |
+| `KXNFLGAME-26NOV29NYGIND` | no_market | 1 | 2026-11-23T00:17 |
+| `KXNFLGAME-26NOV29NYJMIA` | no_market | 1 | 2026-11-23T00:17 |
+| `KXNFLGAME-26NOV29SEASF` | no_market | 1 | 2026-11-23T00:17 |
+| `KXNFLGAME-26NOV29WASARI` | no_market | 1 | 2026-11-23T00:17 |
 | `KXUCLGAME-26NOV24ARSBVB` | no_market | 5 | 2026-11-22T00:17 |
 | `KXUCLGAME-26NOV24BOGASK` | no_market | 5 | 2026-11-22T00:17 |
 | `KXUCLGAME-26NOV24COMAEK` | no_market | 6 | 2026-11-23T00:07 |
