@@ -486,6 +486,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNFLGAME-26NOV29NYJMIA` | no_market | 1 | 2026-11-23T00:17 |
 | `KXNFLGAME-26NOV29SEASF` | no_market | 1 | 2026-11-23T00:17 |
 | `KXNFLGAME-26NOV29WASARI` | no_market | 1 | 2026-11-23T00:17 |
+| `KXNFLGAME-26NOV30CARTB` | no_market | 1 | 2026-11-23T04:47 |
 | `KXUCLGAME-26NOV24ARSBVB` | no_market | 5 | 2026-11-22T00:17 |
 | `KXUCLGAME-26NOV24BOGASK` | no_market | 5 | 2026-11-22T00:17 |
 | `KXUCLGAME-26NOV24COMAEK` | no_market | 6 | 2026-11-23T00:07 |
