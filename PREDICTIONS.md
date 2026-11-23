@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-23 09:18 UTC. Cash **$1381.07** (started $1000.00), realized PnL **$667.10**, fees $77.04, settled 103, wins 33, open positions 17.
+Updated 2026-11-23 09:48 UTC. Cash **$1381.07** (started $1000.00), realized PnL **$667.10**, fees $77.04, settled 103, wins 33, open positions 17.
 
 Brier (lower is better): strategy 0.2324 vs market price 0.2351.
 
