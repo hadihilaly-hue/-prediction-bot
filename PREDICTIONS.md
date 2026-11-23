@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-23 17:48 UTC. Cash **$1333.74** (started $1000.00), realized PnL **$667.10**, fees $77.37, settled 103, wins 33, open positions 19.
+Updated 2026-11-23 18:18 UTC. Cash **$1333.74** (started $1000.00), realized PnL **$667.10**, fees $77.37, settled 103, wins 33, open positions 19.
 
 Brier (lower is better): strategy 0.2324 vs market price 0.2351.
 
@@ -50,6 +50,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-23 18:18 | underdog\_value | KXNCAAFGAME-26NOV28CINBYU-BYU — NO: Kalshi says 14%, we say 16%; placed order at 14¢ | no | 0.1400 | 0.1607 | +0.0107 | 100 | yes | open | underdog \(7.1x payout\); BYU Cougars consensus 0.839 from 4 books \(BYU Cougars vs Cincinnati Bearcats\) | KXNCAAFGAME-26NOV28CINBYU-BYU |
 | 2026-11-23 12:18 | underdog\_value | Plzen wins — YES: Kalshi says 15%, we say 17%; placed order at 15¢ | yes | 0.1500 | 0.1681 | +0.0181 | 100 | yes | open | underdog \(6.7x payout\); Viktoria Plzeň consensus 0.168 from 4 books \(Viktoria Plzeň vs Benfica\) | KXUELGAME-26NOV26VIKBEN-VIK |
 | 2026-11-23 12:18 | underdog\_value | Sturm Graz wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1282 | +0.0182 | 100 | yes | open | underdog \(9.1x payout\); SK Sturm Graz consensus 0.128 from 4 books \(TSG Hoffenheim vs SK Sturm Graz\) | KXUELGAME-26NOV26TSGSTU-STU |
 | 2026-11-23 12:18 | underdog\_value | Sunderland wins — NO: Kalshi says 22%, we say 24%; bought at 22¢ | no | 0.2200 | 0.2446 | +0.0246 | 100 | yes | open | underdog \(4.5x payout\); Sunderland consensus 0.755 from 4 books \(Sunderland vs Jagiellonia Białystok\) | KXUELGAME-26NOV26SUNJAG-SUN |

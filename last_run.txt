@@ -1,1 +1,15 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1333.74
+ scanned=1240 signals=0 filled=0 orders_placed=1 settled=0 cash=1333.74
+underdog lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXNCAAFGA… │ no   │ 0.1400 │ 0.1607 │ 0.0107 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (7.1x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ BYU       │
+│            │            │      │        │        │        │      │ Cougars   │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.839     │
+│            │            │      │        │        │        │      │ from 4 b  │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
