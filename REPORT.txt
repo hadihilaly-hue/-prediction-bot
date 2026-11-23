@@ -3,9 +3,9 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │ 1355.74 │
-│ open positions       │      18 │
-│ open cost            │  311.36 │
+│ cash                 │ 1333.74 │
+│ open positions       │      19 │
+│ open cost            │  333.36 │
 │ settled fills        │     103 │
 │ wins                 │      33 │
 │ realized pnl         │  667.10 │
@@ -34,7 +34,7 @@
 │ KXNFLGAME     │    3 │      32 │    7 │      -361.60 │ 0.2009 │       0.1835 │
 │ KXNHLGAME     │    0 │       4 │    0 │       -79.22 │ 0.1013 │       0.0752 │
 │ KXUCLGAME     │    3 │       0 │    0 │         0.00 │      - │            - │
-│ KXUELGAME     │    4 │       0 │    0 │         0.00 │      - │            - │
+│ KXUELGAME     │    5 │       0 │    0 │         0.00 │      - │            - │
 │ KXUFCFIGHT    │    0 │       2 │    2 │       164.02 │ 0.6503 │       0.6889 │
 └───────────────┴──────┴─────────┴──────┴──────────────┴────────┴──────────────┘
                                  Open positions                                 
@@ -98,5 +98,9 @@
 │              │ (Nov 26)     │      │       │       │          │              │
 │ Salzburg     │ Salzburg vs  │ no   │ 100   │ 16.00 │ 0.185    │ KXUELGAME-2… │
 │ does NOT win │ Ararat-Arme… │      │       │       │          │              │
+│              │ (Nov 26)     │      │       │       │          │              │
+│ Sunderland   │ Sunderland   │ no   │ 100   │ 22.00 │ 0.245    │ KXUELGAME-2… │
+│ does NOT win │ vs           │      │       │       │          │              │
+│              │ Jagiellonia  │      │       │       │          │              │
 │              │ (Nov 26)     │      │       │       │          │              │
 └──────────────┴──────────────┴──────┴───────┴───────┴──────────┴──────────────┘
