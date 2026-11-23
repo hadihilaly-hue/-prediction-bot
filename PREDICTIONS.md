@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-23 05:48 UTC. Cash **$1394.87** (started $1000.00), realized PnL **$667.10**, fees $76.24, settled 103, wins 33, open positions 16.
+Updated 2026-11-23 06:18 UTC. Cash **$1394.87** (started $1000.00), realized PnL **$667.10**, fees $76.24, settled 103, wins 33, open positions 16.
 
 Brier (lower is better): strategy 0.2324 vs market price 0.2351.
 
@@ -47,6 +47,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-23 06:18 | underdog\_value | San Jose St. wins — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2400 | +0.0100 | 100 | yes | open | underdog \(4.5x payout\); San Jose State Spartans consensus 0.240 from 3 books \(San Jose State Spartans vs North Dakota State Bison\) | KXNCAAFGAME-26NOV27NDSUSJSU-SJSU |
 | 2026-11-23 04:18 | underdog\_value | Tie is the result — YES: Kalshi says 24%, we say 26%; placed order at 24¢ | yes | 0.2400 | 0.2639 | +0.0239 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.264 from 4 books \(Pafos FC vs FC Midtjylland\) | KXUECLGAME-26NOV26PAFFCM-TIE |
 | 2026-11-23 04:18 | underdog\_value | Tie is the result — YES: Kalshi says 11%, we say 12%; placed order at 11¢ | yes | 0.1100 | 0.1210 | +0.0110 | 100 | yes | open | underdog \(9.1x payout\); Draw consensus 0.121 from 4 books \(Ajax vs FC Thun\) | KXUECLGAME-26NOV26AJATHU-TIE |
 | 2026-11-23 00:18 | underdog\_value | Sturm Graz wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1282 | +0.0182 | 100 | yes | open | underdog \(9.1x payout\); SK Sturm Graz consensus 0.128 from 4 books \(TSG Hoffenheim vs SK Sturm Graz\) | KXUELGAME-26NOV26TSGSTU-STU |
