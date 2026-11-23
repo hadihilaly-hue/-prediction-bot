@@ -3,9 +3,9 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │ 1412.87 │
-│ open positions       │      15 │
-│ open cost            │  254.23 │
+│ cash                 │ 1394.87 │
+│ open positions       │      16 │
+│ open cost            │  272.23 │
 │ settled fills        │     103 │
 │ wins                 │      33 │
 │ realized pnl         │  667.10 │
@@ -34,7 +34,7 @@
 │ KXNFLGAME     │    2 │      32 │    7 │      -361.60 │ 0.2009 │       0.1835 │
 │ KXNHLGAME     │    0 │       4 │    0 │       -79.22 │ 0.1013 │       0.0752 │
 │ KXUCLGAME     │    3 │       0 │    0 │         0.00 │      - │            - │
-│ KXUELGAME     │    3 │       0 │    0 │         0.00 │      - │            - │
+│ KXUELGAME     │    4 │       0 │    0 │         0.00 │      - │            - │
 │ KXUFCFIGHT    │    0 │       2 │    2 │       164.02 │ 0.6503 │       0.6889 │
 └───────────────┴──────┴─────────┴──────┴──────────────┴────────┴──────────────┘
                                  Open positions                                 
@@ -86,6 +86,9 @@
 │ does NOT win │ Omonia       │      │       │       │          │              │
 │              │ Nicosia (Nov │      │       │       │          │              │
 │              │ 26)          │      │       │       │          │              │
+│ Lyon does    │ Lyon vs      │ no   │ 100   │ 18.00 │ 0.198    │ KXUELGAME-2… │
+│ NOT win      │ Lillestroem  │      │       │       │          │              │
+│              │ (Nov 26)     │      │       │       │          │              │
 │ Salzburg     │ Salzburg vs  │ no   │ 100   │ 16.00 │ 0.185    │ KXUELGAME-2… │
 │ does NOT win │ Ararat-Arme… │      │       │       │          │              │
 │              │ (Nov 26)     │      │       │       │          │              │

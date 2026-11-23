@@ -442,7 +442,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNFLGAME-26NOV15MINGB` | no_market | 6 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV15NEDET` | no_market | 6 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV15PITCIN` | no_market | 7 | 2026-11-16T00:17 |
-| `KXNFLGAME-26NOV15SEALV` | no_market | 7 | 2026-11-15T00:07 |
+| `KXNFLGAME-26NOV15SEALV` | no_market | 6 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV15SFDAL` | no_market | 6 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV16LACBAL` | no_market | 9 | 2026-11-17T00:07 |
 | `KXNFLGAME-26NOV19INDHOU` | no_market | 9 | 2026-11-20T00:17 |
