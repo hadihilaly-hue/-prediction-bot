@@ -1,1 +1,46 @@
- scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1381.07
+ scanned=3000 signals=0 filled=1 orders_placed=0 settled=0 cash=1355.74
+ scanned=1234 signals=0 filled=0 orders_placed=5 settled=0 cash=1355.74
+underdog lane: orders_placed=5 bought_at_ask=0 pulled=0 skipped=
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXBUNDESL… │ yes  │ 0.1900 │ 0.2149 │ 0.0149 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.215     │
+│            │            │      │        │        │        │      │ from 2    │
+│            │            │      │        │        │        │      │ books (E  │
+│ underdog_… │ KXUELGAME… │ yes  │ 0.2300 │ 0.2450 │ 0.0150 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Draw      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.245     │
+│            │            │      │        │        │        │      │ from 4    │
+│            │            │      │        │        │        │      │ books (N  │
+│ underdog_… │ KXUELGAME… │ no   │ 0.2200 │ 0.2446 │ 0.0246 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (4.5x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Sunderla… │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.755     │
+│            │            │      │        │        │        │      │ from 4 bo │
+│ underdog_… │ KXUELGAME… │ yes  │ 0.1100 │ 0.1282 │ 0.0182 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (9.1x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ SK Sturm  │
+│            │            │      │        │        │        │      │ Graz      │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.128     │
+│            │            │      │        │        │        │      │ from 4    │
+│ underdog_… │ KXUELGAME… │ yes  │ 0.1500 │ 0.1681 │ 0.0181 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (6.7x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Viktoria  │
+│            │            │      │        │        │        │      │ Plzeň     │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.168     │
+│            │            │      │        │        │        │      │ from      │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
