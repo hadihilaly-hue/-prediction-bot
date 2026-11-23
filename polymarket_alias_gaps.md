@@ -23,6 +23,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Arkansas-Pine Bluff` (89 events)
 - `Arsenal FC` (69 events)
 - `Aston Villa FC` (67 events)
+- `Athletic Club` (3 events)
 - `Austin Peay` (95 events)
 - `BV Borussia 09 Dortmund` (63 events)
 - `Ball State` (11 events)
@@ -57,7 +58,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Chelsea FC` (16 events)
 - `Chicago Fire FC` (4 events)
 - `Chicago State` (74 events)
-- `Club Atlético de Madrid` (46 events)
+- `Club Atlético de Madrid` (49 events)
 - `Club Brugge KV` (46 events)
 - `Coastal Carolina` (87 events)
 - `Colgate` (73 events)
@@ -72,6 +73,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Davidson` (54 events)
 - `Dayton` (54 events)
 - `Delaware State` (73 events)
+- `Deportivo Alavés` (2 events)
 - `Drake` (53 events)
 - `Duquesne` (45 events)
 - `ES Troyes AC` (4 events)
@@ -84,7 +86,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Elon` (79 events)
 - `Everton FC` (14 events)
 - `FC Augsburg` (9 events)
-- `FC Barcelona` (46 events)
+- `FC Barcelona` (49 events)
 - `FC Bayern München` (55 events)
 - `FC Internazionale Milano` (46 events)
 - `FC Lorient` (4 events)
@@ -106,6 +108,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Georgetown` (54 events)
 - `Georgia Southern` (73 events)
 - `Georgia State` (75 events)
+- `Getafe CF` (1 events)
 - `Grambling State` (55 events)
 - `Hamburger SV` (9 events)
 - `Hampton` (64 events)
@@ -135,6 +138,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Le Havre AC` (4 events)
 - `Leeds United FC` (20 events)
 - `Lehigh` (77 events)
+- `Levante UD` (2 events)
 - `Liberty` (73 events)
 - `Lille OSC` (50 events)
 - `Lindenwood` (90 events)
@@ -164,6 +168,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Morehead State` (54 events)
 - `Morgan State` (54 events)
 - `Murray State` (73 events)
+- `Málaga CF` (3 events)
 - `NC State` (61 events)
 - `New Hampshire` (73 events)
 - `New Haven` (45 events)
@@ -198,10 +203,16 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Presbyterian` (54 events)
 - `Princeton` (45 events)
 - `Purdue` (45 events)
+- `RC Celta de Vigo` (3 events)
+- `RC Deportivo A Coruña` (3 events)
 - `RC Strasbourg Alsace` (4 events)
+- `RCD Espanyol de Barcelona` (1 events)
 - `Racing Club de Lens` (48 events)
-- `Real Betis Balompié` (47 events)
-- `Real Madrid CF` (47 events)
+- `Rayo Vallecano de Madrid` (2 events)
+- `Real Betis Balompié` (49 events)
+- `Real Madrid CF` (49 events)
+- `Real Racing Club` (1 events)
+- `Real Sociedad de Fútbol` (2 events)
 - `Rhode Island` (54 events)
 - `Richmond` (70 events)
 - `Robert Morris` (45 events)
@@ -216,6 +227,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `San Diego` (28 events)
 - `San Diego State` (52 events)
 - `San Jose State` (55 events)
+- `Sevilla FC` (2 events)
 - `South Alabama` (57 events)
 - `South Carolina State` (79 events)
 - `South Dakota` (79 events)
@@ -257,9 +269,10 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Utah State` (49 events)
 - `Utah Tech` (79 events)
 - `VMI` (59 events)
+- `Valencia CF` (2 events)
 - `Valparaiso` (74 events)
 - `Villanova` (54 events)
-- `Villarreal CF` (46 events)
+- `Villarreal CF` (49 events)
 - `Virginia-Lynchburg` (47 events)
 - `Wagner` (45 events)
 - `Wake Forest` (51 events)
@@ -323,6 +336,17 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXEPLGAME-26NOV29EVELFC` | no_market | 2 | 2026-11-23T00:07 |
 | `KXEPLGAME-26NOV29FULBOU` | no_market | 2 | 2026-11-23T00:07 |
 | `KXEPLGAME-26NOV29SUNTOT` | no_market | 2 | 2026-11-23T00:07 |
+| `KXLALIGAGAME-26NOV23LEVELC` | no_market | 1 | 2026-11-23T08:47 |
+| `KXLALIGAGAME-26NOV27LEVSAN` | no_market | 1 | 2026-11-23T08:47 |
+| `KXLALIGAGAME-26NOV28ELCATM` | no_market | 1 | 2026-11-23T08:47 |
+| `KXLALIGAGAME-26NOV28MCFATH` | no_market | 1 | 2026-11-23T08:47 |
+| `KXLALIGAGAME-26NOV28RBBRVC` | no_market | 1 | 2026-11-23T08:47 |
+| `KXLALIGAGAME-26NOV28RMAALA` | no_market | 1 | 2026-11-23T08:47 |
+| `KXLALIGAGAME-26NOV29DEPBAR` | no_market | 1 | 2026-11-23T08:47 |
+| `KXLALIGAGAME-26NOV29RCCVIL` | no_market | 1 | 2026-11-23T08:47 |
+| `KXLALIGAGAME-26NOV29RSOSEV` | no_market | 1 | 2026-11-23T08:47 |
+| `KXLALIGAGAME-26NOV29VCFOSA` | no_market | 1 | 2026-11-23T08:47 |
+| `KXLALIGAGAME-26NOV30ESPGET` | no_market | 1 | 2026-11-23T08:47 |
 | `KXLIGUE1GAME-26NOV27STBPAR` | no_market | 1 | 2026-11-23T00:47 |
 | `KXLIGUE1GAME-26NOV28ANGRCL` | no_market | 1 | 2026-11-23T00:47 |
 | `KXLIGUE1GAME-26NOV28HACRCS` | no_market | 1 | 2026-11-23T00:47 |

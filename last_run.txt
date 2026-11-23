@@ -1,15 +1,1 @@
- scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1394.87
- scanned=1234 signals=0 filled=1 orders_placed=0 settled=0 cash=1381.07
-underdog lane: orders_placed=0 bought_at_ask=1 pulled=0 skipped=
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
-┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
-│ underdog_… │ KXLALIGAG… │ no   │ 0.1300 │ 0.1502 │ 0.0102 │ 100  │ underdog  │
-│            │            │      │        │        │        │      │ (7.7x     │
-│            │            │      │        │        │        │      │ payout);  │
-│            │            │      │        │        │        │      │ Barcelona │
-│            │            │      │        │        │        │      │ consensus │
-│            │            │      │        │        │        │      │ 0.850     │
-│            │            │      │        │        │        │      │ from 2    │
-│            │            │      │        │        │        │      │ boo       │
-└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
+ scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1381.07

@@ -41,8 +41,9 @@
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┓
 ┃ bet          ┃ game         ┃ side ┃ count ┃ cost  ┃ avg fair ┃ ticker       ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ NO on        │ KXLALIGAGAM… │ no   │ 100   │ 13.80 │ 0.150    │ KXLALIGAGAM… │
-│ KXLALIGAGAM… │              │      │       │       │          │              │
+│ Barcelona    │ Barcelona vs │ no   │ 100   │ 13.80 │ 0.150    │ KXLALIGAGAM… │
+│ does NOT win │ Celta Vigo   │      │       │       │          │              │
+│              │ (Dec 5)      │      │       │       │          │              │
 │ Boise St.    │ San Diego    │ no   │ 100   │ 12.19 │ 0.149    │ KXNCAAFGAME… │
 │ does NOT win │ St. vs Boise │      │       │       │          │              │
 │              │ St. (Dec 4)  │      │       │       │          │              │
