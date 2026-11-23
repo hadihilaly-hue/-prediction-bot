@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-23 18:18 UTC. Cash **$1333.74** (started $1000.00), realized PnL **$667.10**, fees $77.37, settled 103, wins 33, open positions 19.
+Updated 2026-11-23 18:48 UTC. Cash **$1319.52** (started $1000.00), realized PnL **$667.10**, fees $77.59, settled 103, wins 33, open positions 20.
 
 Brier (lower is better): strategy 0.2324 vs market price 0.2351.
 
@@ -15,14 +15,14 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 0, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 7, settled 50, wins 17, realized PnL $561.08, Brier 0.2056 vs market 0.2147
+- `KXNCAAFGAME`: open 8, settled 50, wins 17, realized PnL $561.08, Brier 0.2056 vs market 0.2147
 - `KXNFLGAME`: open 3, settled 32, wins 7, realized PnL $-361.60, Brier 0.2009 vs market 0.1835
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUCLGAME`: open 3, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUELGAME`: open 5, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (19)
+## Open positions (20)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
@@ -31,6 +31,7 @@ Per league (Kalshi series):
 | Texas Tech does NOT win | TCU vs Texas Tech \(Nov 26\) | 100 | $21.30 | 25% | `KXNCAAFGAME-26NOV26TCUTTU-TTU` |
 | Akron wins | Buffalo vs Akron \(Nov 27\) | 100 | $20.08 | 22% | `KXNCAAFGAME-26NOV27BUFFAKR-AKR` |
 | Texas does NOT win | Texas vs Texas A&M \(Nov 27\) | 100 | $25.33 | 28% | `KXNCAAFGAME-26NOV27TEXTXAM-TEX` |
+| BYU does NOT win | Cincinnati vs BYU \(Nov 28\) | 100 | $14.22 | 16% | `KXNCAAFGAME-26NOV28CINBYU-BYU` |
 | LSU does NOT win | LSU vs Arkansas \(Nov 28\) | 100 | $16.24 | 18% | `KXNCAAFGAME-26NOV28LSUARK-LSU` |
 | Tennessee does NOT win | Tennessee vs Vanderbilt \(Nov 28\) | 100 | $17.25 | 20% | `KXNCAAFGAME-26NOV28TENNVAN-TENN` |
 | Oregon does NOT win | Washington vs Oregon \(Nov 28\) | 100 | $17.25 | 20% | `KXNCAAFGAME-26NOV28WASHORE-ORE` |
@@ -50,7 +51,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-23 18:18 | underdog\_value | KXNCAAFGAME-26NOV28CINBYU-BYU — NO: Kalshi says 14%, we say 16%; placed order at 14¢ | no | 0.1400 | 0.1607 | +0.0107 | 100 | yes | open | underdog \(7.1x payout\); BYU Cougars consensus 0.839 from 4 books \(BYU Cougars vs Cincinnati Bearcats\) | KXNCAAFGAME-26NOV28CINBYU-BYU |
+| 2026-11-23 18:18 | underdog\_value | BYU wins — NO: Kalshi says 14%, we say 16%; bought at 14¢ | no | 0.1400 | 0.1607 | +0.0107 | 100 | yes | open | underdog \(7.1x payout\); BYU Cougars consensus 0.839 from 4 books \(BYU Cougars vs Cincinnati Bearcats\) | KXNCAAFGAME-26NOV28CINBYU-BYU |
 | 2026-11-23 12:18 | underdog\_value | Plzen wins — YES: Kalshi says 15%, we say 17%; placed order at 15¢ | yes | 0.1500 | 0.1681 | +0.0181 | 100 | yes | open | underdog \(6.7x payout\); Viktoria Plzeň consensus 0.168 from 4 books \(Viktoria Plzeň vs Benfica\) | KXUELGAME-26NOV26VIKBEN-VIK |
 | 2026-11-23 12:18 | underdog\_value | Sturm Graz wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1282 | +0.0182 | 100 | yes | open | underdog \(9.1x payout\); SK Sturm Graz consensus 0.128 from 4 books \(TSG Hoffenheim vs SK Sturm Graz\) | KXUELGAME-26NOV26TSGSTU-STU |
 | 2026-11-23 12:18 | underdog\_value | Sunderland wins — NO: Kalshi says 22%, we say 24%; bought at 22¢ | no | 0.2200 | 0.2446 | +0.0246 | 100 | yes | open | underdog \(4.5x payout\); Sunderland consensus 0.755 from 4 books \(Sunderland vs Jagiellonia Białystok\) | KXUELGAME-26NOV26SUNJAG-SUN |
