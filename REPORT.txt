@@ -3,13 +3,13 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │ 1319.52 │
-│ open positions       │      20 │
-│ open cost            │  347.58 │
+│ cash                 │ 1303.62 │
+│ open positions       │      21 │
+│ open cost            │  363.48 │
 │ settled fills        │     103 │
 │ wins                 │      33 │
 │ realized pnl         │  667.10 │
-│ fees paid            │   77.59 │
+│ fees paid            │   78.49 │
 │ brier (strategy)     │  0.2324 │
 │ brier (market price) │  0.2351 │
 └──────────────────────┴─────────┘
@@ -19,14 +19,14 @@
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
 │ sportsbook_… │      62 │   18 │       176.90 │ 42.09 │ 0.1945 │       0.1951 │
 │ sportsbook_… │       5 │    3 │       -34.79 │  2.49 │ 0.2977 │       0.2760 │
-│ underdog_va… │      36 │   12 │       524.99 │ 33.01 │ 0.2774 │       0.2840 │
+│ underdog_va… │      36 │   12 │       524.99 │ 33.91 │ 0.2774 │       0.2840 │
 └──────────────┴─────────┴──────┴──────────────┴───────┴────────┴──────────────┘
                                    Per league                                   
 ┏━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
 ┃ league        ┃ open ┃ settled ┃ wins ┃ realized pnl ┃  brier ┃ market brier ┃
 ┡━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
 │ KXBUNDESLIGA… │    0 │       1 │    1 │        89.84 │ 0.7735 │       0.8100 │
-│ KXLALIGAGAME  │    1 │       2 │    0 │       -29.70 │ 0.0324 │       0.0196 │
+│ KXLALIGAGAME  │    2 │       2 │    0 │       -29.70 │ 0.0324 │       0.0196 │
 │ KXLIGUE1GAME  │    0 │       4 │    0 │       -30.98 │ 0.0239 │       0.0173 │
 │ KXMLBGAME     │    0 │       5 │    5 │       352.16 │ 0.5809 │       0.6401 │
 │ KXMLSGAME     │    0 │       3 │    1 │         1.50 │ 0.3838 │       0.1624 │
@@ -44,6 +44,8 @@
 │ Barcelona    │ Barcelona vs │ no   │ 100   │ 13.80 │ 0.150    │ KXLALIGAGAM… │
 │ does NOT win │ Celta Vigo   │      │       │       │          │              │
 │              │ (Dec 5)      │      │       │       │          │              │
+│ NO on        │ KXLALIGAGAM… │ no   │ 100   │ 15.90 │ 0.173    │ KXLALIGAGAM… │
+│ KXLALIGAGAM… │              │      │       │       │          │              │
 │ Boise St.    │ San Diego    │ no   │ 100   │ 12.19 │ 0.149    │ KXNCAAFGAME… │
 │ does NOT win │ St. vs Boise │      │       │       │          │              │
 │              │ St. (Dec 4)  │      │       │       │          │              │
