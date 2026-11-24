@@ -1,3 +1,15 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1319.52
- scanned=1271 signals=0 filled=0 orders_placed=0 settled=0 cash=1319.52
-underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=
+ scanned=1271 signals=0 filled=0 orders_placed=1 settled=0 cash=1319.52
+underdog lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=[]
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXLIGUE1G… │ yes  │ 0.1300 │ 0.1524 │ 0.0124 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (7.7x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ Auxerre   │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.152     │
+│            │            │      │        │        │        │      │ from 2    │
+│            │            │      │        │        │        │      │ books     │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
