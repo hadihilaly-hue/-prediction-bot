@@ -3,9 +3,9 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │ 1303.62 │
-│ open positions       │      21 │
-│ open cost            │  363.48 │
+│ cash                 │ 1280.62 │
+│ open positions       │      22 │
+│ open cost            │  386.48 │
 │ settled fills        │     103 │
 │ wins                 │      33 │
 │ realized pnl         │  667.10 │
@@ -29,7 +29,7 @@
 │ KXLALIGAGAME  │    2 │       2 │    0 │       -29.70 │ 0.0324 │       0.0196 │
 │ KXLIGUE1GAME  │    0 │       4 │    0 │       -30.98 │ 0.0239 │       0.0173 │
 │ KXMLBGAME     │    0 │       5 │    5 │       352.16 │ 0.5809 │       0.6401 │
-│ KXMLSGAME     │    0 │       3 │    1 │         1.50 │ 0.3838 │       0.1624 │
+│ KXMLSGAME     │    1 │       3 │    1 │         1.50 │ 0.3838 │       0.1624 │
 │ KXNCAAFGAME   │    8 │      50 │   17 │       561.08 │ 0.2056 │       0.2147 │
 │ KXNFLGAME     │    3 │      32 │    7 │      -361.60 │ 0.2009 │       0.1835 │
 │ KXNHLGAME     │    0 │       4 │    0 │       -79.22 │ 0.1013 │       0.0752 │
@@ -44,8 +44,12 @@
 │ Barcelona    │ Barcelona vs │ no   │ 100   │ 13.80 │ 0.150    │ KXLALIGAGAM… │
 │ does NOT win │ Celta Vigo   │      │       │       │          │              │
 │              │ (Dec 5)      │      │       │       │          │              │
-│ NO on        │ KXLALIGAGAM… │ no   │ 100   │ 15.90 │ 0.173    │ KXLALIGAGAM… │
-│ KXLALIGAGAM… │              │      │       │       │          │              │
+│ Real Madrid  │ Real Madrid  │ no   │ 100   │ 15.90 │ 0.173    │ KXLALIGAGAM… │
+│ does NOT win │ vs Alaves    │      │       │       │          │              │
+│              │ (Nov 28)     │      │       │       │          │              │
+│ Tie is the   │ Columbus vs  │ yes  │ 100   │ 23.00 │ 0.242    │ KXMLSGAME-2… │
+│ result       │ Miami (Nov   │      │       │       │          │              │
+│              │ 27)          │      │       │       │          │              │
 │ Boise St.    │ San Diego    │ no   │ 100   │ 12.19 │ 0.149    │ KXNCAAFGAME… │
 │ does NOT win │ St. vs Boise │      │       │       │          │              │
 │              │ St. (Dec 4)  │      │       │       │          │              │
