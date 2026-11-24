@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-24 00:48 UTC. Cash **$1319.52** (started $1000.00), realized PnL **$667.10**, fees $77.59, settled 103, wins 33, open positions 20.
+Updated 2026-11-24 00:57 UTC. Cash **$1319.52** (started $1000.00), realized PnL **$667.10**, fees $77.59, settled 103, wins 33, open positions 20.
 
 Brier (lower is better): strategy 0.2324 vs market price 0.2351.
 
@@ -51,7 +51,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-24 00:48 | underdog\_value | KXMLSGAME-26NOV27CLBMIA-TIE — YES: Kalshi says 23%, we say 24%; placed order at 23¢ | yes | 0.2300 | 0.2424 | +0.0124 | 100 | yes | open | underdog \(4.3x payout\); Draw consensus 0.242 from 4 books \(Columbus Crew SC vs Inter Miami CF\) | KXMLSGAME-26NOV27CLBMIA-TIE |
+| 2026-11-24 00:48 | underdog\_value | Tie is the result — YES: Kalshi says 23%, we say 24%; placed order at 23¢ | yes | 0.2300 | 0.2424 | +0.0124 | 100 | yes | open | underdog \(4.3x payout\); Draw consensus 0.242 from 4 books \(Columbus Crew SC vs Inter Miami CF\) | KXMLSGAME-26NOV27CLBMIA-TIE |
 | 2026-11-24 00:18 | underdog\_value | Auxerre wins — YES: Kalshi says 13%, we say 15%; placed order at 13¢ | yes | 0.1300 | 0.1524 | +0.0124 | 100 | yes | open | underdog \(7.7x payout\); Auxerre consensus 0.152 from 2 books \(Lille vs Auxerre\) | KXLIGUE1GAME-26DEC05LILAUX-AUX |
 | 2026-11-23 18:18 | underdog\_value | BYU wins — NO: Kalshi says 14%, we say 16%; bought at 14¢ | no | 0.1400 | 0.1607 | +0.0107 | 100 | yes | open | underdog \(7.1x payout\); BYU Cougars consensus 0.839 from 4 books \(BYU Cougars vs Cincinnati Bearcats\) | KXNCAAFGAME-26NOV28CINBYU-BYU |
 | 2026-11-23 12:18 | underdog\_value | Plzen wins — YES: Kalshi says 15%, we say 17%; placed order at 15¢ | yes | 0.1500 | 0.1681 | +0.0181 | 100 | yes | open | underdog \(6.7x payout\); Viktoria Plzeň consensus 0.168 from 4 books \(Viktoria Plzeň vs Benfica\) | KXUELGAME-26NOV26VIKBEN-VIK |
