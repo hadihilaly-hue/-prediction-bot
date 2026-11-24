@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-24 07:48 UTC. Cash **$1280.62** (started $1000.00), realized PnL **$667.10**, fees $78.49, settled 103, wins 33, open positions 22.
+Updated 2026-11-24 08:18 UTC. Cash **$1280.62** (started $1000.00), realized PnL **$667.10**, fees $78.49, settled 103, wins 33, open positions 22.
 
 Brier (lower is better): strategy 0.2324 vs market price 0.2351.
 
@@ -53,6 +53,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-24 08:18 | underdog\_value | KXBUNDESLIGAGAME-26DEC06SCHBVB-SCH — YES: Kalshi says 19%, we say 22%; placed order at 19¢ | yes | 0.1900 | 0.2184 | +0.0184 | 100 | yes | open | underdog \(5.3x payout\); FC Schalke 04 consensus 0.218 from 3 books \(FC Schalke 04 vs Borussia Dortmund\) | KXBUNDESLIGAGAME-26DEC06SCHBVB-SCH |
 | 2026-11-24 04:48 | underdog\_value | Real Madrid wins — NO: Kalshi says 15%, we say 17%; bought at 15¢ | no | 0.1500 | 0.1732 | +0.0132 | 100 | yes | open | underdog \(6.7x payout\); Real Madrid consensus 0.827 from 4 books \(Real Madrid vs Alavés\) | KXLALIGAGAME-26NOV28RMAALA-RMA |
 | 2026-11-24 00:48 | underdog\_value | Tie is the result — YES: Kalshi says 23%, we say 24%; bought at 23¢ | yes | 0.2300 | 0.2424 | +0.0124 | 100 | yes | open | underdog \(4.3x payout\); Draw consensus 0.242 from 4 books \(Columbus Crew SC vs Inter Miami CF\) | KXMLSGAME-26NOV27CLBMIA-TIE |
 | 2026-11-24 00:18 | underdog\_value | Auxerre wins — YES: Kalshi says 13%, we say 15%; placed order at 13¢ | yes | 0.1300 | 0.1524 | +0.0124 | 100 | yes | open | underdog \(7.7x payout\); Auxerre consensus 0.152 from 2 books \(Lille vs Auxerre\) | KXLIGUE1GAME-26DEC05LILAUX-AUX |

@@ -1,1 +1,16 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1280.62
+ scanned=1304 signals=0 filled=0 orders_placed=1 settled=0 cash=1280.62
+underdog lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ underdog_… │ KXBUNDESL… │ yes  │ 0.1900 │ 0.2184 │ 0.0184 │ 100  │ underdog  │
+│            │            │      │        │        │        │      │ (5.3x     │
+│            │            │      │        │        │        │      │ payout);  │
+│            │            │      │        │        │        │      │ FC        │
+│            │            │      │        │        │        │      │ Schalke   │
+│            │            │      │        │        │        │      │ 04        │
+│            │            │      │        │        │        │      │ consensus │
+│            │            │      │        │        │        │      │ 0.218     │
+│            │            │      │        │        │        │      │ from 3    │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
