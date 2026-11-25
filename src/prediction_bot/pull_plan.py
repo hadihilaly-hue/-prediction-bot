@@ -46,6 +46,8 @@ TARGETS: tuple[tuple[str, timedelta, timedelta, timedelta, int], ...] = (
     ("T-6h", timedelta(hours=6), timedelta(hours=1), timedelta(hours=1), 2),
     ("T-24h", timedelta(hours=24), timedelta(hours=1), timedelta(hours=1), 3),
 )
+# The sharp close, the quote CLV is scored against. Funded outside the plan allowance.
+CLOSE_TARGET = "T-10m"
 PLAN_HORIZON = timedelta(hours=26)
 SNAPSHOT_MAX_AGE = timedelta(days=2)
 GROUP_BUCKET = timedelta(minutes=30)
@@ -795,9 +797,14 @@ def plan_allowance(ledger: Ledger, settings: Settings, now: datetime) -> float |
 
 def plan_credits_between(ledger: Ledger, start: datetime, end: datetime) -> float:
     """Credits charged to the plan's allowance: plan pulls, plus one per measurement
-    pull (credits 2.4: measurement pulls are paid from the plan's share)."""
+    pull (credits 2.4: measurement pulls are paid from the plan's share).
+
+    T-10m closes are not charged: they are funded outside the allowance (see
+    `select_plan_pull`). A pull shared with other targets charges only their share.
+    """
     row = ledger.conn.execute(
-        "SELECT COALESCE(SUM(credits),0) FROM pull_plan WHERE pulled_at>=? AND pulled_at<?",
+        "SELECT COALESCE(SUM(credits),0) FROM pull_plan WHERE pulled_at>=? AND pulled_at<? "
+        f"AND target<>'{CLOSE_TARGET}'",
         (start.isoformat(), end.isoformat()),
     ).fetchone()
     measured = ledger.conn.execute(
@@ -834,18 +841,22 @@ def plan_hold(ledger: Ledger, settings: Settings, calendar: ReleaseCalendar, now
     """Credits the rotation leaves above the plan floor (Phase 3-E).
 
     Zero until the last `PLAN_HOLD_WINDOW` of the month; then the known top-priority
-    demand to month end, capped by what the plan may still spend this month.
+    demand to month end. The T-10m closes in it are held in full (they are funded
+    outside the plan allowance); the other top-priority pulls only up to what the plan
+    may still spend this month.
     """
     now = _utc(now)
     _start, end = _month_bounds(now)
     if end - now > PLAN_HOLD_WINDOW:
         return 0
-    demand = must_demand(ledger, calendar, now, min(now + GAME_LOOKAHEAD, end))
+    until = min(now + GAME_LOOKAHEAD, end)
+    demand = must_demand(ledger, calendar, now, until)
+    closes = must_demand(ledger, calendar, now, until, closes_only=True)
     start, end, usable = _allowance_window(ledger, settings, now)
     if usable is None:
         return demand
     unspent = plan_share(settings) * usable - plan_credits_between(ledger, start, end)
-    return max(0, min(demand, math.floor(unspent + 1e-9)))
+    return closes + max(0, min(demand - closes, math.floor(unspent + 1e-9)))
 
 
 def move_reserve_left(ledger: Ledger, settings: Settings, now: datetime) -> int:
@@ -920,7 +931,9 @@ def select_plan_pull(
 ) -> PlanPick | None:
     """The funded feed to pull now for its due targets, or None.
 
-    Due targets that cannot be funded are stamped `budget_blocked_at`, so if they
+    T-10m closes are funded outside the plan allowance, down to the plan floor; other
+    targets need allowance left. Due targets that cannot be funded are stamped
+    `budget_blocked_at`, so if they
     expire unpulled they are recorded as `skipped_budget` rather than `missed`. Due
     targets of another feed that were fundable but lost to this tick's pick get the
     note `deferred_other_feed` and no budget stamp.
@@ -987,14 +1000,22 @@ def select_plan_pull(
         by_feed.items(),
         key=lambda item: (min(p for _i, p, _e in item[1]), min(e for _i, _p, e in item[1])),
     )
+    closes = {
+        int(r[0])
+        for r in ledger.conn.execute(
+            f"SELECT id FROM pull_plan WHERE status='planned' AND target='{CLOSE_TARGET}'"
+        )
+    }
     blocked: list[int] = []
     deferred: list[int] = []
     pick: PlanPick | None = None
     for feed, rows in ordered:
         priority = min(p for _i, p, _e in rows)
-        fundable = (
-            not (low_blocked and priority > top)
-            and remaining - _groups_ahead(ledger, now, priority) >= 1
+        # A due T-10m close is funded outside the plan allowance: it only needs the
+        # month to stay above the plan floor (hard reserve plus unused move reserve).
+        has_close = any(i in closes for i, _p, _e in rows)
+        fundable = not (low_blocked and priority > top) and (
+            remaining - _groups_ahead(ledger, now, priority) >= 1 or (has_close and floor_ok)
         )
         if fundable and pick is not None:
             # Lost only to the feed picked this tick: not a budget block (credits
@@ -1151,7 +1172,11 @@ def tag_pull_rows(
 
 
 def must_demand(
-    ledger: Ledger, calendar: ReleaseCalendar, now: datetime, until: datetime | None = None
+    ledger: Ledger,
+    calendar: ReleaseCalendar,
+    now: datetime,
+    until: datetime | None = None,
+    closes_only: bool = False,
 ) -> int:
     """Top-priority plan pulls still ahead in the known schedule (Phase 3-E).
 
@@ -1160,7 +1185,8 @@ def must_demand(
     `GAME_LOOKAHEAD`; games after `until` still qualify a clock before it), minus
     buckets already pulled. The rotation and lower-priority plan pulls leave this
     many credits above the plan floor, so the month's last closes and NFL clocks are
-    not starved by pulls that happened to run first.
+    not starved by pulls that happened to run first. With `closes_only`, only the
+    T-10m closes count.
     """
     now = _utc(now)
     until = _utc(until) if until is not None else now + GAME_LOOKAHEAD
@@ -1173,7 +1199,7 @@ def must_demand(
         close = kickoff - timedelta(minutes=10)
         if close + timedelta(minutes=8) >= now and close - timedelta(minutes=10) < until:
             demand.add((feed, int((close - timedelta(minutes=10)).timestamp() // bucket)))
-    for feed in feeds:
+    for feed in [] if closes_only else feeds:
         kickoffs = games.get(feed, [])
         for target in calendar.clock_targets(feed, now - RELEASE_WINDOW, until):
             if target.entry.priority < 5 or target.target_at + RELEASE_WINDOW < now:

@@ -378,7 +378,7 @@ def test_plan_allowance_accrues_by_day_with_two_days_borrowed(tmp_path: Path) ->
     ledger.conn.execute(
         "INSERT INTO pull_plan (event_ticker,feed,target,kickoff,target_at,window_start,"
         "window_end,priority,status,credits,planned_at,pulled_at) VALUES ('E','soccer_epl',"
-        "'T-10m','k','t','s','e',1,'pulled',5,'p','2026-11-01T10:00:00+00:00')"
+        "'K-90m','k','t','s','e',1,'pulled',5,'p','2026-11-01T10:00:00+00:00')"
     )
     assert plan_allowance_left(ledger, SETTINGS, first) == pytest.approx(212.5 * 3 / 30 - 5)
 
@@ -766,7 +766,7 @@ def test_plan_allowance_since_restarts_the_allowance_mid_month(tmp_path: Path) -
     ledger.conn.execute(
         "INSERT INTO pull_plan (event_ticker,feed,target,kickoff,target_at,window_start,"
         "window_end,priority,status,credits,planned_at,pulled_at) VALUES ('E','soccer_epl',"
-        "'T-10m','k','t','s','e',1,'pulled',60,'p','2026-11-08T10:00:00+00:00')"
+        "'K-90m','k','t','s','e',1,'pulled',60,'p','2026-11-08T10:00:00+00:00')"
     )
     ledger.conn.commit()
     now = datetime(2026, 11, 9, 18, tzinfo=UTC)
