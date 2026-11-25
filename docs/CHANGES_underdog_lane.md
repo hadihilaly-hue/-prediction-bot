@@ -3,6 +3,29 @@
 `underdog_value` picks are real paper entries again, beside v3. Rollback: set the repo
 Variable `PBOT_UNDERDOG_LANE` to `off` (shadow rows only, as before).
 
+## Shadow mode (from 2026-11-25)
+
+The workflow default is now `PBOT_UNDERDOG_LANE=shadow`; the sharp lane
+([CHANGES_sharp_lane.md](CHANGES_sharp_lane.md)) takes over the cash. In shadow the lane
+keeps producing its picks, its instant-fill book and its resting orders with the same fill
+rule and grading, but nothing moves cash, takes budget, counts toward PnL or opens a
+position:
+
+- Resting orders carry the tag `no_cash`. They reserve no cash and are not in the lane
+  budget. When the market trades through one, the fill is booked in `shadow_decisions`
+  (reason `underdog_lane_nocash`, tag `maker`) instead of `fills`.
+- Picks at the ask go to the same reason (tag `taker`) instead of `fills`.
+- The budget and cash guards do not apply; every other guard does, and one side per game
+  counts the no-cash fills.
+- `clv-report` cohorts `underdog_lane` and `underdog_lane_ask` pool the cash fills and the
+  no-cash ones, so they keep accumulating across the switch. `underdog_instant` is
+  unchanged.
+- Fills made before the switch stay in `fills` and settle normally.
+- The dashboard section is labelled "comparison only, no cash".
+
+A repo Variable `PBOT_UNDERDOG_LANE` overrides the workflow default (`paper` puts cash on
+the lane again, `off` stops it).
+
 ## What it is
 
 `underdog_value` buys a side priced 10c to 25c when the de-vigged average of every

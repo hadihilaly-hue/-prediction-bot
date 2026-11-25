@@ -36,6 +36,12 @@ Guards, in order. Each skipped pick is recorded in `blocks` under strategy
 
 The lane has its own daily stop (`underdog_lane_max_daily_loss`), and the global
 `max_daily_loss` ignores lane fills, so a bad underdog day pauses the lane only.
+
+With `PBOT_UNDERDOG_LANE=shadow` the lane is a comparison book: the same picks, the same
+instant-fill book and the same resting orders with the same fill rule and grading, but
+nothing moves cash, takes budget, counts toward PnL or opens a position. Resting orders
+carry `no_cash` and their fills, like picks at the ask, are booked in `shadow_decisions`
+(reason `underdog_lane_nocash`). The budget and cash guards do not apply.
 """
 
 from __future__ import annotations
@@ -50,6 +56,7 @@ from prediction_bot.config import Settings
 from prediction_bot.fees import FEE_MODEL_VERSION, FeeStyle
 from prediction_bot.models import Block, Signal
 from prediction_bot.paper.ledger import (
+    NO_CASH_TAG,
     UNDERDOG_LANE_RULES,
     UNDERDOG_LANE_STRATEGY,
     UNDERDOG_LANE_TAG,
@@ -150,8 +157,10 @@ def run_underdog_lane(
     event_links: Mapping[str, str],
     now: datetime,
     fee_amount: FeeAmount,
+    shadow: bool = False,
 ) -> LaneResult:
-    """Act on one cycle of `underdog_value` picks. Paper only; the caller checks that."""
+    """Act on one cycle of `underdog_value` picks. Paper only; the caller checks that.
+    `shadow` books everything without cash (see the module docstring)."""
     result = LaneResult()
     now = _utc(now)
 
@@ -210,7 +219,7 @@ def run_underdog_lane(
             position_key=key,
             event_ticker=event_ticker,
             commence_time=pick.commence_time,
-            tags=tuple(sorted({UNDERDOG_LANE_TAG, style})),
+            tags=tuple(sorted({UNDERDOG_LANE_TAG, style, *((NO_CASH_TAG,) if shadow else ())})),
         )
         try:
             fee = fee_amount(lane_sig, sig.limit_price, sig.size, style)
@@ -219,17 +228,20 @@ def run_underdog_lane(
             continue
         cost = sig.limit_price * sig.size + fee
         bankroll = ledger.cash + sum((p.cost for p in ledger.positions()), Decimal(0))
-        if (
+        if not shadow and (
             ledger.underdog_lane_open_cost() + cost
             > bankroll * settings.underdog_lane_max_open_fraction
         ):
             block(pick, "lane_budget", f"cost={cost:.2f}", key)
             continue
-        if cost > ledger.available_cash(include_v3=True):
+        if not shadow and cost > ledger.available_cash(include_v3=True):
             block(pick, "lane_cash", f"cost={cost:.2f}", key)
             continue
         try:
-            if sig.taker:
+            if sig.taker and shadow:
+                ledger.record_underdog_lane_nocash_fill(lane_sig, fee)
+                result.filled.append(lane_sig)
+            elif sig.taker:
                 ledger.record_fill(
                     UNDERDOG_LANE_STRATEGY,
                     sig.ticker,
@@ -261,7 +273,7 @@ def run_underdog_lane(
             ledger.record_signal(lane_sig, acted=False)
             continue
         ledger.record_underdog_lane_entry(lane_sig, fee)
-        ledger.record_signal(lane_sig, acted=True)
+        ledger.record_signal(lane_sig, acted=not shadow)
     if blocks:
         ledger.record_blocks(blocks)
     return result
