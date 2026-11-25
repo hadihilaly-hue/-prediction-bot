@@ -47,8 +47,10 @@
 │ Real Madrid  │ Real Madrid  │ no   │ 100   │ 15.90 │ 0.173    │ KXLALIGAGAM… │
 │ does NOT win │ vs Alaves    │      │       │       │          │              │
 │              │ (Nov 28)     │      │       │       │          │              │
-│ NO on        │ KXLALIGAGAM… │ no   │ 100   │ 22.17 │ 0.241    │ KXLALIGAGAM… │
-│ KXLALIGAGAM… │              │      │       │       │          │              │
+│ Barcelona    │ Deportivo De │ no   │ 100   │ 22.17 │ 0.241    │ KXLALIGAGAM… │
+│ does NOT win │ La Coruna vs │      │       │       │          │              │
+│              │ Barcelona    │      │       │       │          │              │
+│              │ (Nov 29)     │      │       │       │          │              │
 │ Tie is the   │ Columbus vs  │ yes  │ 100   │ 23.00 │ 0.242    │ KXMLSGAME-2… │
 │ result       │ Miami (Nov   │      │       │       │          │              │
 │              │ 27)          │      │       │       │          │              │
