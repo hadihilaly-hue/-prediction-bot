@@ -783,6 +783,15 @@ All of them are read from repo Variables in `paper.yml` (`PBOT_` prefix), and `P
 - **The share change paused the plan** (2026-11-09). Applied to the whole month, the new 0.3 plan share gave a month-to-date allowance of about 47. That was below the 60 credits the plan had already spent on Nov 7–8, so no closes, lineup pulls or NFL clocks were funded until about Nov 13.
   - New setting `PLAN_ALLOWANCE_SINCE`, set to `2026-11-09` in `paper.yml`. It restarts the allowance from that date: it counts the balance on that day less the reserves still unused, and only plan credits spent from then on. It is ignored in other months.
   - Effect: about 9.7 credits on Nov 9 and about 71 over Nov 9–30, roughly 3 a day. On the live schedule that funds about three closes a day, earliest and highest priority first; a T−10m close and a priority-5 NFL clock rank the same.
+- **Closes only for games with a stake; rotation share 0.85** (2026-11-25). The first two weeks showed no edge from timed pulls, and closes took most of the plan's credits: 52 of 88. Most of those closes scored nothing the evidence uses.
+  - New calendar setting `close_scope`. The seed file sets it to `stake`; the code default is `all`. With `stake`, a game's T−10m close is planned only if it is in `pull_plan.stake_events`, any of:
+    - a paper fill in the last 14 days;
+    - an open or filled maker shadow, or resting paper order, from the last 14 days;
+    - a v3 decision in the last 7 days that would have traded or had net edge ≥ 0.
+  - Closes already planned for other games become `superseded` (note `no_stake`), and are planned again if the game gains a stake before its window ends. The rotation's month-end hold counts only these closes.
+  - On Nov 6–20, 35 of the 179 games whose close was paid had a stake, about 80% fewer closes.
+  - `paper.yml`: `PBOT_ODDS_ENTRY_SHARE` default 0.7 → 0.85, so the plan's share drops to 0.15. `PBOT_PLAN_ALLOWANCE_SINCE` moves to `2026-11-26`, so the smaller share is not applied to credits already spent this month.
+  - The simulation script and the slate tests keep `close_scope: all`, because their synthetic games carry no trades.
 
 ## Decisions for Hadi
 1. **Network access for later phases.** Allow `kalshi.com`, `api.elections.kalshi.com`, `gamma-api.polymarket.com` and `clob.polymarket.com` in the environment's network settings. Without them:

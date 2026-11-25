@@ -145,6 +145,47 @@ def plan_kickoffs(
     return out
 
 
+STAKE_LOOKBACK = timedelta(days=14)
+NEAR_MISS_LOOKBACK = timedelta(days=7)
+
+
+def stake_events(conn: sqlite3.Connection, now: datetime) -> set[str]:
+    """Events the bot has a stake in, whose T-10m close is worth paying for.
+
+    A paper fill in the last 14 days; an open or filled maker shadow or resting
+    paper order (underdog lane) from the last 14 days; or a v3 decision in the last
+    7 days that would have traded or had net edge >= 0. These are the rows the
+    sharp close scores (`clv_sharp_close`) in a way the evidence uses.
+    """
+    now = _utc(now)
+    recent = (now - STAKE_LOOKBACK).isoformat()
+    near = (now - NEAR_MISS_LOOKBACK).isoformat()
+    queries = (
+        ("SELECT ticker FROM fills WHERE created_at>=?", recent),
+        (
+            "SELECT ticker FROM maker_shadow WHERE status IN ('open','filled') AND created_at>=?",
+            recent,
+        ),
+        (
+            "SELECT ticker FROM paper_orders WHERE status IN ('open','filled') AND created_at>=?",
+            recent,
+        ),
+        (
+            "SELECT ticker FROM shadow_decisions WHERE rules_version='v3' AND created_at>=? "
+            "AND (would_trade=1 OR CAST(net_edge AS REAL)>=0)",
+            near,
+        ),
+    )
+    events: set[str] = set()
+    for sql, since in queries:
+        try:
+            rows = conn.execute(sql, (since,)).fetchall()
+        except sqlite3.OperationalError:  # an older ledger without the table
+            continue
+        events.update(str(ticker).rsplit("-", 1)[0] for (ticker,) in rows if ticker)
+    return events
+
+
 def _close_allowed(conn: sqlite3.Connection, event_ticker: str, feed: str) -> bool:
     """No T-10m close for NCAAF from a Kalshi estimate (its expirations are placeholders)."""
     if feed != "americanfootball_ncaaf":
@@ -262,8 +303,11 @@ def plan_pulls(
     Without `calendar` this is Phase 3 exactly; with it, see `_plan_event_targets`.
     """
     if calendar is not None:
+        stakes = stake_events(ledger.conn, now) if calendar.close_scope == "stake" else None
         planned = sum(
-            _plan_event_targets(ledger, calendar, event, feed, _utc(kickoff), _utc(now))
+            _plan_event_targets(
+                ledger, calendar, event, feed, _utc(kickoff), _utc(now), stakes=stakes
+            )
             for event, (feed, kickoff) in kickoffs.items()
         )
         retime_planned(ledger, now)
@@ -372,10 +416,14 @@ def _plan_event_targets(
     feed: str,
     kickoff: datetime,
     now: datetime,
+    stakes: set[str] | None = None,
 ) -> int:
     """One event's targets under the release calendar.
 
-    - T-10m sharp close on every feed (window kickoff -20m to -2m, as in Phase 3).
+    - T-10m sharp close on every feed (window kickoff -20m to -2m, as in Phase 3);
+      with `stakes` (calendar `close_scope: stake`) only for events in it. A close
+      dropped for that reason is `superseded` with note `no_stake`, and planned
+      again if the event gains a stake before its window ends.
     - Feeds with calendar entries: each `kickoff` entry, window [target, target + 60m]
       cut at kickoff - 2m. Their T-24h/T-6h/T-90m are not planned.
     - Feeds without entries: Phase 3's T-24h/T-6h/T-90m at `default_priority`.
@@ -388,6 +436,20 @@ def _plan_event_targets(
         if name == "T-10m":
             if not _close_allowed(ledger.conn, event_ticker, feed):
                 continue
+            if stakes is not None and event_ticker not in stakes:
+                ledger.conn.execute(
+                    "UPDATE pull_plan SET status='superseded',note='no_stake' "
+                    "WHERE event_ticker=? AND target='T-10m' AND status='planned'",
+                    (event_ticker,),
+                )
+                continue
+            if stakes is not None:
+                ledger.conn.execute(
+                    "UPDATE pull_plan SET status='planned',note=NULL WHERE event_ticker=? "
+                    "AND target='T-10m' AND status='superseded' AND note='no_stake' "
+                    "AND window_end>=?",
+                    (event_ticker, now.isoformat()),
+                )
             rows.append(
                 (
                     name,
@@ -1168,8 +1230,11 @@ def must_demand(
     bucket = GROUP_BUCKET.total_seconds()
     games: dict[str, list[datetime]] = {}
     demand: set[tuple[str, int]] = set()
-    for _event, (feed, kickoff) in plan_kickoffs(ledger.conn, feeds, now, GAME_LOOKAHEAD).items():
+    stakes = stake_events(ledger.conn, now) if calendar.close_scope == "stake" else None
+    for event, (feed, kickoff) in plan_kickoffs(ledger.conn, feeds, now, GAME_LOOKAHEAD).items():
         games.setdefault(feed, []).append(kickoff)
+        if stakes is not None and event not in stakes:
+            continue
         close = kickoff - timedelta(minutes=10)
         if close + timedelta(minutes=8) >= now and close - timedelta(minutes=10) < until:
             demand.add((feed, int((close - timedelta(minutes=10)).timestamp() // bucket)))

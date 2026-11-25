@@ -338,6 +338,14 @@ def test_pull_due_prints_the_funded_feed(tmp_path, monkeypatch, capsys) -> None:
             (now + timedelta(minutes=12) + timedelta(hours=3)).isoformat(),
         ),
     )  # fmt: skip
+    # A stake in the game (a v3 decision that would have traded), so the seed
+    # calendar's close_scope "stake" plans its T-10m close.
+    ledger.conn.execute(
+        "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
+        "would_trade,reason,net_edge) VALUES (?,'v3','72h+','sportsbook_v3','KXNFLGAME-X-KC',"
+        "'yes',1,'',0.02)",
+        ((now - timedelta(days=3)).isoformat(),),
+    )
     _budget(ledger, now, 10)
     settings = Settings(_env_file=None, rules_version="v3", paper_db_path=path)  # type: ignore[call-arg]
     monkeypatch.setattr(cli, "_settings", lambda: settings)

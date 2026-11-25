@@ -711,6 +711,14 @@ def test_plan_run_marks_its_target_pulled_after_the_engine_clears_requests_last(
             (kickoff + timedelta(hours=3)).isoformat(),
         ),
     )  # fmt: skip
+    # A stake in the game (a v3 decision that would have traded), so the seed
+    # calendar's close_scope "stake" plans its T-10m close.
+    ledger.conn.execute(
+        "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
+        "would_trade,reason,net_edge) VALUES (?,'v3','72h+','sportsbook_v3','KXNFLGAME-X-KC',"
+        "'yes',1,'',0.02)",
+        ((now - timedelta(days=3)).isoformat(),),
+    )
     ledger.conn.commit()
     settings = Settings(
         _env_file=None,

@@ -116,6 +116,11 @@ class ReleaseCalendar(BaseModel):
     timezone: str = "America/New_York"
     # Priority of the T-10m sharp close (used by `clv_sharp_close`) on every feed.
     close_priority: Priority = 5
+    # Which games get a T-10m close: `all` known games, or only those the bot has a
+    # stake in (`pull_plan.stake_events`: a recent paper fill, an open or filled maker
+    # shadow or resting order, or a v3 decision that would have traded or had net
+    # edge >= 0). Closes on other games are never scored against anything.
+    close_scope: Literal["all", "stake"] = "all"
     # Priority of the Phase 3 T-24h/T-6h/T-90m targets on feeds without entries.
     default_priority: Priority = 2
     # ODDS_GRID=fallback: one pull at this local time for an eligible feed that has no

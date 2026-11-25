@@ -2,6 +2,7 @@
   "_comment": "v5 Phase 3-E information-release calendar. Times are America/New_York wall time; priorities are 1-5, 5 highest. Loaded and validated by prediction_bot.release_calendar.ReleaseCalendar.",
   "timezone": "America/New_York",
   "close_priority": 5,
+  "close_scope": "stake",
   "default_priority": 2,
   "grid_time": "15:00",
   "grid_priority": 2,
