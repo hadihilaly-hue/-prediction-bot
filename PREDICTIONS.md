@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-25 01:48 UTC. Cash **$1280.62** (started $1000.00), realized PnL **$645.69**, fees $78.49, settled 105, wins 33, open positions 20.
+Updated 2026-11-25 02:18 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$645.69**, fees $79.66, settled 105, wins 33, open positions 21.
 
 Brier (lower is better): strategy 0.2293 vs market price 0.2319.
 
@@ -11,7 +11,7 @@ Brier (lower is better): strategy 0.2293 vs market price 0.2319.
 Per league (Kalshi series):
 
 - `KXBUNDESLIGAGAME`: open 0, settled 1, wins 1, realized PnL $89.84, Brier 0.7735 vs market 0.8100
-- `KXLALIGAGAME`: open 2, settled 2, wins 0, realized PnL $-29.70, Brier 0.0324 vs market 0.0196
+- `KXLALIGAGAME`: open 3, settled 2, wins 0, realized PnL $-29.70, Brier 0.0324 vs market 0.0196
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 1, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
@@ -22,12 +22,13 @@ Per league (Kalshi series):
 - `KXUELGAME`: open 5, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (20)
+## Open positions (21)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
 | Barcelona does NOT win | Barcelona vs Celta Vigo \(Dec 5\) | 100 | $13.80 | 15% | `KXLALIGAGAME-26DEC05BARRCC-BAR` |
 | Real Madrid does NOT win | Real Madrid vs Alaves \(Nov 28\) | 100 | $15.90 | 17% | `KXLALIGAGAME-26NOV28RMAALA-RMA` |
+| NO on KXLALIGAGAME-26NOV29DEPBAR-BAR | KXLALIGAGAME-26NOV29DEPBAR | 100 | $22.17 | 24% | `KXLALIGAGAME-26NOV29DEPBAR-BAR` |
 | Tie is the result | Columbus vs Miami \(Nov 27\) | 100 | $23.00 | 24% | `KXMLSGAME-26NOV27CLBMIA-TIE` |
 | Boise St. does NOT win | San Diego St. vs Boise St. \(Dec 4\) | 100 | $12.19 | 15% | `KXNCAAFGAME-26DEC04SDSUBSU-BSU` |
 | Texas Tech does NOT win | TCU vs Texas Tech \(Nov 26\) | 100 | $21.30 | 25% | `KXNCAAFGAME-26NOV26TCUTTU-TTU` |
@@ -51,6 +52,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-25 02:18 | underdog\_value | KXLALIGAGAME-26NOV29DEPBAR-BAR — NO: Kalshi says 21%, we say 24%; bought at 21¢ | no | 0.2100 | 0.2412 | +0.0112 | 100 | yes | open | underdog \(4.8x payout\); Barcelona consensus 0.759 from 4 books \(Deportivo La Coruña vs Barcelona\) | KXLALIGAGAME-26NOV29DEPBAR-BAR |
 | 2026-11-24 08:18 | underdog\_value | Schalke wins — YES: Kalshi says 19%, we say 22%; placed order at 19¢ | yes | 0.1900 | 0.2184 | +0.0184 | 100 | yes | open | underdog \(5.3x payout\); FC Schalke 04 consensus 0.218 from 3 books \(FC Schalke 04 vs Borussia Dortmund\) | KXBUNDESLIGAGAME-26DEC06SCHBVB-SCH |
 | 2026-11-24 04:48 | underdog\_value | Real Madrid wins — NO: Kalshi says 15%, we say 17%; bought at 15¢ | no | 0.1500 | 0.1732 | +0.0132 | 100 | yes | open | underdog \(6.7x payout\); Real Madrid consensus 0.827 from 4 books \(Real Madrid vs Alavés\) | KXLALIGAGAME-26NOV28RMAALA-RMA |
 | 2026-11-24 00:48 | underdog\_value | Tie is the result — YES: Kalshi says 23%, we say 24%; bought at 23¢ | yes | 0.2300 | 0.2424 | +0.0124 | 100 | yes | open | underdog \(4.3x payout\); Draw consensus 0.242 from 4 books \(Columbus Crew SC vs Inter Miami CF\) | KXMLSGAME-26NOV27CLBMIA-TIE |
