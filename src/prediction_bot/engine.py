@@ -378,12 +378,14 @@ class Engine:
             )
         )
 
-    def _resolve_paper_orders(self, now: datetime) -> int:
+    def _resolve_paper_orders(self, now: datetime, tickers: set[str] | None = None) -> int:
         now_utc = (
             now.replace(tzinfo=timezone.utc) if now.tzinfo is None else now.astimezone(timezone.utc)
         )
         filled = 0
         for order in self.ledger.open_paper_orders():
+            if tickers is not None and order.ticker not in tickers:
+                continue
             end = min(now_utc, order.expires_at)
             if end <= order.created_at:
                 if now_utc >= order.expires_at:
@@ -395,10 +397,11 @@ class Engine:
                 log.exception("maker candle fetch failed for %s; leaving order open", order.ticker)
                 continue
             fill_at = trade_through_fill(candles, order.side, order.price, order.created_at, end)
-            if fill_at is not None:
-                if self.ledger.fill_paper_order(order.id, fill_at):
-                    filled += 1
+            if fill_at is not None and self.ledger.fill_paper_order(order.id, fill_at):
+                filled += 1
             elif now_utc >= order.expires_at:
+                # Also covers a trade-through the ledger refused (not enough cash): an
+                # order left open past expiry would hold its reserve forever.
                 self.ledger.expire_paper_order(order.id, order.expires_at)
         return filled
 
@@ -414,7 +417,11 @@ class Engine:
             return "taker"
         if latest is not None and latest.status == "filled" and self.settings.v3_no_reentry:
             return "held"
-        taker_edge_holds = sig.edge >= self.settings.v2_min_net_edge
+        # Same price-dependent threshold the strategy applies to taker entries.
+        threshold = self.settings.v2_min_net_edge
+        if sig.limit_price < self.settings.v3_low_price_below:
+            threshold *= self.settings.v3_low_price_threshold_multiplier
+        taker_edge_holds = sig.edge >= threshold
         maker_is_post_only = (
             not grouped and sig.maker_price is not None and sig.maker_price < sig.limit_price
         )
@@ -735,6 +742,18 @@ class Engine:
         for i in range(0, len(tickers), 50):
             batch = self.kalshi.get_markets(status=None, tickers=tickers[i : i + 50])
             self.ledger.remember_markets(batch)
+            settling = {m.ticker for m in batch if m.is_settled and m.ticker in unsettled}
+            if (
+                settling
+                and any(o.ticker in settling for o in self.ledger.open_paper_orders())
+                and not self.live
+            ):
+                # Resolve resting paper orders that traded through before close, so their
+                # fills are paid out; settle() cancels any order still open afterwards.
+                try:
+                    self._resolve_paper_orders(self.clock(), settling)
+                except Exception:
+                    log.exception("paper order resolution before settlement failed")
             for m in batch:
                 if m.is_settled and m.ticker in unsettled:
                     out[m.ticker] = self.ledger.settle(m.ticker, OutcomeSide(m.result))

@@ -83,17 +83,20 @@ def _book_levels(ob: JSON, side: str) -> list[list[Any]]:
     """One side's [price, size] levels, prices in dollars.
 
     Accepts `orderbook_fp` or `orderbook`, with `<side>_dollars` or `<side>` keys. An
-    integer price above 1 is the legacy cents form and is converted. v5 Phase 7.1a: the
-    live key names were not verified from this environment, so all forms are read.
+    integer price under the legacy `<side>` key is in cents and is converted (including a
+    1c level, which must not be read as $1). v5 Phase 7.1a: the live key names were not
+    verified from this environment, so all forms are read.
     """
     book = ob.get("orderbook_fp") or ob.get("orderbook") or {}
-    levels = book.get(f"{side}_dollars") or book.get(side) or []
+    dollar_levels = book.get(f"{side}_dollars")
+    levels = dollar_levels or book.get(side) or []
+    legacy = not dollar_levels
     out = []
     for level in levels:
         if not isinstance(level, (list, tuple)) or len(level) < 2:
             continue
         price = level[0]
-        if isinstance(price, int) and price > 1:
+        if isinstance(price, int) and not isinstance(price, bool) and (legacy or price > 1):
             price = Decimal(price) / 100
         out.append([price, level[1]])
     return out

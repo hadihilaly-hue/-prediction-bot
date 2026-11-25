@@ -139,7 +139,6 @@ def backfill_clv_commence_times(
             if calls >= max_calls:
                 break
             calls += 1
-            statuses_attempted += 1
             try:
                 events = kalshi.get_events(
                     series_ticker=series,
@@ -147,8 +146,11 @@ def backfill_clv_commence_times(
                     with_nested_markets=False,
                 )
             except Exception:
+                # Not counted as attempted: a transient failure must leave the rows pending
+                # for the next run instead of marking them permanently unavailable.
                 log.exception("Kalshi commencement lookup failed for %s (%s)", series, status)
                 continue
+            statuses_attempted += 1
             for found_event in events:
                 ticker = str(found_event.get("event_ticker", ""))
                 if ticker in target_events:

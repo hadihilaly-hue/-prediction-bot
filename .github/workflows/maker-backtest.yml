@@ -42,10 +42,12 @@ jobs:
           cache: pip
       - run: pip install -e .
 
-      - name: Restore ledger (read-only copy)
+      # Full history: the daily archive moves older market_snapshots out of the hot
+      # ledger, and the backtest needs them to score older decisions.
+      - name: Restore ledger with archives (read-only copy)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: pbot ledger-restore --out "$RUNNER_TEMP/ledger/paper.sqlite"
+        run: pbot ledger-archive-fetch --out "$RUNNER_TEMP/ledger/paper.sqlite"
 
       - name: Restore trade cache
         uses: actions/cache/restore@v4
