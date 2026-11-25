@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-25 21:48 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 20.
+Updated 2026-11-25 22:18 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 20.
 
 Brier (lower is better): strategy 0.2265 vs market price 0.2290.
 
@@ -144,7 +144,7 @@ Per league (Kalshi series):
 | 2026-11-18 23:48 | underdog\_value | Texas Tech wins — NO: Kalshi says 21%, we say 25%; bought at 21¢ | no | 0.2100 | 0.2495 | +0.0295 | 100 | yes | open | underdog \(4.8x payout\); Texas Tech Red Raiders consensus 0.750 from 1 books \(Texas Tech Red Raiders vs TCU Horned Frogs\) | KXNCAAFGAME-26NOV26TCUTTU-TTU |
 | 2026-11-18 22:17 | underdog\_value | Michigan wins — YES: Kalshi says 20%, we say 24%; placed order at 20¢ | yes | 0.2000 | 0.2351 | +0.0251 | 100 | yes | open | underdog \(5.0x payout\); Michigan Wolverines consensus 0.235 from 1 books \(Ohio State Buckeyes vs Michigan Wolverines\) | KXNCAAFGAME-26NOV28MICHOSU-MICH |
 | 2026-11-18 20:18 | underdog\_value | Barcelona wins — NO: Kalshi says 10%, we say 13%; bought at 10¢ | no | 0.1000 | 0.1262 | +0.0162 | 100 | yes | lost (yes) | underdog \(10.0x payout\); Barcelona consensus 0.874 from 3 books \(Sabah FK vs Barcelona\) | KXUCLGAME-26NOV25SBHBAR-BAR |
-| 2026-11-18 20:18 | underdog\_value | Lille wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1307 | +0.0107 | 100 | yes | open | underdog \(9.1x payout\); Lille consensus 0.131 from 3 books \(Lille vs Bayern Munich\) | KXUCLGAME-26NOV25LILBMU-LIL |
+| 2026-11-18 20:18 | underdog\_value | Lille wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1307 | +0.0107 | 100 | yes | WON (yes) | underdog \(9.1x payout\); Lille consensus 0.131 from 3 books \(Lille vs Bayern Munich\) | KXUCLGAME-26NOV25LILBMU-LIL |
 | 2026-11-18 20:18 | underdog\_value | Tie is the result — YES: Kalshi says 17%, we say 19%; bought at 17¢ | yes | 0.1700 | 0.1944 | +0.0144 | 100 | yes | lost (no) | underdog \(5.9x payout\); Draw consensus 0.194 from 3 books \(Como vs AEK Athens\) | KXUCLGAME-26NOV24COMAEK-TIE |
 | 2026-11-18 18:18 | underdog\_value | Cincinnati wins — NO: Kalshi says 16%, we say 19%; bought at 16¢ | no | 0.1600 | 0.1852 | +0.0152 | 100 | yes | open | underdog \(6.2x payout\); Cincinnati Bengals consensus 0.815 from 2 books \(Cincinnati Bengals vs New Orleans Saints\) | KXNFLGAME-26NOV29NOCIN-CIN |
 | 2026-11-18 16:18 | underdog\_value | Old Dominion wins — YES: Kalshi says 16%, we say 18%; placed order at 16¢ | yes | 0.1600 | 0.1842 | +0.0142 | 100 | yes | lost (no) | underdog \(6.2x payout\); Old Dominion Monarchs consensus 0.184 from 4 books \(UConn Huskies vs Old Dominion Monarchs\) | KXNCAAFGAME-26NOV21ODUCONN-ODU |
