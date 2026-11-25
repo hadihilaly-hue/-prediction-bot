@@ -667,7 +667,32 @@ Replaces Phase 3.1's fixed T−24h/T−6h/T−90m offsets with targets timed to 
   - `scripts/odds_budget.py` ends with "Pulls by source": credits, candidates, gate candidates, v3 rows, share with net edge ≥ 0 and mean ask-minus-fair gap (cents), by source, by source and feed, and by source and ISO week. Its pull-plan section adds a by-source table and buckets dated release targets by local time.
   - `pbot clv-report --by-source` adds a `pull_source` breakdown to every cohort; rows from before this phase are `untagged`.
 - **Pre-registered hypothesis.** Candidates from `release` and `kickoff` pulls have a higher share of net edge ≥ 0 and a higher mid-CLV (`clv_kalshi`) than `rotation`, `default` and `grid` pulls. It is judged only under the Phase 0.2 rule (n ≥ 50 and the 95% CI of the difference above 0), not by eye.
-- **First two weeks.** Pending: no tagged pulls exist until this ships. After two weeks of paper runs, add the output of `python scripts/odds_budget.py --ledger <paper.sqlite> --days 14` ("Pulls by source") and `pbot clv-report --by-source`. Nothing is filled in here in advance.
+- **First two weeks (2026-11-06 to 11-20).** From the live ledger (`ledger-store` asset `paper-20261120T154809Z-r1840`, 1,840 runs).
+  - The first three days are distorted by the bugs fixed in #73–#76: unsaved runs, pulls that were never recorded, and a starved rotation. Treat W45 as a warm-up.
+  - `python scripts/odds_budget.py --days 14`, "Pulls by source". One feed pull is one credit. The v3 columns cover the `sportsbook_v3` decisions written on those pulls.
+
+| Source | Credits | Candidates | Gate candidates | v3 rows | Net edge ≥ 0 | Mean ask − fair |
+|---|---|---|---|---|---|---|
+| release | 12 | 162 | 112 | 72 | 4.2% | +0.52c |
+| kickoff | 24 | 208 | 113 | 362 | 1.7% | +0.89c |
+| close | 52 | 385 | 238 | 429 | 1.2% | +0.62c |
+| rotation | 53 | 2,894 | 1,747 | 1,083 | 2.2% | +0.92c |
+| move | 36 | 1,383 | 845 | 641 | 3.4% | +0.81c |
+| measure | 15 | 0 | 0 | 215 | 3.3% | +0.43c |
+
+  - **Pre-registered hypothesis: not supported.** Release and kickoff pulls are compared with rotation pulls (no `default` or `grid` pulls ran). Standard errors are clustered by game.
+
+| Measure | Release + kickoff | Rotation | Difference (95% CI) |
+|---|---|---|---|
+| Share of v3 rows with net edge ≥ 0 | 2.07% (434 rows, 111 games) | 2.22% (1,082 rows, 169 games) | −0.14 pp [−2.14, +1.85] |
+| `clv_kalshi`, mid-CLV in cents (scored rows) | −0.39 (268 rows, 79 games) | −0.47 (359 rows, 59 games) | +0.07 [−0.17, +0.32] |
+
+    Both intervals contain zero, so timing pulls to news did not find more edge than the 2-hour rotation over these two weeks. This matches the measured minute-of-hour result: Kalshi's ask sits about +0.5 to +0.9c over the sharp fair whenever it is sampled.
+  - **`pbot clv-report --by-source --since 2026-11-06`** (CI and verdict net of fees, clustered by game, ≥ 30 games). No source has a supported cohort:
+    - net-edge near misses from rotation: gross +0.57c, net −0.95c, n = 70 rows over 38 games, rejected;
+    - entry-window near misses from close, kickoff, measure and move: all rejected;
+    - every other source/cohort cell is open.
+  - **Credits.** 161 left on Nov 20 with 10 days to go. The compressed ledger is 37.9 MB (222 MB raw). It now lives as a GitHub Release asset (`ledger-store`), so GitHub's 100 MB file limit no longer applies.
 
 ### Deviations from the brief
 1. **No new `pull_plan` table.** Phase 3's table is extended with additive columns, its statuses are kept (pending → `planned`, done → `pulled`, skipped → `skipped_budget` with `note`, expired → `missed`, plus `superseded`), and so is its priority direction (stored as `6 − priority`, so 1 is first). Feed-level rows use `event_ticker='feed:<feed>'` because the column is `NOT NULL`. `executed_at` is the existing `pulled_at`.
