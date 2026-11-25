@@ -47,8 +47,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Chelsea FC` (34 events)
 - `Chicago Fire FC` (5 events)
 - `Chicago State` (56 events)
-- `Club Atlético de Madrid` (60 events)
-- `Club Brugge KV` (48 events)
+- `Club Atlético de Madrid` (67 events)
+- `Club Brugge KV` (55 events)
 - `Coastal Carolina` (81 events)
 - `Colgate` (55 events)
 - `Colorado State` (57 events)
@@ -75,14 +75,14 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Elon` (59 events)
 - `Everton FC` (40 events)
 - `FC Augsburg` (13 events)
-- `FC Barcelona` (60 events)
-- `FC Bayern München` (61 events)
-- `FC Internazionale Milano` (48 events)
+- `FC Barcelona` (67 events)
+- `FC Bayern München` (68 events)
+- `FC Internazionale Milano` (55 events)
 - `FC Lorient` (12 events)
 - `FC Porto` (49 events)
 - `FK Bodø/Glimt` (49 events)
-- `FK Shakhtar Donetsk` (48 events)
-- `Fenerbahçe SK` (48 events)
+- `FK Shakhtar Donetsk` (55 events)
+- `Fenerbahçe SK` (55 events)
 - `Feyenoord Rotterdam` (49 events)
 - `Florida A&M` (63 events)
 - `Florida International` (88 events)
@@ -127,15 +127,15 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Lehigh` (65 events)
 - `Levante UD` (4 events)
 - `Liberty` (70 events)
-- `Lille OSC` (60 events)
+- `Lille OSC` (67 events)
 - `Lindenwood` (68 events)
-- `Liverpool FC` (88 events)
+- `Liverpool FC` (95 events)
 - `Louisiana` (52 events)
 - `Louisiana-Monroe` (43 events)
 - `Louisville` (59 events)
 - `Maine` (44 events)
 - `Manchester City FC` (97 events)
-- `Manchester United FC` (80 events)
+- `Manchester United FC` (87 events)
 - `Marist` (44 events)
 - `Marshall` (69 events)
 - `Maryland` (57 events)
@@ -180,7 +180,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Olympique de Marseille` (6 events)
 - `Oregon State` (56 events)
 - `PSV` (49 events)
-- `Paris Saint-Germain FC` (60 events)
+- `Paris Saint-Germain FC` (67 events)
 - `Penn` (46 events)
 - `Penn State` (60 events)
 - `Portland State` (28 events)
@@ -202,7 +202,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Richmond` (50 events)
 - `Robert Morris` (35 events)
 - `SC Paderborn 07` (20 events)
-- `SK Slavia Praha` (48 events)
+- `SK Slavia Praha` (55 events)
 - `SSC Napoli` (49 events)
 - `SV 07 Elversberg` (20 events)
 - `SV Werder Bremen` (5 events)
@@ -256,7 +256,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Valencia CF` (6 events)
 - `Valparaiso` (56 events)
 - `Villanova` (44 events)
-- `Villarreal CF` (57 events)
+- `Villarreal CF` (64 events)
 - `Virginia-Lynchburg` (29 events)
 - `Wagner` (35 events)
 - `Wake Forest` (51 events)
@@ -506,12 +506,12 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXUCLGAME-26NOV24RBLRCL` | no_market | 5 | 2026-11-22T00:17 |
 | `KXUCLGAME-26NOV24RMAPSV` | no_market | 7 | 2026-11-24T00:07 |
 | `KXUCLGAME-26NOV24SLORBB` | no_market | 5 | 2026-11-22T00:17 |
-| `KXUCLGAME-26NOV25ATMVIK` | no_market | 5 | 2026-11-22T00:17 |
-| `KXUCLGAME-26NOV25BRULFC` | no_market | 5 | 2026-11-22T00:17 |
-| `KXUCLGAME-26NOV25INTVFB` | no_market | 5 | 2026-11-22T00:17 |
-| `KXUCLGAME-26NOV25LILBMU` | no_market | 5 | 2026-11-22T00:17 |
-| `KXUCLGAME-26NOV25PSGROM` | no_market | 5 | 2026-11-22T00:17 |
+| `KXUCLGAME-26NOV25ATMVIK` | no_market | 6 | 2026-11-25T17:57 |
+| `KXUCLGAME-26NOV25BRULFC` | no_market | 6 | 2026-11-25T17:57 |
+| `KXUCLGAME-26NOV25INTVFB` | no_market | 6 | 2026-11-25T17:57 |
+| `KXUCLGAME-26NOV25LILBMU` | no_market | 6 | 2026-11-25T17:57 |
+| `KXUCLGAME-26NOV25PSGROM` | no_market | 6 | 2026-11-25T17:57 |
 | `KXUCLGAME-26NOV25SBHBAR` | no_market | 8 | 2026-11-25T00:17 |
-| `KXUCLGAME-26NOV25SHAFEN` | no_market | 5 | 2026-11-22T00:17 |
+| `KXUCLGAME-26NOV25SHAFEN` | no_market | 6 | 2026-11-25T17:57 |
 | `KXUCLGAME-26NOV25SLAVIL` | no_market | 5 | 2026-11-22T00:17 |
-| `KXUCLGAME-26NOV25SPOMUN` | no_market | 5 | 2026-11-22T00:17 |
+| `KXUCLGAME-26NOV25SPOMUN` | no_market | 6 | 2026-11-25T17:57 |
