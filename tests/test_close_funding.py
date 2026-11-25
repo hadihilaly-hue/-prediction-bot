@@ -60,6 +60,14 @@ def _game(ledger: Ledger, event: str, kickoff: datetime) -> None:
             ((SUNDAY - timedelta(hours=6)).isoformat(), f"{event}-{code}", event,
              (kickoff + timedelta(hours=3)).isoformat()),
         )  # fmt: skip
+    # A stake (a v3 decision that would have traded), so the calendar's
+    # close_scope "stake" plans the game's T-10m close.
+    ledger.conn.execute(
+        "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
+        "would_trade,reason,fair,price,size,net_edge) VALUES "
+        "(?,'v3','24-72h','sportsbook_v3',?,'yes',1,'net_edge','0.55','0.50','1','0.03')",
+        ((kickoff - timedelta(days=2)).isoformat(), f"{event}-KC"),
+    )
     ledger.conn.commit()
 
 
