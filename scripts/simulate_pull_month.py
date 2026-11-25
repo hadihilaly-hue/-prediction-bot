@@ -185,7 +185,11 @@ def simulate(
         odds_entry_share=entry_share,
         plan_allowance_since=allowance_since,
     )
-    release = ReleaseCalendar.load(ROOT / "data" / "release_calendar.json")
+    # The synthetic slate has no paper trades, so closes are planned for every game
+    # (close_scope "all"); live, the seed file's "stake" keeps far fewer.
+    release = ReleaseCalendar.load(ROOT / "data" / "release_calendar.json").model_copy(
+        update={"close_scope": "all"}
+    )
     cadence_cal = CadenceCalendar.load(ROOT / "data" / "cadence_calendar.json")
     ledger = Ledger(workdir / f"month-{grid}-{cadence}.sqlite", Decimal("1000"))
     seed_slate(ledger)

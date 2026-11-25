@@ -30,7 +30,9 @@ UTC = timezone.utc
 ROOT = Path(__file__).parents[1]
 CALENDAR_PATH = ROOT / "data" / "release_calendar.json"
 SETTINGS = Settings(_env_file=None)  # type: ignore[call-arg]
-CAL = ReleaseCalendar.load(CALENDAR_PATH)
+# The slate tests plan closes for games with no trades on them, so they use
+# close_scope "all"; the seed file's "stake" is covered by its own tests.
+CAL = ReleaseCalendar.load(CALENDAR_PATH).model_copy(update={"close_scope": "all"})
 
 
 def _ledger(tmp_path: Path, name: str = "plan.sqlite") -> Ledger:
@@ -533,6 +535,14 @@ def test_light_tick_runs_only_when_a_plan_target_is_due(tmp_path, monkeypatch, c
     assert capsys.readouterr().out.strip() == "skip"
     _eligible(ledger, ["americanfootball_nfl"], now - timedelta(hours=1))
     _game(ledger, "KXNFLGAME-X", now + timedelta(minutes=12))  # its T-10m close is due
+    # A stake in the game (a v3 decision that would have traded), so the seed
+    # calendar's close_scope "stake" plans its T-10m close.
+    ledger.conn.execute(
+        "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
+        "would_trade,reason,net_edge) VALUES (?,'v3','72h+','sportsbook_v3','KXNFLGAME-X-KC',"
+        "'yes',1,'',0.02)",
+        ((now - timedelta(days=3)).isoformat(),),
+    )
     _budget(ledger, now, 1, 10)
     cli.slot_guard(slot="scanner", within_minutes=25, plan_due=True)
     assert capsys.readouterr().out.strip() == "run"
@@ -781,3 +791,77 @@ def test_plan_allowance_since_restarts_the_allowance_mid_month(tmp_path: Path) -
     december = restarted.model_copy(update={"plan_allowance_since": date(2026, 10, 9)})
     assert plan_allowance_left(ledger, december, now) == pytest.approx(46.75 - 60)
     assert Settings(_env_file=None, plan_allowance_since="").plan_allowance_since is None  # type: ignore[call-arg]
+
+
+def _would_trade(ledger: Ledger, event: str, at: datetime, net_edge: str = "0.02") -> None:
+    ledger.conn.execute(
+        "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
+        "would_trade,reason,net_edge) VALUES (?,'v3','72h+','sportsbook_v3',?,'yes',?,?,?)",
+        (
+            at.isoformat(),
+            f"{event}-{team_code(event)}",
+            1 if float(net_edge) >= 0.02 else 0,
+            "" if float(net_edge) >= 0.02 else "net_edge",
+            net_edge,
+        ),
+    )
+    ledger.conn.commit()
+
+
+def test_stake_events_counts_fills_would_trades_and_recent_non_negative_edges(
+    tmp_path: Path,
+) -> None:
+    from prediction_bot.pull_plan import stake_events
+
+    ledger = _ledger(tmp_path)
+    now = SUNDAY.replace(hour=12)
+    ledger.conn.execute(
+        "INSERT INTO fills (created_at,strategy,ticker,side,price,count,fee,fair_prob) "
+        "VALUES (?,'sportsbook_v3','KXNFLGAME-26NOV08FILL-KC','yes','0.5','10','0.1','0.55')",
+        ((now - timedelta(days=4)).isoformat(),),
+    )
+    _would_trade(ledger, "KXNFLGAME-26NOV08WT", now - timedelta(days=2))
+    _would_trade(ledger, "KXNFLGAME-26NOV08EDGE", now - timedelta(days=1), net_edge="0.001")
+    _would_trade(ledger, "KXNFLGAME-26NOV08MISS", now - timedelta(days=1), net_edge="-0.01")
+    _would_trade(ledger, "KXNFLGAME-26NOV08OLD", now - timedelta(days=9), net_edge="0.001")
+    assert stake_events(ledger.conn, now) == {
+        "KXNFLGAME-26NOV08FILL",
+        "KXNFLGAME-26NOV08WT",
+        "KXNFLGAME-26NOV08EDGE",
+    }
+
+
+def test_close_scope_stake_plans_closes_only_for_games_with_a_stake(tmp_path: Path) -> None:
+    from prediction_bot.pull_plan import must_demand
+
+    stake_cal = ReleaseCalendar.load(CALENDAR_PATH)
+    assert stake_cal.close_scope == "stake"
+    ledger = _ledger(tmp_path)
+    _eligible(ledger, ["americanfootball_nfl"], SUNDAY - timedelta(days=4))
+    held, other = "KXNFLGAME-26NOV08G0", "KXNFLGAME-26NOV08LATE1"
+    _game(ledger, held, SUNDAY.replace(hour=18))
+    _game(ledger, other, SUNDAY.replace(hour=21, minute=5))
+    _budget(ledger, SUNDAY - timedelta(days=1), 3, 100)
+    now = SUNDAY.replace(hour=12)
+
+    # Planned under "all" first (as before this change): both games get a close.
+    cli._refresh_pull_plan(ledger, now, SETTINGS, CAL)
+    closes = {r["event_ticker"]: r["status"] for r in _rows(ledger, "target='T-10m'")}
+    assert closes == {held: "planned", other: "planned"}
+
+    _would_trade(ledger, held, now - timedelta(days=2))
+    cli._refresh_pull_plan(ledger, now, SETTINGS, stake_cal)
+    rows = {r["event_ticker"]: r for r in _rows(ledger, "target='T-10m'")}
+    assert rows[held]["status"] == "planned"
+    assert (rows[other]["status"], rows[other]["note"]) == ("superseded", "no_stake")
+    # The other game's kickoff-95 lineup pull is untouched.
+    assert {r["status"] for r in _rows(ledger, f"event_ticker='{other}' AND target='K-95m'")} == {
+        "planned"
+    }
+    # The rotation's hold counts closes only for games with a stake.
+    assert must_demand(ledger, CAL, now) - must_demand(ledger, stake_cal, now) == 1
+
+    # A stake that appears before the window ends brings the close back.
+    _would_trade(ledger, other, now)
+    cli._refresh_pull_plan(ledger, now + timedelta(minutes=10), SETTINGS, stake_cal)
+    assert _rows(ledger, f"event_ticker='{other}' AND target='T-10m'")[0]["status"] == "planned"
