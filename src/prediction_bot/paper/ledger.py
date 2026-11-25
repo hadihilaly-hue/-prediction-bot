@@ -277,6 +277,8 @@ CREATE TABLE IF NOT EXISTS injury_snapshots (
 );
 CREATE INDEX IF NOT EXISTS injury_snapshots_team_reported
     ON injury_snapshots(team_id, reported_at);
+CREATE INDEX IF NOT EXISTS injury_snapshots_athlete_time
+    ON injury_snapshots(sport, team_id, athlete, fetched_at);
 CREATE TABLE IF NOT EXISTS halts (
     day TEXT PRIMARY KEY,
     reason TEXT NOT NULL
@@ -808,6 +810,8 @@ class Ledger:
                 "seen_count": "INTEGER NOT NULL DEFAULT 1",
             },
             "quote_snapshots": {"last_seen_at": "TEXT"},
+            # Change-only injury rows: an unchanged entry moves last_seen_at.
+            "injury_snapshots": {"last_seen_at": "TEXT"},
             "edge_reviews": {"position_key": "TEXT"},
             "runs": {
                 "odds_used": "INTEGER",
@@ -2321,27 +2325,38 @@ class Ledger:
         run_id: int | None = None,
         at: datetime | None = None,
     ) -> int:
-        """Append the current ESPN injury rows for the relevant teams."""
+        """Record the current ESPN injury rows for the relevant teams, change-only.
+
+        ESPN returns the whole current list on every fetch, and almost every entry is
+        unchanged from the last one. An entry equal to the athlete's latest stored row
+        (position, status, status_type, reported_at, detail) moves that row's
+        last_seen_at instead of adding a row. Readers match on reported_at and status,
+        never on fetched_at, so they see the same rows' values either way."""
         stamp = self._utc(at or datetime.now(timezone.utc)).isoformat()
-        self.conn.executemany(
-            "INSERT INTO injury_snapshots (fetched_at, sport, team_id, athlete, position,"
-            " status, status_type, reported_at, detail, run_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
-            [
-                (
-                    stamp,
-                    row.sport,
-                    row.team_id,
-                    row.athlete,
-                    row.position,
-                    row.status,
-                    row.status_type,
-                    self._utc(row.reported_at).isoformat() if row.reported_at else None,
-                    row.detail,
-                    run_id,
+        for row in rows:
+            values = (
+                row.position,
+                row.status,
+                row.status_type,
+                self._utc(row.reported_at).isoformat() if row.reported_at else None,
+                row.detail,
+            )
+            latest = self.conn.execute(
+                "SELECT id,COALESCE(last_seen_at,fetched_at),position,status,status_type,"
+                "reported_at,detail FROM injury_snapshots WHERE sport=? AND team_id=? "
+                "AND athlete=? ORDER BY fetched_at DESC,id DESC LIMIT 1",
+                (row.sport, row.team_id, row.athlete),
+            ).fetchone()
+            if latest is not None and tuple(latest[2:]) == values and stamp >= str(latest[1]):
+                self.conn.execute(
+                    "UPDATE injury_snapshots SET last_seen_at=? WHERE id=?", (stamp, latest[0])
                 )
-                for row in rows
-            ],
-        )
+                continue
+            self.conn.execute(
+                "INSERT INTO injury_snapshots (fetched_at, sport, team_id, athlete, position,"
+                " status, status_type, reported_at, detail, run_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (stamp, row.sport, row.team_id, row.athlete, *values, run_id),
+            )
         self.conn.commit()
         return len(rows)
 

@@ -1132,7 +1132,8 @@ _FRESHNESS_FEEDS: tuple[tuple[str, str, str, str], ...] = (
     ("Kalshi order books", "orderbook_snapshots", "fetched_at", ""),
     ("Kalshi closing prices", "closing_quotes", "fetched_at", ""),
     ("Polymarket reference", "reference_quotes", "fetched_at", "WHERE source='polymarket'"),
-    ("Injury reports", "injury_snapshots", "fetched_at", ""),
+    # An unchanged injury entry moves last_seen_at instead of adding a row.
+    ("Injury reports", "injury_snapshots", "COALESCE(last_seen_at,fetched_at)", ""),
 )
 
 

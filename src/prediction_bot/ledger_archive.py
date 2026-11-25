@@ -1,4 +1,4 @@
-"""Keep the hot paper ledger small: archive old rows of the four big tables.
+"""Keep the hot paper ledger small: archive old rows of the biggest tables.
 
 Once per UTC day (`pbot ledger-archive`, run by paper.yml before `pbot ledger-save`):
 
@@ -7,14 +7,18 @@ Once per UTC day (`pbot ledger-archive`, run by paper.yml before `pbot ledger-sa
      on a ticker that is closed (latest market_snapshots.expected_expiration more than a
      day old; for a ticker with no market_snapshots, nothing of it seen for `keep_days`)
      and has no open fill, paper order or maker shadow. Blocks with no ticker go by age.
-   - orderbook_snapshots: older than `orderbook_days` (3), any ticker. No live reader
-     looks back more than 30 minutes.
+   - orderbook_snapshots: older than `orderbook_days` (1), any ticker. No live reader
+     looks back more than 25 minutes (queue at placement 5 min, refresh check 25 min).
+   - injury_snapshots: rows last seen more than `keep_days` ago that repeat the
+     athlete's previous row unchanged (written before the change-only injury writer).
+     The first row of each unchanged run stays and its last_seen_at moves forward.
    The newest row of each table is never selected, so SQLite never reuses an id.
 2. Write them to `archive-YYYY-MM-DD.sqlite.gz` (YYYY-MM-DD = the UTC day of the cut,
    not of the data) and upload it to the `ledger-archive` release; confirm it is there.
 3. Only then, in one transaction: copy each affected maker shadow's quote at expires_at
    onto the shadow (maker_shadow_metrics reads it), add the archived blocks' counts to
-   blocks_rollup, delete the rows, and log the batch in archive_log. Then VACUUM.
+   blocks_rollup, move each kept injury row's last_seen_at over its archived repeats,
+   delete the rows, and log the batch in archive_log. Then VACUUM.
 
 If a day's asset already exists (an earlier run archived but its save never landed),
 it is downloaded and exactly the rows it holds, unchanged, are deleted; nothing is
@@ -54,7 +58,8 @@ ARCHIVE_NOTES = (
 ARCHIVE_PREFIX = "archive-"
 ARCHIVE_SUFFIX = ".sqlite.gz"
 KEEP_DAYS = 7
-ORDERBOOK_DAYS = 3
+# Order book readers look back 5 min (queue at placement) and 25 min (refresh check).
+ORDERBOOK_DAYS = 1
 CLOSED_GRACE = timedelta(days=1)
 
 # table -> the time column that says how recent a row is
@@ -63,7 +68,12 @@ TABLES: dict[str, str] = {
     "market_snapshots": "fetched_at",
     "blocks": "COALESCE(last_seen_at,created_at)",
     "orderbook_snapshots": "fetched_at",
+    "injury_snapshots": "COALESCE(last_seen_at,fetched_at)",
 }
+
+# Value columns that make an injury row equal to the athlete's previous one.
+INJURY_KEY = ("sport", "team_id", "athlete")
+INJURY_VALUES = ("position", "status", "status_type", "reported_at", "detail")
 
 
 class ArchiveError(RuntimeError):
@@ -145,6 +155,16 @@ def select_archivable(
         "market_snapshots": f"fetched_at < :cut AND {in_closed}",
         "blocks": (f"{TABLES['blocks']} < :cut AND ({in_closed} OR ticker IS NULL OR ticker='')"),
         "orderbook_snapshots": "fetched_at < :book",
+        # Unchanged repeats of an athlete's previous row (the old append-every-fetch
+        # writer). The first row of each run is never a repeat, so it always stays.
+        "injury_snapshots": (
+            "id IN (SELECT id FROM (SELECT id, "
+            + " AND ".join(f"{c} IS LAG({c}) OVER w" for c in INJURY_VALUES)
+            + " AS repeat FROM injury_snapshots WINDOW w AS (PARTITION BY "
+            + ",".join(INJURY_KEY)
+            + " ORDER BY fetched_at,id)) WHERE repeat) "
+            f"AND {TABLES['injury_snapshots']} < :cut"
+        ),
     }
     out: dict[str, list[int]] = {}
     for table, condition in where.items():
@@ -238,6 +258,36 @@ def matching_ids(conn: sqlite3.Connection, archive: Path) -> dict[str, list[int]
 # ---------------------------------------------------------------------- deletion
 
 
+def _extend_injury_survivors(conn: sqlite3.Connection) -> None:
+    """Before archived injury repeats are deleted, move the last_seen_at of the row that
+    stays (the nearest earlier row of the same athlete that is not being deleted) to the
+    newest repeat it stood for. A repeat's run always starts at a non-repeat, which is
+    never archived, so every deleted repeat has such a row."""
+    if not _columns(conn, "injury_snapshots"):
+        return
+    rows = conn.execute(
+        "SELECT i.id, " + ",".join(f"i.{c}" for c in INJURY_KEY) + ", "
+        "COALESCE(i.last_seen_at,i.fetched_at), a.id IS NOT NULL FROM injury_snapshots i "
+        "LEFT JOIN temp._archive_ids a ON a.tbl='injury_snapshots' AND a.id=i.id "
+        "ORDER BY " + ",".join(f"i.{c}" for c in INJURY_KEY) + ", i.fetched_at, i.id"
+    )
+    updates: dict[int, str] = {}
+    key: tuple[object, ...] | None = None
+    survivor: int | None = None
+    for row_id, sport, team, athlete, seen, archived in rows:
+        if (sport, team, athlete) != key:
+            key, survivor = (sport, team, athlete), None
+        if not archived:
+            survivor = int(row_id)
+        elif survivor is not None and str(seen) > updates.get(survivor, ""):
+            updates[survivor] = str(seen)
+    conn.executemany(
+        "UPDATE injury_snapshots SET last_seen_at=? WHERE id=? "
+        "AND COALESCE(last_seen_at,fetched_at)<?",
+        [(seen, row_id, seen) for row_id, seen in updates.items()],
+    )
+
+
 def apply_deletion(
     conn: sqlite3.Connection,
     ids: Mapping[str, Iterable[int]],
@@ -290,6 +340,7 @@ def apply_deletion(
             f"WHERE {_ids_sql('blocks')} GROUP BY 1,2,3,4 "
             "ON CONFLICT(day,reason,rules_version,strategy) DO UPDATE SET n=n+excluded.n"
         )
+        _extend_injury_survivors(conn)
         deleted: dict[str, int] = {}
         for table in TABLES:
             deleted[table] = conn.execute(f"DELETE FROM {table} WHERE {_ids_sql(table)}").rowcount
