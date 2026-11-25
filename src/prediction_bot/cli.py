@@ -864,6 +864,15 @@ def paper(
             )
             if res.lane.halted:
                 console.print(f"[bold red]{res.lane.halted}[/bold red]")
+        if res.sharp_lane is not None:
+            blocked = ", ".join(f"{k}={v}" for k, v in sorted(res.sharp_lane.blocked.items()))
+            console.print(
+                f"sharp lane: orders_placed={len(res.sharp_lane.orders_placed)}"
+                f" bought_at_ask={len(res.sharp_lane.filled)} pulled={res.sharp_lane.cancelled}"
+                f" skipped=[{blocked}]"
+            )
+            if res.sharp_lane.halted:
+                console.print(f"[bold red]{res.sharp_lane.halted}[/bold red]")
         _print_signals([*res.acted, *res.orders_placed])
         if trigger is not None or plan is not None or (cycles and n >= cycles):
             break

@@ -28,6 +28,7 @@ from prediction_bot.models import (
     Market,
     OutcomeSide,
     QuoteSnapshot,
+    SharpLaneCandidate,
     Signal,
 )
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT, ConsensusOdds, OddsClient, consensus
@@ -123,6 +124,10 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._quotes: list[QuoteSnapshot] = []
         self._reviews: list[EdgeReview] = []
         self._maker_shadows: list[MakerShadowCandidate] = []
+        # The sharp lane's view of the practice feed: every side it considered this
+        # cycle, and every game it priced (see `_feed_maker_shadows`).
+        self._sharp_lane_candidates: list[SharpLaneCandidate] = []
+        self._sharp_lane_events: set[str] = set()
         self._event_fees: dict[str, tuple[str, Decimal]] = {}
         self._road_dog_decisions: list[Signal] = []
         self._devig_power_only_decisions: list[Signal] = []
@@ -420,6 +425,12 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
 
     def seen_maker_shadows(self) -> list[MakerShadowCandidate]:
         return list(self._maker_shadows)
+
+    def seen_sharp_lane_candidates(self) -> list[SharpLaneCandidate]:
+        return list(self._sharp_lane_candidates)
+
+    def seen_sharp_lane_events(self) -> set[str]:
+        return set(self._sharp_lane_events)
 
     def seen_maker_shadow_updates(self) -> list[MakerShadowUpdate]:
         return list(self._shadow_updates.values())
@@ -1168,6 +1179,8 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         sides += [(sig, None) for signals in candidates.values() for sig in signals]
         best: dict[str, tuple[Decimal, MakerShadowCandidate]] = {}
         for sig, reason in sides:
+            if sig.event_ticker is not None:
+                self._sharp_lane_events.add(sig.event_ticker)
             market = by_ticker.get(sig.ticker)
             fees = self._event_fees.get(sig.event_ticker or "")
             if (
@@ -1182,6 +1195,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                 continue
             bid = market.quote.bid_for(sig.side)
             ask = market.quote.ask_for(sig.side)
+            self._add_sharp_lane_candidate(sig, reason, market, fees, entry_window_events, now)
             shadow_price: Decimal | None = None
             price_rule: str | None = None
             if self.settings.v3_execution == "maker_first" and sig.maker_price is not None:
@@ -1250,6 +1264,54 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
             if previous is None or edge > previous[0]:
                 best[sig.position_key] = (edge, candidate)
         self._maker_shadows.extend(candidate for _edge, candidate in best.values())
+
+    def _add_sharp_lane_candidate(
+        self,
+        sig: Signal,
+        reason: str | None,
+        market: Market,
+        fees: tuple[str, Decimal],
+        entry_window_events: set[str],
+        now: datetime,
+    ) -> None:
+        """Hand a side the practice feed considered to the sharp lane, with the taker
+        gates tagged exactly as `_feed_maker_shadows` tags its shadows. Records nothing."""
+        if sig.event_ticker is None or sig.commence_time is None or sig.mid is None:
+            return
+        ask = market.quote.ask_for(sig.side)
+        gates: tuple[str, ...] = ()
+        if ask is not None:
+            blocked = {
+                "net_edge": sig.edge < self._net_edge_threshold(ask),
+                "entry_window": sig.event_ticker in entry_window_events,
+                "price_floor": ask < self.settings.v2_price_floor,
+                "thin_market": reason == "thin_market",
+            }
+            gates = tuple(f"blocked_{gate}" for gate, hit in blocked.items() if hit) or (
+                "taker_pass",
+            )
+        self._sharp_lane_candidates.append(
+            SharpLaneCandidate(
+                created_at=now,
+                ticker=sig.ticker,
+                side=sig.side,
+                event_ticker=sig.event_ticker,
+                position_key=sig.position_key or "",
+                sport=KALSHI_SERIES_TO_SPORT.get(sig.event_ticker.split("-", 1)[0], ""),
+                fair=sig.fair_prob,
+                mid=sig.mid,
+                bid=market.quote.bid_for(sig.side),
+                ask=ask,
+                commence_time=sig.commence_time,
+                fee_type=fees[0],
+                fee_multiplier=fees[1],
+                gates=gates,
+                near_miss_reason=reason,
+                measure_only=sig.event_ticker in self._measure_only_events
+                or "measure_only" in (sig.tags or ()),
+                signal=sig,
+            )
+        )
 
     def _v3_maker_price(
         self,
@@ -1572,6 +1634,8 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         self._fetched_feeds.clear()
         self._blocks.clear()
         self._maker_shadows.clear()
+        self._sharp_lane_candidates.clear()
+        self._sharp_lane_events.clear()
         self._event_fees.clear()
         self._road_dog_decisions.clear()
         self._devig_power_only_decisions.clear()

@@ -170,6 +170,33 @@ class MakerShadowCandidate:
 
 
 @dataclass(frozen=True)
+class SharpLaneCandidate:
+    """One side the practice book's feed considered this cycle (a v3 candidate, or a near
+    miss blocked only by net_edge, entry_window, price_floor or thin_market, with fair
+    above its mid), with the quote and fee schedule the sharp lane prices it from."""
+
+    created_at: datetime
+    ticker: str
+    side: OutcomeSide
+    event_ticker: str
+    position_key: str  # v3's key for the side
+    sport: str
+    fair: Decimal
+    mid: Decimal
+    bid: Decimal | None
+    ask: Decimal | None
+    commence_time: datetime
+    fee_type: str
+    fee_multiplier: Decimal
+    # The taker gates that would have blocked the side (`blocked_net_edge`, ...) or
+    # `taker_pass`, exactly as the practice book tags them.
+    gates: tuple[str, ...]
+    near_miss_reason: str | None = None  # None for a v3 candidate
+    measure_only: bool = False
+    signal: Signal | None = None
+
+
+@dataclass(frozen=True)
 class MakerShadowUpdate:
     at: datetime
     ticker: str

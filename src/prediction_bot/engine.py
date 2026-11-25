@@ -14,6 +14,7 @@ from prediction_bot.maker_fill import trade_through_fill
 from prediction_bot.models import Block, Market, OutcomeSide, Signal
 from prediction_bot.odds import KALSHI_SERIES_TO_SPORT, ConsensusOdds
 from prediction_bot.paper.ledger import UNDERDOG_LANE_STRATEGY, Ledger
+from prediction_bot.sharp_lane import SharpLaneResult, run_sharp_lane
 from prediction_bot.strategies.base import Strategy
 from prediction_bot.underdog_lane import LaneResult, run_underdog_lane
 from prediction_bot.venues.kalshi import KalshiClient, KalshiError
@@ -33,6 +34,7 @@ class CycleResult:
     live_orders: list[dict[str, object]] = field(default_factory=list)
     halted: str | None = None  # reason no entries were taken this cycle, if any
     lane: LaneResult | None = None  # what the underdog lane did this cycle, if it ran
+    sharp_lane: SharpLaneResult | None = None  # what the sharp lane did, if it ran
 
 
 class Engine:
@@ -335,11 +337,20 @@ class Engine:
                             sig.group,
                         )
                     break
-        if lane_source is not None and self.settings.underdog_lane == "paper" and not self.live:
+        if (
+            lane_source is not None
+            and self.settings.underdog_lane in ("paper", "shadow")
+            and not self.live
+        ):
             try:
                 self._run_underdog_lane(lane_source, res)
             except Exception:  # the lane must never take the cycle down with it
                 log.exception("underdog lane failed")
+        if self.settings.sharp_lane == "paper" and not self.settings.is_live and not self.live:
+            try:
+                self._run_sharp_lane(res)
+            except Exception:  # the lane must never take the cycle down with it
+                log.exception("sharp lane failed")
         res.gate_candidates = {
             feed: len(position_keys) for feed, position_keys in gate_candidate_keys.items()
         }
@@ -364,8 +375,29 @@ class Engine:
             event_links=links,
             now=self.clock(),
             fee_amount=self._fee_amount,
+            shadow=self.settings.underdog_lane == "shadow",
         )
         res.lane = lane
+        if self.settings.underdog_lane == "shadow":
+            return  # a comparison book: nothing it did is a paper entry
+        res.acted.extend(lane.filled)
+        res.orders_placed.extend(lane.orders_placed)
+
+    def _run_sharp_lane(self, res: CycleResult) -> None:
+        """Enter this cycle's sharp-backed sides (see `sharp_lane`)."""
+        candidates = []
+        priced: set[str] = set()
+        for strat in self.strategies:
+            get = getattr(strat, "seen_sharp_lane_candidates", None)
+            get_events = getattr(strat, "seen_sharp_lane_events", None)
+            if get is None or get_events is None:
+                continue
+            candidates.extend(get())
+            priced.update(get_events())
+        lane = run_sharp_lane(
+            self.settings, self.ledger, candidates, priced_events=priced, now=self.clock()
+        )
+        res.sharp_lane = lane
         res.acted.extend(lane.filled)
         res.orders_placed.extend(lane.orders_placed)
 

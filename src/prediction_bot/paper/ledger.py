@@ -43,6 +43,20 @@ UNDERDOG_LANE_TAG = "underdog_lane"
 UNDERDOG_LANE_REASON = "underdog_lane"
 UNDERDOG_LANE_RULES = "v1"
 UNDERDOG_LANE_KEY_PREFIX = "ud:"
+# Underdog lane in shadow mode (`PBOT_UNDERDOG_LANE=shadow`): its resting orders carry
+# NO_CASH_TAG, reserve no cash and, when the market trades through them, are booked in
+# `shadow_decisions` under this reason instead of `fills`; picks at the ask go there too.
+NO_CASH_TAG = "no_cash"
+UNDERDOG_LANE_NOCASH_REASON = "underdog_lane_nocash"
+
+# Sharp lane (`prediction_bot.sharp_lane`): v3's sharp-backed sides as real paper entries.
+# Its own strategy and rules version keep it out of every v3 cap, gate and cohort; the
+# instant-fill twin lives in `shadow_decisions` under the reason.
+SHARP_LANE_STRATEGY = "sharp_lane"
+SHARP_LANE_TAG = "sharp_lane"
+SHARP_LANE_REASON = "sharp_lane"
+SHARP_LANE_RULES = "sharp_lane"
+SHARP_LANE_KEY_PREFIX = "sl:"
 
 
 def lane_fill_sql(alias: str = "") -> str:
@@ -52,6 +66,21 @@ def lane_fill_sql(alias: str = "") -> str:
         f"{dot}strategy='{UNDERDOG_LANE_STRATEGY}' AND "
         f"(',' || COALESCE({dot}tags,'') || ',') LIKE '%,{UNDERDOG_LANE_TAG},%'"
     )
+
+
+def sharp_lane_sql(alias: str = "") -> str:
+    """SQL condition selecting the sharp lane's rows of `fills` or `paper_orders`."""
+    dot = f"{alias}." if alias else ""
+    return (
+        f"{dot}strategy='{SHARP_LANE_STRATEGY}' AND "
+        f"(',' || COALESCE({dot}tags,'') || ',') LIKE '%,{SHARP_LANE_TAG},%'"
+    )
+
+
+def no_cash_sql(alias: str = "") -> str:
+    """SQL condition selecting `paper_orders` that never touch cash."""
+    dot = f"{alias}." if alias else ""
+    return f"(',' || COALESCE({dot}tags,'') || ',') LIKE '%,{NO_CASH_TAG},%'"
 
 
 def describe(
@@ -1538,6 +1567,9 @@ class Ledger:
         """Cash held back for open paper orders. `include_lane=False` leaves out the
         underdog lane's orders, which v3's own risk caps do not count."""
         lane = "" if include_lane else f" AND NOT ({lane_fill_sql()})"
+        # The sharp lane is outside v3's caps too; a no-cash order reserves nothing.
+        lane += "" if include_lane else f" AND NOT ({sharp_lane_sql()})"
+        lane += f" AND NOT ({no_cash_sql()})"
         rows = self.conn.execute(
             f"SELECT price,size,maker_fee FROM paper_orders WHERE status='open'{lane}"
         ).fetchall()
@@ -1577,6 +1609,8 @@ class Ledger:
         for order in self.open_paper_orders():
             if UNDERDOG_LANE_TAG in (order.tags or ()):
                 continue  # priced from the book consensus, not the v3 sharp fair
+            if SHARP_LANE_TAG in (order.tags or ()):
+                continue  # the sharp lane pulls its own orders (edge_gone)
             update = by_contract.get((order.ticker, order.side))
             if update is None or update.fair is None:
                 continue
@@ -1605,6 +1639,8 @@ class Ledger:
         net_edge = (
             order.fair - order.price - order.maker_fee / order.size if order.size > 0 else None
         )
+        if NO_CASH_TAG in (order.tags or ()):
+            return self._fill_no_cash_order(order, filled_at, fill_rule, net_edge)
         cost = order.price * order.size + order.maker_fee
         if cost > self.cash:
             return False
@@ -1646,6 +1682,190 @@ class Ledger:
             raise
         return True
 
+    def _fill_no_cash_order(
+        self,
+        order: PaperOrder,
+        filled_at: datetime,
+        fill_rule: str,
+        net_edge: Decimal | None,
+    ) -> bool:
+        """Book a no-cash order's fill in `shadow_decisions`: graded like a fill, but it
+        moves no cash, opens no position and never counts toward PnL."""
+        stamp = self._utc(filled_at).isoformat()
+        try:
+            self.conn.execute("BEGIN IMMEDIATE")
+            self.conn.execute(
+                "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,"
+                "side,position_key,would_trade,reason,fair,price,size,commence_time,net_edge,"
+                "tags) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    stamp,
+                    order.rules_version,
+                    decision_window(filled_at, order.commence_time),
+                    order.strategy,
+                    order.ticker,
+                    order.side.value,
+                    order.position_key,
+                    1,
+                    UNDERDOG_LANE_NOCASH_REASON,
+                    str(order.fair),
+                    str(order.price),
+                    str(order.size),
+                    self._utc(order.commence_time).isoformat() if order.commence_time else None,
+                    str(net_edge) if net_edge is not None else None,
+                    ",".join(sorted({"maker", *(order.tags or ())})),
+                ),
+            )
+            self.conn.execute(
+                "UPDATE paper_orders SET status='filled',status_at=?,filled_at=?,fill_rule=? "
+                "WHERE id=? AND status='open'",
+                (stamp, stamp, fill_rule, order.id),
+            )
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        return True
+
+    def record_underdog_lane_nocash_fill(self, sig: Signal, fee: Decimal) -> None:
+        """Shadow mode: a lane pick bought at the ask, booked without cash (see
+        `_fill_no_cash_order`). `net_edge` is fair - price - fee per contract."""
+        if sig.position_key is None or sig.event_ticker is None or sig.size <= 0:
+            raise ValueError("lane entries require position_key, event_ticker and a size")
+        self.conn.execute(
+            "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
+            "position_key,would_trade,reason,fair,price,size,commence_time,net_edge,tags,"
+            "mid,model_side,devig_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                self._utc(sig.created_at).isoformat(),
+                UNDERDOG_LANE_RULES,
+                decision_window(sig.created_at, sig.commence_time),
+                sig.strategy,
+                sig.ticker,
+                sig.side.value,
+                sig.position_key,
+                1,
+                UNDERDOG_LANE_NOCASH_REASON,
+                str(sig.fair_prob),
+                str(sig.limit_price),
+                str(sig.size),
+                self._utc(sig.commence_time).isoformat() if sig.commence_time else None,
+                str(sig.fair_prob - sig.limit_price - fee / sig.size),
+                ",".join(sorted(sig.tags)) if sig.tags else None,
+                *self._model_side_values(sig),
+                sig.devig_json,
+            ),
+        )
+        self.conn.commit()
+
+    def underdog_lane_nocash_held(self, event_ticker: str) -> bool:
+        """Whether the lane's no-cash book already filled in this game."""
+        prefix = self.underdog_lane_key(event_ticker, "")
+        row = self.conn.execute(
+            "SELECT 1 FROM shadow_decisions WHERE reason=? AND substr(position_key,1,?)=? LIMIT 1",
+            (UNDERDOG_LANE_NOCASH_REASON, len(prefix), prefix),
+        ).fetchone()
+        return row is not None
+
+    # ---- sharp lane ---------------------------------------------------------
+
+    @staticmethod
+    def sharp_lane_key(position_key: str) -> str:
+        return f"{SHARP_LANE_KEY_PREFIX}{position_key}"
+
+    def open_sharp_lane_orders(self) -> list[PaperOrder]:
+        return [o for o in self.open_paper_orders() if SHARP_LANE_TAG in (o.tags or ())]
+
+    def sharp_lane_event_state(self, event_ticker: str) -> str | None:
+        """`held` once the sharp lane has filled in this game (settled or not: no
+        re-entry), `resting` while one of its orders is open there, else None."""
+        held = self.conn.execute(
+            f"SELECT 1 FROM fills WHERE event_ticker=? AND {sharp_lane_sql()} LIMIT 1",
+            (event_ticker,),
+        ).fetchone()
+        if held is not None:
+            return "held"
+        resting = self.conn.execute(
+            "SELECT 1 FROM paper_orders WHERE status='open' AND event_ticker=? "
+            f"AND {sharp_lane_sql()} LIMIT 1",
+            (event_ticker,),
+        ).fetchone()
+        return None if resting is None else "resting"
+
+    def sharp_lane_open_cost(self) -> Decimal:
+        """Cash tied up by the sharp lane: unsettled fills plus its resting orders."""
+        fills = self.conn.execute(
+            "SELECT f.price,f.count,f.fee FROM fills f LEFT JOIN settlements s "
+            f"ON s.ticker=f.ticker WHERE s.ticker IS NULL AND {sharp_lane_sql('f')}"
+        ).fetchall()
+        total = sum(
+            (Decimal(price) * Decimal(count) + Decimal(fee) for price, count, fee in fills),
+            Decimal(0),
+        )
+        return total + sum(
+            (o.price * o.size + o.maker_fee for o in self.open_sharp_lane_orders()),
+            Decimal(0),
+        )
+
+    def has_sharp_lane_entry(self, event_ticker: str) -> bool:
+        """Whether the sharp lane's instant-fill twin already holds a pick in this game."""
+        prefix = f"{event_ticker}-"
+        row = self.conn.execute(
+            "SELECT 1 FROM shadow_decisions WHERE reason=? AND strategy=? AND "
+            "substr(ticker,1,?)=? LIMIT 1",
+            (SHARP_LANE_REASON, SHARP_LANE_STRATEGY, len(prefix), prefix),
+        ).fetchone()
+        return row is not None
+
+    def record_sharp_lane_entry(self, sig: Signal, fee: Decimal) -> bool:
+        """Log `sig` in the sharp lane's instant-fill twin: the game's first pick as if it
+        had filled at its price at once. One per game; never touches cash.
+        `net_edge` is fair - price - fee per contract."""
+        if sig.position_key is None or sig.event_ticker is None or sig.size <= 0:
+            raise ValueError("lane entries require position_key, event_ticker and a size")
+        if self.has_sharp_lane_entry(sig.event_ticker):
+            return False
+        self.conn.execute(
+            "INSERT INTO shadow_decisions (created_at,rules_version,window,strategy,ticker,side,"
+            "position_key,would_trade,reason,fair,price,size,commence_time,net_edge,tags,"
+            "mid,model_side,devig_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                self._utc(sig.created_at).isoformat(),
+                SHARP_LANE_RULES,
+                decision_window(sig.created_at, sig.commence_time),
+                SHARP_LANE_STRATEGY,
+                sig.ticker,
+                sig.side.value,
+                sig.position_key,
+                1,
+                SHARP_LANE_REASON,
+                str(sig.fair_prob),
+                str(sig.limit_price),
+                str(sig.size),
+                self._utc(sig.commence_time).isoformat() if sig.commence_time else None,
+                str(sig.fair_prob - sig.limit_price - fee / sig.size),
+                ",".join(sorted(sig.tags)) if sig.tags else None,
+                *self._model_side_values(sig),
+                sig.devig_json,
+            ),
+        )
+        self.conn.commit()
+        return True
+
+    def _sharp_lane_pnl(self, ticker: str, result: str) -> Decimal:
+        """Settlement PnL of the sharp lane's own fills in `ticker`."""
+        rows = self.conn.execute(
+            f"SELECT side,price,count,fee FROM fills WHERE ticker=? AND {sharp_lane_sql()}",
+            (ticker,),
+        ).fetchall()
+        pnl = Decimal(0)
+        for side, price, count, fee in rows:
+            contracts = Decimal(count)
+            pnl -= Decimal(price) * contracts + Decimal(fee)
+            if side == result:
+                pnl += contracts
+        return pnl
+
     # ---- underdog lane ------------------------------------------------------
 
     @staticmethod
@@ -1662,7 +1882,7 @@ class Ledger:
             f"SELECT 1 FROM fills WHERE event_ticker=? AND {lane_fill_sql()} LIMIT 1",
             (event_ticker,),
         ).fetchone()
-        if held is not None:
+        if held is not None or self.underdog_lane_nocash_held(event_ticker):
             return "held"
         resting = self.conn.execute(
             "SELECT 1 FROM paper_orders WHERE status='open' AND event_ticker=? "
@@ -1682,7 +1902,11 @@ class Ledger:
             Decimal(0),
         )
         return total + sum(
-            (o.price * o.size + o.maker_fee for o in self.open_underdog_lane_orders()),
+            (
+                o.price * o.size + o.maker_fee
+                for o in self.open_underdog_lane_orders()
+                if NO_CASH_TAG not in (o.tags or ())
+            ),
             Decimal(0),
         )
 
@@ -3328,14 +3552,15 @@ class Ledger:
         return sum((Decimal(r[0]) for r in rows), Decimal(0))
 
     def worst_drawdown_since(
-        self, since: datetime, lane: Literal["all", "only", "exclude"] = "all"
+        self, since: datetime, lane: Literal["all", "only", "exclude", "sharp"] = "all"
     ) -> Decimal:
         """Lowest running total of settlement PnL since `since`, in settlement order.
 
         The daily-loss limit uses this rather than the net, so a loss that crossed the limit
         is not masked by a win booked later in the same cycle. `lane` narrows it to the
         underdog lane's own fills (`only`) or to everything else (`exclude`), so each has
-        its own daily stop.
+        its own daily stop. `sharp` is the sharp lane's own fills; `exclude` leaves out
+        both lanes.
         """
         rows = self.conn.execute(
             "SELECT ticker, result, pnl FROM settlements WHERE settled_at >= ? "
@@ -3345,9 +3570,13 @@ class Ledger:
         total = low = Decimal(0)
         for ticker, result, pnl in rows.fetchall():
             value = Decimal(pnl)
-            if lane != "all":
+            if lane == "sharp":
+                value = self._sharp_lane_pnl(str(ticker), str(result))
+            elif lane != "all":
                 lane_pnl = self._underdog_lane_pnl(str(ticker), str(result))
                 value = lane_pnl if lane == "only" else value - lane_pnl
+                if lane == "exclude":
+                    value -= self._sharp_lane_pnl(str(ticker), str(result))
             total += value
             low = min(low, total)
         return low
