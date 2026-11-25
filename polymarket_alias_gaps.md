@@ -89,7 +89,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Florida State` (30 events)
 - `Fordham` (35 events)
 - `Fresno State` (66 events)
-- `Fulham FC` (36 events)
+- `Fulham FC` (37 events)
 - `Furman` (46 events)
 - `Galatasaray SK` (49 events)
 - `Gardner-Webb` (59 events)
@@ -241,7 +241,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Texas Southern` (67 events)
 - `Texas State` (71 events)
 - `The Citadel` (52 events)
-- `Tottenham Hotspur FC` (38 events)
+- `Tottenham Hotspur FC` (39 events)
 - `Toulouse FC` (6 events)
 - `Towson` (44 events)
 - `Troy` (66 events)
@@ -309,6 +309,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXEPLGAME-26DEC02LFCSUN` | no_market | 2 | 2026-11-25T00:17 |
 | `KXEPLGAME-26DEC02MCILEE` | no_market | 2 | 2026-11-25T00:17 |
 | `KXEPLGAME-26DEC02NEWMUN` | no_market | 2 | 2026-11-25T00:17 |
+| `KXEPLGAME-26DEC03TOTFUL` | no_market | 1 | 2026-11-25T23:44 |
 | `KXEPLGAME-26NOV21AVLSUN` | no_market | 2 | 2026-11-16T00:07 |
 | `KXEPLGAME-26NOV21BOUNFO` | no_market | 2 | 2026-11-16T00:07 |
 | `KXEPLGAME-26NOV21CFCLEE` | no_market | 2 | 2026-11-16T00:07 |
