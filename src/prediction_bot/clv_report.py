@@ -15,7 +15,14 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from prediction_bot.fees import DEFAULT_FEE_SCHEDULE, FeeStyle, fee_for_ticker
-from prediction_bot.paper.ledger import UNDERDOG_LANE_REASON, decision_window, lane_fill_sql
+from prediction_bot.paper.ledger import (
+    SHARP_LANE_REASON,
+    UNDERDOG_LANE_NOCASH_REASON,
+    UNDERDOG_LANE_REASON,
+    decision_window,
+    lane_fill_sql,
+    sharp_lane_sql,
+)
 
 MIN_EVIDENCE_N = 50  # legacy row-count rule; `summarize` (Kelly sizing) still uses it
 MIN_GAMES = 30
@@ -49,10 +56,18 @@ class Cohort:
     # Near-miss cohorts log both sides of a game, so their headline is the side the
     # model favoured (model_side = 1); the all-rows mean is kept, labelled.
     favoured_headline: bool = False
+    # More (table, where) sources pooled into the cohort, e.g. the no-cash rows of a lane.
+    also: tuple[tuple[str, str], ...] = ()
+    # Extra breakdowns for this cohort (band, price_rule, sharp_gap; read from tags).
+    keys: tuple[str, ...] = ()
+    # Net each row of the fee its own tags name (`maker` or `taker`), else `fee_style`.
+    fee_from_tags: bool = False
 
 
 _LEGACY_LINE_MOVE = "(',' || COALESCE(tags,'') || ',') NOT LIKE '%,legacy_double_mid,%'"
 _HAS_MAKER_TAG = "(',' || COALESCE(tags,'') || ',') LIKE '%,maker,%'"
+_UNDERDOG_NOCASH = f"reason='{UNDERDOG_LANE_NOCASH_REASON}' AND would_trade=1"
+_SHARP_KEYS = ("band", "price_rule", "sharp_gap")
 
 
 def _near_miss(reason: str, favoured: bool = False) -> Cohort:
@@ -99,10 +114,16 @@ COHORTS: dict[str, Cohort] = {
     # The underdog lane. The first two are the same resting-order picks under two fill
     # rules: the gap between them is what assuming an instant fill was worth.
     "underdog_lane": Cohort(
-        "Underdog lane: resting orders the market traded through (cash)",
+        "Underdog lane: resting orders the market traded through (cash; no cash in shadow)",
         "fills",
         f"{lane_fill_sql()} AND {_HAS_MAKER_TAG} AND clv_status='ok'",
         "maker",
+        also=(
+            (
+                "shadow_decisions",
+                f"{_UNDERDOG_NOCASH} AND {_HAS_MAKER_TAG} AND clv_status='ok'",
+            ),
+        ),
     ),
     "underdog_instant": Cohort(
         "Underdog lane: the same resting-order picks booked as filled at once (no cash)",
@@ -112,10 +133,41 @@ COHORTS: dict[str, Cohort] = {
         "maker",
     ),
     "underdog_lane_ask": Cohort(
-        "Underdog lane: picks with no room inside the spread, bought at the ask (cash)",
+        "Underdog lane: picks with no room inside the spread, bought at the ask "
+        "(cash; no cash in shadow)",
         "fills",
         f"{lane_fill_sql()} AND NOT {_HAS_MAKER_TAG} AND clv_status='ok'",
         "taker",
+        also=(
+            (
+                "shadow_decisions",
+                f"{_UNDERDOG_NOCASH} AND NOT {_HAS_MAKER_TAG} AND clv_status='ok'",
+            ),
+        ),
+    ),
+    # The sharp lane (docs/CHANGES_sharp_lane.md): resting orders that filled, entries
+    # bought at the ask, and every game's first pick booked as filled at once.
+    "sharp_lane": Cohort(
+        "Sharp lane: resting orders the market traded through (cash)",
+        "fills",
+        f"{sharp_lane_sql()} AND {_HAS_MAKER_TAG} AND clv_status='ok'",
+        "maker",
+        keys=_SHARP_KEYS,
+    ),
+    "sharp_lane_ask": Cohort(
+        "Sharp lane: entries bought at the ask (cash)",
+        "fills",
+        f"{sharp_lane_sql()} AND NOT {_HAS_MAKER_TAG} AND clv_status='ok'",
+        "taker",
+        keys=_SHARP_KEYS,
+    ),
+    "sharp_lane_instant": Cohort(
+        "Sharp lane: each game's first pick booked as filled at once (no cash)",
+        "shadow_decisions",
+        f"reason='{SHARP_LANE_REASON}' AND would_trade=1 AND clv_status='ok'",
+        "maker",
+        keys=_SHARP_KEYS,
+        fee_from_tags=True,
     ),
 }
 
@@ -140,6 +192,7 @@ _COLUMNS: tuple[tuple[str, dict[str, str]], ...] = (
     ("model_side", {}),
     *((metric, {}) for metric in METRICS),
     ("pull_source", {}),
+    ("tags", {}),
 )
 
 # (fair - mid) buckets in cents for the dose-response table: (label, upper bound).
@@ -355,13 +408,24 @@ def fee_cents(ticker: str, price: Decimal, style: FeeStyle, schedule: _Schedule)
         return None
 
 
+def _tag_value(tags: set[str], prefix: str) -> str:
+    """The rest of the first tag starting with `prefix` (`band_main` -> `main`)."""
+    found = sorted(tag.removeprefix(prefix) for tag in tags if tag.startswith(prefix))
+    return found[0] if found else "unknown"
+
+
 def _rows(
     conn: sqlite3.Connection, cohort: Cohort, since: str | None, schedule: _Schedule
 ) -> list[dict[str, Any]]:
-    sql = f"SELECT {_columns(conn, cohort.table)} FROM {cohort.table} WHERE {cohort.where}"
     rows = []
     names = [name for name, _ in _COLUMNS]
-    for raw in conn.execute(sql):
+    sources = ((cohort.table, cohort.where), *cohort.also)
+    raws = [
+        raw
+        for table, where in sources
+        for raw in conn.execute(f"SELECT {_columns(conn, table)} FROM {table} WHERE {where}")
+    ]
+    for raw in raws:
         record = dict(zip(names, raw, strict=True))
         created_at = record["created_at"]
         if since and str(created_at) < since:
@@ -384,6 +448,10 @@ def _rows(
             model_side = 1 if fair > mid else 0
         metrics = {metric: _decimal(record[metric]) for metric in METRICS}
         clv_mid = metrics["clv_kalshi"]
+        tags = set(str(record["tags"] or "").split(","))
+        style: FeeStyle = cohort.fee_style
+        if cohort.fee_from_tags:
+            style = "taker" if "taker" in tags else "maker" if "maker" in tags else style
         rows.append(
             {
                 "window": str(window),
@@ -403,11 +471,10 @@ def _rows(
                     if clv_mid is not None and mid is not None and price is not None
                     else None
                 ),
-                "fee": (
-                    fee_cents(ticker, price, cohort.fee_style, schedule)
-                    if price is not None
-                    else None
-                ),
+                "fee": (fee_cents(ticker, price, style, schedule) if price is not None else None),
+                "band": _tag_value(tags, "band_"),
+                "price_rule": _tag_value(tags, "rule_"),
+                "sharp_gap": _tag_value(tags, "gap_"),
                 **metrics,
             }
         )
@@ -419,6 +486,9 @@ def _ordered_groups(key: str, present: set[str]) -> list[str]:
         "window": WINDOWS,
         "price_band": PRICE_BANDS,
         "edge_bucket": EDGE_BUCKETS,
+        "band": ("longshot", "main"),
+        "price_rule": ("bid_plus_1", "at_bid", "ask"),
+        "sharp_gap": ("0-1c", "1-2c", "2-3c", "3c+"),
     }.get(key, ())
     return [g for g in order if g in present] + sorted(present - set(order))
 
@@ -496,6 +566,7 @@ def clv_report(
     )
     for name, cohort in COHORTS.items():
         rows = _rows(conn, cohort, since, schedule)
+        cohort_keys = keys + cohort.keys
         entry: dict[str, Any] = {
             "label": cohort.label,
             "fee_style": cohort.fee_style,
@@ -519,7 +590,7 @@ def clv_report(
                 }
             )
         else:
-            entry["metrics"] = _breakdowns(rows, keys)
+            entry["metrics"] = _breakdowns(rows, cohort_keys)
         cohorts[name] = entry
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

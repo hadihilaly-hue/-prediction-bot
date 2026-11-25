@@ -100,10 +100,19 @@ jobs:
           PBOT_EXP_ROAD_DOG_MODE: ${{ vars.PBOT_EXP_ROAD_DOG_MODE || 'shadow' }}
           # Underdog lane: underdog_value picks (10c-25c sides) as resting paper orders
           # that fill only on a trade-through, with an instant-fill comparison book.
-          # Set the Variable to off for shadow rows only. The lane stops for the UTC day
-          # once its own settled PnL reaches -PBOT_UNDERDOG_LANE_MAX_DAILY_LOSS.
-          PBOT_UNDERDOG_LANE: ${{ vars.PBOT_UNDERDOG_LANE || 'paper' }}
+          # shadow (default) keeps picks, orders, fills and grading as a comparison book
+          # that never moves cash; paper puts cash on them again; off is shadow rows only.
+          # In paper the lane stops for the UTC day once its own settled PnL reaches
+          # -PBOT_UNDERDOG_LANE_MAX_DAILY_LOSS. A repo Variable of this name overrides it.
+          PBOT_UNDERDOG_LANE: ${{ vars.PBOT_UNDERDOG_LANE || 'shadow' }}
           PBOT_UNDERDOG_LANE_MAX_DAILY_LOSS: ${{ vars.PBOT_UNDERDOG_LANE_MAX_DAILY_LOSS || '50' }}
+          # Sharp lane: v3's sharp-backed sides (the practice book's feed) as paper bets
+          # in two bands, longshot (10c-25c) and main (above 25c, up to 90c). Set the
+          # Variable to off to stop it; PBOT_SHARP_LANE_BANDS=main (or longshot) switches
+          # a band off. Own daily stop: -PBOT_SHARP_LANE_MAX_DAILY_LOSS of settled PnL.
+          PBOT_SHARP_LANE: ${{ vars.PBOT_SHARP_LANE || 'paper' }}
+          PBOT_SHARP_LANE_BANDS: ${{ vars.PBOT_SHARP_LANE_BANDS || 'longshot,main' }}
+          PBOT_SHARP_LANE_MAX_DAILY_LOSS: ${{ vars.PBOT_SHARP_LANE_MAX_DAILY_LOSS || '50' }}
           PBOT_KALSHI_API_BASE: https://api.elections.kalshi.com/trade-api/v2
           PBOT_PAPER_DB_PATH: ledger/paper.sqlite
           # v1 strategies only (book_scanner and the sportsbook_arb/underdog_value

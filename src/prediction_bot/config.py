@@ -57,6 +57,7 @@ class Settings(BaseSettings):
         "release_enable_feeds",
         "exp_road_dog_high_attention_events",
         "exp_road_dog_rivalries",
+        "sharp_lane_bands",
         mode="before",
     )
     @classmethod
@@ -237,7 +238,10 @@ class Settings(BaseSettings):
     #   market trades through it; a pick at the ask fills at the ask. The first pick of
     #   each game is also logged as if it had filled at once (the instant-fill book),
     #   which never touches cash. See docs/CHANGES_underdog_lane.md.
-    underdog_lane: Literal["off", "paper"] = "off"
+    #   shadow: the same picks, instant-fill book and resting orders with the same fill
+    #   rule and grading, but nothing moves cash, takes budget, counts toward PnL or
+    #   opens a position (a comparison book). See docs/CHANGES_sharp_lane.md.
+    underdog_lane: Literal["off", "paper", "shadow"] = "off"
     # A resting lane order is pulled after this long (and always before kickoff).
     underdog_lane_ttl_minutes: int = 480
     # Lane entries stop for the rest of the UTC day once the lane's own settled PnL
@@ -248,6 +252,28 @@ class Settings(BaseSettings):
     # A pick whose fair sits further than this above its price is treated as bad data
     # (stale odds, a swapped team) and skipped.
     underdog_lane_max_gross_edge: Decimal = Decimal("0.10")
+    # Sharp lane: v3's sharp-backed sides (the practice book's feed) as real paper
+    # entries in two bands, longshot (10c..25c) and main (above 25c, up to 90c). Paper
+    # only; it does nothing in live mode. See docs/CHANGES_sharp_lane.md.
+    sharp_lane: Literal["off", "paper"] = "off"
+    # Buy at the ask when fair - ask - taker fee is at least this.
+    sharp_lane_take_edge: Decimal = Decimal("0.01")
+    # Otherwise rest at the practice book's price (bid + 1c at a 2c+ spread, the bid at
+    # 1c) when fair - that price - maker fee is at least this.
+    sharp_lane_min_edge: Decimal = Decimal("0.01")
+    # A resting sharp-lane order is pulled after this long (and always before kickoff).
+    sharp_lane_ttl_minutes: int = 480
+    # Flat dollars per entry, capped by `max_position_contracts`.
+    sharp_lane_order_notional: Decimal = Decimal("10")
+    # Lane fills plus resting lane orders may tie up at most this share of the bankroll.
+    sharp_lane_max_open_fraction: Decimal = Decimal("0.30")
+    # Lane entries stop for the rest of the UTC day once the lane's own settled PnL
+    # reaches -limit. The global `max_daily_loss` ignores lane fills. Unset = no stop.
+    sharp_lane_max_daily_loss: Decimal | None = Decimal("50")
+    # Bands that may enter; drop one to switch it off ("longshot", "main").
+    sharp_lane_bands: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["longshot", "main"]
+    )
     # Sportsbook strategies only enter at least this many hours before the event
     # resolves: paper results show same-day entries in efficient markets lose while
     # early entries keep their edge. 0 disables the check.
