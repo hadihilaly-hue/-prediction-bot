@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-26 00:48 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 20.
+Updated 2026-11-26 01:18 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 20.
 
 Brier (lower is better): strategy 0.2265 vs market price 0.2290.
 
@@ -52,7 +52,7 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-26 00:48 | sharp\_lane | KXNFLGAME-26NOV29WASARI-WAS — NO: Kalshi says 23%, we say 24%; placed order at 23¢ | no | 0.2300 | 0.2444 | +0.0113 | 43 | yes | open | sharp lane longshot maker \(at\_bid\) | KXNFLGAME-26NOV29WASARI-WAS |
+| 2026-11-26 00:48 | sharp\_lane | Washington wins — NO: Kalshi says 23%, we say 24%; placed order at 23¢ | no | 0.2300 | 0.2444 | +0.0113 | 43 | yes | open | sharp lane longshot maker \(at\_bid\) | KXNFLGAME-26NOV29WASARI-WAS |
 | 2026-11-25 02:48 | underdog\_value | Tie is the result — YES: Kalshi says 24%, we say 25%; placed order at 24¢ | yes | 0.2400 | 0.2514 | +0.0114 | 100 | yes | open | underdog \(4.2x payout\); Draw consensus 0.251 from 4 books \(Charlotte FC vs Chicago Fire\) | KXMLSGAME-26NOV28CLTCHI-TIE |
 | 2026-11-25 02:18 | underdog\_value | Barcelona wins — NO: Kalshi says 21%, we say 24%; bought at 21¢ | no | 0.2100 | 0.2412 | +0.0112 | 100 | yes | open | underdog \(4.8x payout\); Barcelona consensus 0.759 from 4 books \(Deportivo La Coruña vs Barcelona\) | KXLALIGAGAME-26NOV29DEPBAR-BAR |
 | 2026-11-24 08:18 | underdog\_value | Schalke wins — YES: Kalshi says 19%, we say 22%; placed order at 19¢ | yes | 0.1900 | 0.2184 | +0.0184 | 100 | yes | open | underdog \(5.3x payout\); FC Schalke 04 consensus 0.218 from 3 books \(FC Schalke 04 vs Borussia Dortmund\) | KXBUNDESLIGAGAME-26DEC06SCHBVB-SCH |
