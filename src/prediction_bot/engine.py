@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Literal
@@ -17,6 +17,8 @@ from prediction_bot.paper.ledger import UNDERDOG_LANE_STRATEGY, Ledger
 from prediction_bot.strategies.base import Strategy
 from prediction_bot.underdog_lane import LaneResult, run_underdog_lane
 from prediction_bot.venues.kalshi import KalshiClient, KalshiError
+
+FINAL_MARKET_STATUSES = frozenset({"settled", "finalized", "determined"})
 
 log = logging.getLogger(__name__)
 
@@ -315,7 +317,14 @@ class Engine:
                 feed: len(position_keys) for feed, position_keys in gate_candidate_keys.items()
             }
             return res
+        markets_by_ticker = {m.ticker: m for m in markets}
         for batch in self._batches(res.signals):
+            paper_batch = self._paper_taker_batch(batch, markets_by_ticker)
+            if paper_batch is None:
+                for s in batch:
+                    self.ledger.record_signal(s, acted=False)
+                continue
+            batch = paper_batch
             if not all(self._admissible(s, batch) for s in batch):
                 for s in batch:
                     self.ledger.record_signal(s, acted=False)
@@ -404,6 +413,44 @@ class Engine:
                 # order left open past expiry would hold its reserve forever.
                 self.ledger.expire_paper_order(order.id, order.expires_at)
         return filled
+
+    def _paper_taker_batch(
+        self, batch: list[Signal], markets_by_ticker: dict[str, Market]
+    ) -> list[Signal] | None:
+        """Paper-fill v1 maker-priced signals as takers at the current ask.
+
+        A v1 paper entry is filled at once, so a resting bid+1c price would assume every
+        maker order fills, fee-free on most series. Re-price such legs at the ask with
+        the taker fee and re-check `min_edge`; None drops the whole batch (a group is
+        all-or-nothing). v2/v3 signals and live trading are unchanged: v3 makers rest as
+        paper orders and fill only on a trade-through.
+        """
+        if self.live:
+            return batch
+        out: list[Signal] = []
+        for sig in batch:
+            if sig.taker or sig.rules_version in {"v2", "v3"}:
+                out.append(sig)
+                continue
+            market = markets_by_ticker.get(sig.ticker)
+            ask = market.quote.ask_for(sig.side) if market is not None else None
+            if market is None or ask is None or ask <= 0 or ask >= 1:
+                return None
+            try:
+                fee = self._fee_amount(sig, ask, Decimal(1), "taker")
+            except ValueError:
+                return None
+            edge = sig.fair_prob - ask - fee
+            if edge < self.settings.min_edge:
+                return None
+            by_notional = (self.settings.max_order_notional / ask).to_integral_value(
+                rounding="ROUND_DOWN"
+            )
+            size = min(sig.size, by_notional, market.quote.ask_size_for(sig.side))
+            if size <= 0:
+                return None
+            out.append(replace(sig, limit_price=ask, taker=True, edge=edge, size=size))
+        return out
 
     def _v3_paper_action(self, sig: Signal, grouped: bool = False) -> str:
         if self.live or sig.rules_version != "v3":
@@ -755,6 +802,20 @@ class Engine:
                 except Exception:
                     log.exception("paper order resolution before settlement failed")
             for m in batch:
+                if (
+                    m.ticker in unsettled
+                    and not m.is_settled
+                    and m.status in FINAL_MARKET_STATUSES
+                    and m.result
+                ):
+                    # Kalshi finalized the market without a yes/no result (e.g. voided).
+                    # Its paper cost stays locked until handled by hand: say so loudly.
+                    log.warning(
+                        "UNSETTLEABLE %s: status=%s result=%r is not yes/no; position left open",
+                        m.ticker,
+                        m.status,
+                        m.result,
+                    )
                 if m.is_settled and m.ticker in unsettled:
                     out[m.ticker] = self.ledger.settle(m.ticker, OutcomeSide(m.result))
         missing_event_tickers = self.ledger.missing_event_titles(

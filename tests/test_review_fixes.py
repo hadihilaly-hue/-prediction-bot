@@ -121,3 +121,23 @@ def test_v3_maker_price_applies_low_price_threshold() -> None:
     # (0.34 - 0.29 - 0.01 fee), not at the flat-2c price 0.31.
     assert _maker_price("0.30", "0.35", "0.34") == Decimal("0.29")
     assert _maker_price("0.30", "0.35", "0.37") == Decimal("0.31")
+
+
+def test_finalized_market_without_yes_no_result_is_reported_not_settled(caplog) -> None:  # type: ignore[no-untyped-def]
+    import logging
+
+    from prediction_bot.engine import Engine
+    from tests.conftest import make_market
+
+    ledger = Ledger(":memory:", Decimal(100))
+    sig, _oid = _order(ledger)
+
+    class Venue:
+        def get_markets(self, status, tickers):  # type: ignore[no-untyped-def]
+            return [make_market(sig.ticker, None, None, status="finalized", result="void")]
+
+    with caplog.at_level(logging.WARNING):
+        out = Engine(object(), Venue(), [], ledger).settle_open_positions()  # type: ignore[arg-type]
+    assert out == {}
+    assert ledger.unsettled_tickers() == [sig.ticker]
+    assert "UNSETTLEABLE" in caplog.text
