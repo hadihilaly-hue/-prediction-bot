@@ -1,11 +1,11 @@
 {
   "version": 1,
   "release_tag": "ledger-store",
-  "asset": "paper-20261126T215800Z-r2277.sqlite.gz",
-  "sha256": "8fd117cc9135023d7d93e433c93cbcebd65c76646188897bdeff8b0d0fda5cb0",
-  "gz_bytes": 37115315,
-  "runs": 2277,
-  "last_run_at": "2026-11-26T21:57:53.237169+00:00",
+  "asset": "paper-20261126T221750Z-r2279.sqlite.gz",
+  "sha256": "e989b70b08e1cab42d65e0f1ad2f0f0dac72885d3301e4fc5ee03571024167e0",
+  "gz_bytes": 37165304,
+  "runs": 2279,
+  "last_run_at": "2026-11-26T22:17:45.108836+00:00",
   "slots_last_24h": 48,
-  "written_at": "2026-11-26T21:58:00+00:00"
+  "written_at": "2026-11-26T22:17:50+00:00"
 }
