@@ -137,6 +137,8 @@ class Settings(BaseSettings):
     v3_dq_stop_fraction: Decimal = Decimal("0.5")
     v3_no_reentry: bool = True
     v3_execution: Literal["taker", "maker_first", "auto"] = "taker"
+    # Not read: v5 Phase 4 dropped these three from the gate (docs/CHANGES_v5.md 4.4).
+    # Kept so existing PBOT_ variables still load; only min_queue_fills decides.
     v3_maker_gate_min_positions: int = 50
     v3_maker_gate_min_scored: int = 50
     v3_maker_gate_min_filled_clv: int = 20

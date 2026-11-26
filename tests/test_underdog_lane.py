@@ -476,14 +476,15 @@ def test_with_the_lane_off_the_strategy_stays_a_shadow(tmp_path: Path) -> None:
 
 def test_v1_mode_still_books_its_own_fills_and_the_lane_stays_out(tmp_path: Path) -> None:
     """With underdog_value as a primary strategy (PBOT_RULES_VERSION=v1) the old engine
-    path runs unchanged; the lane only ever acts on the strategy's shadow run."""
+    path runs; the lane only ever acts on the strategy's shadow run. The v1 paper fill is
+    instant, so it is booked as a taker at the ask (0.19), not at the bid+1c quote."""
     settings = lane_settings(tmp_path, rules_version="v1")
     ledger = Ledger(settings.paper_db_path, Decimal("1000"))
     strat = UnderdogValueStrategy(settings, odds_client=FakeOdds([odds_event()]))  # type: ignore[arg-type]
     result = Engine(settings, Candles(), [strat], ledger).run_cycle(wide_book())  # type: ignore[arg-type]
     assert result.lane is None and len(result.acted) == 1
     assert rows(ledger, "SELECT strategy,rules_version,price,tags FROM fills") == [
-        ("underdog_value", None, "0.17", None)
+        ("underdog_value", None, "0.19", None)
     ]
     assert rows(ledger, "SELECT COUNT(*) FROM paper_orders") == [(0,)]
 
@@ -767,3 +768,15 @@ def test_v3_and_the_lane_share_a_cycle_without_touching_each_other(
         "SELECT rules_version,window,price FROM shadow_decisions WHERE reason='underdog_lane'",
     ) == [("v1", "72h+", "0.14")]
     assert ledger.v2_total_open_cost(include_v3=True) == 0
+
+
+def test_v1_paper_fill_is_skipped_when_the_ask_loses_the_edge(tmp_path: Path) -> None:
+    """The maker quote (17c) clears min_edge, but the instant fill is at the 19c ask with
+    the taker fee, which does not: nothing is booked."""
+    settings = lane_settings(tmp_path, rules_version="v1", min_edge=Decimal("0.05"))
+    ledger = Ledger(settings.paper_db_path, Decimal("1000"))
+    strat = UnderdogValueStrategy(settings, odds_client=FakeOdds([odds_event()]))  # type: ignore[arg-type]
+    result = Engine(settings, Candles(), [strat], ledger).run_cycle(wide_book())  # type: ignore[arg-type]
+    assert len(result.signals) == 1 and result.acted == []
+    assert rows(ledger, "SELECT COUNT(*) FROM fills") == [(0,)]
+    assert rows(ledger, "SELECT acted FROM signals") == [(0,)]

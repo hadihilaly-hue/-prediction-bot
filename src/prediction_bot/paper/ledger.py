@@ -1640,6 +1640,12 @@ class Ledger:
         if row is None:
             return False
         order = self._paper_order_from_row(row)
+        if self.conn.execute(
+            "SELECT 1 FROM settlements WHERE ticker = ?", (order.ticker,)
+        ).fetchone():
+            # settle() runs once per ticker; a fill booked afterwards would never be paid.
+            self.cancel_paper_order(order.id, filled_at, "market_settled")
+            return False
         net_edge = (
             order.fair - order.price - order.maker_fee / order.size if order.size > 0 else None
         )
@@ -2310,6 +2316,11 @@ class Ledger:
             ),
         )
         self._set_cash(self.cash + payout)
+        self.conn.execute(
+            "UPDATE paper_orders SET status='cancelled',status_at=?,cancel_reason=? "
+            "WHERE ticker=? AND status='open'",
+            (self._utc(at or datetime.now(timezone.utc)).isoformat(), "market_settled", ticker),
+        )
         self.conn.commit()
         try:
             self.tag_injuries([ticker])

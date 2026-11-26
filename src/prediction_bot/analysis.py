@@ -106,10 +106,21 @@ def outcome_key(f: Fill) -> tuple[str, str]:
     if f.series in THREE_WAY:
         return f.event, f"not {team}"
     _, _, teams = parse_event(f.event)
-    if teams.startswith(team):
-        return f.event, teams[len(team) :]
-    if teams.endswith(team):
-        return f.event, teams[: -len(team)]
+    splits = []
+    if teams.startswith(team) and len(teams) > len(team):
+        splits.append(teams[len(team) :])
+    if teams.endswith(team) and len(teams) > len(team):
+        splits.append(teams[: -len(team)])
+    if len(splits) == 2 and splits[0] != splits[1]:
+        # Ambiguous when one code prefixes the other (LACLA, team LA): prefer the split
+        # whose remainder is a real team code for this series.
+        from prediction_bot.teams import team_for_code
+
+        known = [code for code in splits if team_for_code(f.series, code) is not None]
+        if len(known) == 1:
+            return f.event, known[0]
+    if splits:
+        return f.event, splits[0]
     return f.event, f"not {team}"
 
 
@@ -380,7 +391,7 @@ def main() -> None:
                     st.strftime("%H:%M"),
                     src,
                     f"{(f.created_at - st) / timedelta(minutes=1):.0f}",
-                    f"{f.pnl:.2f}",
+                    f"{f.pnl:.2f}" if f.pnl is not None else "open",
                 ]
             )
     say(table(rows, ["ticker", "side", "strategy", "filled UTC", "start UTC", "source",

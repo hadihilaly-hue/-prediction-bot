@@ -810,7 +810,7 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         sport = KALSHI_SERIES_TO_SPORT.get(event_ticker.split("-", 1)[0])
         if sport not in ESPN_VERIFIED_SPORTS:
             return skip(f"injury_gate_skipped:{sport}")
-        outcome = position_key.rsplit(":", 1)[-1]
+        outcome = position_key.removeprefix(f"{event_ticker}:")
         if outcome.startswith("not:"):
             return skip("injury_gate_skipped:multi_outcome")
         team_ids: set[str] = set()
@@ -1325,26 +1325,37 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
         ask = market.quote.ask_for(side)
         if bid is None or ask is None:
             return None
-        price = min(bid + Decimal("0.01"), fair - self.settings.v2_min_net_edge)
-        for _ in range(4):
-            if price <= 0:
-                return None
-            per_contract_fee = fee_for_ticker(
+        cent = Decimal("0.01")
+        improve = bid + cent
+
+        def fee_at(p: Decimal) -> Decimal:
+            return fee_for_ticker(
                 market.ticker,
-                price,
+                p,
                 Decimal(1),
                 "maker",
                 schedule=FixedFee(fee_type, fee_multiplier),
                 rounding=self.settings.fee_rounding,
             )
+
+        # Orders rest on whole-cent ticks, and the edge must clear the same
+        # price-dependent threshold as a taker entry (doubled below 40c in v3).
+        price = min(improve, fair - self._net_edge_threshold(improve)).quantize(cent, ROUND_DOWN)
+        for _ in range(4):
+            if price <= 0:
+                return None
             adjusted = min(
-                bid + Decimal("0.01"),
-                fair - per_contract_fee - self.settings.v2_min_net_edge,
-            )
+                improve,
+                fair - fee_at(price) - self._net_edge_threshold(price),
+            ).quantize(cent, ROUND_DOWN)
             if adjusted == price:
                 break
             price = adjusted
-        return price if price > 0 and price < ask else None
+        if price <= 0 or price >= ask:
+            return None
+        if fair - fee_at(price) - price < self._net_edge_threshold(price):
+            return None
+        return price
 
     def _size_v2_signal(
         self,
@@ -2449,16 +2460,21 @@ class SportsbookV2Strategy(SportsbookArbStrategy):
                             replace(signal, tags=(*(signal.tags or ()), "sharp_move_follow"))
                         )
         if self.rules_version == "v3" and events_evaluated >= 10:
-            quality_blocks = sum(
-                block.reason
-                in {
-                    "title_mismatch",
-                    "mapping_sum",
-                    "mapping_mismatch",
-                    "dispersion",
-                    "settlement_rule_mismatch",
+            # Events, not blocks: one event can block several legs/sides (dispersion is
+            # per side), while the denominator counts events.
+            quality_blocks = len(
+                {
+                    block.event_ticker or block.ticker
+                    for block in self._blocks
+                    if block.reason
+                    in {
+                        "title_mismatch",
+                        "mapping_sum",
+                        "mapping_mismatch",
+                        "dispersion",
+                        "settlement_rule_mismatch",
+                    }
                 }
-                for block in self._blocks
             )
             fraction = Decimal(quality_blocks) / Decimal(events_evaluated)
             if fraction > self.settings.v3_dq_stop_fraction:
