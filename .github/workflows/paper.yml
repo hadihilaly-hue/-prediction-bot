@@ -225,7 +225,8 @@ jobs:
           touch ledger/.nojekyll
 
       # Once per UTC day: move rows of closed markets older than 7 days (order books
-      # older than 3 days) to the ledger-archive release, then VACUUM. Deletes nothing
+      # older than 1 day, repeated injury rows older than 7 days) to the
+      # ledger-archive release, then VACUUM. Deletes nothing
       # unless the archive file is uploaded and confirmed; any problem only warns, and
       # the save below still runs.
       - name: Archive old ledger rows

@@ -156,10 +156,15 @@ a day):
   before t" is unchanged, and block counts are `SUM(seen_count)`. `market_snapshots` was
   already change-only (bid, ask, open interest, plus a 6-hour heartbeat) and is unchanged.
   `python scripts/check_change_only.py <ledger>` replays a real ledger through the new
-  writers and compares the readers.
+  writers and compares the readers. ESPN injury entries work the same way: an entry
+  equal to the athlete's latest stored row moves its `last_seen_at` (99% of fetched
+  entries were unchanged repeats); the injury gate matches on `reported_at` and status,
+  so it decides the same.
 - **A daily archive.** Once per UTC day, `pbot ledger-archive` (a `paper.yml` step) moves
-  rows of markets that closed more than a day ago and were last seen over 7 days ago, and
-  order books older than 3 days, into `archive-YYYY-MM-DD.sqlite.gz` on the
+  rows of markets that closed more than a day ago and were last seen over 7 days ago,
+  order books older than 1 day (readers look back 25 minutes at most), and injury rows
+  older than 7 days that repeat the athlete's previous row, into
+  `archive-YYYY-MM-DD.sqlite.gz` on the
   `ledger-archive` release, then VACUUMs. Markets with an open position, order or maker
   shadow stay. It deletes only after the upload is confirmed and only warns on failure.
   Archived blocks keep their counts in `blocks_rollup` (the dashboard's all-time column),

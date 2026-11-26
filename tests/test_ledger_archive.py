@@ -123,8 +123,9 @@ def _build(path: Path) -> Ledger:
     _market(ledger, OPEN, recent, NOW + timedelta(days=5))
     _quote(ledger, OPEN, recent, "0.45")
     _block(ledger, OPEN, recent)
-    _orderbook(ledger, OPEN, recent)
-    _orderbook(ledger, OPEN, NOW - timedelta(days=2))  # within 3 days: kept
+    _orderbook(ledger, OPEN, NOW - timedelta(days=2))  # past the 1-day cutoff: archived
+    _orderbook(ledger, OPEN, NOW - timedelta(hours=20))  # within 1 day: kept
+    _orderbook(ledger, OPEN, recent)  # the table's newest row
     ledger.conn.execute(
         "INSERT INTO fills (created_at,strategy,ticker,side,price,count,fee,fair_prob) "
         "VALUES (?,?,?,?,?,?,?,?)",
@@ -188,11 +189,16 @@ def test_selection_keeps_open_held_recent_and_newest_rows(tmp_path: Path) -> Non
     assert tickers("blocks") == {CLOSED, SCANNER, ""}
     # Order books go by age alone: every ticker's 10-day-old books, none newer.
     assert tickers("orderbook_snapshots") == {CLOSED, OPEN, HELD, SCANNER}
-    two_days = (NOW - timedelta(days=2)).isoformat()
+    one_day = (NOW - timedelta(days=1)).isoformat()
+    assert ledger.conn.execute(
+        "SELECT 1 FROM orderbook_snapshots WHERE ticker=? AND fetched_at=? AND id IN "
+        f"({','.join(map(str, ids['orderbook_snapshots']))})",
+        (OPEN, (NOW - timedelta(days=2)).isoformat()),
+    ).fetchone(), "a 2-day-old order book is archived"
     assert not ledger.conn.execute(
         "SELECT 1 FROM orderbook_snapshots WHERE fetched_at>=? AND id IN "
         f"({','.join(map(str, ids['orderbook_snapshots']))})",
-        (two_days,),
+        (one_day,),
     ).fetchone()
     for table in TABLES:
         newest = ledger.conn.execute(f"SELECT MAX(id) FROM {table}").fetchone()[0]
@@ -263,8 +269,11 @@ def test_running_again_the_same_day_does_nothing(tmp_path: Path) -> None:
     calls = len(gh.calls)
     assert _run(ledger, gh, tmp_path, NOW + timedelta(hours=3)).status == "already_done"
     assert len(gh.calls) == calls
-    # The next UTC day archives again (nothing new is old enough here).
-    assert _run(ledger, gh, tmp_path, NOW + timedelta(days=1)).status == "nothing"
+    # The next UTC day archives again: only the order book that was 20h old yesterday.
+    nxt = _run(ledger, gh, tmp_path, NOW + timedelta(days=1))
+    assert nxt.status == "archived"
+    assert {t: n for t, n in nxt.rows.items() if n} == {"orderbook_snapshots": 1}
+    assert _run(ledger, gh, tmp_path, NOW + timedelta(days=2)).status == "nothing"
 
 
 def test_an_upload_failure_deletes_nothing(tmp_path: Path) -> None:
@@ -359,3 +368,86 @@ def test_archive_shrinks_the_file(tmp_path: Path) -> None:
     size = (tmp_path / "hot.sqlite").stat().st_size
     _run(ledger, FakeGh(), tmp_path)
     assert (tmp_path / "hot.sqlite").stat().st_size < size
+
+
+# ------------------------------------------------------------ injury repeats
+
+
+def _old_injury_rows(ledger: Ledger) -> None:
+    """Rows as the append-every-fetch writer stored them: one per entry per fetch."""
+    rows = []
+    for hour in range(0, 24 * 12, 6):  # 12 days back to now, every 6 hours
+        at = NOW - timedelta(days=12) + timedelta(hours=hour)
+        status = "Questionable" if hour < 24 * 6 else "Out"  # changes 6 days in
+        for athlete, pos, st in (("A", "QB", status), ("B", "WR", "Doubtful")):
+            rows.append((at.isoformat(), "americanfootball_nfl", "KC", athlete, pos, st,
+                         "S", (NOW - timedelta(days=13)).isoformat(), "d", 1))  # fmt: skip
+    ledger.conn.executemany(
+        "INSERT INTO injury_snapshots (fetched_at,sport,team_id,athlete,position,status,"
+        "status_type,reported_at,detail,run_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        rows,
+    )
+    ledger.conn.commit()
+
+
+def test_old_injury_repeats_are_archived_and_the_first_row_stays(tmp_path: Path) -> None:
+    from prediction_bot.injuries import flag_for_fill
+
+    ledger = Ledger(tmp_path / "hot.sqlite", Decimal(1000))
+    _old_injury_rows(ledger)
+    cols = "id,fetched_at,sport,team_id,athlete,position,status,status_type,reported_at,detail"
+    before = ledger.conn.execute(f"SELECT {cols} FROM injury_snapshots ORDER BY id").fetchall()
+    windows = [
+        (NOW - timedelta(days=d), NOW - timedelta(days=d) + timedelta(hours=h))
+        for d in (14, 13, 10, 3) for h in (6, 48, 400)
+    ]  # fmt: skip
+
+    def answers() -> list[tuple[object, ...]]:
+        return [
+            flag_for_fill(
+                ledger.conn,
+                sport="americanfootball_nfl",
+                own_team="KC",
+                opponent="BUF",
+                created_at=a,
+                commence_time=b,
+            )  # fmt: skip
+            for a, b in windows
+        ]
+
+    gate_before = answers()
+    gh = FakeGh()
+    result = _run(ledger, gh, tmp_path)
+    assert result.status == "archived"
+    left = ledger.conn.execute(
+        "SELECT athlete,status,fetched_at,last_seen_at FROM injury_snapshots ORDER BY id"
+    ).fetchall()
+    cut = (NOW - timedelta(days=7)).isoformat()
+    # Every row left is either the first of its run or newer than the 7-day cutoff.
+    heads = [r for r in left if r[2] < cut]
+    assert {(r[0], r[1]) for r in heads} == {("A", "Questionable"), ("B", "Doubtful")}
+    assert all(r[3] is not None and r[3] < cut for r in heads)  # moved to the last repeat
+    a_head = next(r for r in heads if r[0] == "A")
+    assert a_head[3] == (NOW - timedelta(days=7, hours=6)).isoformat()  # last old repeat
+    assert result.rows["injury_snapshots"] == len(before) - len(left)
+    # The gate decides the same; the dedupe only shortens its text.
+    after = answers()
+    assert [(a[0], a[2]) for a in after] == [(b[0], b[2]) for b in gate_before]
+    # Merging the archive back gives every original row.
+    full = tmp_path / "full.sqlite"
+    shutil.copyfile(tmp_path / "hot.sqlite", full)
+    conn = sqlite3.connect(full)
+    la.fetch_full_history(gh, conn, tmp_path, sleep=_no_sleep)
+    assert conn.execute(f"SELECT {cols} FROM injury_snapshots ORDER BY id").fetchall() == before
+
+
+def test_new_change_only_injury_rows_are_not_archived(tmp_path: Path) -> None:
+    from prediction_bot.injuries import InjurySnapshotRow
+
+    ledger = Ledger(tmp_path / "hot.sqlite", Decimal(1000))
+    row = InjurySnapshotRow("americanfootball_nfl", "KC", "A", "QB", "Out", "S", OLD, "d")
+    for n in range(10):
+        ledger.record_injury_snapshots([row], at=OLD + timedelta(hours=n))
+    _quote(ledger, OPEN, NOW, "0.4")  # something newer so ids are not all newest
+    assert la.select_archivable(ledger.conn, NOW)["injury_snapshots"] == []
+    assert ledger.conn.execute("SELECT COUNT(*) FROM injury_snapshots").fetchone() == (1,)
