@@ -458,6 +458,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV28TXSTUSU` | no_market | 1 | 2026-11-23T02:49 |
 | `KXNCAAFGAME-26NOV28TXSTUSU` | no_market | 3 | 2026-11-26T00:17 |
 | `KXNCAAFGAME-26NOV28WASHORE` | no_market | 1 | 2026-11-22T16:17 |
+| `KXNFLGAME-26DEC03KCLAR` | no_market | 1 | 2026-11-26T04:47 |
 | `KXNFLGAME-26NOV12WASNYG` | no_market | 1 | 2026-11-13T00:17 |
 | `KXNFLGAME-26NOV15BUFNYJ` | no_market | 3 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV15CARNO` | no_market | 3 | 2026-11-15T00:07 |
@@ -472,7 +473,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNFLGAME-26NOV15SEALV` | no_market | 3 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV15SFDAL` | no_market | 3 | 2026-11-15T00:07 |
 | `KXNFLGAME-26NOV16LACBAL` | no_market | 5 | 2026-11-17T00:07 |
-| `KXNFLGAME-26NOV19INDHOU` | no_market | 9 | 2026-11-20T00:17 |
+| `KXNFLGAME-26NOV19INDHOU` | no_market | 8 | 2026-11-20T00:17 |
 | `KXNFLGAME-26NOV22ARIKC` | no_market | 9 | 2026-11-22T00:17 |
 | `KXNFLGAME-26NOV22BALCAR` | no_market | 8 | 2026-11-21T00:17 |
 | `KXNFLGAME-26NOV22JACNYG` | no_market | 7 | 2026-11-21T00:17 |
