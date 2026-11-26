@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-26 18:48 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 20.
+Updated 2026-11-26 19:18 UTC. Cash **$1229.44** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 23.
 
 Brier (lower is better): strategy 0.2265 vs market price 0.2290.
 
@@ -20,10 +20,11 @@ Per league (Kalshi series):
 - `KXNFLGAME`: open 3, settled 32, wins 7, realized PnL $-361.60, Brier 0.2009 vs market 0.1835
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUCLGAME`: open 0, settled 3, wins 0, realized PnL $-32.04, Brier 0.0280 vs market 0.0203
-- `KXUELGAME`: open 5, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
+- `KXUECLGAME`: open 1, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
+- `KXUELGAME`: open 7, settled 0, wins 0, realized PnL $0.00, Brier - vs market -
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (20)
+## Open positions (23)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
@@ -42,22 +43,25 @@ Per league (Kalshi series):
 | Minnesota does NOT win | Atlanta vs Minnesota \(Nov 29\) | 100 | $23.31 | 25% | `KXNFLGAME-26NOV29ATLMIN-MIN` |
 | Cincinnati does NOT win | New Orleans vs Cincinnati \(Nov 29\) | 100 | $16.24 | 19% | `KXNFLGAME-26NOV29NOCIN-CIN` |
 | Indianapolis wins | New York G vs Indianapolis \(Nov 29\) | 100 | $25.33 | 27% | `KXNFLGAME-26NOV29NYGIND-IND` |
+| Freiburg wins | Freiburg vs Enschede \(Nov 26\) | 18 | $9.72 | 55% | `KXUECLGAME-26NOV26SCFTWE-SCF` |
 | Besiktas does NOT win | Besiktas vs Be'er Sheva \(Nov 26\) | 100 | $19.00 | 22% | `KXUELGAME-26NOV26BESHBS-BES` |
 | Juventus does NOT win | Juventus vs Omonia Nicosia \(Nov 26\) | 100 | $18.00 | 20% | `KXUELGAME-26NOV26JUVOMO-JUV` |
+| Anderlecht wins | OFI Crete vs Anderlecht \(Nov 26\) | 18 | $9.54 | 54% | `KXUELGAME-26NOV26OFIRSC-RSC` |
 | Lyon does NOT win | Lyon vs Lillestroem \(Nov 26\) | 100 | $18.00 | 20% | `KXUELGAME-26NOV26OLLSK-OL` |
 | Salzburg does NOT win | Salzburg vs Ararat-Armenia \(Nov 26\) | 100 | $16.00 | 18% | `KXUELGAME-26NOV26RBSARA-RBS` |
+| Alkmaar wins | Sparta Prague vs Alkmaar \(Nov 26\) | 25 | $9.75 | 40% | `KXUELGAME-26NOV26SPAAZA-AZA` |
 | Sunderland does NOT win | Sunderland vs Jagiellonia \(Nov 26\) | 100 | $22.00 | 24% | `KXUELGAME-26NOV26SUNJAG-SUN` |
 
 `price` is what we (paper) pay for `side`; `fair` is the strategy's probability that `side` wins; `edge` is fair − price − fees. `traded` = no means the risk limits or cash blocked the fill.
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-11-26 17:37 | sharp\_lane | Alkmaar wins — YES: Kalshi says 39%, we say 40%; placed order at 39¢ | yes | 0.3900 | 0.4012 | +0.0112 | 25 | yes | open | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26SPAAZA-AZA |
-| 2026-11-26 17:37 | sharp\_lane | Anderlecht wins — YES: Kalshi says 53%, we say 54%; placed order at 53¢ | yes | 0.5300 | 0.5402 | +0.0102 | 18 | yes | open | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26OFIRSC-RSC |
+| 2026-11-26 17:37 | sharp\_lane | Alkmaar wins — YES: Kalshi says 39%, we say 40%; bought at 39¢ | yes | 0.3900 | 0.4012 | +0.0112 | 25 | yes | open | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26SPAAZA-AZA |
+| 2026-11-26 17:37 | sharp\_lane | Anderlecht wins — YES: Kalshi says 53%, we say 54%; bought at 53¢ | yes | 0.5300 | 0.5402 | +0.0102 | 18 | yes | open | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26OFIRSC-RSC |
 | 2026-11-26 17:37 | sharp\_lane | Tie is the result — NO: Kalshi says 75%, we say 76%; placed order at 75¢ | no | 0.7500 | 0.7625 | +0.0125 | 13 | yes | open | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26NIJREN-TIE |
 | 2026-11-26 17:37 | sharp\_lane | Tie is the result — NO: Kalshi says 75%, we say 76%; placed order at 75¢ | no | 0.7500 | 0.7602 | +0.0102 | 13 | yes | open | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26CRYRSO-TIE |
 | 2026-11-26 17:27 | sharp\_lane | Brann wins — YES: Kalshi says 44%, we say 45%; placed order at 44¢ | yes | 0.4400 | 0.4538 | +0.0138 | 22 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26SKBAGF-SKB |
-| 2026-11-26 17:27 | sharp\_lane | Freiburg wins — YES: Kalshi says 54%, we say 55%; placed order at 54¢ | yes | 0.5400 | 0.5523 | +0.0123 | 18 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26SCFTWE-SCF |
+| 2026-11-26 17:27 | sharp\_lane | Freiburg wins — YES: Kalshi says 54%, we say 55%; bought at 54¢ | yes | 0.5400 | 0.5523 | +0.0123 | 18 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26SCFTWE-SCF |
 | 2026-11-26 17:27 | sharp\_lane | Nordsjaelland wins — YES: Kalshi says 39%, we say 41%; placed order at 39¢ | yes | 0.3900 | 0.4091 | +0.0191 | 25 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26NJAPAN-NJA |
 | 2026-11-26 17:27 | sharp\_lane | Tie is the result — YES: Kalshi says 23%, we say 25%; placed order at 23¢ | yes | 0.2300 | 0.2453 | +0.0153 | 43 | yes | open | sharp lane longshot maker \(at\_bid\) | KXUECLGAME-26NOV26IBEGET-TIE |
 | 2026-11-26 17:27 | sharp\_lane | Trabzonspor wins — YES: Kalshi says 57%, we say 58%; placed order at 57¢ | yes | 0.5700 | 0.5833 | +0.0133 | 17 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26CSKTRA-TRA |
