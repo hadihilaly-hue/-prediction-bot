@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-26 11:47 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 20.
+Updated 2026-11-26 12:18 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 20.
 
 Brier (lower is better): strategy 0.2265 vs market price 0.2290.
 
@@ -52,6 +52,12 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-26 12:18 | sharp\_lane | KXLALIGAGAME-26NOV28MCFATH-MCF — YES: Kalshi says 18%, we say 19%; placed order at 18¢ | yes | 0.1800 | 0.1935 | +0.0109 | 55 | yes | open | sharp lane longshot maker \(at\_bid\) | KXLALIGAGAME-26NOV28MCFATH-MCF |
+| 2026-11-26 12:18 | sharp\_lane | KXLALIGAGAME-26NOV28ELCATM-ELC — YES: Kalshi says 13%, we say 14%; placed order at 13¢ | yes | 0.1300 | 0.1433 | +0.0114 | 76 | yes | open | sharp lane longshot maker \(at\_bid\) | KXLALIGAGAME-26NOV28ELCATM-ELC |
+| 2026-11-26 12:18 | sharp\_lane | KXLALIGAGAME-26DEC07SEVMCF-TIE — NO: Kalshi says 78%, we say 79%; placed order at 78¢ | no | 0.7800 | 0.7939 | +0.0109 | 12 | yes | open | sharp lane main maker \(at\_bid\) | KXLALIGAGAME-26DEC07SEVMCF-TIE |
+| 2026-11-26 12:18 | sharp\_lane | KXLALIGAGAME-26DEC06OSAELC-OSA — YES: Kalshi says 45%, we say 47%; placed order at 45¢ | yes | 0.4500 | 0.4659 | +0.0115 | 22 | yes | open | sharp lane main maker \(bid\_plus\_1\) | KXLALIGAGAME-26DEC06OSAELC-OSA |
+| 2026-11-26 12:18 | sharp\_lane | KXLALIGAGAME-26DEC06GETVCF-TIE — YES: Kalshi says 30%, we say 32%; placed order at 30¢ | yes | 0.3000 | 0.3208 | +0.0171 | 33 | yes | open | sharp lane main maker \(bid\_plus\_1\) | KXLALIGAGAME-26DEC06GETVCF-TIE |
+| 2026-11-26 12:18 | sharp\_lane | KXLALIGAGAME-26DEC04ALAESP-ALA — YES: Kalshi says 49%, we say 51%; placed order at 49¢ | yes | 0.4900 | 0.5052 | +0.0108 | 20 | yes | open | sharp lane main maker \(bid\_plus\_1\) | KXLALIGAGAME-26DEC04ALAESP-ALA |
 | 2026-11-26 04:18 | sharp\_lane | Bournemouth wins — NO: Kalshi says 61%, we say 62%; placed order at 61¢ | no | 0.6100 | 0.6242 | +0.0101 | 16 | yes | open | sharp lane main maker \(at\_bid\) | KXEPLGAME-26NOV29FULBOU-BOU |
 | 2026-11-26 04:18 | sharp\_lane | Chelsea wins — NO: Kalshi says 39%, we say 41%; placed order at 39¢ | no | 0.3900 | 0.4105 | +0.0163 | 25 | yes | open | sharp lane main maker \(at\_bid\) | KXEPLGAME-26DEC02CFCCRY-CFC |
 | 2026-11-26 00:48 | sharp\_lane | Washington wins — NO: Kalshi says 23%, we say 24%; placed order at 23¢ | no | 0.2300 | 0.2444 | +0.0113 | 43 | yes | open | sharp lane longshot maker \(at\_bid\) | KXNFLGAME-26NOV29WASARI-WAS |
