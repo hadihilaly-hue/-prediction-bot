@@ -26,6 +26,7 @@ from prediction_bot.sharp_lane import (
     maker_price,
     run_sharp_lane,
 )
+from prediction_bot.strategies.book_scanner import BookScannerStrategy
 from prediction_bot.strategies.sportsbook_v2 import SportsbookV2Strategy
 from tests.test_sportsbook_v2 import v3_markets
 from tests.test_underdog_lane import (
@@ -491,6 +492,17 @@ def test_the_engine_runs_the_lane_in_paper_and_never_in_live_or_off(tmp_path: Pa
         result = engine.run_cycle([])
         assert (result.sharp_lane is not None) is ran
         assert rows(ledger, "SELECT COUNT(*) FROM fills") == [(1 if ran else 0,)]
+
+
+def test_a_book_scanner_run_skips_the_lane(tmp_path: Path) -> None:
+    settings = settings_for(tmp_path)
+    ledger = Ledger(settings.paper_db_path, Decimal("1000"))
+    run(settings, ledger, [candidate(fair="0.53", bid="0.48", ask="0.52")])  # one resting order
+    scanner = BookScannerStrategy(settings)
+    engine = Engine(settings, Candles(), [scanner], ledger, clock=lambda: NOW)  # type: ignore[arg-type]
+    result = engine.run_cycle([])
+    assert result.sharp_lane is None
+    assert rows(ledger, "SELECT status FROM paper_orders") == [("open",)]
 
 
 def test_settings_defaults() -> None:
