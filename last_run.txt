@@ -1,1 +1,7 @@
- scanned=3000 signals=0 filled=3 orders_placed=0 settled=0 cash=1229.44
+ scanned=3000 signals=0 filled=1 orders_placed=0 settled=13 cash=1219.75
+ scanned=1287 signals=0 filled=0 orders_placed=0 settled=0 cash=1219.75
+underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
+sharp lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
+ scanned=1287 signals=0 filled=0 orders_placed=0 settled=0 cash=1219.75
+underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
+sharp lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
