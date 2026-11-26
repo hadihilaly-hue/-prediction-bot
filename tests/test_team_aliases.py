@@ -105,9 +105,9 @@ def test_live_ncaaf_market_alias_spot_checks(
 
 
 def test_short_name_without_an_exact_market_pair_fails_closed() -> None:
-    # Alabama St. (ALST) has only prefix candidates (Alabama State Hornets, ...), no exact
-    # pairing. APP was the example until the 2026-11-25 alias run paired it.
-    assert team_for_code("KXNCAAFGAME", "ALST") is None
+    # Idaho (IDHO) is a prefix of two Odds API teams (Idaho Vandals, Idaho State Bengals),
+    # so it stays unmapped. APP and ALST were earlier examples until they were mapped.
+    assert team_for_code("KXNCAAFGAME", "IDHO") is None
 
 
 def test_completed_pro_league_alias_coverage() -> None:
@@ -165,5 +165,18 @@ def test_2026_11_25_alias_run_additions() -> None:
         ("KXNCAAMBGAME", "SJU", "st-john-s-red-storm"),
         ("KXUECLGAME", "HOM", "hearts"),
         ("KXBUNDESLIGAGAME", "PAD", "sc-paderborn"),
+    ):
+        assert team_for_code(series, code) == team_id
+
+
+def test_unique_prefix_alias_additions() -> None:
+    """Hand-mapped from docs/alias_gaps.md: the Kalshi name is a prefix of exactly one
+    Odds API participant name (e.g. Alcorn St. -> Alcorn State Braves)."""
+    for series, code, team_id in (
+        ("KXNCAAFGAME", "ALCN", "alcorn-state-braves"),
+        ("KXNCAAFGAME", "PEAY", "austin-peay-governors"),
+        ("KXNCAAFGAME", "FSU", "florida-state-seminoles"),
+        ("KXNCAAMBGAME", "ND", "notre-dame-fighting-irish"),
+        ("KXUECLGAME", "HAJ", "hajduk-split"),
     ):
         assert team_for_code(series, code) == team_id

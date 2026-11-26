@@ -642,14 +642,14 @@ def test_kclv_opposite_legs_collapse_and_engine_caps_across_cycles(settings, tmp
 
 
 def test_unmapped_price_floor_candidate_fails_closed_on_unmapped_team(settings) -> None:  # type: ignore[no-untyped-def]
-    event_ticker = "KXNCAAFGAME-26OCT03ALSTUNM"
+    event_ticker = "KXNCAAFGAME-26OCT03IDHOUNM"
     settings.min_lead_hours = 0
     game = odds_event(
-        "alst-unm",
-        "Alabama State Hornets",
+        "idho-unm",
+        "Idaho Vandals",
         "New Mexico Lobos",
         "2026-10-03T20:00:00Z",
-        {"Alabama State Hornets": Decimal("0.5"), "New Mexico Lobos": Decimal("0.5")},
+        {"Idaho Vandals": Decimal("0.5"), "New Mexico Lobos": Decimal("0.5")},
     )
     strategy = SportsbookV2Strategy(
         settings,
@@ -657,10 +657,10 @@ def test_unmapped_price_floor_candidate_fails_closed_on_unmapped_team(settings) 
         clock=fixed_clock("2026-10-03T16:00:00Z"),
     )
 
-    # Alabama St. is unmapped, so this 6¢ market is blocked at mapping_failed, not price_floor.
+    # Idaho is unmapped, so this 6¢ market is blocked at mapping_failed, not price_floor.
     strategy.evaluate(
         [
-            make_market(f"{event_ticker}-ALST", "0.05", "0.06", subtitle="Alabama St."),
+            make_market(f"{event_ticker}-IDHO", "0.05", "0.06", subtitle="Idaho"),
             make_market(f"{event_ticker}-UNM", "0.49", "0.50", subtitle="New Mexico"),
         ]
     )
