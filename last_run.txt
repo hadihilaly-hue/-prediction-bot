@@ -1,5 +1,13 @@
  scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1258.45
-sharp lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
- scanned=1319 signals=0 filled=0 orders_placed=0 settled=0 cash=1258.45
+ scanned=1421 signals=0 filled=0 orders_placed=1 settled=0 cash=1258.45
 underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
-sharp lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
+sharp lane: orders_placed=1 bought_at_ask=0 pulled=0 skipped=
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ sharp_lane │ KXNFLGAME… │ no   │ 0.2300 │ 0.2444 │ 0.0113 │ 43   │ sharp     │
+│            │            │      │        │        │        │      │ lane      │
+│            │            │      │        │        │        │      │ longshot  │
+│            │            │      │        │        │        │      │ maker     │
+│            │            │      │        │        │        │      │ (at_bid)  │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
