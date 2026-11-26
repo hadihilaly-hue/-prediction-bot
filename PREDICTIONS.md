@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-26 17:28 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 20.
+Updated 2026-11-26 17:37 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 20.
 
 Brier (lower is better): strategy 0.2265 vs market price 0.2290.
 
@@ -52,6 +52,10 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-26 17:37 | sharp\_lane | KXUELGAME-26NOV26SPAAZA-AZA — YES: Kalshi says 39%, we say 40%; placed order at 39¢ | yes | 0.3900 | 0.4012 | +0.0112 | 25 | yes | open | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26SPAAZA-AZA |
+| 2026-11-26 17:37 | sharp\_lane | KXUELGAME-26NOV26OFIRSC-RSC — YES: Kalshi says 53%, we say 54%; placed order at 53¢ | yes | 0.5300 | 0.5402 | +0.0102 | 18 | yes | open | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26OFIRSC-RSC |
+| 2026-11-26 17:37 | sharp\_lane | Tie is the result — NO: Kalshi says 75%, we say 76%; placed order at 75¢ | no | 0.7500 | 0.7625 | +0.0125 | 13 | yes | open | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26NIJREN-TIE |
+| 2026-11-26 17:37 | sharp\_lane | Tie is the result — NO: Kalshi says 75%, we say 76%; placed order at 75¢ | no | 0.7500 | 0.7602 | +0.0102 | 13 | yes | open | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26CRYRSO-TIE |
 | 2026-11-26 17:27 | sharp\_lane | Brann wins — YES: Kalshi says 44%, we say 45%; placed order at 44¢ | yes | 0.4400 | 0.4538 | +0.0138 | 22 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26SKBAGF-SKB |
 | 2026-11-26 17:27 | sharp\_lane | Freiburg wins — YES: Kalshi says 54%, we say 55%; placed order at 54¢ | yes | 0.5400 | 0.5523 | +0.0123 | 18 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26SCFTWE-SCF |
 | 2026-11-26 17:27 | sharp\_lane | Nordsjaelland wins — YES: Kalshi says 39%, we say 41%; placed order at 39¢ | yes | 0.3900 | 0.4091 | +0.0191 | 25 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26NJAPAN-NJA |
