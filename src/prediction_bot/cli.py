@@ -79,6 +79,7 @@ from prediction_bot.pull_plan import (
 from prediction_bot.reference_quotes import poll_reference_quotes
 from prediction_bot.release_calendar import ReleaseCalendar
 from prediction_bot.series import SPORTSBOOK_SERIES
+from prediction_bot.sharp_lane import SharpLaneResult
 from prediction_bot.strategies import (
     STRATEGIES,
     SportsbookArbStrategy,
@@ -86,6 +87,7 @@ from prediction_bot.strategies import (
     Strategy,
 )
 from prediction_bot.teams import evaluable_feed
+from prediction_bot.underdog_lane import LaneResult
 from prediction_bot.venues.kalshi import KalshiClient
 from prediction_bot.venues.kalshi_auth import KalshiSigner
 from prediction_bot.venues.polymarket import PolymarketClient
@@ -856,23 +858,9 @@ def paper(
         if res.halted:
             console.print(f"[bold red]HALTED, no entries: {res.halted}[/bold red]")
         if res.lane is not None:
-            blocked = ", ".join(f"{k}={v}" for k, v in sorted(res.lane.blocked.items()))
-            console.print(
-                f"underdog lane: orders_placed={len(res.lane.orders_placed)}"
-                f" bought_at_ask={len(res.lane.filled)} pulled={res.lane.cancelled}"
-                f" skipped=[{blocked}]"
-            )
-            if res.lane.halted:
-                console.print(f"[bold red]{res.lane.halted}[/bold red]")
+            _print_lane("underdog lane", res.lane)
         if res.sharp_lane is not None:
-            blocked = ", ".join(f"{k}={v}" for k, v in sorted(res.sharp_lane.blocked.items()))
-            console.print(
-                f"sharp lane: orders_placed={len(res.sharp_lane.orders_placed)}"
-                f" bought_at_ask={len(res.sharp_lane.filled)} pulled={res.sharp_lane.cancelled}"
-                f" skipped=[{blocked}]"
-            )
-            if res.sharp_lane.halted:
-                console.print(f"[bold red]{res.sharp_lane.halted}[/bold red]")
+            _print_lane("sharp lane", res.sharp_lane)
         _print_signals([*res.acted, *res.orders_placed])
         if trigger is not None or plan is not None or (cycles and n >= cycles):
             break
@@ -1755,6 +1743,21 @@ def _days_left_in_month(now: datetime) -> int:
         tzinfo=timezone.utc,
     )
     return max(1, math.ceil((next_month - now.astimezone(timezone.utc)).total_seconds() / 86400))
+
+
+def _print_lane(name: str, lane: LaneResult | SharpLaneResult) -> None:
+    """One summary line per lane. Printed without markup: Rich would read the skip list
+    `[reason=n, ...]` as a style tag and drop it."""
+    blocked = ", ".join(f"{k}={v}" for k, v in sorted(lane.blocked.items()))
+    console.print(
+        f"{name}: orders_placed={len(lane.orders_placed)}"
+        f" bought_at_ask={len(lane.filled)} pulled={lane.cancelled}"
+        f" skipped=[{blocked}]",
+        markup=False,
+        highlight=False,
+    )
+    if lane.halted:
+        console.print(lane.halted, style="bold red", markup=False, highlight=False)
 
 
 def _print_signals(signals: list[Signal]) -> None:
