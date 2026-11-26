@@ -104,8 +104,10 @@ def test_live_ncaaf_market_alias_spot_checks(
     assert kalshi_name_ok("KXNCAAFGAME", team_id, title)
 
 
-def test_appalachian_short_name_without_an_exact_market_pair_fails_closed() -> None:
-    assert team_for_code("KXNCAAFGAME", "APP") is None
+def test_short_name_without_an_exact_market_pair_fails_closed() -> None:
+    # Alabama St. (ALST) has only prefix candidates (Alabama State Hornets, ...), no exact
+    # pairing. APP was the example until the 2026-11-25 alias run paired it.
+    assert team_for_code("KXNCAAFGAME", "ALST") is None
 
 
 def test_completed_pro_league_alias_coverage() -> None:
@@ -152,3 +154,16 @@ def test_alias_validation_rejects_code_and_name_collisions() -> None:
         _validate_aliases(duplicate_code)
     with pytest.raises(ValueError, match="Odds name"):
         _validate_aliases(duplicate_name)
+
+
+def test_2026_11_25_alias_run_additions() -> None:
+    """Spot checks from reports/team_aliases/2026-11-25 (verified pairings only)."""
+    for series, code, team_id in (
+        ("KXNCAAFGAME", "APP", "appalachian-state-mountaineers"),
+        ("KXNCAAFGAME", "UTEP", "utep-miners"),
+        ("KXNCAAMBGAME", "GONZ", "gonzaga-bulldogs"),
+        ("KXNCAAMBGAME", "SJU", "st-john-s-red-storm"),
+        ("KXUECLGAME", "HOM", "hearts"),
+        ("KXBUNDESLIGAGAME", "PAD", "sc-paderborn"),
+    ):
+        assert team_for_code(series, code) == team_id
