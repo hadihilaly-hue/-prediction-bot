@@ -62,7 +62,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Davidson` (38 events)
 - `Dayton` (38 events)
 - `Delaware State` (46 events)
-- `Deportivo Alavés` (8 events)
+- `Deportivo Alavés` (9 events)
 - `Drake` (23 events)
 - `Duquesne` (29 events)
 - `ES Troyes AC` (16 events)
@@ -191,7 +191,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `RC Celta de Vigo` (12 events)
 - `RC Deportivo A Coruña` (12 events)
 - `RC Strasbourg Alsace` (16 events)
-- `RCD Espanyol de Barcelona` (4 events)
+- `RCD Espanyol de Barcelona` (5 events)
 - `Racing Club de Lens` (53 events)
 - `Rayo Vallecano de Madrid` (8 events)
 - `Real Betis Balompié` (57 events)
@@ -332,6 +332,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXEPLGAME-26NOV29SUNTOT` | no_market | 5 | 2026-11-26T00:17 |
 | `KXLALIGAGAME-26DEC02BARATM` | no_market | 2 | 2026-11-26T00:17 |
 | `KXLALIGAGAME-26DEC02RSORMA` | no_market | 3 | 2026-11-26T00:17 |
+| `KXLALIGAGAME-26DEC04ALAESP` | no_market | 1 | 2026-11-26T23:47 |
 | `KXLALIGAGAME-26NOV23LEVELC` | no_market | 1 | 2026-11-23T08:47 |
 | `KXLALIGAGAME-26NOV27LEVSAN` | no_market | 4 | 2026-11-26T00:17 |
 | `KXLALIGAGAME-26NOV28ELCATM` | no_market | 4 | 2026-11-26T00:17 |
