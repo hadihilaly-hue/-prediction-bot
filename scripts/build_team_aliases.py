@@ -21,7 +21,12 @@ from prediction_bot.odds import (
     best_team,
     team_match_score,
 )
-from prediction_bot.teams import kalshi_name_ok, team_for_code, team_for_odds_name
+from prediction_bot.teams import (
+    kalshi_name_ok,
+    mapped_odds_names,
+    team_for_code,
+    team_for_odds_name,
+)
 from prediction_bot.venues.kalshi import KalshiClient
 
 ODDS_API_BASE = "https://api.the-odds-api.com/v4"
@@ -265,6 +270,13 @@ def build_alias_proposal(
                 if isinstance(item.get("full_name"), str) and item["full_name"]
             }
         )
+        if participants is None:
+            # The CI run reads only the free /events list, never /participants, so
+            # without this the prefix pairing below never ran. Fall back to every name
+            # seen in those events plus the names teams.json already maps. A prefix
+            # candidate still becomes an alias only when both legs pair to exactly one
+            # same-ET-date game, and a code that pairs to two names stays unmapped.
+            participant_names = sorted(seen_names | (mapped_odds_names(sport) or set()))
         prefix_candidates_by_code: dict[str, set[str]] = defaultdict(set)
         prefix_paired_events: set[str] = set()
         for team_markets in codes_by_event.values():

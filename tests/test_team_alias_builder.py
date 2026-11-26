@@ -463,3 +463,90 @@ def test_report_includes_unmatched_mappings_and_credits() -> None:
     assert "LAC" in text
     assert "Los Angeles Chargers" in text
     assert "x-requests-last=0" in text
+
+
+def _ncaab_event(ticker: str, legs: list[tuple[str, str]]) -> dict[str, object]:
+    return {
+        "event_ticker": ticker,
+        "markets": [{"ticker": f"{ticker}-{code}", "yes_sub_title": name} for code, name in legs],
+    }
+
+
+def test_prefix_pairing_runs_without_participants_list(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # The CI run passes no /participants list; event names must feed the prefix pass.
+    monkeypatch.setattr(alias_builder, "_market_team", lambda name, rules, candidates: None)
+    ticker = "KXNCAAMBGAME-26NOV29ALSTAMCC"
+    kalshi = {
+        "KXNCAAMBGAME": [
+            _ncaab_event(ticker, [("ALST", "Alabama St."), ("AMCC", "Texas A&M-Corpus Christi")])
+        ]
+    }
+    odds = {
+        "basketball_ncaab": [
+            {
+                "home_team": "Alabama State Hornets",
+                "away_team": "Texas A&M-Corpus Christi Islanders",
+                "commence_time": "2026-11-29T20:00:00Z",
+            },
+            {
+                "home_team": "Alabama A&M Bulldogs",
+                "away_team": "Grambling St Tigers",
+                "commence_time": "2026-11-29T22:00:00Z",
+            },
+        ]
+    }
+
+    proposal, report = build_alias_proposal(kalshi, odds, None, {"KXNCAAMBGAME"})
+
+    teams = proposal["basketball_ncaab"]
+    assert teams["alabama-state-hornets"]["kalshi_codes"] == ["ALST"]
+    assert teams["texas-a-m-corpus-christi-islanders"]["kalshi_codes"] == ["AMCC"]
+    assert "ALST" not in report["basketball_ncaab"]["codes_unmatched"]
+
+
+def test_prefix_fallback_without_participants_still_needs_a_unique_game(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # Unmapped codes: "Zeta" prefixes two Odds names that both meet "Omega" that day.
+    monkeypatch.setattr(alias_builder, "_market_team", lambda name, rules, candidates: None)
+    ticker = "KXNCAAMBGAME-26NOV29QXAQXB"
+    kalshi = {"KXNCAAMBGAME": [_ncaab_event(ticker, [("QXA", "Zeta"), ("QXB", "Omega")])]}
+    odds = {
+        "basketball_ncaab": [
+            {
+                "home_team": "Zeta Owls",
+                "away_team": "Omega Hawks",
+                "commence_time": "2026-11-29T20:00:00Z",
+            },
+            {
+                "home_team": "Zeta State Bears",
+                "away_team": "Omega Hawks",
+                "commence_time": "2026-11-29T23:00:00Z",
+            },
+        ]
+    }
+
+    proposal, report = build_alias_proposal(kalshi, odds, None, {"KXNCAAMBGAME"})
+
+    assert {"QXA", "QXB"} <= set(report["basketball_ncaab"]["codes_unmatched"])
+    assert all(
+        not {"QXA", "QXB"} & set(t["kalshi_codes"]) for t in proposal["basketball_ncaab"].values()
+    )
+
+
+def test_prefix_fallback_without_participants_needs_both_legs(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(alias_builder, "_market_team", lambda name, rules, candidates: None)
+    ticker = "KXNCAAMBGAME-26NOV29ALSTZZZ"
+    kalshi = {"KXNCAAMBGAME": [_ncaab_event(ticker, [("ALST", "Alabama St."), ("ZZZ", "Nowhere")])]}
+    odds = {
+        "basketball_ncaab": [
+            {
+                "home_team": "Alabama State Hornets",
+                "away_team": "Jackson State Tigers",
+                "commence_time": "2026-11-29T20:00:00Z",
+            }
+        ]
+    }
+
+    proposal, report = build_alias_proposal(kalshi, odds, None, {"KXNCAAMBGAME"})
+
+    assert "ALST" in report["basketball_ncaab"]["codes_unmatched"]
+    assert all("ALST" not in t["kalshi_codes"] for t in proposal["basketball_ncaab"].values())
