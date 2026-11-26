@@ -3,24 +3,24 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │ 1219.75 │
-│ open positions       │      22 │
-│ open cost            │  380.31 │
-│ settled fills        │     108 │
-│ wins                 │      33 │
-│ realized pnl         │  600.06 │
+│ cash                 │ 1444.75 │
+│ open positions       │      18 │
+│ open cost            │  312.56 │
+│ settled fills        │     112 │
+│ wins                 │      36 │
+│ realized pnl         │  757.31 │
 │ fees paid            │   79.66 │
-│ brier (strategy)     │  0.2217 │
-│ brier (market price) │  0.2239 │
+│ brier (strategy)     │  0.2294 │
+│ brier (market price) │  0.2322 │
 └──────────────────────┴─────────┘
                                   Per strategy                                  
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
 ┃ strategy     ┃ settled ┃ wins ┃ realized pnl ┃  fees ┃  brier ┃ market brier ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ sharp_lane   │       0 │    0 │         0.00 │  0.00 │      - │            - │
+│ sharp_lane   │       1 │    1 │        15.25 │  0.00 │ 0.3586 │       0.3721 │
 │ sportsbook_… │      62 │   18 │       176.90 │ 42.09 │ 0.1945 │       0.1951 │
 │ sportsbook_… │       5 │    3 │       -34.79 │  2.49 │ 0.2977 │       0.2760 │
-│ underdog_va… │      41 │   12 │       457.95 │ 35.08 │ 0.2490 │       0.2539 │
+│ underdog_va… │      44 │   14 │       599.95 │ 35.08 │ 0.2620 │       0.2680 │
 └──────────────┴─────────┴──────┴──────────────┴───────┴────────┴──────────────┘
                                    Per league                                   
 ┏━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
@@ -36,7 +36,7 @@
 │ KXNHLGAME     │    0 │       4 │    0 │       -79.22 │ 0.1013 │       0.0752 │
 │ KXUCLGAME     │    0 │       3 │    0 │       -32.04 │ 0.0280 │       0.0203 │
 │ KXUECLGAME    │    2 │       0 │    0 │         0.00 │      - │            - │
-│ KXUELGAME     │    5 │       2 │    0 │       -35.00 │ 0.0405 │       0.0308 │
+│ KXUELGAME     │    1 │       6 │    3 │       122.25 │ 0.2714 │       0.2796 │
 │ KXUFCFIGHT    │    0 │       2 │    2 │       164.02 │ 0.6503 │       0.6889 │
 └───────────────┴──────┴─────────┴──────┴──────────────┴────────┴──────────────┘
                                  Open positions                                 
@@ -98,22 +98,7 @@
 │ Freiburg     │ Freiburg vs  │ yes  │ 18    │ 9.72  │ 0.552    │ KXUECLGAME-… │
 │ wins         │ Enschede     │      │       │       │          │              │
 │              │ (Nov 26)     │      │       │       │          │              │
-│ Juventus     │ Juventus vs  │ no   │ 100   │ 18.00 │ 0.202    │ KXUELGAME-2… │
-│ does NOT win │ Omonia       │      │       │       │          │              │
-│              │ Nicosia (Nov │      │       │       │          │              │
-│              │ 26)          │      │       │       │          │              │
 │ Anderlecht   │ OFI Crete vs │ yes  │ 18    │ 9.54  │ 0.540    │ KXUELGAME-2… │
 │ wins         │ Anderlecht   │      │       │       │          │              │
-│              │ (Nov 26)     │      │       │       │          │              │
-│ Lyon does    │ Lyon vs      │ no   │ 100   │ 18.00 │ 0.198    │ KXUELGAME-2… │
-│ NOT win      │ Lillestroem  │      │       │       │          │              │
-│              │ (Nov 26)     │      │       │       │          │              │
-│ Alkmaar wins │ Sparta       │ yes  │ 25    │ 9.75  │ 0.401    │ KXUELGAME-2… │
-│              │ Prague vs    │      │       │       │          │              │
-│              │ Alkmaar (Nov │      │       │       │          │              │
-│              │ 26)          │      │       │       │          │              │
-│ Sunderland   │ Sunderland   │ no   │ 100   │ 22.00 │ 0.245    │ KXUELGAME-2… │
-│ does NOT win │ vs           │      │       │       │          │              │
-│              │ Jagiellonia  │      │       │       │          │              │
 │              │ (Nov 26)     │      │       │       │          │              │
 └──────────────┴──────────────┴──────┴───────┴───────┴──────────┴──────────────┘
