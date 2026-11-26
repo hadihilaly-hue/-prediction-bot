@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-26 17:18 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 20.
+Updated 2026-11-26 17:28 UTC. Cash **$1258.45** (started $1000.00), realized PnL **$635.06**, fees $79.66, settled 106, wins 33, open positions 20.
 
 Brier (lower is better): strategy 0.2265 vs market price 0.2290.
 
@@ -52,6 +52,13 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-26 17:27 | sharp\_lane | Brann wins — YES: Kalshi says 44%, we say 45%; placed order at 44¢ | yes | 0.4400 | 0.4538 | +0.0138 | 22 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26SKBAGF-SKB |
+| 2026-11-26 17:27 | sharp\_lane | Freiburg wins — YES: Kalshi says 54%, we say 55%; placed order at 54¢ | yes | 0.5400 | 0.5523 | +0.0123 | 18 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26SCFTWE-SCF |
+| 2026-11-26 17:27 | sharp\_lane | Nordsjaelland wins — YES: Kalshi says 39%, we say 41%; placed order at 39¢ | yes | 0.3900 | 0.4091 | +0.0191 | 25 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26NJAPAN-NJA |
+| 2026-11-26 17:27 | sharp\_lane | Tie is the result — YES: Kalshi says 23%, we say 25%; placed order at 23¢ | yes | 0.2300 | 0.2453 | +0.0153 | 43 | yes | open | sharp lane longshot maker \(at\_bid\) | KXUECLGAME-26NOV26IBEGET-TIE |
+| 2026-11-26 17:27 | sharp\_lane | Trabzonspor wins — YES: Kalshi says 57%, we say 58%; placed order at 57¢ | yes | 0.5700 | 0.5833 | +0.0133 | 17 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26CSKTRA-TRA |
+| 2026-11-26 17:27 | sharp\_lane | Banja Luka wins — YES: Kalshi says 12%, we say 13%; placed order at 12¢ | yes | 0.1200 | 0.1323 | +0.0123 | 83 | yes | open | sharp lane longshot maker \(at\_bid\) | KXUECLGAME-26NOV26BBLATA-BBL |
+| 2026-11-26 17:27 | sharp\_lane | Ajax wins — YES: Kalshi says 79%, we say 81%; placed order at 79¢ | yes | 0.7900 | 0.8111 | +0.0211 | 12 | yes | open | sharp lane main maker \(at\_bid\) | KXUECLGAME-26NOV26AJATHU-AJA |
 | 2026-11-26 12:18 | sharp\_lane | Malaga wins — YES: Kalshi says 18%, we say 19%; placed order at 18¢ | yes | 0.1800 | 0.1935 | +0.0109 | 55 | yes | open | sharp lane longshot maker \(at\_bid\) | KXLALIGAGAME-26NOV28MCFATH-MCF |
 | 2026-11-26 12:18 | sharp\_lane | Elche wins — YES: Kalshi says 13%, we say 14%; placed order at 13¢ | yes | 0.1300 | 0.1433 | +0.0114 | 76 | yes | open | sharp lane longshot maker \(at\_bid\) | KXLALIGAGAME-26NOV28ELCATM-ELC |
 | 2026-11-26 12:18 | sharp\_lane | Tie is the result — NO: Kalshi says 78%, we say 79%; placed order at 78¢ | no | 0.7800 | 0.7939 | +0.0109 | 12 | yes | open | sharp lane main maker \(at\_bid\) | KXLALIGAGAME-26DEC07SEVMCF-TIE |
