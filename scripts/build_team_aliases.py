@@ -106,7 +106,9 @@ def _prefix_tokens(name: str) -> list[str]:
     expanded = re.sub(r"\bst\.(?=\s|$)", "State", name, flags=re.IGNORECASE)
     normalized = _normalise(expanded)
     normalized = _ALIASES.get(normalized, normalized)
-    return re.findall(r"[a-z0-9]+", normalized)
+    # The Odds API writes college names as "Appalachian St Mountaineers" while
+    # Kalshi writes "Appalachian St."; read a bare "st" token as "state" on both sides.
+    return ["state" if token == "st" else token for token in re.findall(r"[a-z0-9]+", normalized)]
 
 
 def _participant_prefix_candidates(

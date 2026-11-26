@@ -34,6 +34,13 @@ def test_prefix_token_normalization_keeps_parenthetical_tokens() -> None:
     assert alias_builder._prefix_tokens("Texas A&M") == ["texas", "a", "m"]
 
 
+def test_prefix_tokens_read_bare_st_as_state_on_both_sides() -> None:
+    kalshi = alias_builder._prefix_tokens("Appalachian St.")
+    odds = alias_builder._prefix_tokens("Appalachian St Mountaineers")
+    assert odds[: len(kalshi)] == kalshi == ["appalachian", "state"]
+    assert alias_builder._prefix_tokens("Ball State Cardinals")[:2] == ["ball", "state"]
+
+
 def test_alias_proposal_requires_both_legs_and_unique_date_pairing() -> None:
     kalshi = {
         "KXNFLGAME": [
@@ -550,3 +557,28 @@ def test_prefix_fallback_without_participants_needs_both_legs(monkeypatch) -> No
 
     assert "ALST" in report["basketball_ncaab"]["codes_unmatched"]
     assert all("ALST" not in t["kalshi_codes"] for t in proposal["basketball_ncaab"].values())
+
+
+def test_prefix_pairing_matches_odds_st_abbreviation(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(alias_builder, "_market_team", lambda name, rules, candidates: None)
+    ticker = "KXNCAAMBGAME-26NOV29QXCQXD"
+    kalshi = {"KXNCAAMBGAME": [_ncaab_event(ticker, [("QXC", "Zeta St."), ("QXD", "Omega")])]}
+    odds = {
+        "basketball_ncaab": [
+            {
+                "home_team": "Zeta St Owls",
+                "away_team": "Omega Hawks",
+                "commence_time": "2026-11-29T20:00:00Z",
+            },
+            {
+                "home_team": "Zeta Tigers",
+                "away_team": "Delta Rams",
+                "commence_time": "2026-11-29T20:00:00Z",
+            },
+        ]
+    }
+
+    proposal, _ = build_alias_proposal(kalshi, odds, None, {"KXNCAAMBGAME"})
+
+    assert proposal["basketball_ncaab"]["zeta-st-owls"]["kalshi_codes"] == ["QXC"]
+    assert proposal["basketball_ncaab"]["omega-hawks"]["kalshi_codes"] == ["QXD"]
