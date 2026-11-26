@@ -384,16 +384,21 @@ class Engine:
         res.orders_placed.extend(lane.orders_placed)
 
     def _run_sharp_lane(self, res: CycleResult) -> None:
-        """Enter this cycle's sharp-backed sides (see `sharp_lane`)."""
+        """Enter this cycle's sharp-backed sides (see `sharp_lane`). A cycle with no
+        strategy that feeds the lane (a book-scanner run) skips it entirely."""
         candidates = []
         priced: set[str] = set()
+        fed = False
         for strat in self.strategies:
             get = getattr(strat, "seen_sharp_lane_candidates", None)
             get_events = getattr(strat, "seen_sharp_lane_events", None)
             if get is None or get_events is None:
                 continue
+            fed = True
             candidates.extend(get())
             priced.update(get_events())
+        if not fed:
+            return
         lane = run_sharp_lane(
             self.settings, self.ledger, candidates, priced_events=priced, now=self.clock()
         )
