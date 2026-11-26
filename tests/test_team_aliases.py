@@ -180,3 +180,16 @@ def test_unique_prefix_alias_additions() -> None:
         ("KXUECLGAME", "HAJ", "hajduk-split"),
     ):
         assert team_for_code(series, code) == team_id
+
+
+def test_2026_11_26_alias_run_additions() -> None:
+    """From reports/team_aliases/2026-11-26: both legs paired to one same-day game."""
+    for series, code, team_id in (
+        ("KXNCAAFGAME", "ULL", "louisiana-ragin-cajuns"),
+        ("KXNCAAMBGAME", "KU", "kansas-jayhawks"),
+        ("KXNCAAMBGAME", "HOU", "houston-cougars"),
+        ("KXNCAAMBGAME", "WICH", "wichita-st-shockers"),
+        ("KXNCAAMBGAME", "UNT", "north-texas-mean-green"),
+        ("KXNCAAMBGAME", "PRIN", "princeton-tigers"),
+    ):
+        assert team_for_code(series, code) == team_id

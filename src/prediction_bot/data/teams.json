@@ -2760,6 +2760,17 @@
       "odds_names": [
         "Yale University Bulldogs"
       ]
+    },
+    "louisiana-ragin-cajuns": {
+      "kalshi_codes": [
+        "ULL"
+      ],
+      "kalshi_names": [
+        "Louisiana"
+      ],
+      "odds_names": [
+        "Louisiana Ragin Cajuns"
+      ]
     }
   },
   "americanfootball_nfl": {
@@ -5811,6 +5822,171 @@
       ],
       "odds_names": [
         "Yale Bulldogs"
+      ]
+    },
+    "boise-state-broncos": {
+      "kalshi_codes": [
+        "BSU"
+      ],
+      "kalshi_names": [
+        "Boise St."
+      ],
+      "odds_names": [
+        "Boise State Broncos"
+      ]
+    },
+    "fresno-st-bulldogs": {
+      "kalshi_codes": [
+        "FRES"
+      ],
+      "kalshi_names": [
+        "Fresno St."
+      ],
+      "odds_names": [
+        "Fresno St Bulldogs"
+      ]
+    },
+    "houston-cougars": {
+      "kalshi_codes": [
+        "HOU"
+      ],
+      "kalshi_names": [
+        "Houston"
+      ],
+      "odds_names": [
+        "Houston Cougars"
+      ]
+    },
+    "kansas-jayhawks": {
+      "kalshi_codes": [
+        "KU"
+      ],
+      "kalshi_names": [
+        "Kansas"
+      ],
+      "odds_names": [
+        "Kansas Jayhawks"
+      ]
+    },
+    "louisiana-tech-bulldogs": {
+      "kalshi_codes": [
+        "LT"
+      ],
+      "kalshi_names": [
+        "Louisiana Tech"
+      ],
+      "odds_names": [
+        "Louisiana Tech Bulldogs"
+      ]
+    },
+    "marquette-golden-eagles": {
+      "kalshi_codes": [
+        "MARQ"
+      ],
+      "kalshi_names": [
+        "Marquette"
+      ],
+      "odds_names": [
+        "Marquette Golden Eagles"
+      ]
+    },
+    "missouri-st-bears": {
+      "kalshi_codes": [
+        "MOSU"
+      ],
+      "kalshi_names": [
+        "Missouri St."
+      ],
+      "odds_names": [
+        "Missouri St Bears"
+      ]
+    },
+    "north-texas-mean-green": {
+      "kalshi_codes": [
+        "UNT"
+      ],
+      "kalshi_names": [
+        "North Texas"
+      ],
+      "odds_names": [
+        "North Texas Mean Green"
+      ]
+    },
+    "oakland-golden-grizzlies": {
+      "kalshi_codes": [
+        "OAK"
+      ],
+      "kalshi_names": [
+        "Oakland"
+      ],
+      "odds_names": [
+        "Oakland Golden Grizzlies"
+      ]
+    },
+    "old-dominion-monarchs": {
+      "kalshi_codes": [
+        "ODU"
+      ],
+      "kalshi_names": [
+        "Old Dominion"
+      ],
+      "odds_names": [
+        "Old Dominion Monarchs"
+      ]
+    },
+    "oral-roberts-golden-eagles": {
+      "kalshi_codes": [
+        "ORU"
+      ],
+      "kalshi_names": [
+        "Oral Roberts"
+      ],
+      "odds_names": [
+        "Oral Roberts Golden Eagles"
+      ]
+    },
+    "princeton-tigers": {
+      "kalshi_codes": [
+        "PRIN"
+      ],
+      "kalshi_names": [
+        "Princeton"
+      ],
+      "odds_names": [
+        "Princeton Tigers"
+      ]
+    },
+    "washington-st-cougars": {
+      "kalshi_codes": [
+        "WSU"
+      ],
+      "kalshi_names": [
+        "Washington St."
+      ],
+      "odds_names": [
+        "Washington St Cougars"
+      ]
+    },
+    "western-kentucky-hilltoppers": {
+      "kalshi_codes": [
+        "WKU"
+      ],
+      "kalshi_names": [
+        "Western Kentucky"
+      ],
+      "odds_names": [
+        "Western Kentucky Hilltoppers"
+      ]
+    },
+    "wichita-st-shockers": {
+      "kalshi_codes": [
+        "WICH"
+      ],
+      "kalshi_names": [
+        "Wichita St."
+      ],
+      "odds_names": [
+        "Wichita St Shockers"
       ]
     }
   },
