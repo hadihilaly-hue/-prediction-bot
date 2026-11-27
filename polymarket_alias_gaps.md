@@ -75,7 +75,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Elon` (39 events)
 - `Everton FC` (66 events)
 - `FC Augsburg` (15 events)
-- `FC Barcelona` (77 events)
+- `FC Barcelona` (78 events)
 - `FC Bayern München` (70 events)
 - `FC Internazionale Milano` (55 events)
 - `FC Lorient` (16 events)
@@ -188,7 +188,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Presbyterian` (32 events)
 - `Princeton` (23 events)
 - `Purdue` (47 events)
-- `RC Celta de Vigo` (15 events)
+- `RC Celta de Vigo` (16 events)
 - `RC Deportivo A Coruña` (15 events)
 - `RC Strasbourg Alsace` (16 events)
 - `RCD Espanyol de Barcelona` (7 events)
@@ -197,7 +197,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Real Betis Balompié` (59 events)
 - `Real Madrid CF` (66 events)
 - `Real Racing Club` (5 events)
-- `Real Sociedad de Fútbol` (17 events)
+- `Real Sociedad de Fútbol` (18 events)
 - `Rhode Island` (32 events)
 - `Richmond` (30 events)
 - `Robert Morris` (23 events)
@@ -256,7 +256,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Valencia CF` (10 events)
 - `Valparaiso` (38 events)
 - `Villanova` (32 events)
-- `Villarreal CF` (70 events)
+- `Villarreal CF` (71 events)
 - `Virginia-Lynchburg` (11 events)
 - `Wagner` (23 events)
 - `Wake Forest` (44 events)
@@ -333,6 +333,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXLALIGAGAME-26DEC02BARATM` | no_market | 3 | 2026-11-27T00:17 |
 | `KXLALIGAGAME-26DEC02RSORMA` | no_market | 4 | 2026-11-27T00:17 |
 | `KXLALIGAGAME-26DEC04ALAESP` | no_market | 2 | 2026-11-27T00:17 |
+| `KXLALIGAGAME-26DEC05BARRCC` | no_market | 1 | 2026-11-27T23:47 |
 | `KXLALIGAGAME-26NOV23LEVELC` | no_market | 1 | 2026-11-23T08:47 |
 | `KXLALIGAGAME-26NOV27LEVSAN` | no_market | 5 | 2026-11-27T00:17 |
 | `KXLALIGAGAME-26NOV28ELCATM` | no_market | 5 | 2026-11-27T00:17 |
