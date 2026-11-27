@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-27 20:18 UTC. Cash **$1488.34** (started $1000.00), realized PnL **$739.98**, fees $79.71, settled 117, wins 39, open positions 14.
+Updated 2026-11-27 20:47 UTC. Cash **$1488.34** (started $1000.00), realized PnL **$739.98**, fees $79.71, settled 117, wins 39, open positions 14.
 
 Brier (lower is better): strategy 0.2251 vs market price 0.2275.
 
@@ -82,7 +82,7 @@ Per league (Kalshi series):
 | 2026-11-27 00:48 | sharp\_lane | Alabama wins — YES: Kalshi says 84%, we say 86%; placed order at 84¢ | yes | 0.8400 | 0.8644 | +0.0220 | 11 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28AUBALA-ALA |
 | 2026-11-27 00:48 | sharp\_lane | Arizona St. wins — NO: Kalshi says 72%, we say 74%; bought at 72¢ | no | 0.7200 | 0.7395 | +0.0160 | 13 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28ASUARIZ-ASU |
 | 2026-11-27 00:48 | sharp\_lane | Army wins — YES: Kalshi says 64%, we say 66%; placed order at 64¢ | yes | 0.6400 | 0.6599 | +0.0159 | 15 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28ARMYRICE-ARMY |
-| 2026-11-27 00:48 | sharp\_lane | Tulsa wins — YES: Kalshi says 50%, we say 52%; placed order at 50¢ | yes | 0.5000 | 0.5172 | +0.0128 | 20 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV27TLSAUTSA-TLSA |
+| 2026-11-27 00:48 | sharp\_lane | Tulsa wins — YES: Kalshi says 50%, we say 52%; placed order at 50¢ | yes | 0.5000 | 0.5172 | +0.0128 | 20 | yes | lost (no) | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV27TLSAUTSA-TLSA |
 | 2026-11-27 00:48 | sharp\_lane | Buffalo wins — YES: Kalshi says 71%, we say 74%; placed order at 71¢ | yes | 0.7100 | 0.7395 | +0.0259 | 14 | yes | WON (yes) | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV27BUFFAKR-BUFF |
 | 2026-11-26 17:37 | sharp\_lane | Alkmaar wins — YES: Kalshi says 39%, we say 40%; bought at 39¢ | yes | 0.3900 | 0.4012 | +0.0112 | 25 | yes | WON (yes) | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26SPAAZA-AZA |
 | 2026-11-26 17:37 | sharp\_lane | Anderlecht wins — YES: Kalshi says 53%, we say 54%; bought at 53¢ | yes | 0.5300 | 0.5402 | +0.0102 | 18 | yes | WON (yes) | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26OFIRSC-RSC |
