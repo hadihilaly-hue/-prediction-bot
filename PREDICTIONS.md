@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-27 14:18 UTC. Cash **$1488.34** (started $1000.00), realized PnL **$760.06**, fees $79.71, settled 116, wins 39, open positions 15.
+Updated 2026-11-27 14:48 UTC. Cash **$1488.34** (started $1000.00), realized PnL **$760.06**, fees $79.71, settled 116, wins 39, open positions 15.
 
 Brier (lower is better): strategy 0.2272 vs market price 0.2298.
 
@@ -48,6 +48,10 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-27 14:48 | sharp\_lane | KXEPLGAME-26NOV29SUNTOT-TOT — YES: Kalshi says 47%, we say 49%; placed order at 47¢ | yes | 0.4700 | 0.4855 | +0.0111 | 21 | yes | open | sharp lane main maker \(at\_bid\) | KXEPLGAME-26NOV29SUNTOT-TOT |
+| 2026-11-27 14:48 | sharp\_lane | KXEPLGAME-26NOV28LEECOV-COV — YES: Kalshi says 13%, we say 14%; placed order at 13¢ | yes | 0.1300 | 0.1442 | +0.0122 | 76 | yes | open | sharp lane longshot maker \(at\_bid\) | KXEPLGAME-26NOV28LEECOV-COV |
+| 2026-11-27 14:48 | sharp\_lane | Tie is the result — NO: Kalshi says 80%, we say 81%; placed order at 80¢ | no | 0.8000 | 0.8149 | +0.0121 | 12 | yes | open | sharp lane main maker \(at\_bid\) | KXEPLGAME-26DEC02LFCSUN-TIE |
+| 2026-11-27 14:48 | sharp\_lane | Chelsea wins — NO: Kalshi says 39%, we say 41%; placed order at 39¢ | no | 0.3900 | 0.4105 | +0.0163 | 25 | yes | open | sharp lane main maker \(at\_bid\) | KXEPLGAME-26DEC02CFCCRY-CFC |
 | 2026-11-27 00:48 | sharp\_lane | Virginia wins — NO: Kalshi says 56%, we say 59%; placed order at 56¢ | no | 0.5600 | 0.5875 | +0.0232 | 17 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UVAVT-UVA |
 | 2026-11-27 00:48 | sharp\_lane | Northern Illinois wins — YES: Kalshi says 62%, we say 65%; placed order at 62¢ | yes | 0.6200 | 0.6459 | +0.0218 | 16 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UTEPNIU-NIU |
 | 2026-11-27 00:48 | sharp\_lane | USC wins — YES: Kalshi says 67%, we say 69%; placed order at 67¢ | yes | 0.6700 | 0.6871 | +0.0132 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28USCUCLA-USC |
