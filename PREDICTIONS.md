@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-27 21:18 UTC. Cash **$1488.34** (started $1000.00), realized PnL **$739.98**, fees $79.71, settled 117, wins 39, open positions 14.
+Updated 2026-11-27 21:28 UTC. Cash **$1488.34** (started $1000.00), realized PnL **$739.98**, fees $79.71, settled 117, wins 39, open positions 14.
 
 Brier (lower is better): strategy 0.2251 vs market price 0.2275.
 
@@ -47,6 +47,8 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-27 21:27 | sharp\_lane | Seattle wins — YES: Kalshi says 43%, we say 45%; placed order at 43¢ | yes | 0.4300 | 0.4456 | +0.0113 | 23 | yes | open | sharp lane main maker \(at\_bid\) | KXNFLGAME-26NOV29SEASF-SEA |
+| 2026-11-27 21:27 | sharp\_lane | KXNFLGAME-26NOV29NYGIND-NYG — NO: Kalshi says 28%, we say 29%; placed order at 28¢ | no | 0.2800 | 0.2941 | +0.0106 | 35 | yes | open | sharp lane main maker \(at\_bid\) | KXNFLGAME-26NOV29NYGIND-NYG |
 | 2026-11-27 16:48 | sharp\_lane | Virginia wins — NO: Kalshi says 56%, we say 58%; placed order at 56¢ | no | 0.5600 | 0.5802 | +0.0159 | 17 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UVAVT-UVA |
 | 2026-11-27 16:48 | sharp\_lane | UCLA wins — NO: Kalshi says 64%, we say 66%; placed order at 64¢ | no | 0.6400 | 0.6564 | +0.0123 | 15 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28USCUCLA-UCLA |
 | 2026-11-27 16:48 | sharp\_lane | Colorado wins — YES: Kalshi says 52%, we say 54%; placed order at 52¢ | yes | 0.5200 | 0.5408 | +0.0164 | 19 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UCFCOLO-COLO |
