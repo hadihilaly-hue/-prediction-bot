@@ -3,13 +3,13 @@
 ┃ metric               ┃   value ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
-│ cash                 │ 1497.75 │
-│ open positions       │      14 │
-│ open cost            │  262.31 │
+│ cash                 │ 1488.34 │
+│ open positions       │      15 │
+│ open cost            │  271.72 │
 │ settled fills        │     116 │
 │ wins                 │      39 │
 │ realized pnl         │  760.06 │
-│ fees paid            │   79.66 │
+│ fees paid            │   79.71 │
 │ brier (strategy)     │  0.2272 │
 │ brier (market price) │  0.2298 │
 └──────────────────────┴─────────┘
@@ -17,7 +17,7 @@
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
 ┃ strategy     ┃ settled ┃ wins ┃ realized pnl ┃  fees ┃  brier ┃ market brier ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ sharp_lane   │       4 │    4 │        39.30 │  0.00 │ 0.2478 │       0.2594 │
+│ sharp_lane   │       4 │    4 │        39.30 │  0.05 │ 0.2478 │       0.2594 │
 │ sportsbook_… │      62 │   18 │       176.90 │ 42.09 │ 0.1945 │       0.1951 │
 │ sportsbook_… │       5 │    3 │       -34.79 │  2.49 │ 0.2977 │       0.2760 │
 │ underdog_va… │      45 │   14 │       578.65 │ 35.08 │ 0.2570 │       0.2624 │
@@ -31,7 +31,7 @@
 │ KXLIGUE1GAME  │    0 │       4 │    0 │       -30.98 │ 0.0239 │       0.0173 │
 │ KXMLBGAME     │    0 │       5 │    5 │       352.16 │ 0.5809 │       0.6401 │
 │ KXMLSGAME     │    1 │       3 │    1 │         1.50 │ 0.3838 │       0.1624 │
-│ KXNCAAFGAME   │    7 │      51 │   17 │       539.78 │ 0.2019 │       0.2103 │
+│ KXNCAAFGAME   │    8 │      51 │   17 │       539.78 │ 0.2019 │       0.2103 │
 │ KXNFLGAME     │    3 │      32 │    7 │      -361.60 │ 0.2009 │       0.1835 │
 │ KXNHLGAME     │    0 │       4 │    0 │       -79.22 │ 0.1013 │       0.0752 │
 │ KXUCLGAME     │    0 │       3 │    0 │       -32.04 │ 0.0280 │       0.0203 │
@@ -65,6 +65,9 @@
 │ Texas does   │ Texas vs     │ no   │ 100   │ 25.33 │ 0.282    │ KXNCAAFGAME… │
 │ NOT win      │ Texas A&M    │      │       │       │          │              │
 │              │ (Nov 27)     │      │       │       │          │              │
+│ Arizona St.  │ Arizona St.  │ no   │ 13    │ 9.41  │ 0.740    │ KXNCAAFGAME… │
+│ does NOT win │ vs Arizona   │      │       │       │          │              │
+│              │ (Nov 28)     │      │       │       │          │              │
 │ BYU does NOT │ Cincinnati   │ no   │ 100   │ 14.22 │ 0.161    │ KXNCAAFGAME… │
 │ win          │ vs BYU (Nov  │      │       │       │          │              │
 │              │ 28)          │      │       │       │          │              │
