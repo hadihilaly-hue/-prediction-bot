@@ -1,13 +1,13 @@
 # Paper-trading predictions
 
-Updated 2026-11-27 04:18 UTC. Cash **$1497.75** (started $1000.00), realized PnL **$781.36**, fees $79.66, settled 115, wins 39, open positions 15.
+Updated 2026-11-27 04:47 UTC. Cash **$1497.75** (started $1000.00), realized PnL **$760.06**, fees $79.66, settled 116, wins 39, open positions 14.
 
-Brier (lower is better): strategy 0.2292 vs market price 0.2321.
+Brier (lower is better): strategy 0.2272 vs market price 0.2298.
 
 - `sharp_lane`: settled 4, wins 4, realized PnL $39.30, Brier 0.2478 vs market 0.2594
 - `sportsbook_arb`: settled 62, wins 18, realized PnL $176.90, Brier 0.1945 vs market 0.1951
 - `sportsbook_v3`: settled 5, wins 3, realized PnL $-34.79, Brier 0.2977 vs market 0.2760
-- `underdog_value`: settled 44, wins 14, realized PnL $599.95, Brier 0.2620 vs market 0.2680
+- `underdog_value`: settled 45, wins 14, realized PnL $578.65, Brier 0.2570 vs market 0.2624
 
 Per league (Kalshi series):
 
@@ -16,7 +16,7 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 1, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 8, settled 50, wins 17, realized PnL $561.08, Brier 0.2056 vs market 0.2147
+- `KXNCAAFGAME`: open 7, settled 51, wins 17, realized PnL $539.78, Brier 0.2019 vs market 0.2103
 - `KXNFLGAME`: open 3, settled 32, wins 7, realized PnL $-361.60, Brier 0.2009 vs market 0.1835
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUCLGAME`: open 0, settled 3, wins 0, realized PnL $-32.04, Brier 0.0280 vs market 0.0203
@@ -24,7 +24,7 @@ Per league (Kalshi series):
 - `KXUELGAME`: open 0, settled 7, wins 4, realized PnL $130.71, Brier 0.2695 vs market 0.2777
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (15)
+## Open positions (14)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
@@ -33,7 +33,6 @@ Per league (Kalshi series):
 | Barcelona does NOT win | Deportivo De La Coruna vs Barcelona \(Nov 29\) | 100 | $22.17 | 24% | `KXLALIGAGAME-26NOV29DEPBAR-BAR` |
 | Tie is the result | Columbus vs Miami \(Nov 27\) | 100 | $23.00 | 24% | `KXMLSGAME-26NOV27CLBMIA-TIE` |
 | Boise St. does NOT win | San Diego St. vs Boise St. \(Dec 4\) | 100 | $12.19 | 15% | `KXNCAAFGAME-26DEC04SDSUBSU-BSU` |
-| Texas Tech does NOT win | TCU vs Texas Tech \(Nov 26\) | 100 | $21.30 | 25% | `KXNCAAFGAME-26NOV26TCUTTU-TTU` |
 | Akron wins | Buffalo vs Akron \(Nov 27\) | 100 | $20.08 | 22% | `KXNCAAFGAME-26NOV27BUFFAKR-AKR` |
 | Texas does NOT win | Texas vs Texas A&M \(Nov 27\) | 100 | $25.33 | 28% | `KXNCAAFGAME-26NOV27TEXTXAM-TEX` |
 | BYU does NOT win | Cincinnati vs BYU \(Nov 28\) | 100 | $14.22 | 16% | `KXNCAAFGAME-26NOV28CINBYU-BYU` |
@@ -179,7 +178,7 @@ Per league (Kalshi series):
 | 2026-11-19 20:17 | underdog\_value | Tie is the result — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2406 | +0.0206 | 100 | yes | lost (no) | underdog \(4.5x payout\); Draw consensus 0.241 from 3 books \(Crystal Palace vs Real Sociedad\) | KXUELGAME-26NOV26CRYRSO-TIE |
 | 2026-11-19 20:17 | underdog\_value | Besiktas wins — NO: Kalshi says 19%, we say 22%; bought at 19¢ | no | 0.1900 | 0.2160 | +0.0260 | 100 | yes | lost (yes) | underdog \(5.3x payout\); Besiktas JK consensus 0.784 from 3 books \(Besiktas JK vs Hapoel Be'er Sheva\) | KXUELGAME-26NOV26BESHBS-BES |
 | 2026-11-19 00:18 | underdog\_value | Texas wins — NO: Kalshi says 25%, we say 28%; bought at 25¢ | no | 0.2500 | 0.2821 | +0.0221 | 100 | yes | open | underdog \(4.0x payout\); Texas Longhorns consensus 0.718 from 2 books \(Texas A&M Aggies vs Texas Longhorns\) | KXNCAAFGAME-26NOV27TEXTXAM-TEX |
-| 2026-11-18 23:48 | underdog\_value | Texas Tech wins — NO: Kalshi says 21%, we say 25%; bought at 21¢ | no | 0.2100 | 0.2495 | +0.0295 | 100 | yes | open | underdog \(4.8x payout\); Texas Tech Red Raiders consensus 0.750 from 1 books \(Texas Tech Red Raiders vs TCU Horned Frogs\) | KXNCAAFGAME-26NOV26TCUTTU-TTU |
+| 2026-11-18 23:48 | underdog\_value | Texas Tech wins — NO: Kalshi says 21%, we say 25%; bought at 21¢ | no | 0.2100 | 0.2495 | +0.0295 | 100 | yes | lost (yes) | underdog \(4.8x payout\); Texas Tech Red Raiders consensus 0.750 from 1 books \(Texas Tech Red Raiders vs TCU Horned Frogs\) | KXNCAAFGAME-26NOV26TCUTTU-TTU |
 | 2026-11-18 22:17 | underdog\_value | Michigan wins — YES: Kalshi says 20%, we say 24%; placed order at 20¢ | yes | 0.2000 | 0.2351 | +0.0251 | 100 | yes | open | underdog \(5.0x payout\); Michigan Wolverines consensus 0.235 from 1 books \(Ohio State Buckeyes vs Michigan Wolverines\) | KXNCAAFGAME-26NOV28MICHOSU-MICH |
 | 2026-11-18 20:18 | underdog\_value | Barcelona wins — NO: Kalshi says 10%, we say 13%; bought at 10¢ | no | 0.1000 | 0.1262 | +0.0162 | 100 | yes | lost (yes) | underdog \(10.0x payout\); Barcelona consensus 0.874 from 3 books \(Sabah FK vs Barcelona\) | KXUCLGAME-26NOV25SBHBAR-BAR |
 | 2026-11-18 20:18 | underdog\_value | Lille wins — YES: Kalshi says 11%, we say 13%; placed order at 11¢ | yes | 0.1100 | 0.1307 | +0.0107 | 100 | yes | WON (yes) | underdog \(9.1x payout\); Lille consensus 0.131 from 3 books \(Lille vs Bayern Munich\) | KXUCLGAME-26NOV25LILBMU-LIL |

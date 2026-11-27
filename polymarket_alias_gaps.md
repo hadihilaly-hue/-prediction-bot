@@ -29,7 +29,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Ball State` (31 events)
 - `Bayer 04 Leverkusen` (22 events)
 - `Bethune-Cookman` (38 events)
-- `Boise State` (61 events)
+- `Boise State` (62 events)
 - `Borussia Mönchengladbach` (12 events)
 - `Brentford FC` (54 events)
 - `Brighton & Hove Albion FC` (72 events)
@@ -113,7 +113,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Iowa State` (55 events)
 - `Ipswich Town FC` (37 events)
 - `Jackson State` (46 events)
-- `Jacksonville State` (67 events)
+- `Jacksonville State` (68 events)
 - `James Madison` (32 events)
 - `Kansas State` (77 events)
 - `Kennesaw State` (77 events)
@@ -210,7 +210,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Sacred Heart` (23 events)
 - `Samford` (37 events)
 - `San Diego` (28 events)
-- `San Diego State` (61 events)
+- `San Diego State` (62 events)
 - `San Jose State` (41 events)
 - `Sevilla FC` (10 events)
 - `South Alabama` (43 events)
@@ -367,6 +367,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXMLSGAME-26NOV28LAFCSTL` | no_market | 2 | 2026-11-25T00:17 |
 | `KXMLSGAME-26NOV28PHINE` | no_market | 1 | 2026-11-24T00:57 |
 | `KXMLSGAME-26NOV28PORDAL` | no_market | 2 | 2026-11-25T00:17 |
+| `KXNCAAFGAME-26DEC04SDSUBSU` | no_market | 1 | 2026-11-27T04:47 |
 | `KXNCAAFGAME-26NOV14ASUUCF` | no_market | 1 | 2026-11-14T00:17 |
 | `KXNCAAFGAME-26NOV14AUBMSST` | no_market | 1 | 2026-11-14T00:17 |
 | `KXNCAAFGAME-26NOV14BAYBYU` | no_market | 1 | 2026-11-14T04:47 |
