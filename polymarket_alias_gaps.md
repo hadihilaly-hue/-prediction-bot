@@ -17,19 +17,19 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Alabama State` (46 events)
 - `Alcorn State` (46 events)
 - `Angers SCO` (4 events)
-- `Appalachian State` (44 events)
-- `Arizona State` (55 events)
-- `Arkansas State` (66 events)
+- `Appalachian State` (48 events)
+- `Arizona State` (61 events)
+- `Arkansas State` (78 events)
 - `Arkansas-Pine Bluff` (45 events)
 - `Arsenal FC` (123 events)
 - `Aston Villa FC` (113 events)
 - `Athletic Club` (15 events)
 - `Austin Peay` (70 events)
 - `BV Borussia 09 Dortmund` (71 events)
-- `Ball State` (23 events)
+- `Ball State` (31 events)
 - `Bayer 04 Leverkusen` (22 events)
 - `Bethune-Cookman` (38 events)
-- `Boise State` (54 events)
+- `Boise State` (61 events)
 - `Borussia Mönchengladbach` (12 events)
 - `Brentford FC` (54 events)
 - `Brighton & Hove Albion FC` (72 events)
@@ -51,7 +51,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Club Brugge KV` (55 events)
 - `Coastal Carolina` (69 events)
 - `Colgate` (37 events)
-- `Colorado State` (56 events)
+- `Colorado State` (63 events)
 - `Columbia` (23 events)
 - `Columbus Crew` (9 events)
 - `Como 1907` (49 events)
@@ -86,18 +86,18 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Feyenoord Rotterdam` (49 events)
 - `Florida A&M` (41 events)
 - `Florida International` (72 events)
-- `Florida State` (31 events)
+- `Florida State` (34 events)
 - `Fordham` (23 events)
-- `Fresno State` (54 events)
+- `Fresno State` (58 events)
 - `Fulham FC` (51 events)
 - `Furman` (28 events)
 - `Galatasaray SK` (49 events)
 - `Gardner-Webb` (39 events)
 - `Georgetown` (32 events)
 - `Georgia Southern` (56 events)
-- `Georgia State` (64 events)
+- `Georgia State` (75 events)
 - `Getafe CF` (5 events)
-- `Grambling State` (37 events)
+- `Grambling State` (48 events)
 - `Hamburger SV` (15 events)
 - `Hampton` (28 events)
 - `Harvard` (54 events)
@@ -106,17 +106,17 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Howard` (28 events)
 - `Hull City AFC` (72 events)
 - `Idaho` (43 events)
-- `Idaho State` (55 events)
-- `Illinois State` (54 events)
+- `Idaho State` (65 events)
+- `Illinois State` (64 events)
 - `Incarnate Word` (42 events)
 - `Indiana State` (43 events)
-- `Iowa State` (44 events)
+- `Iowa State` (55 events)
 - `Ipswich Town FC` (37 events)
 - `Jackson State` (46 events)
-- `Jacksonville State` (57 events)
+- `Jacksonville State` (67 events)
 - `James Madison` (32 events)
-- `Kansas State` (66 events)
-- `Kennesaw State` (67 events)
+- `Kansas State` (77 events)
+- `Kennesaw State` (77 events)
 - `Kent State` (7 events)
 - `LASK Linz` (49 events)
 - `LIU` (23 events)
@@ -130,8 +130,8 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Lille OSC` (71 events)
 - `Lindenwood` (46 events)
 - `Liverpool FC` (121 events)
-- `Louisiana` (58 events)
-- `Louisiana-Monroe` (48 events)
+- `Louisiana` (69 events)
+- `Louisiana-Monroe` (58 events)
 - `Louisville` (53 events)
 - `Maine` (32 events)
 - `Manchester City FC` (123 events)
@@ -144,11 +144,11 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Mercer` (45 events)
 - `Mercyhurst` (23 events)
 - `Merrimack` (23 events)
-- `Michigan State` (45 events)
+- `Michigan State` (54 events)
 - `Middle Tennessee` (62 events)
-- `Mississippi State` (39 events)
+- `Mississippi State` (41 events)
 - `Mississippi Valley State` (41 events)
-- `Missouri State` (66 events)
+- `Missouri State` (77 events)
 - `Monmouth` (39 events)
 - `Montana` (32 events)
 - `Montana State` (40 events)
@@ -156,33 +156,33 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Morgan State` (32 events)
 - `Murray State` (37 events)
 - `Málaga CF` (15 events)
-- `NC State` (51 events)
+- `NC State` (59 events)
 - `New Hampshire` (37 events)
 - `New Haven` (23 events)
-- `New Mexico State` (72 events)
+- `New Mexico State` (83 events)
 - `Newcastle United FC` (80 events)
 - `Nicholls State` (14 events)
 - `Norfolk State` (23 events)
 - `North Alabama` (41 events)
 - `North Carolina A&T` (28 events)
 - `North Carolina Central` (39 events)
-- `North Dakota` (46 events)
-- `North Dakota State` (38 events)
+- `North Dakota` (56 events)
+- `North Dakota State` (41 events)
 - `Northern Arizona` (39 events)
 - `Northern Colorado` (42 events)
 - `Northern Iowa` (39 events)
 - `Northwestern State` (13 events)
 - `Nottingham Forest FC` (52 events)
 - `OGC Nice` (16 events)
-- `Ohio State` (41 events)
-- `Oklahoma State` (50 events)
+- `Ohio State` (49 events)
+- `Oklahoma State` (56 events)
 - `Olympique Lyonnais` (4 events)
 - `Olympique de Marseille` (8 events)
-- `Oregon State` (46 events)
+- `Oregon State` (50 events)
 - `PSV` (49 events)
 - `Paris Saint-Germain FC` (71 events)
 - `Penn` (28 events)
-- `Penn State` (55 events)
+- `Penn State` (65 events)
 - `Portland State` (28 events)
 - `Prairie View A&M` (46 events)
 - `Presbyterian` (32 events)
@@ -206,12 +206,12 @@ them as `polymarket_names` in `teams.json` once checked.
 - `SSC Napoli` (49 events)
 - `SV 07 Elversberg` (22 events)
 - `SV Werder Bremen` (5 events)
-- `Sacramento State` (14 events)
+- `Sacramento State` (18 events)
 - `Sacred Heart` (23 events)
 - `Samford` (37 events)
 - `San Diego` (28 events)
-- `San Diego State` (54 events)
-- `San Jose State` (38 events)
+- `San Diego State` (61 events)
+- `San Jose State` (41 events)
 - `Sevilla FC` (10 events)
 - `South Alabama` (43 events)
 - `South Carolina State` (39 events)
@@ -221,7 +221,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Southeast Missouri State` (39 events)
 - `Southeastern Louisiana` (7 events)
 - `Southern Illinois` (39 events)
-- `Southern Miss` (61 events)
+- `Southern Miss` (71 events)
 - `Southern University` (40 events)
 - `Southern Utah` (27 events)
 - `St. Thomas` (39 events)
@@ -239,7 +239,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Tennessee Tech` (39 events)
 - `Tennessee-Martin` (40 events)
 - `Texas Southern` (45 events)
-- `Texas State` (60 events)
+- `Texas State` (65 events)
 - `The Citadel` (36 events)
 - `Tottenham Hotspur FC` (53 events)
 - `Toulouse FC` (8 events)
@@ -250,7 +250,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `UNLV` (57 events)
 - `UT Rio Grande Valley` (45 events)
 - `UTEP` (40 events)
-- `Utah State` (48 events)
+- `Utah State` (53 events)
 - `Utah Tech` (46 events)
 - `VMI` (27 events)
 - `Valencia CF` (10 events)
@@ -260,7 +260,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Virginia-Lynchburg` (11 events)
 - `Wagner` (23 events)
 - `Wake Forest` (44 events)
-- `Washington State` (60 events)
+- `Washington State` (67 events)
 - `Weber State` (43 events)
 - `West Florida` (40 events)
 - `West Georgia` (39 events)
@@ -418,28 +418,49 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXNCAAFGAME-26NOV26TCUTTU` | wide_book | 1 | 2026-11-19T04:17 |
 | `KXNCAAFGAME-26NOV26TCUTTU` | wide_book | 1 | 2026-11-22T00:17 |
 | `KXNCAAFGAME-26NOV26TCUTTU` | wide_book | 1 | 2026-11-21T00:17 |
+| `KXNCAAFGAME-26NOV27APPUSA` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV27BUFFAKR` | wide_book | 1 | 2026-11-22T05:17 |
+| `KXNCAAFGAME-26NOV27FLAFSU` | no_market | 1 | 2026-11-27T01:17 |
+| `KXNCAAFGAME-26NOV27MSSTMISS` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV27MSSTMISS` | no_market | 4 | 2026-11-26T00:17 |
 | `KXNCAAFGAME-26NOV27NDSUSJSU` | no_market | 4 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV27NDSUSJSU` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-21T00:17 |
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-20T04:17 |
 | `KXNCAAFGAME-26NOV27TEXTXAM` | wide_book | 1 | 2026-11-22T14:47 |
 | `KXNCAAFGAME-26NOV28ASUARIZ` | no_market | 4 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28ASUARIZ` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28BSUCSU` | no_market | 4 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28BSUCSU` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28CMUBALL` | no_market | 4 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28CMUBALL` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28JVSTDEL` | no_market | 4 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28JVSTDEL` | no_market | 1 | 2026-11-27T01:17 |
+| `KXNCAAFGAME-26NOV28KENNWKU` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28KSUISU` | no_market | 4 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28KSUISU` | no_market | 1 | 2026-11-27T01:17 |
+| `KXNCAAFGAME-26NOV28LIBMOSU` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28LSUARK` | wide_book | 2 | 2026-11-23T00:17 |
 | `KXNCAAFGAME-26NOV28MICHOSU` | no_market | 4 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28MICHOSU` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28MSURUTG` | no_market | 4 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28MSURUTG` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28NCSTUNC` | no_market | 4 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28NCSTUNC` | no_market | 1 | 2026-11-27T01:17 |
+| `KXNCAAFGAME-26NOV28NMSUMTU` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28ORSTFRES` | no_market | 1 | 2026-11-23T02:49 |
 | `KXNCAAFGAME-26NOV28ORSTFRES` | no_market | 3 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28ORSTFRES` | no_market | 1 | 2026-11-27T01:17 |
+| `KXNCAAFGAME-26NOV28PSUMD` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28SACHAW` | no_market | 4 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28SACHAW` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28SDSUWSU` | no_market | 4 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28SDSUWSU` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28TENNVAN` | no_market | 1 | 2026-11-22T13:47 |
+| `KXNCAAFGAME-26NOV28TROYARST` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28TXSTUSU` | no_market | 1 | 2026-11-23T02:49 |
 | `KXNCAAFGAME-26NOV28TXSTUSU` | no_market | 3 | 2026-11-26T00:17 |
+| `KXNCAAFGAME-26NOV28TXSTUSU` | no_market | 1 | 2026-11-27T01:17 |
 | `KXNCAAFGAME-26NOV28WASHORE` | no_market | 1 | 2026-11-22T16:17 |
 | `KXNFLGAME-26DEC03KCLAR` | no_market | 2 | 2026-11-27T00:17 |
 | `KXNFLGAME-26NOV15BUFNYJ` | no_market | 2 | 2026-11-15T00:07 |
