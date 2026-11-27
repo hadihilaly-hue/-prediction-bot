@@ -1,13 +1,13 @@
 # Paper-trading predictions
 
-Updated 2026-11-27 19:48 UTC. Cash **$1488.34** (started $1000.00), realized PnL **$760.06**, fees $79.71, settled 116, wins 39, open positions 15.
+Updated 2026-11-27 20:18 UTC. Cash **$1488.34** (started $1000.00), realized PnL **$739.98**, fees $79.71, settled 117, wins 39, open positions 14.
 
-Brier (lower is better): strategy 0.2272 vs market price 0.2298.
+Brier (lower is better): strategy 0.2251 vs market price 0.2275.
 
 - `sharp_lane`: settled 4, wins 4, realized PnL $39.30, Brier 0.2478 vs market 0.2594
 - `sportsbook_arb`: settled 62, wins 18, realized PnL $176.90, Brier 0.1945 vs market 0.1951
 - `sportsbook_v3`: settled 5, wins 3, realized PnL $-34.79, Brier 0.2977 vs market 0.2760
-- `underdog_value`: settled 45, wins 14, realized PnL $578.65, Brier 0.2570 vs market 0.2624
+- `underdog_value`: settled 46, wins 14, realized PnL $558.57, Brier 0.2520 vs market 0.2569
 
 Per league (Kalshi series):
 
@@ -16,7 +16,7 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 1, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 8, settled 51, wins 17, realized PnL $539.78, Brier 0.2019 vs market 0.2103
+- `KXNCAAFGAME`: open 7, settled 52, wins 17, realized PnL $519.70, Brier 0.1981 vs market 0.2060
 - `KXNFLGAME`: open 3, settled 32, wins 7, realized PnL $-361.60, Brier 0.2009 vs market 0.1835
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUCLGAME`: open 0, settled 3, wins 0, realized PnL $-32.04, Brier 0.0280 vs market 0.0203
@@ -24,7 +24,7 @@ Per league (Kalshi series):
 - `KXUELGAME`: open 0, settled 7, wins 4, realized PnL $130.71, Brier 0.2695 vs market 0.2777
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (15)
+## Open positions (14)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
@@ -33,7 +33,6 @@ Per league (Kalshi series):
 | Barcelona does NOT win | Deportivo De La Coruna vs Barcelona \(Nov 29\) | 100 | $22.17 | 24% | `KXLALIGAGAME-26NOV29DEPBAR-BAR` |
 | Tie is the result | Columbus vs Miami \(Nov 27\) | 100 | $23.00 | 24% | `KXMLSGAME-26NOV27CLBMIA-TIE` |
 | Boise St. does NOT win | San Diego St. vs Boise St. \(Dec 4\) | 100 | $12.19 | 15% | `KXNCAAFGAME-26DEC04SDSUBSU-BSU` |
-| Akron wins | Buffalo vs Akron \(Nov 27\) | 100 | $20.08 | 22% | `KXNCAAFGAME-26NOV27BUFFAKR-AKR` |
 | Texas does NOT win | Texas vs Texas A&M \(Nov 27\) | 100 | $25.33 | 28% | `KXNCAAFGAME-26NOV27TEXTXAM-TEX` |
 | Arizona St. does NOT win | Arizona St. vs Arizona \(Nov 28\) | 13 | $9.41 | 74% | `KXNCAAFGAME-26NOV28ASUARIZ-ASU` |
 | BYU does NOT win | Cincinnati vs BYU \(Nov 28\) | 100 | $14.22 | 16% | `KXNCAAFGAME-26NOV28CINBYU-BYU` |
@@ -84,7 +83,7 @@ Per league (Kalshi series):
 | 2026-11-27 00:48 | sharp\_lane | Arizona St. wins — NO: Kalshi says 72%, we say 74%; bought at 72¢ | no | 0.7200 | 0.7395 | +0.0160 | 13 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28ASUARIZ-ASU |
 | 2026-11-27 00:48 | sharp\_lane | Army wins — YES: Kalshi says 64%, we say 66%; placed order at 64¢ | yes | 0.6400 | 0.6599 | +0.0159 | 15 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28ARMYRICE-ARMY |
 | 2026-11-27 00:48 | sharp\_lane | Tulsa wins — YES: Kalshi says 50%, we say 52%; placed order at 50¢ | yes | 0.5000 | 0.5172 | +0.0128 | 20 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV27TLSAUTSA-TLSA |
-| 2026-11-27 00:48 | sharp\_lane | Buffalo wins — YES: Kalshi says 71%, we say 74%; placed order at 71¢ | yes | 0.7100 | 0.7395 | +0.0259 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV27BUFFAKR-BUFF |
+| 2026-11-27 00:48 | sharp\_lane | Buffalo wins — YES: Kalshi says 71%, we say 74%; placed order at 71¢ | yes | 0.7100 | 0.7395 | +0.0259 | 14 | yes | WON (yes) | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV27BUFFAKR-BUFF |
 | 2026-11-26 17:37 | sharp\_lane | Alkmaar wins — YES: Kalshi says 39%, we say 40%; bought at 39¢ | yes | 0.3900 | 0.4012 | +0.0112 | 25 | yes | WON (yes) | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26SPAAZA-AZA |
 | 2026-11-26 17:37 | sharp\_lane | Anderlecht wins — YES: Kalshi says 53%, we say 54%; bought at 53¢ | yes | 0.5300 | 0.5402 | +0.0102 | 18 | yes | WON (yes) | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26OFIRSC-RSC |
 | 2026-11-26 17:37 | sharp\_lane | Tie is the result — NO: Kalshi says 75%, we say 76%; placed order at 75¢ | no | 0.7500 | 0.7625 | +0.0125 | 13 | yes | WON (no) | sharp lane main maker \(at\_bid\) | KXUELGAME-26NOV26NIJREN-TIE |
@@ -158,7 +157,7 @@ Per league (Kalshi series):
 | 2026-11-22 00:18 | underdog\_value | OFI Crete wins — YES: Kalshi says 20%, we say 22%; placed order at 20¢ | yes | 0.2000 | 0.2217 | +0.0217 | 100 | yes | lost (no) | underdog \(5.0x payout\); OFI Crete consensus 0.222 from 4 books \(OFI Crete vs Anderlecht\) | KXUELGAME-26NOV26OFIRSC-OFI |
 | 2026-11-22 00:18 | underdog\_value | Tie is the result — YES: Kalshi says 22%, we say 25%; placed order at 22¢ | yes | 0.2200 | 0.2451 | +0.0251 | 100 | yes | lost (no) | underdog \(4.5x payout\); Draw consensus 0.245 from 4 books \(NEC Nijmegen vs Rennes\) | KXUELGAME-26NOV26NIJREN-TIE |
 | 2026-11-22 00:18 | underdog\_value | Besiktas wins — NO: Kalshi says 19%, we say 22%; bought at 19¢ | no | 0.1900 | 0.2161 | +0.0261 | 100 | yes | lost (yes) | underdog \(5.3x payout\); Besiktas JK consensus 0.784 from 4 books \(Besiktas JK vs Hapoel Be'er Sheva\) | KXUELGAME-26NOV26BESHBS-BES |
-| 2026-11-21 22:18 | underdog\_value | Akron wins — YES: Kalshi says 19%, we say 22%; bought at 19¢ | yes | 0.1900 | 0.2224 | +0.0124 | 100 | yes | open | underdog \(5.3x payout\); Akron Zips consensus 0.222 from 1 books \(Akron Zips vs Buffalo Bulls\) | KXNCAAFGAME-26NOV27BUFFAKR-AKR |
+| 2026-11-21 22:18 | underdog\_value | Akron wins — YES: Kalshi says 19%, we say 22%; bought at 19¢ | yes | 0.1900 | 0.2224 | +0.0124 | 100 | yes | lost (no) | underdog \(5.3x payout\); Akron Zips consensus 0.222 from 1 books \(Akron Zips vs Buffalo Bulls\) | KXNCAAFGAME-26NOV27BUFFAKR-AKR |
 | 2026-11-21 16:18 | underdog\_value | Real Betis wins — NO: Kalshi says 21%, we say 23%; placed order at 21¢ | no | 0.2100 | 0.2338 | +0.0138 | 100 | yes | lost (yes) | underdog \(4.8x payout\); Real Betis consensus 0.766 from 4 books \(ŠK Slovan Bratislava vs Real Betis\) | KXUCLGAME-26NOV24SLORBB-RBB |
 | 2026-11-21 12:18 | underdog\_value | Tie is the result — YES: Kalshi says 22%, we say 26%; placed order at 22¢ | yes | 0.2200 | 0.2558 | +0.0358 | 100 | yes | lost (no) | underdog \(4.5x payout\); Draw consensus 0.256 from 4 books \(Pafos FC vs FC Midtjylland\) | KXUECLGAME-26NOV26PAFFCM-TIE |
 | 2026-11-21 12:18 | underdog\_value | Tie is the result — YES: Kalshi says 23%, we say 27%; placed order at 23¢ | yes | 0.2300 | 0.2708 | +0.0408 | 100 | yes | lost (no) | underdog \(4.3x payout\); Draw consensus 0.271 from 4 books \(FC Nordsjaelland vs Panathinaikos FC\) | KXUECLGAME-26NOV26NJAPAN-TIE |
@@ -175,7 +174,7 @@ Per league (Kalshi series):
 | 2026-11-21 04:48 | underdog\_value | Tie is the result — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2399 | +0.0199 | 100 | yes | lost (no) | underdog \(4.5x payout\); Draw consensus 0.240 from 4 books \(Crystal Palace vs Real Sociedad\) | KXUELGAME-26NOV26CRYRSO-TIE |
 | 2026-11-21 04:48 | underdog\_value | Besiktas wins — NO: Kalshi says 19%, we say 21%; bought at 19¢ | no | 0.1900 | 0.2147 | +0.0247 | 100 | yes | lost (yes) | underdog \(5.3x payout\); Besiktas JK consensus 0.785 from 4 books \(Besiktas JK vs Hapoel Be'er Sheva\) | KXUELGAME-26NOV26BESHBS-BES |
 | 2026-11-21 01:18 | underdog\_value | Real Madrid wins — NO: Kalshi says 17%, we say 20%; bought at 17¢ | no | 0.1700 | 0.1990 | +0.0190 | 19 | yes | lost (yes) | underdog \(5.9x payout\); Real Madrid consensus 0.801 from 4 books \(Real Madrid vs PSV Eindhoven\) | KXUCLGAME-26NOV24RMAPSV-RMA |
-| 2026-11-21 00:18 | underdog\_value | Akron wins — YES: Kalshi says 20%, we say 22%; bought at 20¢ | yes | 0.2000 | 0.2224 | +0.0124 | 100 | yes | open | underdog \(5.0x payout\); Akron Zips consensus 0.222 from 1 books \(Akron Zips vs Buffalo Bulls\) | KXNCAAFGAME-26NOV27BUFFAKR-AKR |
+| 2026-11-21 00:18 | underdog\_value | Akron wins — YES: Kalshi says 20%, we say 22%; bought at 20¢ | yes | 0.2000 | 0.2224 | +0.0124 | 100 | yes | lost (no) | underdog \(5.0x payout\); Akron Zips consensus 0.222 from 1 books \(Akron Zips vs Buffalo Bulls\) | KXNCAAFGAME-26NOV27BUFFAKR-AKR |
 | 2026-11-20 12:48 | underdog\_value | Sunderland wins — NO: Kalshi says 22%, we say 25%; bought at 22¢ | no | 0.2200 | 0.2521 | +0.0321 | 100 | yes | WON (no) | underdog \(4.5x payout\); Sunderland consensus 0.748 from 3 books \(Sunderland vs Jagiellonia Białystok\) | KXUELGAME-26NOV26SUNJAG-SUN |
 | 2026-11-20 12:48 | underdog\_value | Tie is the result — YES: Kalshi says 25%, we say 27%; placed order at 25¢ | yes | 0.2500 | 0.2652 | +0.0152 | 100 | yes | lost (no) | underdog \(4.0x payout\); Draw consensus 0.265 from 3 books \(Sparta Prague vs AZ Alkmaar\) | KXUELGAME-26NOV26SPAAZA-TIE |
 | 2026-11-20 12:48 | underdog\_value | Celta Vigo wins — YES: Kalshi says 22%, we say 24%; placed order at 22¢ | yes | 0.2200 | 0.2436 | +0.0236 | 100 | yes | lost (no) | underdog \(4.5x payout\); Celta Vigo consensus 0.244 from 3 books \(Celta Vigo vs Bournemouth\) | KXUELGAME-26NOV26RCCBOU-RCC |

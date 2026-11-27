@@ -4,14 +4,14 @@
 ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━┩
 │ starting cash        │ 1000.00 │
 │ cash                 │ 1488.34 │
-│ open positions       │      15 │
-│ open cost            │  271.72 │
-│ settled fills        │     116 │
+│ open positions       │      14 │
+│ open cost            │  251.64 │
+│ settled fills        │     117 │
 │ wins                 │      39 │
-│ realized pnl         │  760.06 │
+│ realized pnl         │  739.98 │
 │ fees paid            │   79.71 │
-│ brier (strategy)     │  0.2272 │
-│ brier (market price) │  0.2298 │
+│ brier (strategy)     │  0.2251 │
+│ brier (market price) │  0.2275 │
 └──────────────────────┴─────────┘
                                   Per strategy                                  
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
@@ -20,7 +20,7 @@
 │ sharp_lane   │       4 │    4 │        39.30 │  0.05 │ 0.2478 │       0.2594 │
 │ sportsbook_… │      62 │   18 │       176.90 │ 42.09 │ 0.1945 │       0.1951 │
 │ sportsbook_… │       5 │    3 │       -34.79 │  2.49 │ 0.2977 │       0.2760 │
-│ underdog_va… │      45 │   14 │       578.65 │ 35.08 │ 0.2570 │       0.2624 │
+│ underdog_va… │      46 │   14 │       558.57 │ 35.08 │ 0.2520 │       0.2569 │
 └──────────────┴─────────┴──────┴──────────────┴───────┴────────┴──────────────┘
                                    Per league                                   
 ┏━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
@@ -31,7 +31,7 @@
 │ KXLIGUE1GAME  │    0 │       4 │    0 │       -30.98 │ 0.0239 │       0.0173 │
 │ KXMLBGAME     │    0 │       5 │    5 │       352.16 │ 0.5809 │       0.6401 │
 │ KXMLSGAME     │    1 │       3 │    1 │         1.50 │ 0.3838 │       0.1624 │
-│ KXNCAAFGAME   │    8 │      51 │   17 │       539.78 │ 0.2019 │       0.2103 │
+│ KXNCAAFGAME   │    7 │      52 │   17 │       519.70 │ 0.1981 │       0.2060 │
 │ KXNFLGAME     │    3 │      32 │    7 │      -361.60 │ 0.2009 │       0.1835 │
 │ KXNHLGAME     │    0 │       4 │    0 │       -79.22 │ 0.1013 │       0.0752 │
 │ KXUCLGAME     │    0 │       3 │    0 │       -32.04 │ 0.0280 │       0.0203 │
@@ -59,9 +59,6 @@
 │ Boise St.    │ San Diego    │ no   │ 100   │ 12.19 │ 0.149    │ KXNCAAFGAME… │
 │ does NOT win │ St. vs Boise │      │       │       │          │              │
 │              │ St. (Dec 4)  │      │       │       │          │              │
-│ Akron wins   │ Buffalo vs   │ yes  │ 100   │ 20.08 │ 0.222    │ KXNCAAFGAME… │
-│              │ Akron (Nov   │      │       │       │          │              │
-│              │ 27)          │      │       │       │          │              │
 │ Texas does   │ Texas vs     │ no   │ 100   │ 25.33 │ 0.282    │ KXNCAAFGAME… │
 │ NOT win      │ Texas A&M    │      │       │       │          │              │
 │              │ (Nov 27)     │      │       │       │          │              │
