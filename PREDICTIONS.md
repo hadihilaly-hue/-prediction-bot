@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-27 21:28 UTC. Cash **$1488.34** (started $1000.00), realized PnL **$739.98**, fees $79.71, settled 117, wins 39, open positions 14.
+Updated 2026-11-27 21:58 UTC. Cash **$1478.67** (started $1000.00), realized PnL **$739.98**, fees $79.78, settled 117, wins 39, open positions 15.
 
 Brier (lower is better): strategy 0.2251 vs market price 0.2275.
 
@@ -16,7 +16,7 @@ Per league (Kalshi series):
 - `KXLIGUE1GAME`: open 0, settled 4, wins 0, realized PnL $-30.98, Brier 0.0239 vs market 0.0173
 - `KXMLBGAME`: open 0, settled 5, wins 5, realized PnL $352.16, Brier 0.5809 vs market 0.6401
 - `KXMLSGAME`: open 1, settled 3, wins 1, realized PnL $1.50, Brier 0.3838 vs market 0.1624
-- `KXNCAAFGAME`: open 7, settled 52, wins 17, realized PnL $519.70, Brier 0.1981 vs market 0.2060
+- `KXNCAAFGAME`: open 8, settled 52, wins 17, realized PnL $519.70, Brier 0.1981 vs market 0.2060
 - `KXNFLGAME`: open 3, settled 32, wins 7, realized PnL $-361.60, Brier 0.2009 vs market 0.1835
 - `KXNHLGAME`: open 0, settled 4, wins 0, realized PnL $-79.22, Brier 0.1013 vs market 0.0752
 - `KXUCLGAME`: open 0, settled 3, wins 0, realized PnL $-32.04, Brier 0.0280 vs market 0.0203
@@ -24,7 +24,7 @@ Per league (Kalshi series):
 - `KXUELGAME`: open 0, settled 7, wins 4, realized PnL $130.71, Brier 0.2695 vs market 0.2777
 - `KXUFCFIGHT`: open 0, settled 2, wins 2, realized PnL $164.02, Brier 0.6503 vs market 0.6889
 
-## Open positions (14)
+## Open positions (15)
 
 | bet | game | contracts | cost | our chance | ticker |
 |---|---|---|---|---|---|
@@ -38,6 +38,7 @@ Per league (Kalshi series):
 | BYU does NOT win | Cincinnati vs BYU \(Nov 28\) | 100 | $14.22 | 16% | `KXNCAAFGAME-26NOV28CINBYU-BYU` |
 | LSU does NOT win | LSU vs Arkansas \(Nov 28\) | 100 | $16.24 | 18% | `KXNCAAFGAME-26NOV28LSUARK-LSU` |
 | Tennessee does NOT win | Tennessee vs Vanderbilt \(Nov 28\) | 100 | $17.25 | 20% | `KXNCAAFGAME-26NOV28TENNVAN-TENN` |
+| UCLA does NOT win | USC vs UCLA \(Nov 28\) | 15 | $9.67 | 66% | `KXNCAAFGAME-26NOV28USCUCLA-UCLA` |
 | Oregon does NOT win | Washington vs Oregon \(Nov 28\) | 100 | $17.25 | 20% | `KXNCAAFGAME-26NOV28WASHORE-ORE` |
 | Minnesota does NOT win | Atlanta vs Minnesota \(Nov 29\) | 100 | $23.31 | 25% | `KXNFLGAME-26NOV29ATLMIN-MIN` |
 | Cincinnati does NOT win | New Orleans vs Cincinnati \(Nov 29\) | 100 | $16.24 | 19% | `KXNFLGAME-26NOV29NOCIN-CIN` |
@@ -48,9 +49,9 @@ Per league (Kalshi series):
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 2026-11-27 21:27 | sharp\_lane | Seattle wins — YES: Kalshi says 43%, we say 45%; placed order at 43¢ | yes | 0.4300 | 0.4456 | +0.0113 | 23 | yes | open | sharp lane main maker \(at\_bid\) | KXNFLGAME-26NOV29SEASF-SEA |
-| 2026-11-27 21:27 | sharp\_lane | KXNFLGAME-26NOV29NYGIND-NYG — NO: Kalshi says 28%, we say 29%; placed order at 28¢ | no | 0.2800 | 0.2941 | +0.0106 | 35 | yes | open | sharp lane main maker \(at\_bid\) | KXNFLGAME-26NOV29NYGIND-NYG |
+| 2026-11-27 21:27 | sharp\_lane | New York G wins — NO: Kalshi says 28%, we say 29%; placed order at 28¢ | no | 0.2800 | 0.2941 | +0.0106 | 35 | yes | open | sharp lane main maker \(at\_bid\) | KXNFLGAME-26NOV29NYGIND-NYG |
 | 2026-11-27 16:48 | sharp\_lane | Virginia wins — NO: Kalshi says 56%, we say 58%; placed order at 56¢ | no | 0.5600 | 0.5802 | +0.0159 | 17 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UVAVT-UVA |
-| 2026-11-27 16:48 | sharp\_lane | UCLA wins — NO: Kalshi says 64%, we say 66%; placed order at 64¢ | no | 0.6400 | 0.6564 | +0.0123 | 15 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28USCUCLA-UCLA |
+| 2026-11-27 16:48 | sharp\_lane | UCLA wins — NO: Kalshi says 64%, we say 66%; bought at 64¢ | no | 0.6400 | 0.6564 | +0.0123 | 15 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28USCUCLA-UCLA |
 | 2026-11-27 16:48 | sharp\_lane | Colorado wins — YES: Kalshi says 52%, we say 54%; placed order at 52¢ | yes | 0.5200 | 0.5408 | +0.0164 | 19 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UCFCOLO-COLO |
 | 2026-11-27 16:48 | sharp\_lane | Arkansas St. wins — YES: Kalshi says 60%, we say 62%; placed order at 60¢ | yes | 0.6000 | 0.6244 | +0.0202 | 16 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28TROYARST-ARST |
 | 2026-11-27 16:48 | sharp\_lane | Stanford wins — NO: Kalshi says 71%, we say 73%; placed order at 71¢ | no | 0.7100 | 0.7295 | +0.0159 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28SMUSTAN-STAN |
