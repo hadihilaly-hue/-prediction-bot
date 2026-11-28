@@ -274,7 +274,6 @@ them as `polymarket_names` in `teams.json` once checked.
 - `clemson-tigers:0.19-0.25` (1 events)
 - `draw:0.26 vs kalshi 0.4000` (1 events)
 - `houston-cougars:0.71-0.77` (1 events)
-- `new-england-revolution:0.26-0.32` (1 events)
 - `north-texas-mean-green:0.67-0.74` (1 events)
 - `old-dominion-monarchs:0.13-0.21` (1 events)
 - `tcu-horned-frogs:0.18-0.25` (1 events)
@@ -353,7 +352,6 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXLIGUE1GAME-26NOV29OLASM` | no_market | 4 | 2026-11-26T00:17 |
 | `KXLIGUE1GAME-26NOV29TFCREN` | no_market | 4 | 2026-11-26T00:17 |
 | `KXMLSGAME-26NOV21MIACLB` | no_market | 6 | 2026-11-21T00:17 |
-| `KXMLSGAME-26NOV21NEPHI` | wide_book | 1 | 2026-11-14T00:47 |
 | `KXMLSGAME-26NOV22CHICLT` | no_market | 4 | 2026-11-21T00:17 |
 | `KXMLSGAME-26NOV24SJHOU` | mismatch | 1 | 2026-11-19T09:17 |
 | `KXMLSGAME-26NOV27CLBMIA` | no_market | 1 | 2026-11-24T00:57 |
