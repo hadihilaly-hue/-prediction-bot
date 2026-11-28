@@ -25,6 +25,9 @@ SEED_LEAD_HOURS: dict[str, int] = {
     "americanfootball_ncaaf": 168,
     "mma_mixed_martial_arts": 240,
     "basketball_nba": 36,
+    # Kalshi lists college basketball games 3-4 days ahead. This seed lets the planner
+    # try the feed; after 5 pulled events the measured lead takes over.
+    "basketball_ncaab": 96,
     "icehockey_nhl": 30,
     "baseball_mlb": 24,
 }
