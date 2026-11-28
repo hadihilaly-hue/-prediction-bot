@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-28 01:48 UTC. Cash **$1478.67** (started $1000.00), realized PnL **$739.98**, fees $79.78, settled 117, wins 39, open positions 15.
+Updated 2026-11-28 02:18 UTC. Cash **$1478.67** (started $1000.00), realized PnL **$739.98**, fees $79.78, settled 117, wins 39, open positions 15.
 
 Brier (lower is better): strategy 0.2251 vs market price 0.2275.
 
@@ -49,7 +49,7 @@ Per league (Kalshi series):
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 2026-11-28 01:48 | sharp\_lane | Virginia Tech wins — YES: Kalshi says 55%, we say 58%; placed order at 55¢ | yes | 0.5500 | 0.5802 | +0.0259 | 18 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UVAVT-VT |
-| 2026-11-28 01:48 | sharp\_lane | KXNCAAFGAME-26NOV28UCFCOLO-UCF — NO: Kalshi says 52%, we say 54%; placed order at 52¢ | no | 0.5200 | 0.5381 | +0.0138 | 19 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UCFCOLO-UCF |
+| 2026-11-28 01:48 | sharp\_lane | UCF wins — NO: Kalshi says 52%, we say 54%; placed order at 52¢ | no | 0.5200 | 0.5381 | +0.0138 | 19 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UCFCOLO-UCF |
 | 2026-11-28 01:48 | sharp\_lane | Arkansas St. wins — YES: Kalshi says 60%, we say 62%; placed order at 60¢ | yes | 0.6000 | 0.6244 | +0.0202 | 16 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28TROYARST-ARST |
 | 2026-11-28 01:48 | sharp\_lane | Stanford wins — NO: Kalshi says 71%, we say 73%; placed order at 71¢ | no | 0.7100 | 0.7286 | +0.0150 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28SMUSTAN-STAN |
 | 2026-11-28 01:48 | sharp\_lane | South Carolina wins — YES: Kalshi says 67%, we say 70%; placed order at 67¢ | yes | 0.6700 | 0.6964 | +0.0225 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28SCARCLEM-SCAR |
