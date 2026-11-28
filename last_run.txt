@@ -1,1 +1,26 @@
- scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1478.67
+ scanned=3000 signals=0 filled=0 orders_placed=0 settled=1 cash=1478.67
+ scanned=1192 signals=0 filled=0 orders_placed=4 settled=0 cash=1478.67
+underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
+sharp lane: orders_placed=4 bought_at_ask=0 pulled=0 
+skipped=[sharp_lane_edge=36, sharp_lane_game=11, sharp_lane_held=2, 
+sharp_lane_resting=11]
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ sharp_lane │ KXNCAAFGA… │ no   │ 0.5500 │ 0.5766 │ 0.0222 │ 18   │ sharp     │
+│            │            │      │        │        │        │      │ lane main │
+│            │            │      │        │        │        │      │ maker     │
+│            │            │      │        │        │        │      │ (at_bid)  │
+│ sharp_lane │ KXNCAAFGA… │ yes  │ 0.7100 │ 0.7303 │ 0.0167 │ 14   │ sharp     │
+│            │            │      │        │        │        │      │ lane main │
+│            │            │      │        │        │        │      │ maker     │
+│            │            │      │        │        │        │      │ (at_bid)  │
+│ sharp_lane │ KXNCAAFGA… │ yes  │ 0.6800 │ 0.6984 │ 0.0146 │ 14   │ sharp     │
+│            │            │      │        │        │        │      │ lane main │
+│            │            │      │        │        │        │      │ maker     │
+│            │            │      │        │        │        │      │ (at_bid)  │
+│ sharp_lane │ KXNCAAFGA… │ no   │ 0.2600 │ 0.2738 │ 0.0105 │ 38   │ sharp     │
+│            │            │      │        │        │        │      │ lane main │
+│            │            │      │        │        │        │      │ maker     │
+│            │            │      │        │        │        │      │ (at_bid)  │
+└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘

@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-27 23:47 UTC. Cash **$1478.67** (started $1000.00), realized PnL **$739.98**, fees $79.78, settled 117, wins 39, open positions 15.
+Updated 2026-11-28 00:18 UTC. Cash **$1478.67** (started $1000.00), realized PnL **$739.98**, fees $79.78, settled 117, wins 39, open positions 15.
 
 Brier (lower is better): strategy 0.2251 vs market price 0.2275.
 
@@ -48,6 +48,10 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-28 00:18 | sharp\_lane | KXNCAAFGAME-26NOV28TXSTUSU-TXST — NO: Kalshi says 26%, we say 27%; placed order at 26¢ | no | 0.2600 | 0.2738 | +0.0105 | 38 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28TXSTUSU-TXST |
+| 2026-11-28 00:18 | sharp\_lane | KXNCAAFGAME-26NOV28TULNUSF-USF — YES: Kalshi says 68%, we say 70%; placed order at 68¢ | yes | 0.6800 | 0.6984 | +0.0146 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28TULNUSF-USF |
+| 2026-11-28 00:18 | sharp\_lane | KXNCAAFGAME-26NOV28PSUMD-PSU — YES: Kalshi says 71%, we say 73%; placed order at 71¢ | yes | 0.7100 | 0.7303 | +0.0167 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28PSUMD-PSU |
+| 2026-11-28 00:18 | sharp\_lane | KXNCAAFGAME-26NOV28ILLNW-ILL — NO: Kalshi says 55%, we say 58%; placed order at 55¢ | no | 0.5500 | 0.5766 | +0.0222 | 18 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28ILLNW-ILL |
 | 2026-11-27 21:27 | sharp\_lane | Seattle wins — YES: Kalshi says 43%, we say 45%; placed order at 43¢ | yes | 0.4300 | 0.4456 | +0.0113 | 23 | yes | open | sharp lane main maker \(at\_bid\) | KXNFLGAME-26NOV29SEASF-SEA |
 | 2026-11-27 21:27 | sharp\_lane | New York G wins — NO: Kalshi says 28%, we say 29%; placed order at 28¢ | no | 0.2800 | 0.2941 | +0.0106 | 35 | yes | open | sharp lane main maker \(at\_bid\) | KXNFLGAME-26NOV29NYGIND-NYG |
 | 2026-11-27 16:48 | sharp\_lane | Virginia wins — NO: Kalshi says 56%, we say 58%; placed order at 56¢ | no | 0.5600 | 0.5802 | +0.0159 | 17 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UVAVT-UVA |
