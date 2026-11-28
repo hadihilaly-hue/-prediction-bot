@@ -53,7 +53,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Colgate` (28 events)
 - `Colorado State` (67 events)
 - `Columbia` (17 events)
-- `Columbus Crew` (10 events)
+- `Columbus Crew` (9 events)
 - `Como 1907` (49 events)
 - `Cornell` (19 events)
 - `Coventry City FC` (41 events)
@@ -351,7 +351,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXLIGUE1GAME-26NOV29AUXOLM` | no_market | 4 | 2026-11-26T00:17 |
 | `KXLIGUE1GAME-26NOV29OLASM` | no_market | 4 | 2026-11-26T00:17 |
 | `KXLIGUE1GAME-26NOV29TFCREN` | no_market | 4 | 2026-11-26T00:17 |
-| `KXMLSGAME-26NOV21MIACLB` | no_market | 6 | 2026-11-21T00:17 |
+| `KXMLSGAME-26NOV21MIACLB` | no_market | 5 | 2026-11-21T00:17 |
 | `KXMLSGAME-26NOV22CHICLT` | no_market | 4 | 2026-11-21T00:17 |
 | `KXMLSGAME-26NOV24SJHOU` | mismatch | 1 | 2026-11-19T09:17 |
 | `KXMLSGAME-26NOV27CLBMIA` | no_market | 1 | 2026-11-24T00:57 |
