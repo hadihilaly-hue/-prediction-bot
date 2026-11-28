@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-28 01:18 UTC. Cash **$1478.67** (started $1000.00), realized PnL **$739.98**, fees $79.78, settled 117, wins 39, open positions 15.
+Updated 2026-11-28 01:48 UTC. Cash **$1478.67** (started $1000.00), realized PnL **$739.98**, fees $79.78, settled 117, wins 39, open positions 15.
 
 Brier (lower is better): strategy 0.2251 vs market price 0.2275.
 
@@ -48,6 +48,16 @@ Per league (Kalshi series):
 
 | when (UTC) | strategy | prediction | side | price | fair | edge | size | traded | result | why | ticker |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-28 01:48 | sharp\_lane | Virginia Tech wins — YES: Kalshi says 55%, we say 58%; placed order at 55¢ | yes | 0.5500 | 0.5802 | +0.0259 | 18 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UVAVT-VT |
+| 2026-11-28 01:48 | sharp\_lane | KXNCAAFGAME-26NOV28UCFCOLO-UCF — NO: Kalshi says 52%, we say 54%; placed order at 52¢ | no | 0.5200 | 0.5381 | +0.0138 | 19 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28UCFCOLO-UCF |
+| 2026-11-28 01:48 | sharp\_lane | Arkansas St. wins — YES: Kalshi says 60%, we say 62%; placed order at 60¢ | yes | 0.6000 | 0.6244 | +0.0202 | 16 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28TROYARST-ARST |
+| 2026-11-28 01:48 | sharp\_lane | Stanford wins — NO: Kalshi says 71%, we say 73%; placed order at 71¢ | no | 0.7100 | 0.7286 | +0.0150 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28SMUSTAN-STAN |
+| 2026-11-28 01:48 | sharp\_lane | South Carolina wins — YES: Kalshi says 67%, we say 70%; placed order at 67¢ | yes | 0.6700 | 0.6964 | +0.0225 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28SCARCLEM-SCAR |
+| 2026-11-28 01:48 | sharp\_lane | UNLV wins — YES: Kalshi says 64%, we say 66%; placed order at 64¢ | yes | 0.6400 | 0.6605 | +0.0165 | 15 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28NEVUNLV-UNLV |
+| 2026-11-28 01:48 | sharp\_lane | Michigan wins — NO: Kalshi says 76%, we say 79%; placed order at 76¢ | no | 0.7600 | 0.7869 | +0.0238 | 13 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28MICHOSU-MICH |
+| 2026-11-28 01:48 | sharp\_lane | East Carolina wins — NO: Kalshi says 47%, we say 49%; placed order at 47¢ | no | 0.4700 | 0.4853 | +0.0109 | 21 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28FAUECU-ECU |
+| 2026-11-28 01:48 | sharp\_lane | Ball St. wins — NO: Kalshi says 61%, we say 63%; placed order at 61¢ | no | 0.6100 | 0.6303 | +0.0161 | 16 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28CMUBALL-BALL |
+| 2026-11-28 01:48 | sharp\_lane | Auburn wins — NO: Kalshi says 84%, we say 86%; placed order at 84¢ | no | 0.8400 | 0.8591 | +0.0168 | 11 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28AUBALA-AUB |
 | 2026-11-28 00:47 | sharp\_lane | New England wins — NO: Kalshi says 81%, we say 82%; placed order at 81¢ | no | 0.8100 | 0.8236 | +0.0136 | 12 | yes | open | sharp lane main maker \(at\_bid\) | KXMLSGAME-26NOV28PHINE-NE |
 | 2026-11-28 00:47 | sharp\_lane | Saint Louis wins — NO: Kalshi says 80%, we say 81%; placed order at 80¢ | no | 0.8000 | 0.8133 | +0.0133 | 12 | yes | open | sharp lane main maker \(at\_bid\) | KXMLSGAME-26NOV28LAFCSTL-STL |
 | 2026-11-28 00:47 | sharp\_lane | Cincinnati wins — NO: Kalshi says 71%, we say 72%; placed order at 71¢ | no | 0.7100 | 0.7203 | +0.0103 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXMLSGAME-26NOV28CINNSH-CIN |
