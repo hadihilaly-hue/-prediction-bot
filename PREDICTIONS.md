@@ -1,6 +1,6 @@
 # Paper-trading predictions
 
-Updated 2026-11-28 05:17 UTC. Cash **$1478.67** (started $1000.00), realized PnL **$691.65**, fees $79.78, settled 119, wins 39, open positions 13.
+Updated 2026-11-28 05:48 UTC. Cash **$1478.67** (started $1000.00), realized PnL **$691.65**, fees $79.78, settled 119, wins 39, open positions 13.
 
 Brier (lower is better): strategy 0.2214 vs market price 0.2235.
 
@@ -62,7 +62,7 @@ Per league (Kalshi series):
 | 2026-11-28 00:47 | sharp\_lane | New England wins — NO: Kalshi says 81%, we say 82%; placed order at 81¢ | no | 0.8100 | 0.8236 | +0.0136 | 12 | yes | open | sharp lane main maker \(at\_bid\) | KXMLSGAME-26NOV28PHINE-NE |
 | 2026-11-28 00:47 | sharp\_lane | Saint Louis wins — NO: Kalshi says 80%, we say 81%; placed order at 80¢ | no | 0.8000 | 0.8133 | +0.0133 | 12 | yes | open | sharp lane main maker \(at\_bid\) | KXMLSGAME-26NOV28LAFCSTL-STL |
 | 2026-11-28 00:47 | sharp\_lane | Cincinnati wins — NO: Kalshi says 71%, we say 72%; placed order at 71¢ | no | 0.7100 | 0.7203 | +0.0103 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXMLSGAME-26NOV28CINNSH-CIN |
-| 2026-11-28 00:47 | sharp\_lane | Tie is the result — YES: Kalshi says 26%, we say 27%; placed order at 26¢ | yes | 0.2600 | 0.2717 | +0.0117 | 38 | yes | open | sharp lane main maker \(at\_bid\) | KXMLSGAME-26NOV27RSLVAN-TIE |
+| 2026-11-28 00:47 | sharp\_lane | Tie is the result — YES: Kalshi says 26%, we say 27%; placed order at 26¢ | yes | 0.2600 | 0.2717 | +0.0117 | 38 | yes | lost (no) | sharp lane main maker \(at\_bid\) | KXMLSGAME-26NOV27RSLVAN-TIE |
 | 2026-11-28 00:18 | sharp\_lane | Texas St. wins — NO: Kalshi says 26%, we say 27%; placed order at 26¢ | no | 0.2600 | 0.2738 | +0.0105 | 38 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28TXSTUSU-TXST |
 | 2026-11-28 00:18 | sharp\_lane | South Florida wins — YES: Kalshi says 68%, we say 70%; placed order at 68¢ | yes | 0.6800 | 0.6984 | +0.0146 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28TULNUSF-USF |
 | 2026-11-28 00:18 | sharp\_lane | Penn St. wins — YES: Kalshi says 71%, we say 73%; placed order at 71¢ | yes | 0.7100 | 0.7303 | +0.0167 | 14 | yes | open | sharp lane main maker \(at\_bid\) | KXNCAAFGAME-26NOV28PSUMD-PSU |
