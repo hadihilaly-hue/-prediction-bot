@@ -1,25 +1,4 @@
- scanned=3000 signals=0 filled=0 orders_placed=0 settled=1 cash=1478.67
- scanned=1290 signals=0 filled=0 orders_placed=4 settled=0 cash=1478.67
+ scanned=3000 signals=0 filled=0 orders_placed=0 settled=0 cash=1478.67
+ scanned=1306 signals=0 filled=0 orders_placed=0 settled=0 cash=1478.67
 underdog lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]
-sharp lane: orders_placed=4 bought_at_ask=0 pulled=0 
-skipped=[sharp_lane_edge=13, sharp_lane_game=1]
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
-┃ strategy   ┃ ticker     ┃ side ┃ price  ┃ fair   ┃ edge   ┃ size ┃ why       ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
-│ sharp_lane │ KXMLSGAME… │ yes  │ 0.2600 │ 0.2717 │ 0.0117 │ 38   │ sharp     │
-│            │            │      │        │        │        │      │ lane main │
-│            │            │      │        │        │        │      │ maker     │
-│            │            │      │        │        │        │      │ (at_bid)  │
-│ sharp_lane │ KXMLSGAME… │ no   │ 0.7100 │ 0.7203 │ 0.0103 │ 14   │ sharp     │
-│            │            │      │        │        │        │      │ lane main │
-│            │            │      │        │        │        │      │ maker     │
-│            │            │      │        │        │        │      │ (at_bid)  │
-│ sharp_lane │ KXMLSGAME… │ no   │ 0.8000 │ 0.8133 │ 0.0133 │ 12   │ sharp     │
-│            │            │      │        │        │        │      │ lane main │
-│            │            │      │        │        │        │      │ maker     │
-│            │            │      │        │        │        │      │ (at_bid)  │
-│ sharp_lane │ KXMLSGAME… │ no   │ 0.8100 │ 0.8236 │ 0.0136 │ 12   │ sharp     │
-│            │            │      │        │        │        │      │ lane main │
-│            │            │      │        │        │        │      │ maker     │
-│            │            │      │        │        │        │      │ (at_bid)  │
-└────────────┴────────────┴──────┴────────┴────────┴────────┴──────┴───────────┘
+sharp lane: orders_placed=0 bought_at_ask=0 pulled=0 skipped=[]

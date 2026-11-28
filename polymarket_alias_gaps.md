@@ -45,7 +45,7 @@ them as `polymarket_names` in `teams.json` once checked.
 - `Charlotte` (46 events)
 - `Chattanooga` (28 events)
 - `Chelsea FC` (60 events)
-- `Chicago Fire FC` (6 events)
+- `Chicago Fire FC` (7 events)
 - `Chicago State` (29 events)
 - `Club Atlético de Madrid` (78 events)
 - `Club Brugge KV` (55 events)
@@ -359,7 +359,7 @@ them as `polymarket_names` in `teams.json` once checked.
 | `KXMLSGAME-26NOV27RSLVAN` | no_market | 1 | 2026-11-24T00:57 |
 | `KXMLSGAME-26NOV28CINNSH` | no_market | 1 | 2026-11-24T00:57 |
 | `KXMLSGAME-26NOV28CLTCHI` | no_market | 1 | 2026-11-24T00:57 |
-| `KXMLSGAME-26NOV28CLTCHI` | no_market | 2 | 2026-11-26T00:17 |
+| `KXMLSGAME-26NOV28CLTCHI` | no_market | 3 | 2026-11-28T01:17 |
 | `KXMLSGAME-26NOV28LAFCSTL` | no_market | 2 | 2026-11-25T00:17 |
 | `KXMLSGAME-26NOV28PHINE` | no_market | 1 | 2026-11-24T00:57 |
 | `KXMLSGAME-26NOV28PORDAL` | no_market | 2 | 2026-11-25T00:17 |
